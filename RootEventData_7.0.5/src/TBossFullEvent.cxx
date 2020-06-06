@@ -1,5 +1,6 @@
 #include "RootEventData/TBossFullEvent.h"
 #include "TClass.h"
+#include "TBuffer.h"
 #include <iostream>
 
 ClassImp(TBossFullEvent)

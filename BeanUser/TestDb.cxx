@@ -50,6 +50,13 @@ void TestDbStartJob(ReadDst* selector)
   m_dbsvc->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
 
   // -----------------------------------------------------------------------
+  // example of using VertexDbSvc::ReadOneTime()
+  // -----------------------------------------------------------------------
+  VertexDbSvc* vtxsvc = VertexDbSvc::instance();
+  vtxsvc -> SetBossVer("6.6.4");
+  vtxsvc -> ReadOneTime(9947,10878);
+
+  // -----------------------------------------------------------------------
   // this is example from DatabaseSvc/TestDbAlg
   // -----------------------------------------------------------------------
 

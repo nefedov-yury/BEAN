@@ -3,7 +3,7 @@
 
 #if   (BOSS_VER >= 661 && BOSS_VER <= 665)
 #define AbsCor_00_00_28
-#elif (BOSS_VER >= 702 && BOSS_VER <= 704)
+#elif (BOSS_VER >= 702)
 #define AbsCor_00_00_36
 #else
 #error "unknown BOSS version"

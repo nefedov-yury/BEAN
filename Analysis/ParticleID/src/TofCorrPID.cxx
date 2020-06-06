@@ -530,7 +530,7 @@ double TofCorrPID::offsetTof( unsigned int ispecies, bool barrel, unsigned int i
 
   double deltaT = -1000.0;
   if( ( ipmt>= 4 && barrel ) || ( ipmt!=7 && ipmt!=8 && !barrel ) || betaGamma<0.0 || abs(charge)!=1 || fabs(zrhit)>120.0 ) {
-    cout << "Particle::TofCorrPID: offsetTof for single end: the input parameter are NOT correct! Please check them!" << endl;
+//    cout << "Particle::TofCorrPID: offsetTof for single end: the input parameter are NOT correct! Please check them!" << endl;
     return deltaT;
   }
   unsigned int layer=0;

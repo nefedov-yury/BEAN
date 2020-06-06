@@ -55,6 +55,9 @@ VertexDbSvc::VertexDbSvc( const string& name, ISvcLocator* svcloc) :
   declareProperty("BossVer" , m_bossver = std::string("default"));
   declareProperty("VerPar" , m_verpar = std::string("default"));
   declareProperty("BossRelease",m_bossRelease = std::string("default"));
+  declareProperty("ReadOneTime",m_readOneTime=false);
+  declareProperty("RunFrom", m_runFrom=8093);
+  declareProperty("RunTo",m_runTo=9025);
 }
 
 VertexDbSvc::~VertexDbSvc(){
@@ -95,6 +98,13 @@ StatusCode VertexDbSvc::initialize(){
     log << MSG::ERROR << "Unable to find EventDataSvc " << endreq;
     return sc;
   }
+  if(m_readOneTime){
+    if(m_runFrom>=8093){
+        getReadBunchInfo(m_runFrom, m_runTo);
+    }
+    else
+      std::cout<<"VertexDbSvc, invalid RunFrom, RunFrom should be >=8093"<<std::endl;
+  }
   return StatusCode::SUCCESS;
 }
 
@@ -106,16 +116,33 @@ StatusCode VertexDbSvc::finalize(){
 }
 
 void VertexDbSvc::handle(const Incident& inc){
-     MsgStream log( messageService(), name() );
-     log << MSG::DEBUG << "handle: " << inc.type() << endreq;
+  MsgStream log( messageService(), name() );
+  log << MSG::DEBUG << "handle: " << inc.type() << endreq;
 
-     if ( inc.type() == "NewRun" ){
-	  log << MSG::DEBUG << "NewRun" << endreq;
-         m_bossver = "default";
-         getVertexTableInfo();
-     } 
+  if ( inc.type() == "NewRun" ){
+     log << MSG::DEBUG << "NewRun" << endreq;
+     if(!m_readOneTime) {
+        getVertexTableInfo();
+     } else {
+        SmartDataPtr<Event::EventHeader> eventHeader(m_eventSvc,"/Event/EventHeader");
+        int  run = eventHeader->runNumber();
+        cout << endl << "New Run: " << run << " VertexDB vertex= ";
+        if(run<0) run=-run;
+        if((m_mapPrimaryVertex[run]).size()>0) {
+           m_isRunNumberValid = true;
+           m_primaryVertex[0] = (m_mapPrimaryVertex[run])[0];
+           m_primaryVertex[1] = (m_mapPrimaryVertex[run])[1];
+           m_primaryVertex[2] = (m_mapPrimaryVertex[run])[2];
+           m_sigmaPrimaryVertex[0] = (m_mapPrimaryVertex[run])[3];
+           m_sigmaPrimaryVertex[1] = (m_mapPrimaryVertex[run])[4];
+           m_sigmaPrimaryVertex[2] = (m_mapPrimaryVertex[run])[5];
+           //cout << m_primaryVertex[0] << "," << m_primaryVertex[1] << "," << m_primaryVertex[2] << " sigma= " << m_sigmaPrimaryVertex[0] << "," << m_sigmaPrimaryVertex[1] << "," << m_sigmaPrimaryVertex[2] << endl;
+        } else {
+           std::cout<<"VertexDbSvc, could not get vertex infor in handle new run"<<std::endl;
+        }
+     }
+  }
 }
-
 
 #else
 // -------------------------- BEAN ------------------------------------
@@ -138,8 +165,29 @@ VertexDbSvc::VertexDbSvc()
   m_bossRelease = "default";
 #endif
   m_verpar  = "default";
+
+  m_readOneTime = false;
+  m_runFrom = 8093;
+  m_runTo   = 9025;
   
   m_dbsvc = DatabaseSvc::instance();
+}
+
+//-----------------------------------------------------------------------------
+void VertexDbSvc::ReadOneTime(int runFrom, int runTo) 
+//-----------------------------------------------------------------------------
+{
+  if( runFrom < 8093 || runTo < runFrom ) {
+      std::cout << "VertexDbSvc::" << __func__ << " invalid runFrom or runTo"
+         << " runFrom should be >= 8093 and runTo >= runFrom "
+         << std::endl;
+      m_readOneTime = false;
+      return;
+  }
+
+  m_runFrom     = runFrom;
+  m_runTo       = runTo;
+  m_readOneTime = getReadBunchInfo(m_runFrom, m_runTo);
 }
 
 //-----------------------------------------------------------------------------
@@ -150,7 +198,25 @@ void VertexDbSvc::handle(int new_run)
   if( new_run == save_run ) return;
 
   cout << "Begin New Run " << new_run << endl;
-  getVertexTableInfo(new_run);
+  if ( !m_readOneTime ) {
+     getVertexTableInfo(new_run);
+  } else {
+     int run = abs(new_run);
+     auto it = m_mapPrimaryVertex.find(run);
+     if ( it == m_mapPrimaryVertex.end() ) {
+        // there is no run in the saved map
+        // try to read it directly from the database 
+        getVertexTableInfo(new_run);
+     } else {
+        m_primaryVertex[0] = it->second[0]; 
+        m_primaryVertex[1] = it->second[1]; 
+        m_primaryVertex[2] = it->second[2]; 
+        m_sigmaPrimaryVertex[0] = it->second[3]; 
+        m_sigmaPrimaryVertex[1] = it->second[4]; 
+        m_sigmaPrimaryVertex[2] = it->second[5]; 
+        m_isRunNumberValid = true;
+     }
+  }
   save_run = new_run;
 }
 #endif
@@ -311,6 +377,82 @@ bool VertexDbSvc::getReadBunchInfo(int run)
     m_sigmaPrimaryVertex[0] = dbrec.GetDouble("SigmaVx");
     m_sigmaPrimaryVertex[1] = dbrec.GetDouble("SigmaVy");
     m_sigmaPrimaryVertex[2] = dbrec.GetDouble("SigmaVz");
+    return true;
+  }
+  
+  return false;
+}
+
+bool VertexDbSvc::getReadBunchInfo(int runFrom, int runTo)
+//-----------------------------------------------------------------------------
+{
+  if(m_bossver == "default") {
+    if(m_bossRelease == "default") {
+#ifndef BEAN
+      MsgStream log(messageService(), name());
+      log << MSG::FATAL << "ERROR BossRelease must be set! Current value is " 
+          << m_bossRelease << "." << endreq;
+#else
+      cout << "ERROR BossRelease must be set! Current value is " 
+           << m_bossRelease << "." << endl;
+#endif
+      exit(1);
+    }
+    else {
+      char stmt1[400];
+      sprintf(stmt1, "select SftVer, ParVer from CalVtxLumVer where BossRelease = '%s' and RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'", m_bossRelease.c_str(), runFrom, runTo);
+
+      DatabaseRecordVector records;
+      int rowNo = m_dbsvc->query("offlinedb",stmt1,records);
+      if(rowNo == 0) {
+#ifndef BEAN
+        MsgStream log(messageService(), name());
+        log << MSG::ERROR << "ERROR: can not find records for run = " << runFrom 
+            << " and BossRelease = " << m_bossRelease << endreq;
+#else
+        cout << "ERROR: can not find records for run = " << runFrom 
+             << " and BossRelease = " << m_bossRelease << endl;
+#endif
+        exit(1);
+      }
+      DatabaseRecord* recordst = records[0];
+      m_bossver = recordst->GetString("SftVer");
+      m_verpar =  recordst->GetString("ParVer");
+      cout << "Using the SftVer and ParVer (" << m_bossver 
+           << ", " << m_verpar << ") for run " << runFrom << ". " << endl;
+    }
+  }
+
+  string stmt = "select RunNo, Vx, Vy, Vz, SigmaVx, SigmaVy, SigmaVz ";
+  stringstream tmp;
+  tmp << "from BeamPar where RunNo >= " << runFrom <<" and RunNo <= "<< runTo
+      << " and SftVer=\'" << m_bossver << "\'";
+  if( m_verpar == "default" ) {
+    tmp << " group by ParVer";
+  } else {
+    tmp << " and ParVer = " << m_verpar;
+  }
+  stmt += tmp.str();
+  // cerr << "query(" << dbName << ", " << stmt << ", res);" << endl;
+
+  DatabaseRecordVector res;
+  int row_no = m_dbsvc->query(dbName,stmt,res);
+
+  std::cout<<"VertexDbSvc get all vertex info, row_no: "<<row_no<<std::endl;
+  if( row_no > 0 ) {
+    for(int i=0;i<row_no;i++){
+      DatabaseRecord& dbrec = *res[i];
+      int run = dbrec.GetInt("RunNo");
+      std::vector<double> vertex;
+      vertex.reserve(6);
+      vertex.push_back(dbrec.GetDouble("Vx"));
+      vertex.push_back(dbrec.GetDouble("Vy"));
+      vertex.push_back(dbrec.GetDouble("Vz"));
+      vertex.push_back(dbrec.GetDouble("SigmaVx"));
+      vertex.push_back(dbrec.GetDouble("SigmaVy"));
+      vertex.push_back(dbrec.GetDouble("SigmaVz"));
+      m_mapPrimaryVertex[run]=vertex;
+    }
     return true;
   }
   

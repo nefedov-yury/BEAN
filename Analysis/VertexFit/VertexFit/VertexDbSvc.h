@@ -9,8 +9,6 @@
 #include "GaudiKernel/IDataProviderSvc.h"
 #include "VertexFit/IVertexDbSvc.h"
 #include <mysql.h>
-#include <map>
-#include <vector>
 #include "DatabaseSvc/IDatabaseSvc.h"
 #include "GaudiKernel/IService.h"
 //#include "rdbModel/Db/Connection.h"
@@ -19,9 +17,12 @@
 #include "DatabaseSvc/IDatabaseSvc.h"
 using CLHEP::HepVector;
 #else
-#include <string>
 #include "DatabaseSvc/DatabaseSvc.h"
 #endif
+
+#include <map>
+#include <vector>
+#include <string>
 
 #ifndef BEAN
 class VertexDbSvc: public Service, virtual public IVertexDbSvc, 
@@ -36,6 +37,7 @@ class VertexDbSvc: public Service, virtual public IVertexDbSvc,
 
   // Incident handler
   void handle(const Incident&);
+
 
 #else
 // -------------------------- BEAN ------------------------------------
@@ -62,6 +64,11 @@ public:
   void          SetVerPar(const std::string& _verpar)   {m_verpar = _verpar;}
   std::string   GetVerPar() const                       {return m_verpar;}
 
+  void          ReadOneTime(int runFrom, int runTo);
+  bool          GetReadOneTime() {return m_readOneTime;}
+  int           GetRunFrom()     {return m_runFrom;}
+  int           GetRunTo()       {return m_runTo;}
+
   // New run handler
   void          handle(int new_run);
 #endif
@@ -79,6 +86,12 @@ public:
   double        m_primaryVertex[3];
   double        m_sigmaPrimaryVertex[3];
   bool          m_isRunNumberValid;  
+  
+  //  dengzy add for get vertex for all runs one time
+  bool          m_readOneTime;
+  int           m_runFrom;
+  int           m_runTo;
+  std::map<int, std::vector<double> > m_mapPrimaryVertex;
 
 #ifndef BEAN
   std::string host;
@@ -107,5 +120,6 @@ public:
 #endif
 
   bool          getReadBunchInfo(int run);
+  bool          getReadBunchInfo(int runFrom, int runTo);
 };
 #endif /* MDCCALIBFUNSVC_H_ */

@@ -69,4 +69,14 @@
   this script IS NOT REQUIRED.
 
 ------------------------------------------------------------------------------
+  ###NEWS
 
+  1. RscanDQ: When you using the 2015 Rscan data, you must use this package
+     to exclude bad runs:
+     (https://docbes3.ihep.ac.cn/~tauqcdgroup/index.php/Data_Samples)
+
+  2. New functionality in VertexDbSvc: new function 
+     ReadOneTime(int runFrom, int runTo) - you can get verteces from
+     database at once for runs in theinterval [runFrom,runTo]
+
+------------------------------------------------------------------------------
