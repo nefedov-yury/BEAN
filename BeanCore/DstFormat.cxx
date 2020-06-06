@@ -191,6 +191,12 @@ void DstFormat::PrintHeader() const
             << " Flag2: " << m_TEvtHeader->getFlag2() << endl;
      }
 #endif
+#if BOSS_VER >= 705
+     if( Verbose() ) {
+       cout << " ETS T1: " << m_TEvtHeader->getEtsT1()
+            << " ETS T2: " << m_TEvtHeader->getEtsT2() << endl;
+     }
+#endif
    }
    cout << " ====================================================== " << endl;
 }

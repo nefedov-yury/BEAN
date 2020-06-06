@@ -68,6 +68,7 @@ public:
   bool          GetReadOneTime() {return m_readOneTime;}
   int           GetRunFrom()     {return m_runFrom;}
   int           GetRunTo()       {return m_runTo;}
+  std::vector<int> ListReadRuns();
 
   // New run handler
   void          handle(int new_run);

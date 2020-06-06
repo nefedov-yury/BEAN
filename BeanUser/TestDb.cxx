@@ -53,8 +53,16 @@ void TestDbStartJob(ReadDst* selector)
   // example of using VertexDbSvc::ReadOneTime()
   // -----------------------------------------------------------------------
   VertexDbSvc* vtxsvc = VertexDbSvc::instance();
-  vtxsvc -> SetBossVer("6.6.4");
-  vtxsvc -> ReadOneTime(9947,10878);
+//   vtxsvc -> SetBossVer("6.6.3");
+//   vtxsvc -> ReadOneTime(9947,10878);
+  vtxsvc -> SetBossVer("7.0.5");
+  vtxsvc -> ReadOneTime(64314,64320);
+  vector<int> RunList = vtxsvc -> ListReadRuns();
+  cout << " read " << RunList.size() << " runs" << endl;
+//   for ( int r : RunList ) {
+//      cout << " " << r;
+//   }
+//   cout << endl;
 
   // -----------------------------------------------------------------------
   // this is example from DatabaseSvc/TestDbAlg
@@ -69,7 +77,7 @@ void TestDbStartJob(ReadDst* selector)
   char stmt[255];
   sprintf(stmt,"select Vx, Vy, Vz, SigmaVx, SigmaVy, SigmaVz,"
                "RunNo from BeamPar "
-               "where RunNo > 9950 and RunNo < 9980 and SftVer='6.5.1'");
+               "where RunNo > 9947 and RunNo < 10100 and SftVer='6.6.3'");
 
   DatabaseRecordVector res;
   int row_no = 0;
@@ -92,7 +100,7 @@ void TestDbStartJob(ReadDst* selector)
           << " SigmaVx= " << records.GetDouble("SigmaVx") << endl;
   }
 
-  // Check BLOBs
+  // Check BLOBs (you need full 'offlinedb' database for this check)
   std::cout << "*************************************************************"
             << std::endl;
   std::cout << "Test 2: BLOBs" << std::endl;
@@ -101,11 +109,11 @@ void TestDbStartJob(ReadDst* selector)
 
   res.clear();
   sprintf(stmt,"select EndTofPar,BarTofPar from TofCalConst "
-               "where RunFrom <= 11000 and RunTo >= 11000 and SftVer='6.5.1'");
+               "where RunFrom <= 11000 and RunTo >= 11000 and SftVer='6.6.3'");
   row_no = m_dbsvc->query("offlinedb", stmt, res);
   if( row_no < 0 ){
-    std::cout << " Query \"" << stmt << "\" failed" << std::endl;
-    // return;
+    cout << " Query \"" << stmt << "\" failed" << endl;
+    cout << " Try to use full 'offlinedb' database for this check" << endl;
   }
 
   for(int row = 0; row < row_no; row++) {
@@ -135,8 +143,7 @@ void TestDbStartJob(ReadDst* selector)
      }
   }
 
-  //sleep(600);
-  // Test strings
+  // Test strings (you need full 'offlinedb' database for this check)
   std::cout << "*************************************************************"
             << std::endl;
   std::cout << "Test 3: Strings" << std::endl;
@@ -145,10 +152,11 @@ void TestDbStartJob(ReadDst* selector)
 
   res.clear();
   sprintf(stmt,"select XtTree,QtTree,T0Tree,SdTree,RunFrom,RunTo,CalParVer,"
-               "FileName from MdcCalConst where SftVer = '6.5.3'");
+               "FileName from MdcCalConst where SftVer = '6.6.3'");
   row_no = m_dbsvc->query("offlinedb",stmt,res);
   if( row_no < 0 ) {
-    std::cout << " Query \"" << stmt << "\" failed" << std::endl;
+    cout << " Query \"" << stmt << "\" failed" << endl;
+    cout << " Try to use full 'offlinedb' database for this check" << endl;
     // return;
   }
 
@@ -174,42 +182,38 @@ bool TestDbEvent(ReadDst* selector,
 //-----------------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " TestDbEvent() " << endl;
-  int run = m_TEvtHeader->getRunId();
+  int run = abs( m_TEvtHeader->getRunId() );
 
   // -----------------------------------------------------------------------
   // this is test for MagneticField/ConnectionDB
+  // -----------------------------------------------------------------------
 
-  string stmt = "select Magnet_Current,SCQL,SCQR ";
-  stringstream tmp;
-  tmp << "from SC_magnet where run_number = " << run;
-  stmt += tmp.str();
-  cout << stmt << endl;
+  string stmt("select Magnet_Current,SCQL,SCQR "
+              "from SC_magnet where run_number = ");
+  stmt += to_string(run);
   DatabaseRecordVector res;
   int row_no = m_dbsvc->query("run",stmt,res);
 
   if( row_no != 1 ) {
-    cerr << " ERROR: can not found Magnet_Current information" << endl;
-    return false;
+    cout << " ERROR: can not found Magnet_Current information" << endl
+       << "QUERY: " << stmt << endl;
+  } else {
+    // res.PrintRecords();
+    DatabaseRecord& rec = *res[0];
+    double ssm_curr = rec.GetDouble("Magnet_Current");
+    double scql_curr = rec.GetDouble("SCQL");
+    double scqr_curr = rec.GetDouble("SCQR");
+
+    cout << " currents= " << ssm_curr << " " 
+       << scql_curr << " " << scqr_curr << endl;
   }
-
-  // res.PrintRecords();
-
-  DatabaseRecord& rec = *res[0];
-
-  double ssm_curr = rec.GetDouble("Magnet_Current");
-  double scql_curr = rec.GetDouble("SCQL");
-  double scqr_curr = rec.GetDouble("SCQR");
-
-  cout << " currents= " << ssm_curr << " " << scql_curr << " " << scqr_curr
-       << endl;
-  // -----------------------------------------------------------------------
 
   // -----------------------------------------------------------------------
   // this is an example to use the VertexFit/VertexDbSvc.h service
+  // -----------------------------------------------------------------------
 
   VertexDbSvc* vtxsvc = VertexDbSvc::instance();
   vtxsvc->handle(run); // MUST BE !
-  // vtxsvc->SetBossVer("'6.5.2'"); // default is 6.5.2
   cout << " status: " << vtxsvc->isVertexValid() << endl;
   double* a1 = vtxsvc->PrimaryVertex();
   double* a2 = vtxsvc->SigmaPrimaryVertex();
@@ -221,7 +225,7 @@ bool TestDbEvent(ReadDst* selector,
   // this is example from DatabaseSvc/TestDbAlg
   // Check BLOBs => this works only for full db !!!
   stmt =  "select EndTofPar,BarTofPar from TofCalConst where ";
-  stmt += "RunFrom <= 11000 and RunTo >= 11000 and SftVer='6.5.2'";
+  stmt += "RunFrom <= 11000 and RunTo >= 11000 and SftVer='6.6.3'";
   res.clear();
   row_no = m_dbsvc->query("offlinedb", stmt.c_str(), res);
   // cout << " row_no= " << row_no << endl;

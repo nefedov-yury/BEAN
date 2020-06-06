@@ -191,6 +191,20 @@ void VertexDbSvc::ReadOneTime(int runFrom, int runTo)
 }
 
 //-----------------------------------------------------------------------------
+std::vector<int> VertexDbSvc::ListReadRuns()
+//-----------------------------------------------------------------------------
+{
+  vector<int> ret;
+  if ( m_readOneTime ) {
+     ret.reserve(m_mapPrimaryVertex.size());
+     for ( const auto& m : m_mapPrimaryVertex ) {
+        ret.push_back( m.first );
+     }
+  }
+  return ret;
+}
+
+//-----------------------------------------------------------------------------
 void VertexDbSvc::handle(int new_run)
 //-----------------------------------------------------------------------------
 {
@@ -427,8 +441,10 @@ bool VertexDbSvc::getReadBunchInfo(int runFrom, int runTo)
   stringstream tmp;
   tmp << "from BeamPar where RunNo >= " << runFrom <<" and RunNo <= "<< runTo
       << " and SftVer=\'" << m_bossver << "\'";
+  // NOTE: The GROUP BY clause a selected group of rows into summary rows
+  // by values of one or more columns.
   if( m_verpar == "default" ) {
-    tmp << " group by ParVer";
+    tmp << " group by RunNo,ParVer"; 
   } else {
     tmp << " and ParVer = " << m_verpar;
   }

@@ -75,8 +75,9 @@
      to exclude bad runs:
      (https://docbes3.ihep.ac.cn/~tauqcdgroup/index.php/Data_Samples)
 
-  2. New functionality in VertexDbSvc: new function 
+  2. New functionality in VertexDbSvc: new function
      ReadOneTime(int runFrom, int runTo) - you can get verteces from
-     database at once for runs in theinterval [runFrom,runTo]
+     database at once for runs in the interval [runFrom,runTo].
+     See BeanUser/TestDb.cxx how to use this function
 
 ------------------------------------------------------------------------------
