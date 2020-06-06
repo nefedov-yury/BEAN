@@ -1,0 +1,38 @@
+#
+# Makefile to download, configure&make CLHEP
+#
+#
+#------------------------------------------------------------------------------
+CLHEP_TGZ               := clhep-2.0.4.5.tgz
+
+CONFIGURE_PRESENCE      :=	CLHEP/Makefile
+CLHEP_PRESENCE          :=	CLHEP/configure
+INSTALL_PRESENCE        :=	lib/libCLHEP.so
+
+$(INSTALL_PRESENCE): $(CONFIGURE_PRESENCE)
+		@echo "Making CLHEP..."
+		@make --directory=CLHEP
+		@make --directory=CLHEP install 
+		
+
+$(CONFIGURE_PRESENCE): $(CLHEP_TGZ) $(CLHEP_PRESENCE)
+		@echo "Configuring CLHEP..."
+		@sh -c "cd CLHEP && ./configure  --disable-static --prefix=`pwd`"
+
+$(CLHEP_TGZ):
+		@echo "Downloading CLHEP..."
+		@wget http://proj-clhep.web.cern.ch/proj-clhep/DISTRIBUTION/tarFiles/$(CLHEP_TGZ)
+
+$(CLHEP_PRESENCE):
+		@tar --strip 1 -zxf $(CLHEP_TGZ)
+
+
+.PHONY: clean distclean remove
+
+clean:
+		@make --directory=CLHEP clean
+distclean:
+		@make --directory=CLHEP distclean
+# delete all except CLHEP_TGZ file
+remove:
+		@rm -fr bin CLHEP include lib 

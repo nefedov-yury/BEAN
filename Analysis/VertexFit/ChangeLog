@@ -1,0 +1,15 @@
+2014.01.02 Ma Tian <mat@ihep.ac.cn>
+	*VertexFit
+		-Add method setMagCorrFactor(const double factor = 1.000).
+	*SecondVertexFit
+		-Add method setMagCorrFactor(const double factor = 1.000).
+	*These two methods are aimed to handle B Field corrected data if needed.
+
+2010.12.08 Ma Tian <mat@ihep.ac.cn>
+	*Set a looser chisquare cut in Class VertexFit. Default value changes from 500 to 1000.
+	*Set a looser chisquare cut in Class SecondVertexFit. Default value changes from 100 to 500.
+	*The default number of iteration in Class SecondVertexFit changes from 1 to 10.
+
+2010.09.04 Ma Tian <mat@ihep.ac.cn>
+	*Remove the dependency on Class Helix in Class WTrackParameter.
+	*Add some kindly comments in Class WTrackParameter.
