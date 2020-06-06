@@ -90,10 +90,12 @@ MESSAGE( STATUS "+++ BOSS_VER is ${BOSS_VER}" )
 #   BOSS_VERSION                        ROOTEVENTDATA_VERSION
 #   6.5.2; 6.5.3; 6.5.5; 6.6.1          = BOSS_VERSION
 #   6.6.2                               6.6.1
-#   >= 6.6.3                            6.6.3
+#   >= 6.6.3 < 7.0.5                    6.6.3
+#   7.0.5                               7.0.5
 #
 SET( ROOTEVENTDATA_VERSION "6.6.3" )
-IF( BOSS_VERSION  VERSION_LESS  "6.6.2" )
+IF( BOSS_VERSION  VERSION_EQUAL  "7.0.5" OR  
+    BOSS_VERSION  VERSION_LESS  "6.6.2" )
   SET( ROOTEVENTDATA_VERSION ${BOSS_VERSION} )
 ELSEIF( BOSS_VERSION  VERSION_EQUAL  "6.6.2" )
   SET( ROOTEVENTDATA_VERSION "6.6.1" )

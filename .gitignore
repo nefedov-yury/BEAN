@@ -2,3 +2,4 @@ workdir/
 build6/
 build7/
 Analysis/DatabaseSvc/dat/
+*.sw?
