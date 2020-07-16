@@ -69,7 +69,7 @@ struct Select {
    int decPsip, decJpsi;      // decay codes for MC events
    int dec_eta;               // 1 if eta->2gamma
    Hep3Vector mcPip, mcPim;   // true pi+/pi- momentums from Psi(2S) decay
-   double mc_mkk;
+   double mc_mkk;             // true inv. mass of K+K- from phi decay
 
    long int pip_pdg, pim_pdg; // pdg of the best selected candidates
    int      pip_ok,  pim_ok;
@@ -132,6 +132,7 @@ struct Xnt1 {
    UShort_t nch;         // N charged tracks
    UShort_t Nm;          // number of els in Mrec: use @Mrec.size()
    UShort_t decPsip;     // decay code of Psi(2S)
+   float mcmkk;          // true inv. mass of K+K- from phi decay
 } xnt1;
 
 //    float cosPM;          // cos(Theta(pi+ pi-)) for best
@@ -556,6 +557,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt1->Branch("nch",&xnt1.nch);
    m_nt1->Branch("Nm",&xnt1.Nm);  // just for convenience,
    m_nt1->Branch("dec",&xnt1.decPsip);
+   m_nt1->Branch("mcmkk",&xnt1.mcmkk);
 
    // final ntuple for
    //   Psi(2S) -> pi+ pi- J/Psi
@@ -811,6 +813,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    if ( Slct.decPsip == 64 && Slct.decJpsi == 0 ) {
       //  add small corrections to Slct.decJpsi
       string strdec = JpsiTbl.StrDec();
+//       cout << " DEBUG: 64 -> strdec= " << strdec << endl;
       if ( !strdec.empty() ) {
          int decJpsi = 0;
 
@@ -818,7 +821,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 //          cout << " CHECK-0: JpsiTbl= :" << strdec << ":" << endl;
 
          // sortied by absolute value of PDG code and positive first
-         if ( strdec == string("eta K+ K-") ) {
+         if ( strdec == string("K+ K- eta") || 
+              strdec == string("K+ K- eta -22") ) {
             decJpsi = 261;
          } else if ( strdec == string("K+ K- eta pi+ pi-") ) {
             decJpsi = 262;
@@ -843,6 +847,26 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 //       }
 //    }
 
+   // fill mc_mkk for J/Psi -> K+ K- eta
+   if ( Slct.decPsip == 64 && Slct.decJpsi == 261 ) {
+      TIter mcIter(mcParticles);
+      while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
+         long int part_pdg = part->getParticleID ();
+         
+         if ( part->getMother() == idx_jpsi &&
+            abs(part_pdg) == 321 ) {      // K+ or K-
+            Hep3Vector Vp( part->getInitialMomentumX(),
+                           part->getInitialMomentumY(),
+                           part->getInitialMomentumZ() );
+            LVK.push_back( HepLorentzVector( Vp,sqrt(Vp.mag2()+SQ(mk)) ) );
+         }
+      }
+
+      // invariant mass of K+ K- 
+      if ( LVK.size() == 2 ) {
+         Slct.mc_mkk = (LVK[0]+LVK[1]).m();
+      }
+   }
 }
 
 //-----------------------------------------------------------------------------
@@ -1348,8 +1372,9 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    // MC decay
    xnt1.decPsip =
       (Slct.decPsip > 0) ? static_cast<UShort_t>(Slct.decPsip) : 0;
+   xnt1.mcmkk = Slct.mc_mkk;
 
-//    m_nt1->Fill(); // ATTENTION!
+   m_nt1->Fill(); // ATTENTION!
 
    return true;
 }

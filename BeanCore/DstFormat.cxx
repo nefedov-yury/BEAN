@@ -111,6 +111,8 @@ Bool_t DstFormat::Notify()
        cout << "   -> open file: \"" << tf->GetName() << "\"" << endl
             << "   -> option= " << tf->GetOption()
             << "; Tree number= " << fChain->GetTreeNumber() << endl;
+//        tf->ShowStreamerInfo(); // list and contents of StreamerInfo
+                               // for all objects in file 
      }
    }
 

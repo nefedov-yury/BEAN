@@ -144,6 +144,8 @@ IF( CMAKE_COMPILER_IS_GNUCC )
   EXECUTE_PROCESS( COMMAND ${CMAKE_C_COMPILER} -dumpversion
                    OUTPUT_VARIABLE GCC_VERSION )
 #  MESSAGE( STATUS "gcc_verion= ${GCC_VERSION}" )
+# c++14 mode is the default in GCC 6.1 up until GCC 10 (including)
+IF( GCC_VERSION VERSION_LESS 6.1 )
   IF( GCC_VERSION VERSION_GREATER 4.7 )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
   ELSEIF( GCC_VERSION VERSION_GREATER 4.3 )
@@ -152,6 +154,7 @@ IF( CMAKE_COMPILER_IS_GNUCC )
     MESSAGE( FATAL_ERROR "Insufficient gcc version: ${GCC_VERSION}"
              " we use C++11 features" )
   ENDIF()
+ENDIF()
 
   # just to see all compilation warnings:
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
