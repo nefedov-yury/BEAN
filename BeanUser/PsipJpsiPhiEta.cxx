@@ -575,8 +575,10 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
                 "Eg2:Cg2:"        // E and cos(Theta) of gamma-2
                 "Ptgg:Cgg:"       // Pt and cos(Theta) of eta (2gamma)
                 "Mkk:Mgg:"        // invariant masses of K+K- and 2gammas
+                "M2kpg1:M2kpg2:M2kmg1:M2kmg2:" // M_inv^2( K(+/-)g(1/2) )
+                "M2kpeta:M2kmeta:"             // M_inv^2( K(+/-) eta )
                 "dec:decj"        // MC: decay codes of Psi(2S) and J/Psi
-                ":mcmkk"          // MC: invariant masses of K+K-
+                ":mcmkk"          // MC: invariant masses of MCtrue K+K-
                             );
 
    // ntuple for eta efficiency study
@@ -821,7 +823,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 //          cout << " CHECK-0: JpsiTbl= :" << strdec << ":" << endl;
 
          // sortied by absolute value of PDG code and positive first
-         if ( strdec == string("K+ K- eta") || 
+         if ( strdec == string("K+ K- eta") ||
               strdec == string("K+ K- eta -22") ) {
             decJpsi = 261;
          } else if ( strdec == string("K+ K- eta pi+ pi-") ) {
@@ -852,7 +854,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
       TIter mcIter(mcParticles);
       while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
          long int part_pdg = part->getParticleID ();
-         
+
          if ( part->getMother() == idx_jpsi &&
             abs(part_pdg) == 321 ) {      // K+ or K-
             Hep3Vector Vp( part->getInitialMomentumX(),
@@ -862,7 +864,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          }
       }
 
-      // invariant mass of K+ K- 
+      // invariant mass of K+ K-
       if ( LVK.size() == 2 ) {
          Slct.mc_mkk = (LVK[0]+LVK[1]).m();
       }
@@ -1374,7 +1376,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       (Slct.decPsip > 0) ? static_cast<UShort_t>(Slct.decPsip) : 0;
    xnt1.mcmkk = Slct.mc_mkk;
 
-   m_nt1->Fill(); // ATTENTION!
+//    m_nt1->Fill(); // ATTENTION!
 
    return true;
 }
@@ -1867,6 +1869,15 @@ static bool VertKinFit(Select& Slct) {
       hst[86]->Fill( Pphi.cosTheta() );
    }
 
+   // M^2(Kg)
+   double M2kpg1 = (Pkp + Pg1).m2();
+   double M2kpg2 = (Pkp + Pg2).m2();
+   double M2kmg1 = (Pkm + Pg1).m2();
+   double M2kmg2 = (Pkm + Pg2).m2();
+   // M^2(K eta)
+   double M2kpeta = (Pkp + Pgg).m2();
+   double M2kmeta = (Pkm + Pgg).m2();
+
    // HepLorentzVector.perp == HepLorentzVector.vect.rho
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
    Double_t xfill[] = {
@@ -1880,6 +1891,7 @@ static bool VertKinFit(Select& Slct) {
       Pg2.e(), Pg2.cosTheta(),
       Pgg.perp(), Pgg.cosTheta(),
       Mkk, Mgg,
+      M2kpg1,M2kpg2, M2kmg1,M2kmg2, M2kpeta,M2kmeta,
       double(Slct.decPsip), double(Slct.decJpsi),
       Slct.mc_mkk
    };
