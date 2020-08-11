@@ -305,8 +305,14 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    } else if ( run < 30000 ) {   // here: J/Psi scan 2012
       vtxsvc->SetBossVer("6.6.4");
    } else if ( run >=39355 && run <= 40069 ) { // R-scan (2015)
+#if (BOSS_VER < 700)
       vtxsvc->SetBossVer("6.6.5.p01");
+#else
+      vtxsvc->SetBossVer("7.0.3");
+#endif
    } else if ( run >=55060 && run <= 55109 ) { // J/Psi scan 2018
+      vtxsvc->SetBossVer("7.0.4");
+   } else if ( run >=59016 && run <= 59141 ) { // 3080 data 2019
       vtxsvc->SetBossVer("7.0.4");
    } else {
       cout << " WARNING:" << __func__ << " :" << " run=" << runNo
@@ -380,6 +386,7 @@ static double GetEcms(int runNo, bool verbose = false) {
    static const int Np2 = sizeof(ListRscan)/sizeof(ListRscan[0]);
 
    // List Runs for J/Psi scan 15th — 18th April, 2018
+   //               + 3080 data 2019: 7th-11th Feb 2019
    static const runInfo ListJ2018[] =  {
       { 55060, 55065,     3087.659, 1.312, 2.50166 },
       { 55066, 55073,     3095.726, 1.058, 2.96535 },
@@ -389,6 +396,8 @@ static double GetEcms(int runNo, bool verbose = false) {
       { 55092, 55097,     3097.654, 1.047, 4.78731 },
       { 55098, 55103,     3098.728, 1.183, 5.75102 },
       { 55104, 55109,     3104.000, 1.010, 5.8398  },
+      { 55104, 55109,     3104.000, 1.010, 5.8398  },
+      { 59016, 59141,     3080.,    0.,    83.935  },
    };
    static const int Np3 = sizeof(ListJ2018)/sizeof(ListJ2018[0]);
 

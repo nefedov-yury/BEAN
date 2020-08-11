@@ -25,10 +25,11 @@ ELSE()
   MAC_LIB_RPATH( ${libname} )
 ENDIF()
 
+SET( ROOT_LIBRARIES_EventTag "${ROOT_LIBRARIES} -lEG" )
 TARGET_LINK_LIBRARIES( ${libname}
    RootEventData
    BeanCore
-   ${ROOT_LIBRARIES}
+   ${ROOT_LIBRARIES_EventTag}
    ${CLHEP_LIBRARIES}
 )
 

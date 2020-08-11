@@ -123,6 +123,8 @@ SET( ROOT_CONFIG_SEARCHPATH
    CACHE PATH
    "Path to directory with root-config program"
 )
+# uncomment for detailed printing of found root-configuration
+# SET( FIND_ROOT_VERBOSE "VERBOSE" )
 INCLUDE( FindROOT )
 
 SET( CLHEP_SEARCHPATH

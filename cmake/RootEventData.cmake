@@ -62,9 +62,8 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
   )
 ELSE()
   ADD_LIBRARY( ${libname} SHARED ${CXX_FILES} )
-  SET( RootEventData_ROOT_LIBRARIES "${ROOT_LIBRARIES} -lEG" )
   TARGET_LINK_LIBRARIES( ${libname}
-    ${RootEventData_ROOT_LIBRARIES}
+    ${ROOT_LIBRARIES}
   )
   MAC_LIB_RPATH( ${libname} )
 ENDIF()

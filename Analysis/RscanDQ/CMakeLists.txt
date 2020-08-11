@@ -26,8 +26,8 @@ ELSE()
   MAC_LIB_RPATH( ${libname} )
 ENDIF()
 
-TARGET_LINK_LIBRARIES( ${libname}
-)
+#  TARGET_LINK_LIBRARIES( ${libname}
+#  )
 #     BeanCore
 
 #------------------------------------------------------------------------------

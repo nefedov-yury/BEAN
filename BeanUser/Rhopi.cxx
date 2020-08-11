@@ -111,7 +111,7 @@ void RhopiStartJob(ReadDst* selector)
   // init Absorption Correction
   m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
 
-  // Initial values  
+  // Initial values
   m_vr0cut=1.0;
   m_vz0cut=5.0;
 
@@ -145,7 +145,7 @@ void RhopiStartJob(ReadDst* selector)
   // We have to initialize DatabaseSvc
   // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   DatabaseSvc* dbs = DatabaseSvc::instance();
-  if( (dbs->GetDBFilePath()).empty() ) { 
+  if( (dbs->GetDBFilePath()).empty() ) {
      // set path to directory with databases:
      dbs->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
   }
@@ -197,7 +197,7 @@ void RhopiStartJob(ReadDst* selector)
   if(m_checkTof == 1) {
     m_tuple[9] = new TNtuple("tof1","tof1",
                            "ptrk:cntr:ph:zhit:qual:te:tmu:tpi:tk:tp");
-  } // check Tof:barrel inner Tof 
+  } // check Tof:barrel inner Tof
 
 
   if(m_checkTof == 1) {
@@ -209,7 +209,7 @@ void RhopiStartJob(ReadDst* selector)
   m_tuple[11] = new TNtuple("pid","pid", "ptrk:cost:dedx:tof1:tof2:prob");
 
   // register in selector to save in given directory
-  VecObj ntuples(m_tuple.begin(),m_tuple.end());  
+  VecObj ntuples(m_tuple.begin(),m_tuple.end());
   selector->RegInDir(ntuples,"Rhopi");
 }
 
@@ -232,7 +232,7 @@ bool RhopiEvent(ReadDst* selector,
   // eventHeader <=> m_TEvtHeader;
   int event = m_TEvtHeader->getEventId();
   int runNo = m_TEvtHeader->getRunId();
-  if( selector->Verbose() ) 
+  if( selector->Verbose() )
     cout << "run, evtnum = " << runNo << " , " << event <<endl;
 
   //~ cout<<"event "<<event<<endl;
@@ -241,7 +241,7 @@ bool RhopiEvent(ReadDst* selector,
   //evtRecEvent
   const TEvtRecEvent*  evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
   if( selector->Verbose() ) {
-    cout <<"ncharg, nneu, tottks = " 
+    cout <<"ncharg, nneu, tottks = "
       << evtRecEvent->totalCharged() << " , "
       << evtRecEvent->totalNeutral() << " , "
       << evtRecEvent->totalTracks() <<endl;
@@ -266,20 +266,20 @@ bool RhopiEvent(ReadDst* selector,
 
   // this is output of boss-6.5.2 Rhopi for sim/rec jobOpt.
   Hep3Vector xorigin(0.192687,-0.306578,-0.096103);
-  
+
   VertexDbSvc* vtxsvc = VertexDbSvc::instance();
   // vtxsvc->SetBossVer("6.5.5");
   vtxsvc->SetBossVer("6.6.3");
   vtxsvc->handle(runNo); // MUST BE !
   if(vtxsvc->isVertexValid()){
-    double* dbv = vtxsvc->PrimaryVertex(); 
-    // double*  vv = vtxsvc->SigmaPrimaryVertex();  
+    double* dbv = vtxsvc->PrimaryVertex();
+    // double*  vv = vtxsvc->SigmaPrimaryVertex();
     xorigin.setX(dbv[0]);
     xorigin.setY(dbv[1]);
     xorigin.setZ(dbv[2]);
     // cout << " sqlite-db vertex: (x,y,z)= " << xorigin << endl;
   }
-  
+
   for(int i = 0; i < evtRecEvent->totalCharged(); i++){
 //    EvtRecTrackIterator itTrk=evtRecTrkCol->begin() + i;
     DstEvtRecTracks* itTrk = (DstEvtRecTracks*) evtRecTrkCol->At(i);
@@ -297,8 +297,8 @@ bool RhopiEvent(ReadDst* selector,
     HepVector a = mdcTrk->helix();
     HepSymMatrix Ea = mdcTrk->err();
     HepPoint3D point0(0.,0.,0.);   // the initial point for MDC recosntruction
-    HepPoint3D IP(xorigin[0],xorigin[1],xorigin[2]); 
-    VFHelix helixip(point0,a,Ea); 
+    HepPoint3D IP(xorigin[0],xorigin[1],xorigin[2]);
+    VFHelix helixip(point0,a,Ea);
     helixip.pivot(IP);
     HepVector vecipa = helixip.a();
     double  Rvxy0=fabs(vecipa[0]);  //the nearest distance to IP in xy plane
@@ -308,14 +308,14 @@ bool RhopiEvent(ReadDst* selector,
     m_tuple[1]->Fill(x0,y0,z0,Rxy,Rvxy0,Rvz0,Rvphi0);
 //    if(fabs(z0) >= m_vz0cut) continue;
 //    if(fabs(Rxy) >= m_vr0cut) continue;
-    
+
     if(fabs(Rvz0) >= 10.0) continue;
     if(fabs(Rvxy0) >= 1.0) continue;
-    
+
     iGood.push_back(i);
     nCharge += mdcTrk->charge();
   }
-  
+
   //
   // Finish Good Charged Track Selection
   //
@@ -338,7 +338,7 @@ bool RhopiEvent(ReadDst* selector,
     // find the nearest charged track
     double dthe = 200.;
     double dphi = 200.;
-    double dang = 200.; 
+    double dang = 200.;
     for(int j = 0; j < evtRecEvent->totalCharged(); j++) {
 //       EvtRecTrackIterator jtTrk = evtRecTrkCol->begin() + j;
       DstEvtRecTracks* jtTrk = (DstEvtRecTracks*) evtRecTrkCol->At(j);
@@ -374,14 +374,14 @@ bool RhopiEvent(ReadDst* selector,
     //
     iGam.push_back(i);
   }
-  
+
   //
   // Finish Good Photon Selection
   //
   int nGam = iGam.size();
 
   if( selector->Verbose() ) {
-    cout << "num Good Photon " << nGam  << " , " 
+    cout << "num Good Photon " << nGam  << " , "
          <<evtRecEvent->totalNeutral()<<endl;
   }
   if(nGam<2){
@@ -396,7 +396,7 @@ bool RhopiEvent(ReadDst* selector,
   // check dedx infomation
   //
   //
-  
+
   if(m_checkDedx == 1) {
     for(int i = 0; i < nGood; i++) {
 //       EvtRecTrackIterator  itTrk = evtRecTrkCol->begin() + iGood[i];
@@ -442,13 +442,13 @@ bool RhopiEvent(ReadDst* selector,
 
 //       SmartRefVector<RecTofTrack>::iterator iter_tof = tofTrkCol.begin();
       std::vector<RecTofTrack* >::const_iterator iter_tof = tofTrkCol.begin();
-      for(;iter_tof != tofTrkCol.end(); iter_tof++ ) { 
-        TofHitStatus *status = new TofHitStatus; 
+      for(;iter_tof != tofTrkCol.end(); iter_tof++ ) {
+        TofHitStatus *status = new TofHitStatus;
         status->setStatus((*iter_tof)->status());
         if(!(status->is_barrel())){//endcap
-          if( !(status->is_counter()) ) continue; // ? 
+          if( !(status->is_counter()) ) continue; // ?
           if( status->layer()!=0 ) continue;//layer1
-          double path=(*iter_tof)->path(); // ? 
+          double path=(*iter_tof)->path(); // ?
           double tof  = (*iter_tof)->tof();
           double ph   = (*iter_tof)->ph();
           double rhit = (*iter_tof)->zrhit();
@@ -470,9 +470,9 @@ bool RhopiEvent(ReadDst* selector,
                          m_te_etof,m_tmu_etof,m_tpi_etof,m_tk_etof,m_tp_etof);
         }
         else {//barrel
-          if( !(status->is_counter()) ) continue; // ? 
+          if( !(status->is_counter()) ) continue; // ?
           if(status->layer()==1){ //layer1
-            double path=(*iter_tof)->path(); // ? 
+            double path=(*iter_tof)->path(); // ?
             double tof  = (*iter_tof)->tof();
             double ph   = (*iter_tof)->ph();
             double rhit = (*iter_tof)->zrhit();
@@ -484,7 +484,7 @@ bool RhopiEvent(ReadDst* selector,
               double beta = gb/sqrt(1+gb*gb);
               texp[j] = 10 * path /beta/velc;
             }
- 
+
             double m_te_btof1    = tof - texp[0];
             double m_tmu_btof1   = tof - texp[1];
             double m_tpi_btof1   = tof - texp[2];
@@ -496,7 +496,7 @@ bool RhopiEvent(ReadDst* selector,
           }
 
           if(status->layer()==2){//layer2
-            double path=(*iter_tof)->path(); // ? 
+            double path=(*iter_tof)->path(); // ?
             double tof  = (*iter_tof)->tof();
             double ph   = (*iter_tof)->ph();
             double rhit = (*iter_tof)->zrhit();
@@ -508,7 +508,7 @@ bool RhopiEvent(ReadDst* selector,
               double beta = gb/sqrt(1+gb*gb);
               texp[j] = 10 * path /beta/velc;
             }
- 
+
             double m_te_btof2    = tof - texp[0];
             double m_tmu_btof2   = tof - texp[1];
             double m_tpi_btof2   = tof - texp[2];
@@ -517,23 +517,23 @@ bool RhopiEvent(ReadDst* selector,
 
             m_tuple[10]->Fill(ptrk,cntr,ph,rhit,qual,
                   m_te_btof2,m_tmu_btof2,m_tpi_btof2,m_tk_btof2,m_tp_btof2);
-          } 
+          }
         }
 
-        delete status; 
-      } 
+        delete status;
+      }
     } // loop all charged track
   }  // check tof
 
 
   //
   // Assign 4-momentum to each photon
-  // 
+  //
 
   Vp4 pGam;
   pGam.clear();
   for(int i = 0; i < nGam; i++) {
-//     EvtRecTrackIterator itTrk = evtRecTrkCol->begin() + iGam[i]; 
+//     EvtRecTrackIterator itTrk = evtRecTrkCol->begin() + iGam[i];
       DstEvtRecTracks* itTrk = (DstEvtRecTracks*) evtRecTrkCol->At(iGam[i]);
     RecEmcShower* emcTrk = itTrk->emcShower();
     double eraw = emcTrk->energy();
@@ -556,16 +556,16 @@ bool RhopiEvent(ReadDst* selector,
   ParticleID *pid = ParticleID::instance();
 #if (BOSS_VER < 700)
   pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
-#else   
+#else
   pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
   for(int i = 0; i < nGood; i++) {
-//     EvtRecTrackIterator itTrk = evtRecTrkCol->begin() + iGood[i]; 
+//     EvtRecTrackIterator itTrk = evtRecTrkCol->begin() + iGood[i];
     DstEvtRecTracks* itTrk = (DstEvtRecTracks*) evtRecTrkCol->At(iGood[i]);
     //    if(pid) delete pid;
     pid->init();
     pid->setMethod(pid->methodProbability());
-//    pid->setMethod(pid->methodLikelihood());  //for Likelihood Method  
+//    pid->setMethod(pid->methodLikelihood());  //for Likelihood Method
 
     pid->setChiMinCut(4);
     pid->setRecTrack(itTrk);
@@ -590,14 +590,14 @@ bool RhopiEvent(ReadDst* selector,
 
 //  if(pid->probPion() < 0.001 || (pid->probPion() < pid->probKaon())) continue;
     if(pid->probPion() < 0.001) continue;
-//    if(pid->pdf(2)<pid->pdf(3)) continue; //  for Likelihood Method(0=electron 1=muon 2=pion 3=kaon 4=proton) 
+//    if(pid->pdf(2)<pid->pdf(3)) continue; //  for Likelihood Method(0=electron 1=muon 2=pion 3=kaon 4=proton)
 
     RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();//After ParticleID, use RecMdcKalTrack substitute RecMdcTrack
 //     RecMdcKalTrack::setPidType  (RecMdcKalTrack::pion);//PID can set to electron, muon, pion, kaon and proton;The default setting is pion
     if( !mdcKalTrk ) {
       cout << " No Kalman track ! " << endl;
       return false;
-    } 
+    }
     mdcKalTrk->setPidType(RecMdcKalTrack::pion);
 
     if(mdcKalTrk->charge() >0) {
@@ -630,7 +630,7 @@ bool RhopiEvent(ReadDst* selector,
 /*
   for(int i = 0; i < nGood; i++) {//for rhopi without PID
     EvtRecTrackIterator itTrk = evtRecTrkCol->begin() + iGood[i];
-    RecMdcTrack* mdcTrk = itTrk->mdcTrack(); 
+    RecMdcTrack* mdcTrk = itTrk->mdcTrack();
     if(mdcTrk->charge() >0) {
       ipip.push_back(iGood[i]);
       HepLorentzVector ptrk;
@@ -661,7 +661,7 @@ bool RhopiEvent(ReadDst* selector,
 
 
   //
-  // Loop each gamma pair, check ppi0 and pTot 
+  // Loop each gamma pair, check ppi0 and pTot
   //
 
   HepLorentzVector pTot;
@@ -676,8 +676,8 @@ bool RhopiEvent(ReadDst* selector,
 
     }
   }
-  
-  
+
+
 //   RecMdcKalTrack *pipTrk = (*(evtRecTrkCol->begin()+ipip[0]))->mdcKalTrack();
 //   RecMdcKalTrack *pimTrk = (*(evtRecTrkCol->begin()+ipim[0]))->mdcKalTrack();
 
@@ -712,23 +712,23 @@ bool RhopiEvent(ReadDst* selector,
   VertexParameter vxpar;
   vxpar.setVx(vx);
   vxpar.setEvx(Evx);
-  
+
   VertexFit* vtxfit = VertexFit::instance();
   vtxfit->init();
   vtxfit->AddTrack(0,  wvpipTrk);
   vtxfit->AddTrack(1,  wvpimTrk);
   vtxfit->AddVertex(0, vxpar,0, 1);
   if(!vtxfit->Fit(0)) return false; //skip event
-   
+
    vtxfit->BuildVirtualParticle(0);
-   
+
    cout << "vtxfit0->chisq(0): " << vtxfit->chisq(0) << endl;
 
-  
-  
+
+
   vtxfit->Swim(0);
-  
-  
+
+
   WTrackParameter wpip = vtxfit->wtrk(0);
   WTrackParameter wpim = vtxfit->wtrk(1);
 
@@ -736,7 +736,7 @@ bool RhopiEvent(ReadDst* selector,
 
   //
   //  Apply Kinematic 4C fit
-  // 
+  //
   cout<<"before 4c"<<endl;
   if(m_test4C==1) {
 //    double ecms = 3.097;
@@ -771,8 +771,8 @@ bool RhopiEvent(ReadDst* selector,
 	}
       }
     }
-    
-    if(chisq < 200) { 
+
+    if(chisq < 200) {
 
 //       RecEmcShower *g1Trk = (*(evtRecTrkCol->begin()+ig1))->emcShower();
 //       RecEmcShower *g2Trk = (*(evtRecTrkCol->begin()+ig2))->emcShower();
@@ -780,7 +780,7 @@ bool RhopiEvent(ReadDst* selector,
                                                              ->emcShower();
       RecEmcShower *g2Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(ig2))
                                                              ->emcShower();
-      
+
       kmfit->init();
       kmfit->AddTrack(0, wpip);
       kmfit->AddTrack(1, wpim);
@@ -797,7 +797,7 @@ bool RhopiEvent(ReadDst* selector,
       }
     }
   }
-  
+
   //
   //  Apply Kinematic 5C Fit
   //
@@ -837,7 +837,7 @@ bool RhopiEvent(ReadDst* selector,
 	}
       }
     }
-  
+
 
     cout << " chisq = " << chisq <<endl;
 
@@ -862,7 +862,7 @@ bool RhopiEvent(ReadDst* selector,
 	HepLorentzVector prho0 = kmfit->pfit(0) + kmfit->pfit(1);
 	HepLorentzVector prhop = ppi0 + kmfit->pfit(0);
 	HepLorentzVector prhom = ppi0 + kmfit->pfit(1);
-	
+
 	double m_chi2  = kmfit->chisq();
 	double m_mrh0 = prho0.m();
 	double m_mrhp = prhop.m();
@@ -872,11 +872,11 @@ bool RhopiEvent(ReadDst* selector,
 	double fcos = abs(eg1-eg2)/ppi0.rho();
 	m_tuple[5]->Fill(m_chi2,m_mrh0,m_mrhp,m_mrhm);
         Ncut5++;
-	// 
+	//
 	//  Measure the photon detection efficiences via
 	//          J/psi -> rho0 pi0
 	//
-	if(fabs(prho0.m()-0.770)<0.150) {  
+	if(fabs(prho0.m()-0.770)<0.150) {
 	  if(fabs(fcos)<0.99) {
 	    double m_fcos = (eg1-eg2)/ppi0.rho();
 	    double m_elow =  (eg1 < eg2) ? eg1 : eg2;
@@ -885,9 +885,9 @@ bool RhopiEvent(ReadDst* selector,
 	  }
 	} // rho0 cut
       }  //oksq
-    } 
+    }
   }
-  
+
   return false; // skip event
 }
 
