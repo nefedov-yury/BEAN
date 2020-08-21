@@ -3,8 +3,7 @@
 // SelectKKgg - search for e+ e- -> K+ K- 2gammas                       //
 //                                                                      //
 //======================================================================//
-// TODO: remove init_selection
-//
+
 #include "DLLDefines.h"         // mandatory!
 
 #include <iostream>
@@ -66,6 +65,7 @@ struct Select {
    // MC information:
    int decJpsi;            // decay codes for MC events
    double Xisr;            // Xisr = s'/s
+   double mc_mkk;          // true inv. mass of K+K- from phi decay
 
    // Kaons candidate
    vector<RecMdcKalTrack*> trk_Kp;  // positive tracks
@@ -80,6 +80,7 @@ struct Select {
    Select() {
       decJpsi = -1;
       Xisr = 0.;
+      mc_mkk = 0;
 
       g4f.resize(2,nullptr);
    }
@@ -88,8 +89,6 @@ struct Select {
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-const static bool init_selection=false;
-
 const static double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
@@ -99,6 +98,8 @@ const static double meta   = 0.547862; // 547.862   +/- 0.017   MeV
 const static double momega = 0.78265;  // 782.65    +/- 0.12    MeV
 const static double mk     = 0.493677; // 493.677   +/- 0.016   MeV
 const static double mphi   = 1.019461; //1019.461   +/- 0.019   MeV
+
+// static const double Gphi   = 4.247e-3; //   4.247   +/- 0.016   MeV
 
 static AbsCor* m_abscor = 0;
 static EventTagSvc* m_EventTagSvc = 0;
@@ -142,9 +143,6 @@ void SelectKKggStartJob(ReadDst* selector) {
 //-----------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
-   }
-   if ( init_selection ) {
-      cout << " ===== INIT SELECTION =====" << endl;
    }
 
    hst.resize(500,nullptr);
@@ -236,14 +234,15 @@ void SelectKKggStartJob(ReadDst* selector) {
 
    hst[71] = new TH2D("Mgg_Mkk", "M^{2}(K^{+}K^{-}) vs M^{2}(#gamma#gamma)",
                        220,0.,1.1, 200,0.,10.);
+   hst[72] = new TH1D("Cphi_rest","cos #Theta(#phi) in J/Psi", 200,-1.0,1.0);
 
    // Monte Carlo histograms:
-   hst[100] = new TH1D("mc_deccode0", "decCode nocut",258,-1.5,256.5);
-   hst[101] = new TH1D("mc_deccode1", "decCode cut#1",258,-1.5,256.5);
-   hst[102] = new TH1D("mc_deccode2", "decCode cut#2",258,-1.5,256.5);
-   hst[104] = new TH1D("mc_deccode4", "decCode cut#4",258,-1.5,256.5);
+   hst[100] = new TH1D("mc_dcj0", "dec J/psi nocut",300,-0.5,299.5);
+   hst[101] = new TH1D("mc_dcj1", "dec J/psi cut#1",300,-0.5,299.5);
+   hst[102] = new TH1D("mc_dcj2", "dec J/psi cut#2",300,-0.5,299.5);
+   hst[104] = new TH1D("mc_dcj4", "dec J/psi cut#4",300,-0.5,299.5);
 
-   // ISRhisto
+   // ISRhistoMC:
    hst[111] = new TH1D("mcisr_pdg", "PDG codes of all particles",
                         2001,-1000.5,1000.5);
    hst[112] = new TH1D("mcisr_pdg0", "PDG of particles from primary vertex",
@@ -259,7 +258,18 @@ void SelectKKggStartJob(ReadDst* selector) {
    hst[119] = new TH2D("mcisr_Eg1_Eg2","Eg1 vs Eg2",
                         1500,0.,1500., 1500,0.,1500.);
 
-   // final ntuple for e+ e- -> K+ K- 2gammas
+   // FillHistoMC:
+   hst[131] = new TH1D("mc_EtaP", "Momentum of #eta", 1000,0.,2.);
+   hst[132] = new TH1D("mc_EtaPt","Pt of #eta", 1000,0.,2.);
+   hst[133] = new TH1D("mc_EtaC", "cos(#Theta) of #eta", 100,-1.,1.);
+
+   hst[135] = new TH1D("mc_Kp", "Momentum of K^{+}", 1000,0.,2.);
+   hst[136] = new TH1D("mc_KCp","cos(#Theta) of K^{+}", 100,-1.,1.);
+   hst[137] = new TH1D("mc_Km", "Momentum of K^{-}", 1000,0.,2.);
+   hst[138] = new TH1D("mc_KCm","cos(#Theta) of K^{-}", 100,-1.,1.);
+   hst[139] = new TH1D("mc_Mkk", "Minv(K^{+}K^{-})", 140,0.98,1.12);
+
+   // ntuple for e+ e- -> K+ K- 2gammas
    m_tuple[0] = new TNtupleD("a4c","after 4C kinematic fit",
                 "ch2:"            // chi^2 of 4C fit
                 "Pkp:Ckp:"        // P and cos(Theta) of K+
@@ -268,8 +278,11 @@ void SelectKKggStartJob(ReadDst* selector) {
                 "Eg2:Cg2:"        // E and cos(Theta) of gamma-2
                 "Pgg:Cgg:"        // P and cos(Theta) of eta (2gamma)
                 "Mkk:Mgg:"        // invariant masses of K+K- and 2gammas
-                "dec:"            // MC: decay codes of J/Psi
-                "xisr"            // MC: Xisr = s'/s
+                "M2kpg1:M2kpg2:M2kmg1:M2kmg2:" // M_inv^2( K(+/-)g(1/2) )
+                "M2kpeta:M2kmeta"              // M_inv^2( K(+/-) eta )
+                ":dec"            // MC: decay codes of J/Psi
+                ":xisr"           // MC: Xisr = s'/s
+                ":mcmkk"          // MC: invariant masses of MCtrue K+K-
                             );
 
    // register in selector to save in given directory
@@ -511,26 +524,34 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          printf(" WARNING: MC is not J/Psi evTag= 0x%08x\n",evTag);
          ++nprt;
       }
-      Warning("MC is not J/Psi");
-      evTag = 0;
-      return;
+      Warning("MC is not J/Psi: check that it is MCGPJ!");
+      evTag = 0; // 
    }
 
    // decay code of J/Psi:
    int decJpsi  = (evTag >> 8) & 0xFF;
+   if ( evTag == 0 ) { //MCGPJ
+      decJpsi = 261; // K+ K- eta (+ISR gammas)
+   }
    Slct.decJpsi = decJpsi;
    hst[100]->Fill(decJpsi);
 
    int idx_jpsi=-1;
+   if ( evTag == 0 ) { //MCGPJ
+      idx_jpsi = -99;  // == primary vertex
+   }
    JpsiTbl.Reset();
+
+   // momentum K+ & K- from phi decay
+   vector<HepLorentzVector> LVK;
 
    TIter mcIter(mcParticles);
    while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
       long int part_pdg = part->getParticleID ();
 
-//     Hep3Vector Vp( part->getInitialMomentumX(),
-//                    part->getInitialMomentumY(),
-//                    part->getInitialMomentumZ() );
+      Hep3Vector Vp( part->getInitialMomentumX(),
+                     part->getInitialMomentumY(),
+                     part->getInitialMomentumZ() );
 
       if ( part_pdg == 443 ) { // J/Psi
          idx_jpsi = part->getTrackIndex();
@@ -540,7 +561,35 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          // collect decays of J/psi
          JpsiTbl.vecdec.push_back(part_pdg);
       }
+
+      if ( part->getMother() == idx_jpsi ) {
+         if ( !(decJpsi == 261 || decJpsi == 68) ) {
+            continue;
+         }
+         // MCGPJ generates "K+ K- eta" in the primary vertex
+         if ( part_pdg == 221 ) {                  // eta
+            hst[131]->Fill(Vp.mag());
+            hst[132]->Fill(Vp.rho());
+            hst[133]->Fill(Vp.cosTheta());
+         } else if ( abs(part_pdg) == 321 ) {      // K+ or K-
+            if ( part_pdg > 0 ) {
+               hst[135]->Fill( Vp.mag() );
+               hst[136]->Fill(Vp.cosTheta());
+            } else {
+               hst[137]->Fill( Vp.mag() );
+               hst[138]->Fill(Vp.cosTheta());
+            }
+            LVK.push_back( HepLorentzVector( Vp,sqrt(Vp.mag2()+SQ(mk)) ) );
+         }
+      }
+
    } // end of while
+
+   // invariant mass of K+ K- from phi decays
+   if ( LVK.size() == 2 ) {
+      Slct.mc_mkk = (LVK[0]+LVK[1]).m();
+      hst[139]->Fill( Slct.mc_mkk );
+   }
 
    return;
 }
@@ -991,8 +1040,28 @@ static bool VertKinFit(Select& Slct) {
    HepLorentzVector Pg2 = kmfit->pfit(3);
    HepLorentzVector Pgg = Pg1 + Pg2;
    double Mgg  = Pgg.m();
-
    hst[71]->Fill(Mgg*Mgg,Mkk*Mkk);
+
+   // J/Psi
+   HepLorentzVector Pjpsi = Pkk + Pgg;
+   Hep3Vector beta_jpsi = Pjpsi.boostVector();
+   HepLorentzVector Pphi = Pkk;
+   Pphi.boost(-beta_jpsi); // momentum phi in J/Psi rest system
+   if ( chisq < 80 &&
+         ( Mkk > 2*mk && Mkk < 1.08 ) &&
+         fabs(Mgg-meta) < 0.024
+      ) {
+      hst[72]->Fill( Pphi.cosTheta() );
+   }
+
+   // M^2(Kg)
+   double M2kpg1 = (Pkp + Pg1).m2();
+   double M2kpg2 = (Pkp + Pg2).m2();
+   double M2kmg1 = (Pkm + Pg1).m2();
+   double M2kmg2 = (Pkm + Pg2).m2();
+   // M^2(K eta)
+   double M2kpeta = (Pkp + Pgg).m2();
+   double M2kmeta = (Pkm + Pgg).m2();
 
    // HepLorentzVector.perp == HepLorentzVector.vect.rho
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
@@ -1004,20 +1073,17 @@ static bool VertKinFit(Select& Slct) {
       Pg2.e(), Pg2.cosTheta(),
       Pgg.rho(), Pgg.cosTheta(),
       Mkk, Mgg,
-      double(Slct.decJpsi), Slct.Xisr
+      M2kpg1,M2kpg2, M2kmg1,M2kmg2, M2kpeta,M2kmeta,
+      double(Slct.decJpsi), Slct.Xisr,
+      Slct.mc_mkk
    };
    m_tuple[0]->Fill( xfill );
 
    if ( isMC ) {
       // fill decay table of Jpsi
-
-      static const double meta = 0.547862; //  547.862 +/- 0.017   MeV
-      static const double mphi = 1.019461; // 1019.461 +/- 0.019   MeV
-      static const double Gphi = 4.247e-3; //   4.247 +/- 0.016 MeV
       static const double seta = 0.008;
-
       if ( chisq < 80
-         && abs(Mkk-mphi) < 5*Gphi
+         && Mkk > 2*mk && Mkk < 1.08
          && abs(Mgg-meta) < 3*seta ) {
          JpsiTbl.Add();
       }
@@ -1076,7 +1142,7 @@ bool SelectKKggEvent( ReadDst*       selector,
 
    if ( isMC ) {
       FillHistoMC(selector,Slct);       // MC histo
-      ISRhistoMC( selector, Slct);      // MC ISR histo
+      ISRhistoMC( selector,Slct);       // MC ISR histo
    }
 
    Hep3Vector xorigin = getVertexOrigin(runNo);
@@ -1089,10 +1155,6 @@ bool SelectKKggEvent( ReadDst*       selector,
    //--------------------------------------------------------------------------
    if ( !NeutralTracks(selector, Slct) ) {
       return false;
-   }
-   //--------------------------------------------------------------------------
-   if ( init_selection ) {
-      return true;
    }
    //--------------------------------------------------------------------------
    if ( !VertKinFit(Slct) ) {
@@ -1110,9 +1172,7 @@ void SelectKKggEndJob(ReadDst* selector)
       cout << __func__ << "()" << endl;
    }
 
-   if ( init_selection ) {
-      cout << " ===== INIT SELECTION =====" << endl;
-   } else if ( isMC ) {
+   if ( isMC ) {
       // print tables of decays
       cout << string(65,'#') << endl;
       cout << "Decays of J/psi -> K+ K- 2gammas" << endl
