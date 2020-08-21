@@ -576,8 +576,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
                 "Ptgg:Cgg:"       // Pt and cos(Theta) of eta (2gamma)
                 "Mkk:Mgg:"        // invariant masses of K+K- and 2gammas
                 "M2kpg1:M2kpg2:M2kmg1:M2kmg2:" // M_inv^2( K(+/-)g(1/2) )
-                "M2kpeta:M2kmeta:"             // M_inv^2( K(+/-) eta )
-                "dec:decj"        // MC: decay codes of Psi(2S) and J/Psi
+                "M2kpeta:M2kmeta"              // M_inv^2( K(+/-) eta )
+                ":dec:decj"       // MC: decay codes of Psi(2S) and J/Psi
                 ":mcmkk"          // MC: invariant masses of MCtrue K+K-
                             );
 
@@ -591,8 +591,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
                 "fl:"           // 0/1/2 - only predicted/gamma/eta-found
                 "rE:dTh:"       // predicted/found relation
                 "m2fr:m2rl:"    // final recoil M^2 predicted/found
-                "mggpr:mggf:"   // mass(eta) predicted/fitted
-                "decj"          // MC: decay codes of J/Psi
+                "mggpr:mggf"    // mass(eta) predicted/fitted
+                ":decj"         // MC: decay codes of J/Psi
                 ":deta"         // MC: 1 if eta decay to 2 gamma
                             );
 
@@ -698,6 +698,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    // momentum eta & phi in rest frame of J/Psi
    Hep3Vector beta_jpsi;
    HepLorentzVector LVeta, LVphi;
+   // momentum K+ & K- from phi decay
    vector<HepLorentzVector> LVK;
 
    TIter mcIter(mcParticles);
@@ -750,7 +751,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
       }
 
       if ( part->getMother() == idx_jpsi           // Psip -> pi+pi-J/Psi
-            && decJpsi == 68                ) {     // J/Psi -> phi eta
+            && decJpsi == 68                ) {    // J/Psi -> phi eta
          if ( part_pdg == 221 ) {                  // eta
             hst[131]->Fill(Vp.mag());
             hst[132]->Fill(Vp.rho());
@@ -1863,7 +1864,7 @@ static bool VertKinFit(Select& Slct) {
    HepLorentzVector Pphi = Pkk;
    Pphi.boost(-beta_jpsi); // momentum phi in J/Psi rest system
    if ( chisq < 80 &&
-         ( Mkk > 2*mk && Mkk < 1.1 ) &&
+         ( Mkk > 2*mk && Mkk < 1.08 ) &&
          fabs(Mgg-meta) < 0.024
       ) {
       hst[86]->Fill( Pphi.cosTheta() );
@@ -1907,7 +1908,7 @@ static bool VertKinFit(Select& Slct) {
       // fill decay table of Jpsi
       JpsiTbl2.vecdec = JpsiTbl.vecdec; // propagate for second table
       if ( chisq < 80
-            && Mkk > 2*mk && Mkk < 1.1
+            && Mkk > 2*mk && Mkk < 1.08
             && fabs(Mgg-meta) < 3*seta
          ) {
          if ( fabs(Slct.Mrec_best - 3.097) < 0.005 ) { // [3.092, 3.102]
