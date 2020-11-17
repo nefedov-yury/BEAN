@@ -25,7 +25,7 @@ public:
     void LoadMcMdcTracks(std::multimap <int, int>& map){m_mcMdcTracks=map;}
     void LoadMcEmcMcHits(std::multimap <int, int>& map){m_mcEmcMcHits=map;}
     void LoadMcEmcRecShowers(std::multimap <int, int>& map){m_mcEmcRecShowers=map;}
-private:
+// private:
     std::multimap <int, int> m_mcMdcMcHits; // auxillary list McParticle id <-> MdcMcHit (=MdcRecHit) id
     std::multimap <int, int> m_mcMdcTracks; // McParticle id <-> RecMdcTrack (RecMdcKalTrack) id
     std::multimap <int, int> m_mcEmcMcHits; // auxiallry list McParticle id <-> EmcMcHit (=EmcRecHit) id
