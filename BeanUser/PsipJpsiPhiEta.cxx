@@ -55,10 +55,10 @@ using CLHEP::HepLorentzVector;
 
 using namespace std;
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Structure to save variables for a single event
-//-----------------------------------------------------------------------------
-struct Select {
+//-------------------------------------------------------------------------
+struct Select_PsipJpsiPhiEta {
    // Run-info
    int runNo;              // run-number
    int event;              // event-number
@@ -100,7 +100,7 @@ struct Select {
    vector<HepLorentzVector> Pg;     // 4-momentum of gammas
    vector<RecEmcShower*> g4f;       // two best photons after 4C-fit
 
-   Select() {
+   Select_PsipJpsiPhiEta() {
       decPsip = decJpsi = -1;
       dec_eta = 0;
       mc_mkk = 0;
@@ -116,9 +116,11 @@ struct Select {
    }
 };
 
-//-----------------------------------------------------------------------------
+typedef Select_PsipJpsiPhiEta Select;
+
+//-------------------------------------------------------------------------
 // Structure for tree
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 struct Xnt1 {
    float Mrs;            // recoil mass of true signal pi+pi- for decPsip==64
    float Mrs_mindp;      // min delta momentum to find Mrs
@@ -140,9 +142,9 @@ struct Xnt1 {
 //    float Ppls;           // momentum of pi+ for best
 //    float Pmns;           // momentum of pi- for best
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Global variables
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
@@ -179,34 +181,34 @@ static int DataPeriod = 0;
 
 static bool isMC = false;
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Functions: use C-linkage names
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 inline double RtoD(double ang) {
    return ang*180/M_PI;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 inline double SQ(double x) {
    return x*x;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool SelectPM(double cosPM, double invPM) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
    if ( (cosPM > 0.80) ||         // flying in one direction
@@ -217,9 +219,9 @@ static bool SelectPM(double cosPM, double invPM) {
    return ret;
 }
 
-//----------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static double ReWeightTrkPid(int Kp, double Pt) {
-//----------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // This correction is based on "prod-12/13eff"
 // and independent of cos(Theta)
 // Kp = 1 for kaons and Kp = 0 for pions
@@ -272,9 +274,9 @@ static double ReWeightTrkPid(int Kp, double Pt) {
    return W;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
    }
@@ -307,14 +309,14 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
       Warning("EventTagSvc has already been initialized");
    }
 
-   // We have to initialize DatabaseSvc ---------------------------------------
+   // We have to initialize DatabaseSvc -----------------------------------
    DatabaseSvc* dbs = DatabaseSvc::instance();
    if ( (dbs->GetDBFilePath()).empty() ) {
       // set path to directory with databases:
       dbs->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
    }
 
-   // We have to initialize Magnetic field ------------------------------------
+   // We have to initialize Magnetic field --------------------------------
    MagneticFieldSvc* mf = MagneticFieldSvc::instance();
    if ( (mf->GetPath()).empty() ) {
       // set path to directory with magnetic fields tables
@@ -336,7 +338,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   //--------- Book histograms ------------------------------------------------
+   //--------- Book histograms --------------------------------------------
 
    hst[1] = new TH1D("All_cuts","selections cuts", 20,-0.5,19.5);
 
@@ -608,9 +610,9 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    selector->RegInDir(tt,SaveDir);
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    static int save_runNo = 0;
    static Hep3Vector xorigin;
 
@@ -652,9 +654,9 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    return xorigin;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -872,13 +874,13 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    }
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 #if __cplusplus >= 201103L
 // C++11 and above
 [[gnu::unused]]
 #endif
 static void MatchRecMcTrks(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // Match charged reconstructed tracks (with the
    // closest to M(J/Psi) recoil mass) with MC particles
 
@@ -975,9 +977,9 @@ static void MatchRecMcTrks(ReadDst* selector, Select& Slct) {
    return;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // Match MC pi+ pi- from decay of Psi(2S) -> J/Psi pi+ pi-
    // with reconstructed tracks and calculate their recoil mass
    //
@@ -1088,14 +1090,14 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
    hst[175]->Fill(2.);
 }
 
-//--------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Charged tracks
-//--------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
 // search for pi+ pi- J/Psi
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
    static const double cosTheta_max = 0.80;  // barrel only
@@ -1305,7 +1307,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       MatchMcRecMr(selector, Slct);
    }
 
-   //---------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    // histo and ntuple for pi+ pi- J/Psi
    hst[31]->Fill( Slct.Mrec_best );
 
@@ -1383,20 +1385,23 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 }
 
 // select K+K- candidates, no other tracks.
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
    static const double cosTheta_max = 0.80;  // barrel only
 //    static const double cosTheta_max = 0.93;
 
+   if( Slct.Mrec.size() != 1 ) {
+      return false;
+   }
+   int Nother = 0; // other good tracks (not K; not pi+ pi- sel. pair)
+
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
    const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
    ParticleID* pid = ParticleID::instance();
-
-   int Nother = 0; // other good tracks (not K; not pi+ pi- sel. pair)
 
    for(int i = 0; i < evtRecEvent->totalCharged(); i++) {
 
@@ -1512,9 +1517,9 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
 }
 
 // select gammas candidates
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static int NeutralTracks(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // parameters of reconstruction
    static const double min_angle = 10 * M_PI/180; // 10 grad
 
@@ -1609,11 +1614,12 @@ static int NeutralTracks(ReadDst* selector, Select& Slct) {
 }
 
 // Vertex & Kinematic Fit
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool VertKinFit(Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // parameters of reconstruction
-   bool do5C = true; // 5C (true) or 4C (false) fit
+//    bool do5C = true; // 5C (true) or 4C (false) fit
+   bool do5C = false; // 4C fit to check Psip -> pi+pi-phi eta (no J/Psi)
 
    // search for a good vertex:
    WTrackParameter wp[4] = {
@@ -1749,7 +1755,7 @@ static bool VertKinFit(Select& Slct) {
       f3good = true;
       hst[63]->Fill(kmfit->chisq());
       hst[64]->Fill( chisq );
-   }
+   } // end for( additional gamma )
    if ( f3good ) {
       return false;
    }
@@ -1786,9 +1792,9 @@ static bool VertKinFit(Select& Slct) {
    }
    chisq=kmfit->chisq();
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    // Final histograms and ntuples
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    double Eg_max = 0.; // max momentum of gammas not selected by fit
    double mang = 200.; // min angle wrt of charge trk for selected gammas
    HepLorentzVector Pgg0; // sum of momentums of good photons
@@ -1923,9 +1929,9 @@ static bool VertKinFit(Select& Slct) {
    return true;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void EtaEff(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // window for selection of eta: see cuts.h (in PsipJpsiPhiEta)
    static const double seta = 0.008;
    static const double weta = 3*seta; // standard
@@ -2264,7 +2270,7 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
 
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
                           TEvtHeader*    m_TEvtHeader,
                           TDstEvent*     m_TDstEvent,
@@ -2273,7 +2279,7 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
                           TTrigEvent*    m_TTrigEvent,
                           TDigiEvent*    m_TDigiEvent,
                           THltEvent*     m_THltEvent      ) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " start " << __func__ << "()" << endl;
    }
@@ -2282,9 +2288,9 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
 
    Select Slct; // information for the current event
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    //-- Get event information --
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    int runNo   = m_TEvtHeader->getRunId();
    int eventNo = m_TEvtHeader->getEventId();
    Slct.runNo  = runNo;
@@ -2328,7 +2334,7 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
    Hep3Vector xorigin = getVertexOrigin(runNo);
    Slct.xorig = xorigin;
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    if ( !ChargedTracksPiPi(selector, Slct) ) {
       return false;
    }
@@ -2336,30 +2342,29 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
       return false;
    }
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    int ng = NeutralTracks(selector, Slct); // number of selected gammas
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    // normal selection
    bool fret = false;
    if ( ng >= 2 ) {
       fret = VertKinFit(Slct);
    }
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    // study eta efficiency
    if ( ng >= 1 ) {
       EtaEff(selector,Slct);
    }
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    return fret;
 }
 
-//-----------------------------------------------------------------------------
-void PsipJpsiPhiEtaEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
-{
+//-------------------------------------------------------------------------
+void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << __func__ << "()" << endl;
    }
@@ -2425,7 +2430,7 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector)
    }
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif

@@ -52,10 +52,10 @@ using CLHEP::HepLorentzVector;
 
 using namespace std;
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Structure to save variables for a single event
-//-----------------------------------------------------------------------------
-struct Select {
+//-------------------------------------------------------------------------
+struct Select_KKgg {
    // Run-info
    int runNo;              // run-number
    int event;              // event-number
@@ -77,7 +77,7 @@ struct Select {
    vector<HepLorentzVector> Pg;     // 4-momentum of gammas
    vector<RecEmcShower*> g4f;       // two best photons after 4C-fit
 
-   Select() {
+   Select_KKgg() {
       decJpsi = -1;
       Xisr = 0.;
       mc_mkk = 0;
@@ -86,9 +86,11 @@ struct Select {
    }
 };
 
-//-----------------------------------------------------------------------------
+typedef Select_KKgg Select;
+
+//-------------------------------------------------------------------------
 // Global variables
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 const static double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
@@ -120,27 +122,27 @@ static bool isMC = false;
 extern "C" {
 #endif
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 inline void Warning(const char* msg) {
    warning_msg[string(msg)] += 1;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 inline Double_t RtoD(Double_t ang) {
    return ang*180/M_PI;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 inline double SQ(double x) {
    return x*x;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 void SelectKKggStartJob(ReadDst* selector) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
    }
@@ -170,14 +172,14 @@ void SelectKKggStartJob(ReadDst* selector) {
 
    m_EventTagSvc->initialize();
 
-   // We have to initialize DatabaseSvc ---------------------------------------
+   // We have to initialize DatabaseSvc -----------------------------------
    DatabaseSvc* dbs = DatabaseSvc::instance();
    if ( (dbs->GetDBFilePath()).empty() ) {
       // set path to directory with databases:
       dbs->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
    }
 
-   // We have to initialize Magnetic field ------------------------------------
+   // We have to initialize Magnetic field --------------------------------
    MagneticFieldSvc* mf = MagneticFieldSvc::instance();
    if ( !(mf->GetPath()).empty() ) {
       cout << " WARNING:"
@@ -198,7 +200,7 @@ void SelectKKggStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   //--------- Book histograms ------------------------------------------------
+   //--------- Book histograms --------------------------------------------
 
    hst[0] = new TH1D("Runs", "run numbers", 1000,0.,50000);
    hst[1] = new TH1D("cuts_0","preselections cuts", 20,-0.5,19.5);
@@ -258,6 +260,8 @@ void SelectKKggStartJob(ReadDst* selector) {
    hst[119] = new TH2D("mcisr_Eg1_Eg2","Eg1 vs Eg2",
                         1500,0.,1500., 1500,0.,1500.);
 
+   hst[121] = new TH1D("mc_Mkk_ini", "Minv(K^{+}K^{-})", 100,0.98,1.08);
+
    // FillHistoMC:
    hst[131] = new TH1D("mc_EtaP", "Momentum of #eta", 1000,0.,2.);
    hst[132] = new TH1D("mc_EtaPt","Pt of #eta", 1000,0.,2.);
@@ -294,9 +298,9 @@ void SelectKKggStartJob(ReadDst* selector) {
 
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // cache value for one run
    static int save_runNo = 0;
    static Hep3Vector xorigin;
@@ -353,9 +357,9 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
 }
 
 // GetEcms: return negative value for bad runs
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static double GetEcms(int runNo, bool verbose = false) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    struct runInfo {
       int runS, runE; // first and last runs in period
       double Ebeam;   // energy of beam (MeV)
@@ -501,9 +505,9 @@ static double GetEcms(int runNo, bool verbose = false) {
    return Ecms;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -525,7 +529,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          ++nprt;
       }
       Warning("MC is not J/Psi: check that it is MCGPJ!");
-      evTag = 0; // 
+      evTag = 0; //
    }
 
    // decay code of J/Psi:
@@ -594,9 +598,9 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    return;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void ISRhistoMC(const ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // summary for ISR according of MCGPJ model: 1 or 2 ISR photons
    // Ecms: interaction energy in center of mass system
    // calculate Xisr = s'/s
@@ -668,13 +672,18 @@ static void ISRhistoMC(const ReadDst* selector, Select& Slct) {
    hst[116]->Fill(Slct.Xisr);
    hst[117]->Fill(1.-Slct.Xisr);
    hst[118]->Fill( sqrt(S) - Slct.LVcms.e() * 1e3);
+
+   // Mkk(MC) distribution for Xisr > 0.9
+   if ( Slct.Xisr > 0.9 ) {
+      hst[121]->Fill( Slct.mc_mkk );
+   }
 }
 
 
 // select K+K- candidates, no other tracks.
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
 //    static const double cosTheta_max = 0.80;  // barrel only
@@ -799,9 +808,9 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
 }
 
 // select gammas candidates
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool NeutralTracks(ReadDst* selector, Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // parameters of reconstruction
    static const double min_angle = 10 * M_PI/180; // 10 grad
 
@@ -895,9 +904,9 @@ static bool NeutralTracks(ReadDst* selector, Select& Slct) {
 }
 
 // Vertex & Kinematic Fit
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool VertKinFit(Select& Slct) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
    // search for a good vertex:
    WTrackParameter wp[2] = {
@@ -999,9 +1008,9 @@ static bool VertKinFit(Select& Slct) {
    }
    chisq=kmfit->chisq();
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    // Final histograms and ntuples
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    double Eg_max = 0.; // max momentum of gammas not selected by fit
    double mang = 200.; // min angle wrt of charge trk for selected gammas
    HepLorentzVector Pgg0; // sum of momentums of good photons
@@ -1092,7 +1101,7 @@ static bool VertKinFit(Select& Slct) {
    return true;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 bool SelectKKggEvent( ReadDst*       selector,
                       TEvtHeader*    m_TEvtHeader,
                       TDstEvent*     m_TDstEvent,
@@ -1101,7 +1110,7 @@ bool SelectKKggEvent( ReadDst*       selector,
                       TTrigEvent*    m_TTrigEvent,
                       TDigiEvent*    m_TDigiEvent,
                       THltEvent*     m_THltEvent        ) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " start " << __func__ << "()" << endl;
    }
@@ -1110,9 +1119,9 @@ bool SelectKKggEvent( ReadDst*       selector,
 
    Select Slct; // information for the current event
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    //-- Get event information --
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    int runNo   = m_TEvtHeader->getRunId();
    int eventNo = m_TEvtHeader->getEventId();
    Slct.runNo  = runNo;
@@ -1148,15 +1157,15 @@ bool SelectKKggEvent( ReadDst*       selector,
    Hep3Vector xorigin = getVertexOrigin(runNo);
    Slct.xorig = xorigin;
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    if ( !ChargedTracksKK(selector, Slct) ) {
       return false;
    }
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    if ( !NeutralTracks(selector, Slct) ) {
       return false;
    }
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    if ( !VertKinFit(Slct) ) {
       return false;
    }
@@ -1164,10 +1173,9 @@ bool SelectKKggEvent( ReadDst*       selector,
    return true;
 }
 
-//-----------------------------------------------------------------------------
-void SelectKKggEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
-{
+//-------------------------------------------------------------------------
+void SelectKKggEndJob(ReadDst* selector) {
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << __func__ << "()" << endl;
    }
@@ -1193,6 +1201,8 @@ void SelectKKggEndJob(ReadDst* selector)
       }
    }
 }
+
+//-------------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif
