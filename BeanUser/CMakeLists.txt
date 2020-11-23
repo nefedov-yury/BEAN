@@ -38,7 +38,7 @@ SET( CXX_FILES
 #     PsipMuMuGamma.cxx
 #     PsipJpsiGammaEta.cxx
 #
-#     Eta_TwoPi.cxx
+   Eta_TwoPi.cxx
 #     SelectJpsiX.cxx
 )
 
