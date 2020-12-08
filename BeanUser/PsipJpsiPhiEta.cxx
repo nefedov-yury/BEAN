@@ -167,11 +167,12 @@ static vector<TNtupleD*> m_tuple;
 static TTree* m_nt1 = nullptr;
 
 // decays classification
-static DecayTable PsipTbl;
-static DecayTable PsipTbl2;
-static DecayTable JpsiTbl;
-static DecayTable JpsiTbl2;
-static DecayTable JpsiTblE;
+static DecayTable PsipTbl;  // narrow window [3.092, 3.102]
+static DecayTable PsipTbl2; // wide window [3.055, 3.145]
+static DecayTable PsipTbl4C;// side-band for 4C KF
+static DecayTable JpsiTbl;  // final phi-eta selection
+static DecayTable JpsiTbl2; // phi-eta: Mrec in [3.055, 3.145]
+static DecayTable JpsiTblE; // for effitiency selection
 
 // container for warnings
 static map<string,int> warning_msg;
@@ -462,6 +463,10 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[143] = new TH1D("mc_test",
               "angle(#eta,#phi) in the rest frame of J/#Psi", 100,179.,181.);
    hst[145] = new TH1D("mc_Mkk", "Minv(K^{+}K^{-})", 140,0.98,1.12);
+   hst[146] = new TH1D("mc_KpCRC",
+              "cos(#Theta) of K^{+} in the rest frame of J/#Psi",100,-1.,1.);
+   hst[147] = new TH1D("mc_KmCRC",
+              "cos(#Theta) of K^{-} in the rest frame of J/#Psi",100,-1.,1.);
 
    // MatchRecMcTrks:
    hst[151] = new TH1D("mc_mdp_p","REC-MC ok min dP #pi^{+}",100,-0.05,0.05);
@@ -857,15 +862,36 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
       TIter mcIter(mcParticles);
       while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
          long int part_pdg = part->getParticleID ();
+         Hep3Vector Vp( part->getInitialMomentumX(),
+                        part->getInitialMomentumY(),
+                        part->getInitialMomentumZ() );
 
-         if ( part->getMother() == idx_jpsi &&
-            abs(part_pdg) == 321 ) {      // K+ or K-
-            Hep3Vector Vp( part->getInitialMomentumX(),
-                           part->getInitialMomentumY(),
-                           part->getInitialMomentumZ() );
-            LVK.push_back( HepLorentzVector( Vp,sqrt(Vp.mag2()+SQ(mk)) ) );
-         }
-      }
+         if ( part->getMother() == idx_jpsi ) {
+            if ( abs(part_pdg) == 321 ) {      // K+ or K-
+               int signK = ( part_pdg > 0 ) ? 1 : -1;
+               hst[138]->Fill( signK*Vp.mag() );
+               hst[139]->Fill(Vp.cosTheta());
+               HepLorentzVector LV( Vp, sqrt(Vp.mag2()+SQ(mk)) );
+               LVK.push_back(LV);
+
+               LV.boost(-beta_jpsi);
+               if ( signK > 0 ) {
+                  hst[146]->Fill( LV.cosTheta() );
+               } else {
+                  hst[147]->Fill( LV.cosTheta() );
+               }
+
+            } else if ( part_pdg == 221 ) {    // eta
+               hst[131]->Fill(Vp.mag());
+               hst[132]->Fill(Vp.rho());
+               hst[133]->Fill(Vp.cosTheta());
+
+               HepLorentzVector LV( Vp, sqrt(Vp.mag2() + SQ(meta)) );
+               LV.boost(-beta_jpsi);
+               hst[141]->Fill( LV.cosTheta() );
+            }
+         } // end J/Psi daughters
+      } // end of while()
 
       // invariant mass of K+ K-
       if ( LVK.size() == 2 ) {
@@ -1615,11 +1641,15 @@ static int NeutralTracks(ReadDst* selector, Select& Slct) {
 
 // Vertex & Kinematic Fit
 //-------------------------------------------------------------------------
-static bool VertKinFit(Select& Slct) {
+static bool VertKinFit(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
    // parameters of reconstruction
-//    bool do5C = true; // 5C (true) or 4C (false) fit
-   bool do5C = false; // 4C fit to check Psip -> pi+pi-phi eta (no J/Psi)
+   bool do5C = true; // 5C (true) or 4C (false) fit
+//    bool do5C = false; // 4C fit to check Psip -> pi+pi-phi eta (no J/Psi)
+
+   if ( !do5C ) {
+      Warning("VertKinFit: 4C fitN");
+   }
 
    // search for a good vertex:
    WTrackParameter wp[4] = {
@@ -1924,7 +1954,27 @@ static bool VertKinFit(Select& Slct) {
             JpsiTbl2.Add();
          }
       }
-   }
+
+      if ( !do5C ) { // side-band for 4C
+         if (     (Slct.Mrec_best>3.0 && Slct.Mrec_best < 3.05)
+               || (Slct.Mrec_best>3.144 && Slct.Mrec_best < 3.194) ) {
+            if ( chisq < 80
+               && fabs(Mgg-meta) < 3*seta
+               && Mkk > 2*mk && Mkk < 1.08      ) {
+
+               // fill decay table of Psi(2S):
+               PsipTbl4C.vecdec = PsipTbl.vecdec; // propagate for 4C
+               PsipTbl4C.Add();
+               cout << "<<< EVENT IN SIDE-BAND>>>"
+                    << " Mrec= " << Slct.Mrec_best
+                    << " Mgg= " << Mgg
+                    << " Mkk= " << Mkk
+                    << endl;
+               selector->PrintMcDecayTree(-99,0);
+            }
+         }
+      }
+   } // end if (isMC)
 
    return true;
 }
@@ -2349,13 +2399,13 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
    // normal selection
    bool fret = false;
    if ( ng >= 2 ) {
-      fret = VertKinFit(Slct);
+      fret = VertKinFit(selector, Slct);
    }
 
    //----------------------------------------------------------------------
    // study eta efficiency
    if ( ng >= 1 ) {
-      EtaEff(selector,Slct);
+      EtaEff(selector, Slct);
    }
 
    //----------------------------------------------------------------------
@@ -2390,7 +2440,7 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
       // FIXME: how to save cuts automatically?
       string my_cuts(
          " List of cuts for J/Psi -> phi eta:\n "
-         "      chisq<80 && 2*mk<Mkk<1.10 && abs(Mgg-meta)<3*seta"
+         "      chisq<80 && 2*mk<Mkk<1.08 && abs(Mgg-meta)<3*seta"
       );
       cout << my_cuts << endl << endl;
 
@@ -2415,6 +2465,14 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
            << "   reconstructed events " << JpsiTblE.ntot << endl
            << "       size of table is " << JpsiTblE.Size() << endl;
       JpsiTblE.Print(0.01); // do not print decays with P<0.01% of all
+      cout << "Enddecay" << endl << endl;
+
+      cout << string(65,'#') << endl;
+      cout << "Decays of Psi(2S) 4C" << endl
+           << "       Mrec in [3.00, 3.05] & [3.144, 3.194] "
+           << PsipTbl4C.ntot << " decays" << endl
+           << "       size of table is " << PsipTbl4C.Size() << endl;
+      PsipTbl4C.Print(0.01); // do not print decays with P<0.01% of all
       cout << "Enddecay" << endl << endl;
    }
 
