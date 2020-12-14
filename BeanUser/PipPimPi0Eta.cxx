@@ -1,7 +1,7 @@
 //======================================================================//
 //                                                                      //
-// SelectOmegaEta - search for e+ e- -> pi+ pi- pi0 Eta                 //
-//                                                   |-> 2 gammas       //
+// search for e+ e- -> pi+ pi- pi0 Eta                                  //
+//                                  |-> 2 gammas                        //
 //                                                                      //
 //======================================================================//
 
@@ -63,15 +63,17 @@ using namespace std;
 struct Select {
   double Ecms;                  // energy in center of mass system
 
+  // MC information:
+  int decJpsi;                  // decay codes for J/Psi MC events
+  int dec_eta;                  // 1 if eta->2gamma
+  int dec_phi;                  // 1 if phi->pi+pi-pi0
+
   // charge tracks:
   vector<int> qtrks;            // trk# in EvtRecTrkCol
   int ipip, ipim;               // trk# for charge +/-
   HepLorentzVector ppip, ppim;  // 4-momentum of trks
   int ipip_mc, ipim_mc;         // correspondent mcParticle
   int pip_pdg, pim_pdg;         // PDG code of these mc-particles (or 0)
-
-  HepLorentzVector P_missing;   // missing 4-momentum
-  double SoverS0;               // for check MCGPJ
 
   // neutral (gammas) tracks
   vector<int> gammas;           // trk# in EvtRecTrkCol
@@ -86,11 +88,12 @@ struct Select {
 
   Select() {
     Ecms = -1;
+    decJpsi = -1;
+    dec_eta = dec_phi = 0;
     ipip = ipim = -1;
     ipip_mc = ipim_mc = -1;
     pip_pdg = pim_pdg = 0;
     ig1 = ig2 = ig3 = ig4 = -1;
-    SoverS0 = -1;
   }
 
   int nGood() { return qtrks.size(); }
@@ -109,15 +112,16 @@ struct Select {
 //-----------------------------------------------------------------------------
 // Global file variables
 //-----------------------------------------------------------------------------
-const static bool init_selection = true;
 
 const static double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
+static const double mjpsi  = 3.096916; // 3096.916  +/- 0.011   MeV
 const static double mpi    = 0.13957;  // 139.57018 +/- 0.00035 MeV
 const static double mpi0   = 0.13498;  // 134.9766  +/- 0.0006  MeV
 const static double meta   = 0.547862; // 547.862   +/- 0.017   MeV
 const static double momega = 0.78265;  // 782.65    +/- 0.12    MeV
+static const double mphi   = 1.019461; //1019.461   +/- 0.019   MeV
 
 static AbsCor* m_abscor = 0;
 static EventTagSvc* m_EventTagSvc = 0;
@@ -126,36 +130,29 @@ static std::vector<TH1D*> his1;
 static std::vector<TH2D*> his2;
 static std::vector<TNtuple* > m_tuple;
 
-static int ERROR_WARNING = 0;
-static bool isMC = false;
+// container for warnings
+static map<string,int> warning_msg;
 
-static bool omega_to_pis = false;
-static bool omega_best_mass = false;
-static bool one_ISR = false;
-static bool one_ISR_less50 = false;
-static bool one_ISR_more50 = false;
-static bool two_ISR = false;
-static bool two_ISR_less50 = false;
-static bool two_ISR_more50 = false;
-static bool SoverS0 = false;
-static bool EtaTo2Gammas = false;
+static bool isMC = false;
 
 // Functions: use C-linkage names
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+inline void Warning(const char* msg) {
+   warning_msg[string(msg)] += 1;
+}
 
 inline Double_t RtoD(Double_t ang) {return ang*180/M_PI;}
 
+inline double SQ(double x) {
+   return x*x;
+}
 
 void PipPimPi0EtaStartJob (ReadDst* selector)
 {
   if ( selector->Verbose() ) cout << " Start: " << __func__ << "()" << endl;
-
-  if ( init_selection ) {
-    cout << " ===== INIT SELECTION =====" << endl;
-  }
 
   his1.resize(500,(TH1D*)0);
   his2.resize(500,(TH2D*)0);
@@ -164,18 +161,27 @@ void PipPimPi0EtaStartJob (ReadDst* selector)
   // init Absorption Correction
   m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
 
-  //initialize EventTag
+  // initialize EventTag
   m_EventTagSvc = EventTagSvc::instance();
-
-  // set paths to pdg & decayCodes files:
-  m_EventTagSvc->setPdtFile(
-        selector->AbsPath("Analysis/EventTag/share/pdt.table") );
-  m_EventTagSvc->setDecayTabsFile(
-        selector->AbsPath("Analysis/EventTag/share/decay.codes") );
-
-  if ( selector->Verbose() ) m_EventTagSvc->setVerbose(1);
-
-  m_EventTagSvc->initialize();
+  if ( !m_EventTagSvc->IsInitialized() ) {
+     // set paths to pdg & decayCodes files:
+     m_EventTagSvc->setPdtFile(
+        selector->AbsPath( "Analysis/EventTag/share/pdt_bean.table" )
+                              );
+     m_EventTagSvc->setDecayTabsFile(
+        selector->AbsPath(
+           "Analysis/EventTag/share/DecayCodes/dcode_charmonium.txt"
+        )                           );
+     m_EventTagSvc->setIgnorePhotons(false); // for "dcode_charmonium.txt"
+     if ( selector->Verbose() ) {
+        m_EventTagSvc->setVerbose(1);
+     }
+     m_EventTagSvc->initialize();
+  } else {
+     cout << " WARNING in " << __func__ << ": "
+          << "EventTagSvc has already been initialized" << endl;
+     Warning("EventTagSvc has already been initialized");
+  }
 
   // We have to initialize DatabaseSvc ----------------------------------------
   DatabaseSvc* dbs = DatabaseSvc::instance();
@@ -196,13 +202,51 @@ void PipPimPi0EtaStartJob (ReadDst* selector)
   mf->UseDBFlag(false); // like in the boss program
   mf->RunMode(3); // like in the boss program
 
+  // set path for ParticleID algorithm
+  ParticleID* pid = ParticleID::instance();
+#if (BOSS_VER < 700)
+  pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
+#else
+  pid->set_path(selector->AbsPath("Analysis/ParticleID"));
+#endif
 
-  his1[0] = new TH1D("InvMBef","Invariant mass before kinematic fit", 500, 0, 5);
-  his1[1] = new TH1D("InvMAft","Invariant mass after kinematic fit", 500, 0, 5);
-  his1[2] = new TH1D("InvMAft2","Invariant mass after kinematic fit2", 500, 0, 5);
-  his1[3] = new TH1D("Pi0","Invariant mass for #pi_{0}", 500, 0, 5);
-  his1[4] = new TH1D("Eta","Invariant mass for #eta", 500, 0, 5);
-  his1[5] = new TH1D("Phi","Invariant mass for #phi", 500, 0, 5);
+
+  his1[0] = new TH1D("InvMBef","The invariant mass before kinematic fit", 500, 0, 5);
+  his1[1] = new TH1D("JPsi1","The invariant mass for J/#psi one", 500, 0, 5);
+  his1[2] = new TH1D("JPsi2","The invariant mass for J/#psi two", 500, 0, 5);
+  his1[3] = new TH1D("Pi0","The invariant mass for #pi_{0}", 1000, 0, 1);
+  his1[4] = new TH1D("Eta","The invariant mass for #eta", 500, 0, 5);
+  his1[5] = new TH1D("Phi","The invariant mass for #phi", 500, 0, 5);
+  his1[6] = new TH1D("RecoilMass","The recoil mass", 100, 0.98, 1.08);
+
+  // Monte Carlo histograms:
+  his1[100] = new TH1D("mc_deccode0", "decCode nocut",258,-1.5,256.5);
+
+  his1[111] = new TH1D("mc_pdg", "PDG codes of all particles",
+                      2001,-1000.5,1000.5);
+  his1[112] = new TH1D("mc_pdg0", "PDG of particles from primary vertex",
+                      2001,-1000.5,1000.5);
+  his1[121] = new TH1D("mc_JpsiPt","Pt of J/#Psi", 100,0.,1.);
+  his1[122] = new TH1D("mc_JpsiC", "cos(#Theta) of J/#Psi", 100,-1.,1.);
+  his1[123] = new TH1D("mc_EtaP", "Momentum of #eta", 1000,0.,2.);
+  his1[124] = new TH1D("mc_EtaPt","Pt of #eta", 1000,0.,2.);
+  his1[125] = new TH1D("mc_EtaC", "cos(#Theta) of #eta", 100,-1.,1.);
+  his1[126] = new TH1D("mc_PhiP", "Momentum of #phi", 1000,0.,2.);
+  his1[127] = new TH1D("mc_PhiPt","Pt of #phi", 1000,0.,2.);
+  his1[128] = new TH1D("mc_PhiC", "cos(#Theta) of #phi", 100,-1.,1.);
+  his1[131] = new TH1D("mc_EtaRC",
+           "cos(#Theta) of #eta in the rest frame of J/#Psi", 100,-1.,1.);
+  his1[132] = new TH1D("mc_PhiRC",
+           "cos(#Theta) of #phi in the rest frame of J/#Psi", 100,-1.,1.);
+  his1[141] = new TH1D("mc_2gE", "E(g) from eta->2g", 100,0.,2.);
+  his1[142] = new TH1D("mc_2gC", "cos(g) from eta->2g", 100,-1.,1.);
+  his1[143] = new TH1D("mc_3pipP", "P(pi+) from phi", 100,0.,2.);
+  his1[144] = new TH1D("mc_3pipC", "cos(pi+) from phi", 100,-1.,1.);
+  his1[145] = new TH1D("mc_3pimP", "P(pi-) from phi", 100,0.,2.);
+  his1[146] = new TH1D("mc_3pimC", "cos(pi-) from phi", 100,-1.,1.);
+  his1[147] = new TH1D("mc_3pi0P", "P(pi0) from phi", 100,0.,2.);
+  his1[148] = new TH1D("mc_3pi0C", "cos(pi0) from phi", 100,-1.,1.);
+
 
   m_tuple[0] = new TNtuple("a4C","after 4C fit",
                                 "ch2:Eisr:PZisr:PTisr:"
@@ -210,12 +254,14 @@ void PipPimPi0EtaStartJob (ReadDst* selector)
                                 "mcNg:mcEisr:mcEmisr:mcThisr:"
                                 "dc:PZmis:PTmis:Mmis");
 
+  const char* SaveDir = "one";
   VecObj his1o(his1.begin(),his1.end());
-  selector->RegInDir(his1o, "one");
-
+  selector->RegInDir(his1o,SaveDir);
+  VecObj ntuples(m_tuple.begin(),m_tuple.end());
+  selector->RegInDir(ntuples,SaveDir);
 }
 
-static Hep3Vector getVertexOrigin(int runNo)
+static Hep3Vector getVertexOrigin(int runNo, bool verbose = false)
 {
   static int save_runNo = 0;
   static Hep3Vector xorigin;
@@ -228,14 +274,15 @@ static Hep3Vector getVertexOrigin(int runNo)
 
   int run = abs(runNo);
   if (
-          (run >= 28241 && run <= 28266)  // 3080-old
-       || (run >=  9947 && run <= 10878)  // J/Psi 2009
+       (run >=  9947 && run <= 10878)  // J/Psi 2009
      ) {
     vtxsvc->SetBossVer("6.6.3");
-  } else if ( run < 30000 ) {   // here: J/Psi scan
-    vtxsvc->SetBossVer("6.6.4");
   } else {
-    vtxsvc->SetBossVer("6.6.5");  // here: 3080 from R-scan (2015)
+    cout << " WARNING:" << __func__ << " :" << " run=" << runNo
+       << " We will use default Boss Version: " << vtxsvc->GetBossVer()
+       << endl;
+    Warning( (string("getVertexOrigin: default Boss Version ")
+          + vtxsvc->GetBossVer()).c_str() );
   }
 
   vtxsvc->handle(runNo);
@@ -243,10 +290,12 @@ static Hep3Vector getVertexOrigin(int runNo)
   if ( vtxsvc->isVertexValid() ) {
     double* dbv = vtxsvc->PrimaryVertex();
     xorigin.set(dbv[0],dbv[1],dbv[2]);
-    // cout << " sqlite-db vertex: (x,y,z)= " << xorigin << endl;
+    if( verbose ) {
+      cout << " sqlite-db vertex: (x,y,z)= " << xorigin << endl;
+    }
   } else {
-    cout << "Cannot obtain vertex information for run#" << runNo << endl;
-    ERROR_WARNING++;
+    cout << " FATAL ERROR:"
+      " Cannot obtain vertex information for run#" << runNo << endl;
     exit(1);
   }
 
@@ -254,98 +303,157 @@ static Hep3Vector getVertexOrigin(int runNo)
   return xorigin;
 }
 
-//-----------------------------------------------------------------------------
-static double GetEcms(int run, double& Lumi)
-//-----------------------------------------------------------------------------
+static void FillHistoMC(const ReadDst* selector, Select& Slct)
 {
-  struct runInfo {
-    int runS, runE; // first and last runs in period
-    double Ebeam;   // energy of beam (MeV)
-    double Spread;  // beam spread (KeV)
-    double Lumi;    // luminosity (pb^-1)
-  };
+   if ( !isMC ) {
+      return;
+   }
 
-  static runInfo ListRuns[] =  {
-        { 28312, 28346,     3050.254,    915,     14.918 },
-        { 28347, 28381,     3059.273,    842,     15.059 },
-        { 28241, 28266,     3080.224,    839,     17.513 },
-        { 28382, 28387,     3082.491,    883,      2.711 },
-        { 28466, 28469,     3084.351,   1019,      2.057 },
-        { 28388, 28416,     3089.213,    905,     13.934 },
-        { 28472, 28475,     3091.284,    777,      1.624 },
-        { 28417, 28449,     3092.104,    864,     12.354 },
-        { 28476, 28478,     3093.716,    837,      1.843 },
-        { 28479, 28482,     3095.299,    819,      2.143 },
-        { 28487, 28489,     3096.017,   1077,      1.816 },
-        { 28490, 28492,     3096.432,    894,      2.134 },
-        { 28493, 28495,     3097.783,    710,      2.069 },
-        { 28496, 28498,     3098.943,    833,      2.203 },
-        { 28499, 28501,     3099.572,   1170,      0.756 },
-        { 28504, 28505,     3101.914,    960,      1.612 },
-        { 28506, 28509,     3106.146,    981,      2.106 },
-        { 28510, 28511,     3112.609,    667,      1.720 },
-        { 28512, 28513,     3120.294,   1116,      1.264 },
-        { 33490, 33556,     3810.951 + 0.55,   1088,     50.54 },
-        { 33572, 33657,     3899.608 + 0.55,   1025,     52.61 },
-        { 33659, 33719,     4090.238 + 0.55,    722,     52.63 },
-        { 30372, 30437,     4190.557 + 0.55,    644,     43.09 },
-        { 32046, 32140,     4218.961 + 0.55,   1497,     54.13 },
-        { 30438, 30491,     4229.893 + 0.55,   1025,     44.40 },
-        { 32141, 32226,     4245.102 + 0.55,   1583,     55.59 },
-        { 30492, 30557,     4310.388 + 0.55,   1071,     44.90 },
-        { 31281, 31325,     4389.833 + 0.55,   1577,     55.18 },
-                        };
+   const TMcEvent*  m_TMcEvent  = selector->GetMcEvent();
+   const TObjArray* mcParticles = m_TMcEvent->getMcParticleCol();
+   if ( !mcParticles ) {
+      return;
+   }
 
-  int Np = sizeof(ListRuns)/sizeof(ListRuns[0]);
+   // EventTag: for J/Psi MC:
+   m_EventTagSvc->setMcEvent(const_cast<TMcEvent*>(m_TMcEvent));
+   unsigned int evTag = m_EventTagSvc->getEventTag();
+   // check general event type
+   if ( (evTag & 0xF) != 4 ) { // 4 is J/Psi event
+      static int nprt = 0;
+      if ( nprt < 1 ) {
+         printf(" WARNING: MC is not J/Psi evTag= 0x%08x\n",evTag);
+         ++nprt;
+      }
+      Warning("MC is not J/Psi");
+   } else {
+      // decay code of J/Psi:
+      Slct.decJpsi = (evTag >> 8) & 0xFF;
+   }
+   his1[100]->Fill( Slct.decJpsi );
 
-  int absrun = abs(run);
+   int idx_jpsi=-1;
+   int idx_eta=-1;
+   int idx_phi=-1;
+   // momentum eta & phi in rest frame of J/Psi
+   Hep3Vector beta_jpsi;
+   HepLorentzVector LVeta, LVphi;
+   // is phi decays to pi+ pi- pi0
+   vector<int> Pdg_ppp;
 
-  // we need some values any way
-  double Ecms   = 3.097;
-  double Spread = 1000.;
-  Lumi          = 0;
+   TIter mcIter(mcParticles);
+   while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
+      long int part_pdg = part->getParticleID ();
 
-  int i = 0;
-  for(; i < Np; i++) {
-     if ( absrun >= ListRuns[i].runS && absrun <= ListRuns[i].runE ) {
-       Ecms   = ListRuns[i].Ebeam  * 1.e-3;  // MeV -> GeV
-       Spread = ListRuns[i].Spread * 1.e-6;  // KeV -> GeV
-       Lumi   = ListRuns[i].Lumi;
-       break;
-     }
-  }
+      Hep3Vector Vp( part->getInitialMomentumX(),
+                     part->getInitialMomentumY(),
+                     part->getInitialMomentumZ() );
 
-  if ( i != Np ) {
-    // correct energy according Yadi Wang fit of J/Psi peak"
-    Ecms -= 0.55e-3; // -0.55MeV
-  } else {
-    // run not in the list
-    if ( absrun >= 39355 && absrun <= 39618 ) { // 3080 from R-scan (2015)
-      Ecms =  3.080; // no BEMS information
-      Lumi = 120.11483;
-    } else  if ( absrun >= 9947 && absrun <= 10878 ) { // J/Psi 2009
-      Ecms =  3.097; // for inclusive MC
-      Lumi = 0.;
-    } else  if ( absrun >= 31327 && absrun <= 31390 ) {
-      Ecms =  4.420; // no BEMS information
-      Lumi =  44.67;
-    } else if ( absrun >= 31983 && absrun <= 32045 ) {
-      Ecms =  4.210; // no BEMS information
-      Lumi =  54.55;
-    } else if ( absrun >= 27147 && absrun <= 27233 ) {
-      Ecms =  3.0827;
-      Lumi = 13.5158;
-      cout << " GetEcms::WARNING run# " << run
-           << " this is old not recommended run" << endl;
-    } else {
-      cout << " GetEcms::WARNING unknown run# " << run
-           << " use Ecms= " << Ecms << endl;
-      ERROR_WARNING++;
-    }
-  }
+      his1[111]->Fill(part_pdg);
+      if ( part->getMother() == -99 ) { // primary vertex
+         his1[112]->Fill(part_pdg);
+      }
 
-  return Ecms;
+      if ( part_pdg == 443 ) {                // J/Psi
+         his1[121]->Fill(Vp.rho());
+         his1[122]->Fill(Vp.cosTheta());
+         idx_jpsi = part->getTrackIndex();
+         HepLorentzVector LVjpsi( Vp, sqrt(Vp.mag2() + SQ(mjpsi)) );
+         beta_jpsi = LVjpsi.boostVector();
+      }
+
+      if ( part->getMother() == idx_jpsi
+            && Slct.decJpsi == 68        ) {    // J/Psi -> phi eta
+         if ( part_pdg == 221 ) {               // eta
+            his1[123]->Fill(Vp.mag());
+            his1[124]->Fill(Vp.rho());
+            his1[125]->Fill(Vp.cosTheta());
+            idx_eta = part->getTrackIndex();
+
+            HepLorentzVector LV( Vp, sqrt(Vp.mag2() + SQ(meta)) );
+            LV.boost(-beta_jpsi);
+            LVeta=LV;
+            his1[131]->Fill( LV.cosTheta() );
+
+         } else if ( part_pdg == 333 ) {        // phi
+            his1[126]->Fill(Vp.mag());
+            his1[127]->Fill(Vp.rho());
+            his1[128]->Fill(Vp.cosTheta());
+            idx_phi = part->getTrackIndex();
+
+            HepLorentzVector LV( Vp, sqrt(Vp.mag2() + SQ(mphi)) );
+            LV.boost(-beta_jpsi);
+            LVphi=LV;
+            his1[132]->Fill( LV.cosTheta() );
+         }
+      }
+
+      if ( part->getMother() == idx_eta ) { // J/Psi -> phi eta
+                                            //               |-> 2gamma
+         if ( part_pdg != 22 ) {            // it's not 2gamma decay
+            Slct.dec_eta = -1;
+         }
+      }
+
+      if ( part->getMother() == idx_phi ) { // J/Psi -> *phi* eta
+                                            //            |-> pi+ pi- pi0
+         if ( abs(part_pdg) == 211 || part_pdg == 111) {  // pi+ pi- pi0
+            Pdg_ppp.push_back(int(part_pdg));
+         }
+      }
+
+   } // end of while
+
+   if ( Slct.decJpsi == 68 ) {  // J/Psi -> phi eta
+      // set Slct.dec_eta
+      if ( Slct.dec_eta == 0 ) {
+         Slct.dec_eta = 1; // eta -> 2 gamma
+      } else {
+         Slct.dec_eta = 0;
+      }
+
+      // set Slct.dec_phi
+      if ( Pdg_ppp.size() == 3 ) {
+         Slct.dec_phi = 1;  // phi -> pi+pi-pi0
+      } else {
+         Slct.dec_phi = 0;
+      }
+
+      if ( Slct.dec_eta == 1 && Slct.dec_phi == 1 ) {
+         TIter mcIter(mcParticles);
+         while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
+            long int part_pdg = part->getParticleID ();
+
+            Hep3Vector Vp( part->getInitialMomentumX(),
+                           part->getInitialMomentumY(),
+                           part->getInitialMomentumZ() );
+            double Ep = part->getInitialMomentumE();
+
+            if ( part->getMother() == idx_eta ) {
+               if ( part_pdg == 22 ) {
+                  his1[141]->Fill(Ep);
+                  his1[142]->Fill(Vp.cosTheta());
+               }
+            }
+
+            if ( part->getMother() == idx_phi ) {
+               if ( part_pdg == 211 ) {         // pi+
+                  his1[143]->Fill(Vp.mag());
+                  his1[144]->Fill(Vp.cosTheta());
+               } else if ( part_pdg == -211 ) { // pi-
+                  his1[145]->Fill(Vp.mag());
+                  his1[146]->Fill(Vp.cosTheta());
+               } else if ( part_pdg == 111 ) {  // pi0
+                  his1[147]->Fill(Vp.mag());
+                  his1[148]->Fill(Vp.cosTheta());
+               }
+            }
+         } // end of while-2
+      } // end if
+   }
+   return;
 }
+
 
 bool PipPimPi0EtaEvent (ReadDst* selector,
                    TEvtHeader* m_TEvtHeader,
@@ -364,6 +472,23 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
   int runNo   = m_TEvtHeader->getRunId();
   int eventNo = m_TEvtHeader->getEventId();
+
+  isMC = (runNo < 0);
+  if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
+        ( !isMC &&
+          m_TMcEvent != 0 &&
+          !m_TMcEvent->getMcParticleCol()->IsEmpty() )
+     ) {
+     cout << " WARNING: something wrong: isMC= " << isMC
+          << " McParticles= " << m_TMcEvent->getMcParticleCol()->GetEntries()
+          << endl;
+     Warning("Incorrect number of MC particles");
+     return false;
+  }
+
+  if ( isMC ) {
+     FillHistoMC(selector,Slct);       // MC histo
+  }
 
   Hep3Vector xorigin = getVertexOrigin(runNo);
 
@@ -408,12 +533,7 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
   if ( nGood != 2 || Ncharge != 0 ) return false;
 
-  ParticleID *pid = ParticleID::instance();
-#if (BOSS_VER < 700)
-  pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
-#else   
-  pid->set_path(selector->AbsPath("Analysis/ParticleID"));
-#endif
+  ParticleID* pid = ParticleID::instance();
 
   int npp = 0, npm = 0; // number of +/- in event
   for(int i = 0; i < nGood; i++) {
@@ -443,10 +563,8 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
     if ( !pid->IsPidInfoValid() ) return false;
 
-    if ( !init_selection ) {
-      // select Pions only
-      if ( pid->probPion() <  0.001 ) return false;
-    }
+    // select Pions only
+    if ( pid->probPion() <  0.001 ) return false;
 
     RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
 //    his1[25]->Fill( (double)(mdcKalTrk != 0) );
@@ -472,10 +590,8 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
     }
   }
 
-  if ( !init_selection ) {
-    // require exactly one "+" and one "-"
-    if ( npp != 1 || npm != 1 ) return false;
-  }
+  // require exactly one "+" and one "-"
+  if ( npp != 1 || npm != 1 ) return false;
 
   for(int i = evtRecEvent->totalCharged();
           i < evtRecEvent->totalTracks(); i++) {
@@ -521,15 +637,15 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
     // (E,Px,Py,Pz) for good gammas
     Hep3Vector p3 = emcpos - xorigin; // position emc cluster wrt of vertex
     p3 *= eraw / p3.mag();            // normalization on energy
-    Slct.Pg.push_back( HepLorentzVector(p3,eraw) ); 
+    Slct.Pg.push_back( HepLorentzVector(p3,eraw) );
   }
 
   int nGam = Slct.nGam();
-  
-  if ( nGam != 4 ) return false;
+
+  if ( nGam < 4 ) return false;
 
   his1[0]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[0] + Slct.Pg[1] + Slct.Pg[2] + Slct.Pg[3] ).m() );
-  
+
   // Vertex & Kinematic Fit
   RecMdcKalTrack *pipTrk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.ipip))->mdcKalTrack();
   RecMdcKalTrack *pimTrk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.ipim))->mdcKalTrack();
@@ -569,13 +685,10 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
   KinematicFit * kmfit = KinematicFit::instance();
   //--------------------------------------------------------------------------------------------------------------------------------Ecms =  GetEcms(runNo, lum);
-   double lum = 0;
-   double Ecms =  GetEcms(abs(runNo), lum);
 
-   // double Ecms =  3.097;  // for inclusive MC
-
-
+  double Ecms =  3.097; // (GeV) energy in center of mass system
   HepLorentzVector ecms(Ecms*sin(beam_angle), 0, 0, Ecms);
+
   //------------------------------------------------------4C Fit
   // make fake ISR photon: Pt component must be small non zero
   // because of the error (bug) in the WTrackParameter
@@ -591,7 +704,7 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
   int ig[4] = {-1,-1,-1,-1};
   double chisq = 9999.;
-  double chisq4C = 9999., chisq5C = 9999.;
+//   double chisq4C = 9999., chisq5C = 9999.;
   for(int i = 0; i < nGam-3; i++) {
     RecEmcShower *g1Trk =
          ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[i]))->emcShower();
@@ -612,9 +725,6 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
           kmfit->AddTrack(3, 0.0, g2Trk);
           kmfit->AddTrack(4, 0.0, g3Trk);
           kmfit->AddTrack(5, 0.0, g4Trk);
-#ifdef  add_ISR
-          kmfit->AddTrack(6, wISR);
-#endif
           kmfit->AddFourMomentum(0, ecms);
           bool oksq = kmfit->Fit();
           //           cout << " i,j,k,l="<< i << j << k << l << " oksq= " << oksq
@@ -639,52 +749,74 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
   //his1[31]->Fill(chisq);
   //  if ( !Slct.GoodGammas() ) return false; // can not find 4  good gammas
  if ( ig[0]==-1 || ig[1]==-1 ||  ig[2]==-1 || ig[3]==-1) return false; // can not find 4  good gammas
- /*//his1[107]->Fill(3);
- 	if(isMC && omega_best_mass) his1[280]->Fill(3);
- if(isMC){
-    if(one_ISR) his1[300]->Fill(3);
-    if(two_ISR) his1[301]->Fill(3);
-    if(one_ISR && omega_best_mass) his1[302]->Fill(3);
-    if(two_ISR && omega_best_mass) his1[303]->Fill(3);
-  }
- chisq4C = chisq;
+ //his1[107]->Fill(3);
+ //	if(isMC && omega_best_mass) his1[280]->Fill(3);
+ //if(isMC){
+ //   if(one_ISR) his1[300]->Fill(3);
+ //   if(two_ISR) his1[301]->Fill(3);
+ //   if(one_ISR && omega_best_mass) his1[302]->Fill(3);
+ //  if(two_ISR && omega_best_mass) his1[303]->Fill(3);
+ // }
+//  chisq4C = chisq;
  if (chisq > 100) return false;
  //his1[107]->Fill(4);
- if(isMC && omega_best_mass) his1[280]->Fill(4);
- if(isMC){
-    if(one_ISR) his1[300]->Fill(4);
-    if(two_ISR) his1[301]->Fill(4);
-    if(one_ISR && omega_best_mass) his1[302]->Fill(4);
-    if(two_ISR && omega_best_mass) his1[303]->Fill(4);
-  }
+ //if(isMC && omega_best_mass) his1[280]->Fill(4);
+ //if(isMC){
+ //   if(one_ISR) his1[300]->Fill(4);
+ //   if(two_ISR) his1[301]->Fill(4);
+ //   if(one_ISR && omega_best_mass) his1[302]->Fill(4);
+ //   if(two_ISR && omega_best_mass) his1[303]->Fill(4);
+ // }
 
 
  //P_missing for E_mis & M_mis
- Slct.P_missing = ecms - Slct.ppip - Slct.ppim - Slct.Pg[ig[0]] - Slct.Pg[ig[1]] - Slct.Pg[ig[2]] - Slct.Pg[ig[3]];
+//  Slct.P_missing = ecms - Slct.ppip - Slct.ppim - Slct.Pg[ig[0]] - Slct.Pg[ig[1]] - Slct.Pg[ig[2]] - Slct.Pg[ig[3]];
 
-    HepLorentzVector P_isr = kmfit->pfit(6);
+  //  HepLorentzVector P_isr = kmfit->pfit(6);
 
-  float xfill[] = {
-                kmfit->chisq(),P_isr.e(),P_isr.z(),P_isr.perp(),
-                P_tot.e(),P_tot.rho(),P_sum.e(),P_sum.z(),P_sum.perp(),
-                Slct.Ng,Slct.Eisr,Slct.Emax_isr,Slct.Th_isr,
-                decCode,Slct.Pmiss.z(),Slct.Pmiss.perp(),Slct.Pmiss.m()
-                  };
-  m_tuple[0]->Fill( xfill );*/
+  //float xfill[] = {
+  //              kmfit->chisq(),P_isr.e(),P_isr.z(),P_isr.perp(),
+  //              P_tot.e(),P_tot.rho(),P_sum.e(),P_sum.z(),P_sum.perp(),
+  //              Slct.Ng,Slct.Eisr,Slct.Emax_isr,Slct.Th_isr,
+  //              decCode,Slct.Pmiss.z(),Slct.Pmiss.perp(),Slct.Pmiss.m()
+  //                };
+  ///m_tuple[0]->Fill( xfill );
 
-  his1[1]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[0] + Slct.Pg[1] + Slct.Pg[2] + Slct.Pg[3] ).m() );  
-  his1[2]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[ig[0]] + Slct.Pg[ig[1]] + Slct.Pg[ig[2]] + Slct.Pg[ig[3]] ).m() );
-  for ( int j = 0; j < 4; j++ )
-    for ( int i = j + 1; i < 4; i++ )
-      if ( (Slct.Pg[j] + Slct.Pg[j+i]).m() > 0.135 - 0.010 && (Slct.Pg[j] + Slct.Pg[j+i]).m() < 0.135 + 0.010 )
-        {
-          his1[3]->Fill( ( Slct.Pg[j] + Slct.Pg[j+i] ).m() );
-          his1[5]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[j] + Slct.Pg[j+i] ).m() );
-        }
-  for ( int j = 0; j < 4; j++ )
-    for ( int i = j + 1; i < 4; i++ )
-      if ( (Slct.Pg[j] + Slct.Pg[j+i]).m() > 0.547 - 0.010 && (Slct.Pg[j] + Slct.Pg[j+i]).m() < 0.547 + 0.010 )
-        his1[4]->Fill( ( Slct.Pg[j] + Slct.Pg[j+i] ).m() );
+  his1[1]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[ig[0]] + Slct.Pg[ig[1]] + Slct.Pg[ig[2]] + Slct.Pg[ig[3]] ).m() );
+
+ RecEmcShower *g11Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[0]]))->emcShower();
+ RecEmcShower *g21Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[1]]))->emcShower();
+ RecEmcShower *g31Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[2]]))->emcShower();
+ RecEmcShower *g41Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[3]]))->emcShower();
+
+ kmfit->init();
+ kmfit->AddTrack(0, wpip);
+ kmfit->AddTrack(1, wpim);
+ kmfit->AddTrack(2, 0.0, g11Trk);
+ kmfit->AddTrack(3, 0.0, g21Trk);
+ kmfit->AddTrack(4, 0.0, g31Trk);
+ kmfit->AddTrack(5, 0.0, g41Trk);
+ kmfit->AddFourMomentum(0, ecms);
+ bool oksq1 = kmfit->Fit();
+ if ( !oksq1 ) {
+   cerr << " Bad fit: somthing wrong!" << endl;
+   Warning("Bad second fit");
+   return false;
+ }
+
+  HepLorentzVector P_pip = kmfit->pfit(0);
+  HepLorentzVector P_pim = kmfit->pfit(1);
+  HepLorentzVector P_tot = P_pip + P_pim + kmfit->pfit(2)+kmfit->pfit(3)+kmfit->pfit(4)+kmfit->pfit(5);
+
+  his1[2]->Fill( P_tot.m() );
+
+  for ( int i = 2; i < 6; i++)
+    for ( int j = i + 1; j < 6; j++ )
+      {
+        his1[3]->Fill( (kmfit->pfit(i) + kmfit->pfit(j)).m() );
+        his1[4]->Fill( (P_pip + P_pim + kmfit->pfit(i) + kmfit->pfit(j)).m() );
+        his1[6]->Fill( (ecms - kmfit->pfit(i) - kmfit->pfit(j)).m() );
+      }
 
 
   return false;
@@ -696,14 +828,17 @@ void PipPimPi0EtaEndJob (ReadDst* selector)
 {
   if ( selector->Verbose() ) cout << __func__ << "()" << endl;
 
-  if ( ERROR_WARNING != 0 ) {
-    cout << " ERROR_WARNING= " << ERROR_WARNING << " Check output!" << endl;
+  string module = string(__func__);
+  module = module.substr(0,module.size()-6);
+  if ( warning_msg.empty() ) {
+     cout << " There are no warnings in " << module << endl;
+  } else {
+     cout << " Check output for WARNINGS in " << module << endl;
+     for(auto it = warning_msg.begin(); it != warning_msg.end(); ++it) {
+        cout << it->first << " : " << it->second << endl;
+     }
   }
 
-  if ( init_selection ) {
-    cout << " ===== INIT SELECTION =====" << endl;
-  }
-  
   his1[1]->Fit("gausn");
-  
+
 }
