@@ -35,10 +35,11 @@ SET( CXX_FILES
 
    PsipJpsiPhiEta.cxx
    PsipPiPiKK.cxx
+   PsipJpsiGammaEta.cxx
 #     PsipMuMuGamma.cxx
-#     PsipJpsiGammaEta.cxx
 #
    Eta_TwoPi.cxx
+   PipPimPi0Eta.cxx
 #     SelectJpsiX.cxx
 )
 

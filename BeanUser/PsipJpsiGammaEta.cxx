@@ -1,7 +1,7 @@
 //======================================================================//
 //                                                                      //
 // PsipJpsiGammaEta:                                                    //
-// Study of the eta (eta->2photon) detection efficiency in process:     //
+// Study of the eta (eta->2photons) detection efficiency in process:    //
 // e+ e- -> Psi(2S) -> pi+ pi- J/Psi                                    //
 //                             |-> gamma  eta                           //
 //                                         |-> 2gamma                   //

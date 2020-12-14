@@ -53,7 +53,7 @@ using CLHEP::HepLorentzVector;
 using namespace std;
 
 //-------------------------------------------------------------------------
-// Structure to save variables for a single event
+// {{{1 Structure to save variables for a single event
 //-------------------------------------------------------------------------
 struct Select_KKgg {
    // Run-info
@@ -89,7 +89,7 @@ struct Select_KKgg {
 typedef Select_KKgg Select;
 
 //-------------------------------------------------------------------------
-// Global variables
+// {{{1 Global variables
 //-------------------------------------------------------------------------
 const static double beam_angle = 0.011; // 11 mrad
 
@@ -117,7 +117,7 @@ static map<string,int> warning_msg;
 
 static bool isMC = false;
 
-// Functions: use C-linkage names
+// {{{1 Functions: use C-linkage names
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -140,6 +140,7 @@ inline double SQ(double x) {
 }
 //-------------------------------------------------------------------------
 
+// {{{1 StartJob, book histograms
 //-------------------------------------------------------------------------
 void SelectKKggStartJob(ReadDst* selector) {
 //-------------------------------------------------------------------------
@@ -298,6 +299,7 @@ void SelectKKggStartJob(ReadDst* selector) {
 
 }
 
+// {{{1 getVertexOrigin() && GetEcms()
 //-------------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
 //-------------------------------------------------------------------------
@@ -505,6 +507,7 @@ static double GetEcms(int runNo, bool verbose = false) {
    return Ecms;
 }
 
+// {{{1 FillHistoMC() && ISRhistoMC()
 //-------------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -680,7 +683,7 @@ static void ISRhistoMC(const ReadDst* selector, Select& Slct) {
 }
 
 
-// select K+K- candidates, no other tracks.
+// {{{1 select K+K- candidates, no other tracks.
 //-------------------------------------------------------------------------
 static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -807,7 +810,7 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
    return true;
 }
 
-// select gammas candidates
+// {{{1 select gammas candidates
 //-------------------------------------------------------------------------
 static bool NeutralTracks(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -903,7 +906,7 @@ static bool NeutralTracks(ReadDst* selector, Select& Slct) {
    return true;
 }
 
-// Vertex & Kinematic Fit
+// {{{1 Vertex & Kinematic Fit
 //-------------------------------------------------------------------------
 static bool VertKinFit(Select& Slct) {
 //-------------------------------------------------------------------------
@@ -1101,6 +1104,7 @@ static bool VertKinFit(Select& Slct) {
    return true;
 }
 
+// {{{1 MAIN: Event
 //-------------------------------------------------------------------------
 bool SelectKKggEvent( ReadDst*       selector,
                       TEvtHeader*    m_TEvtHeader,
@@ -1173,6 +1177,7 @@ bool SelectKKggEvent( ReadDst*       selector,
    return true;
 }
 
+// {{{1 EndJob
 //-------------------------------------------------------------------------
 void SelectKKggEndJob(ReadDst* selector) {
 //-------------------------------------------------------------------------

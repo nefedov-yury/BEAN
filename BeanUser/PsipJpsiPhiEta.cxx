@@ -56,7 +56,7 @@ using CLHEP::HepLorentzVector;
 using namespace std;
 
 //-------------------------------------------------------------------------
-// Structure to save variables for a single event
+// {{{1 Structure to save variables for a single event
 //-------------------------------------------------------------------------
 struct Select_PsipJpsiPhiEta {
    // Run-info
@@ -119,7 +119,7 @@ struct Select_PsipJpsiPhiEta {
 typedef Select_PsipJpsiPhiEta Select;
 
 //-------------------------------------------------------------------------
-// Structure for tree
+// {{{1 Structure for tree
 //-------------------------------------------------------------------------
 struct Xnt1 {
    float Mrs;            // recoil mass of true signal pi+pi- for decPsip==64
@@ -143,7 +143,7 @@ struct Xnt1 {
 //    float Pmns;           // momentum of pi- for best
 
 //-------------------------------------------------------------------------
-// Global variables
+// {{{1 Global variables
 //-------------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
@@ -183,7 +183,7 @@ static int DataPeriod = 0;
 static bool isMC = false;
 
 //-------------------------------------------------------------------------
-// Functions: use C-linkage names
+// {{{1 Functions: use C-linkage names
 //-------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
@@ -275,6 +275,7 @@ static double ReWeightTrkPid(int Kp, double Pt) {
    return W;
 }
 
+// {{{1 StartJob, book histograms
 //-------------------------------------------------------------------------
 void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 //-------------------------------------------------------------------------
@@ -572,20 +573,22 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    //                               phi -> K+ K-
    //                                   eta -> 2gamma
    m_tuple[1] = new TNtupleD("a4c","after 4C kinematic fit",
-                "Mrec:"           // recoil mass as in 'nt1'
-                "ch2:"            // chi^2 of 5C fit
-                "Ptpip:Cpip:"     // Pt and cos(Theta) of pi+
-                "Ptpim:Cpim:"     // Pt and cos(Theta) of pi-
-                "Ptkp:Ckp:"       // Pt and cos(Theta) of K+
-                "Ptkm:Ckm:"       // Pt and cos(Theta) of K-
-                "Eg1:Cg1:"        // E and cos(Theta) of gamma-1
-                "Eg2:Cg2:"        // E and cos(Theta) of gamma-2
-                "Ptgg:Cgg:"       // Pt and cos(Theta) of eta (2gamma)
-                "Mkk:Mgg:"        // invariant masses of K+K- and 2gammas
-                "M2kpg1:M2kpg2:M2kmg1:M2kmg2:" // M_inv^2( K(+/-)g(1/2) )
-                "M2kpeta:M2kmeta"              // M_inv^2( K(+/-) eta )
-                ":dec:decj"       // MC: decay codes of Psi(2S) and J/Psi
-                ":mcmkk"          // MC: invariant masses of MCtrue K+K-
+                "Mrec:"              // recoil mass as in 'nt1'
+                "ch2:"               // chi^2 of 5C fit
+                "Ppip:Cpip:phipip:"  // P,cos(Theta),phi of pi+
+                "Ppim:Cpim:phipim:"  // P,cos(Theta),phi of pi-
+                "Pkp:Ckp:phikp:"     // P,cos(Theta),phi of K+
+                "Pkm:Ckm:phikm:"     // P,cos(Theta),phi of K-
+                "Eg1:Cg1:phig1:"     // E,cos(Theta),phi of gamma-1
+                "Eg2:Cg2:phig2:"     // E,cos(Theta),phi of gamma-2
+                "Pkk:Ckk:phikk:"     // P,cos(Theta),phi of K+K-
+                "Pgg:Cgg:phigg:"     // P,cos(Theta),phi of gamma,gamma
+                "Pj:Cj:phij:"        // P,cos(Theta),phi of J/Psi
+                "Mkk:Mgg:"           // invariant masses of K+K- and 2gammas
+                "M2kpeta:M2kmeta:"   // M_inv^2( K(+/-) eta )
+                "Ptpip:Ptpim:Ptkp:Ptkm:Ptgg" // for compatibility
+                ":dec:decj"          // MC: decay codes of Psi(2S) and J/Psi
+                ":mcmkk"             // MC: invariant masses of MCtrue K+K-
                             );
 
    // ntuple for eta efficiency study
@@ -615,6 +618,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    selector->RegInDir(tt,SaveDir);
 }
 
+// {{{1 getVertexOrigin()
 //-------------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
 //-------------------------------------------------------------------------
@@ -659,6 +663,7 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    return xorigin;
 }
 
+// {{{1 FillHistoMC()
 //-------------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -900,6 +905,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    }
 }
 
+// {{{1 MatchRecMcTrks()
 //-------------------------------------------------------------------------
 #if __cplusplus >= 201103L
 // C++11 and above
@@ -1003,6 +1009,7 @@ static void MatchRecMcTrks(ReadDst* selector, Select& Slct) {
    return;
 }
 
+// {{{1 MatchMcRecMr()
 //-------------------------------------------------------------------------
 static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -1117,10 +1124,10 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
 }
 
 //-------------------------------------------------------------------------
-// Charged tracks
+// {{{1 Charged tracks
 //-------------------------------------------------------------------------
 
-// search for pi+ pi- J/Psi
+// {{{2 search for pi+ pi- J/Psi
 //-------------------------------------------------------------------------
 static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -1410,7 +1417,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    return true;
 }
 
-// select K+K- candidates, no other tracks.
+// {{{2 select K+K- candidates, no other tracks.
 //-------------------------------------------------------------------------
 static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -1542,7 +1549,7 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
    return true;
 }
 
-// select gammas candidates
+// {{{1 select gammas candidates
 //-------------------------------------------------------------------------
 static int NeutralTracks(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -1639,7 +1646,7 @@ static int NeutralTracks(ReadDst* selector, Select& Slct) {
    return ng;
 }
 
-// Vertex & Kinematic Fit
+// {{{1 Vertex & Kinematic Fit
 //-------------------------------------------------------------------------
 static bool VertKinFit(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -1907,10 +1914,10 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    }
 
    // M^2(Kg)
-   double M2kpg1 = (Pkp + Pg1).m2();
-   double M2kpg2 = (Pkp + Pg2).m2();
-   double M2kmg1 = (Pkm + Pg1).m2();
-   double M2kmg2 = (Pkm + Pg2).m2();
+//    double M2kpg1 = (Pkp + Pg1).m2();
+//    double M2kpg2 = (Pkp + Pg2).m2();
+//    double M2kmg1 = (Pkm + Pg1).m2();
+//    double M2kmg2 = (Pkm + Pg2).m2();
    // M^2(K eta)
    double M2kpeta = (Pkp + Pgg).m2();
    double M2kmeta = (Pkm + Pgg).m2();
@@ -1920,15 +1927,18 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    Double_t xfill[] = {
       Slct.Mrec_best,
       chisq,
-      Ppip.perp(), Ppip.cosTheta(),
-      Ppim.perp(), Ppim.cosTheta(),
-      Pkp.perp(), Pkp.cosTheta(),
-      Pkm.perp(), Pkm.cosTheta(),
-      Pg1.e(), Pg1.cosTheta(),
-      Pg2.e(), Pg2.cosTheta(),
-      Pgg.perp(), Pgg.cosTheta(),
+      Ppip.rho(), Ppip.cosTheta(), Ppip.phi(),
+      Ppim.rho(), Ppim.cosTheta(), Ppim.phi(),
+      Pkp.rho(), Pkp.cosTheta(), Pkp.phi(),
+      Pkm.rho(), Pkm.cosTheta(), Pkm.phi(),
+      Pg1.e(), Pg1.cosTheta(), Pg1.phi(),
+      Pg2.e(), Pg2.cosTheta(), Pg2.phi(),
+      Pkk.rho(), Pkk.cosTheta(), Pkk.phi(),
+      Pgg.rho(), Pgg.cosTheta(), Pgg.phi(),
+      Pjpsi.rho(), Pjpsi.cosTheta(), Pjpsi.phi(),
       Mkk, Mgg,
-      M2kpg1,M2kpg2, M2kmg1,M2kmg2, M2kpeta,M2kmeta,
+      M2kpeta,M2kmeta,
+      Ppip.perp(), Ppim.perp(), Pkp.perp(), Pkm.perp(), Pgg.perp(),
       double(Slct.decPsip), double(Slct.decJpsi),
       Slct.mc_mkk
    };
@@ -1936,6 +1946,7 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
 //       Mkk0, Mgg0,
 //       Pphi.cosTheta(),
 //       mang,
+//       M2kpg1,M2kpg2, M2kmg1,M2kmg2,
    m_tuple[1]->Fill( xfill );
 
    if ( isMC ) {
@@ -1979,6 +1990,7 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    return true;
 }
 
+// {{{1 Eta efficiency study
 //-------------------------------------------------------------------------
 static void EtaEff(ReadDst* selector, Select& Slct) {
 //-------------------------------------------------------------------------
@@ -2320,6 +2332,7 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
 
 }
 
+// {{{1 MAIN: Event
 //-------------------------------------------------------------------------
 bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
                           TEvtHeader*    m_TEvtHeader,
@@ -2412,6 +2425,7 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
    return fret;
 }
 
+// {{{1 EndJob
 //-------------------------------------------------------------------------
 void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
 //-------------------------------------------------------------------------
