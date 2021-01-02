@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <vector>
+#include <algorithm>
 // #include <map>
 
 #include <TH1.h>
@@ -60,7 +61,7 @@ using CLHEP::twopi;
 
 using namespace std;
 
-struct Select {
+struct Select_PipPimPi0Eta {
   double Ecms;                  // energy in center of mass system
 
   // MC information:
@@ -86,7 +87,7 @@ struct Select {
   // momentums after kinematic fit
   HepLorentzVector Ppip, Ppim, Pgg1,Pgg2, Pomega, Pgg;
 
-  Select() {
+  Select_PipPimPi0Eta() {
     Ecms = -1;
     decJpsi = -1;
     dec_eta = dec_phi = 0;
@@ -108,6 +109,8 @@ struct Select {
   bool GoodGammas()
         {return (ig1 != -1 && ig2 != -1 && ig3 != -1 && ig4 != -1); }
 };
+
+typedef Select_PipPimPi0Eta Select;
 
 //-----------------------------------------------------------------------------
 // Global file variables
@@ -246,19 +249,21 @@ void PipPimPi0EtaStartJob (ReadDst* selector)
   his1[146] = new TH1D("mc_3pimC", "cos(pi-) from phi", 100,-1.,1.);
   his1[147] = new TH1D("mc_3pi0P", "P(pi0) from phi", 100,0.,2.);
   his1[148] = new TH1D("mc_3pi0C", "cos(pi0) from phi", 100,-1.,1.);
+  his1[149] = new TH1D("mc_2g3pi", "1=eta2g,2=phi3pi and 7=1&2,8=all",
+                       10,0.5,10.5);
 
-
-  m_tuple[0] = new TNtuple("a4C","after 4C fit",
-                                "ch2:Eisr:PZisr:PTisr:"
-                                "Etot:Ptot:Esum:PZsum:PTsum:"
-                                "mcNg:mcEisr:mcEmisr:mcThisr:"
-                                "dc:PZmis:PTmis:Mmis");
+  m_tuple[0] = new TNtuple("a5C","after 5C fit",
+                                "ch2:"
+                                "Etot:Ptot"
+                                );
 
   const char* SaveDir = "one";
   VecObj his1o(his1.begin(),his1.end());
   selector->RegInDir(his1o,SaveDir);
   VecObj ntuples(m_tuple.begin(),m_tuple.end());
   selector->RegInDir(ntuples,SaveDir);
+
+
 }
 
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false)
@@ -335,11 +340,14 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct)
    int idx_jpsi=-1;
    int idx_eta=-1;
    int idx_phi=-1;
+   int idx_rho=-1;
    // momentum eta & phi in rest frame of J/Psi
    Hep3Vector beta_jpsi;
    HepLorentzVector LVeta, LVphi;
-   // is phi decays to pi+ pi- pi0
-   vector<int> Pdg_ppp;
+   // search for decay eta -> 2gamma
+   vector<int> Pdg_eta;
+   // search for decay phi -> rho pi -> pi+ pi- pi0
+   vector<int> Pdg_phi, Pdg_rho;
 
    TIter mcIter(mcParticles);
    while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
@@ -389,37 +397,60 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct)
       }
 
       if ( part->getMother() == idx_eta ) { // J/Psi -> phi eta
-                                            //               |-> 2gamma
-         if ( part_pdg != 22 ) {            // it's not 2gamma decay
-            Slct.dec_eta = -1;
+         Pdg_eta.push_back(int(part_pdg));  // eta -> ...
+      }
+      if ( part->getMother() == idx_phi ) { // J/Psi -> phi eta
+         Pdg_phi.push_back(int(part_pdg));  // phi -> ...
+         if ( part_pdg == 113 || abs(part_pdg) == 213 ) { // rho
+            idx_rho = part->getTrackIndex();
          }
       }
-
-      if ( part->getMother() == idx_phi ) { // J/Psi -> *phi* eta
-                                            //            |-> pi+ pi- pi0
-         if ( abs(part_pdg) == 211 || part_pdg == 111) {  // pi+ pi- pi0
-            Pdg_ppp.push_back(int(part_pdg));
-         }
+      if ( part->getMother() == idx_rho ) { // phi -> rho X
+         Pdg_rho.push_back(int(part_pdg));  // rho -> ...
       }
-
    } // end of while
 
+   // paranoid check
+   if ( Slct.decJpsi == 68  && ( idx_eta == -1 || idx_phi == -1 ) ) {
+      cout << "WARNING: Slct.decJpsi= " << Slct.decJpsi
+           << " idx_eta,idx_phi= " << idx_eta << "," << idx_phi << endl;
+      selector->PrintMcDecayTree(-99,0); // What is it?
+      Warning("MC: bad eta or phi indexes");
+   }
+
    if ( Slct.decJpsi == 68 ) {  // J/Psi -> phi eta
+
       // set Slct.dec_eta
-      if ( Slct.dec_eta == 0 ) {
+      Slct.dec_eta = 0;
+      if ( Pdg_eta.size() == 2 &&
+           Pdg_eta[0] == 22 && Pdg_eta[1] == 22 ) {
          Slct.dec_eta = 1; // eta -> 2 gamma
-      } else {
-         Slct.dec_eta = 0;
+         his1[149]->Fill(1);
       }
 
       // set Slct.dec_phi
-      if ( Pdg_ppp.size() == 3 ) {
-         Slct.dec_phi = 1;  // phi -> pi+pi-pi0
-      } else {
-         Slct.dec_phi = 0;
+      Slct.dec_phi = 0;
+      if ( Pdg_phi.size() == 2 && idx_rho != -1 ) { // check phi->rho pi
+         sort(Pdg_phi.begin(),Pdg_phi.end());
+         if (    (Pdg_phi[0] ==-211 && Pdg_phi[1] == 213) // pi- rho+
+              || (Pdg_phi[0] ==-213 && Pdg_phi[1] == 211) // rho- pi+
+              || (Pdg_phi[0] == 111 && Pdg_phi[1] == 113) // pi0 rho0
+            ) {
+            if ( Pdg_rho.size() == 2 ) { // check rho->2pi
+               sort(Pdg_rho.begin(),Pdg_rho.end());
+               if (    (Pdg_rho[0] ==-211 && Pdg_rho[1] == 111) // pi-pi0
+                    || (Pdg_rho[0] ==-211 && Pdg_rho[1] == 211) // pi-pi+
+                    || (Pdg_rho[0] == 111 && Pdg_rho[1] == 211) // pi0pi+
+                  ) {
+                  Slct.dec_phi = 1;  // phi -> rho pi -> pi+pi-pi0
+                  his1[149]->Fill(2);
+               }
+            }
+         }
       }
 
       if ( Slct.dec_eta == 1 && Slct.dec_phi == 1 ) {
+         his1[149]->Fill(7);
          TIter mcIter(mcParticles);
          while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
             long int part_pdg = part->getParticleID ();
@@ -436,7 +467,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct)
                }
             }
 
-            if ( part->getMother() == idx_phi ) {
+            if (   part->getMother() == idx_phi
+                || part->getMother() == idx_rho ) {
                if ( part_pdg == 211 ) {         // pi+
                   his1[143]->Fill(Vp.mag());
                   his1[144]->Fill(Vp.cosTheta());
@@ -449,6 +481,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct)
                }
             }
          } // end of while-2
+      } else {
+         his1[149]->Fill(8);
       } // end if
    }
    return;
@@ -702,9 +736,9 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
   WTrackParameter wISR(xorigin,pisr,dphi,dthe,dE);
 
 
-  int ig[4] = {-1,-1,-1,-1};
+  int ig[6] = {-1,-1,-1,-1, -1, -1};
   double chisq = 9999.;
-//   double chisq4C = 9999., chisq5C = 9999.;
+  double g = 0;
   for(int i = 0; i < nGam-3; i++) {
     RecEmcShower *g1Trk =
          ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[i]))->emcShower();
@@ -718,33 +752,47 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
           RecEmcShower *g4Trk =
             ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[l]))->emcShower();
 
-          kmfit->init();
-          kmfit->AddTrack(0, wpip);
-          kmfit->AddTrack(1, wpim);
-          kmfit->AddTrack(2, 0.0, g1Trk);
-          kmfit->AddTrack(3, 0.0, g2Trk);
-          kmfit->AddTrack(4, 0.0, g3Trk);
-          kmfit->AddTrack(5, 0.0, g4Trk);
-          kmfit->AddFourMomentum(0, ecms);
-          bool oksq = kmfit->Fit();
-          //           cout << " i,j,k,l="<< i << j << k << l << " oksq= " << oksq
-          //                << " chi2= " << kmfit->chisq() << endl
-          //                << "    P_isr= " << kmfit->pfit(6) << endl;
-          if ( oksq ) {
-            double chi2 = kmfit->chisq();
-            // his1[12]->Fill(chi2);
-            if ( chi2 < chisq ) {
-              chisq = chi2;
-              ig[0] = i;
-              ig[1] = j;
-              ig[2] = k;
-              ig[3] = l;
+          for ( int i1 = 2; i1 < 5; i1++ ) {
+          for ( int j1 = i1+1; j1 <= 5; j1++ ) {
+
+            kmfit->init();
+            kmfit->AddTrack(0, wpip);
+            kmfit->AddTrack(1, wpim);
+            kmfit->AddTrack(2, 0.0, g1Trk);
+            kmfit->AddTrack(3, 0.0, g2Trk);
+            kmfit->AddTrack(4, 0.0, g3Trk);
+            kmfit->AddTrack(5, 0.0, g4Trk);
+
+            kmfit -> AddResonance(0, mpi0, i1, j1);
+            kmfit -> AddFourMomentum(1, ecms);
+
+            if ( !kmfit->Fit(0) ) {
+               continue;
             }
-          }
+            if ( !kmfit->Fit(1) ) {
+               continue;
+            }
+            bool oksq = kmfit->Fit();
+            if ( oksq ) {
+              double chi2 = kmfit->chisq();
+              // his1[12]->Fill(chi2);
+              if ( chi2 < chisq ) {
+                chisq = chi2;
+                ig[0] = i;
+                ig[1] = j;
+                ig[2] = k;
+                ig[3] = l;
+                ig[4] = ig[i1-2];
+                ig[5] = ig[j1-2];
+                g = chi2;
+              }
+            } // end if oksq
+          }} // end of for (i1,j1)
         }//------------------------------------------End for(l)
       }//--------------------------------------------End for(k)
     }//-----------------------------------------------End for(j)
   } //-----------------------------------------------End for(i)
+ //cout << " ++++ kmfit1 ++++ chi2= " << chisq << endl;
 
   //his1[31]->Fill(chisq);
   //  if ( !Slct.GoodGammas() ) return false; // can not find 4  good gammas
@@ -784,6 +832,22 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
   his1[1]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[ig[0]] + Slct.Pg[ig[1]] + Slct.Pg[ig[2]] + Slct.Pg[ig[3]] ).m() );
 
+ for ( int i = 0; i < 4; i++ )
+   if ( ig[i] == ig[4] )
+     {
+       int j = ig[0];
+       ig[0] = ig[4];
+       ig[i] = j;
+     }
+ for ( int i = 0; i < 4; i++ )
+   if ( ig[i] == ig[5] )
+     {
+       int j = ig[1];
+       ig[1] = ig[5];
+       ig[i] = j;
+     }
+
+
  RecEmcShower *g11Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[0]]))->emcShower();
  RecEmcShower *g21Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[1]]))->emcShower();
  RecEmcShower *g31Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(Slct.gammas[ig[2]]))->emcShower();
@@ -796,33 +860,44 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
  kmfit->AddTrack(3, 0.0, g21Trk);
  kmfit->AddTrack(4, 0.0, g31Trk);
  kmfit->AddTrack(5, 0.0, g41Trk);
+
  kmfit->AddFourMomentum(0, ecms);
  bool oksq1 = kmfit->Fit();
+
+ double chi2 = kmfit->chisq();
+
+ if ( !(g >= chi2 - 0.1 && g <= chi2 + 0.1) )
+   return false;
+
  if ( !oksq1 ) {
-   cerr << " Bad fit: somthing wrong!" << endl;
+   //cerr << " Bad fit: somthing wrong!" << endl;
    Warning("Bad second fit");
    return false;
- }
+ } /*else {
+   cout << " ++++ kmfit2 ++++ chi2= " << kmfit->chisq() << endl;
+ }*/
 
   HepLorentzVector P_pip = kmfit->pfit(0);
   HepLorentzVector P_pim = kmfit->pfit(1);
+  HepLorentzVector P_pi0 = kmfit->pfit(2) + kmfit->pfit(3);
   HepLorentzVector P_tot = P_pip + P_pim + kmfit->pfit(2)+kmfit->pfit(3)+kmfit->pfit(4)+kmfit->pfit(5);
+  HepLorentzVector P_r12 = ecms - P_pi0;
 
   his1[2]->Fill( P_tot.m() );
+  his1[3]->Fill( P_pi0.m() );
+  his1[4]->Fill( (P_pip + P_pim + P_pi0).m() );
 
-  for ( int i = 2; i < 6; i++)
-    for ( int j = i + 1; j < 6; j++ )
-      {
-        his1[3]->Fill( (kmfit->pfit(i) + kmfit->pfit(j)).m() );
-        his1[4]->Fill( (P_pip + P_pim + kmfit->pfit(i) + kmfit->pfit(j)).m() );
-        his1[6]->Fill( (ecms - kmfit->pfit(i) - kmfit->pfit(j)).m() );
-      }
+  his1[6]->Fill( P_r12.m() );
+
+  float xfill[] = {
+                chi2,
+                P_tot.e(),P_tot.rho()
+                  };
+  m_tuple[0]->Fill( xfill );
 
 
   return false;
   }
-
-}
 
 void PipPimPi0EtaEndJob (ReadDst* selector)
 {
@@ -838,7 +913,8 @@ void PipPimPi0EtaEndJob (ReadDst* selector)
         cout << it->first << " : " << it->second << endl;
      }
   }
-
-  his1[1]->Fit("gausn");
-
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -65,7 +65,7 @@ struct SelectEtaTwoPi {
    // MC information:
    int decJpsi;            // decay codes for J/Psi MC events
    double Xisr;            // Xisr = s'/s
-   int decEta;             // eta -> 2gamma (1) & -> 3pi0 (2)
+   int decEta;             // eta decay:1=2gamma, 2=3pi0, 3=pi+pi-pi0
    vector<HepLorentzVector> mcPg; // 4-mom. of gammas from eta decay
 
    // Pion candidate
@@ -224,8 +224,8 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[33] = new TH1D("Pi_PM","momentum Pi+ and Pi-", 240,-1.2,1.2);
    hst[34] = new TH1D("G_P","Momentum of gammas", 200,0.,2.);
 
-   hst[35] = new TH1D("mc_2Gn","N_{#gamma} for eta->2g", 11,-0.5,10.5);
-   hst[36] = new TH1D("mc_6Gn","N_{#gamma} for eta->3pi0", 15,-0.5,14.5);
+   hst[35] = new TH1D("Ng_mc2g","N_{#gamma} for eta->2g", 11,-0.5,10.5);
+   hst[36] = new TH1D("Ng_mc6g","N_{#gamma} for eta->3pi0", 15,-0.5,14.5);
 
    // VertKinFit_2:
    hst[41] = new TH1D("vtx_fit_2", "vertex fit 2g: 0/1 - bad/good", 2,-0.5,1.5);
@@ -259,7 +259,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[101] = new TH1D("mc_deccode1", "decCode cut#1",258,-1.5,256.5);
    hst[102] = new TH1D("mc_deccode2", "decCode cut#2",258,-1.5,256.5);
    hst[103] = new TH1D("mc_deccode3", "decCode cut#3",258,-1.5,256.5);
-   hst[105] = new TH1D("dec", "Decay codes of eta", 258, -1.5, 256.5);
+   hst[105] = new TH1D("mc_deccodeF", "decCode final",258,-1.5,256.5);
 
    hst[111] = new TH1D("mc_pdg", "PDG for all", 2001,-1000.5,1000.5);
    hst[112] = new TH1D("mc_pdg0","PDG from primary vtx.",
@@ -269,7 +269,8 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[115] = new TH1D("mc_Etot","ISR: Eisr (MeV)",100,0.,2000.);
    hst[116] = new TH1D("mc_xisr","ISR: s'/s",100,0.,1.);
    hst[118] = new TH1D("mc_bspr","MC: energy spread (MeV)",100,-5.,5.);
-   hst[119] = new TH1D("mc_dec_Eta", "Decay codes for eta (1 - 2g, 2 - 6g)", 4, -1.5, 2.5);
+   hst[119] = new TH1D("mc_dec_Eta", "Decay codes for eta (1 - 2g, 2 - 6g)",
+                       5, -1.5, 3.5);
 
    hst[121] = new TH1D("mc_PipP", "Momentum of #pi^{+}", 100,0.,2.);
    hst[122] = new TH1D("mc_PipPt","Pt of #pi^{+}", 100,0.,2.);
@@ -286,6 +287,14 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[137] = new TH1D("mc_3pi0C", "cos(pi0) from eta->3pi0", 100,-1.,1.);
    hst[138] = new TH1D("mc_6gE", "E(g) from eta->3pi0->6g", 100,0.,2.);
    hst[139] = new TH1D("mc_6gC", "cos(g) from eta->3pi0->6g", 100,-1.,1.);
+   hst[141] = new TH1D("mc_3pi1P", "P(pi+) eta->pi+pi-pi0", 100,0.,2.);
+   hst[142] = new TH1D("mc_3pi1C", "cos(pi+) eta->pi+pi-pi0", 100,-1.,1.);
+   hst[143] = new TH1D("mc_3pi2P", "P(pi-) eta->pi+pi-pi0", 100,0.,2.);
+   hst[144] = new TH1D("mc_3pi2C", "cos(pi-) eta->pi+pi-pi0", 100,-1.,1.);
+   hst[145] = new TH1D("mc_3pi3P", "P(pi0) eta->pi+pi-pi0", 100,0.,2.);
+   hst[146] = new TH1D("mc_3pi3C", "cos(pi0) eta->pi+pi-pi0", 100,-1.,1.);
+   hst[147] = new TH1D("mc_3pi2gE", "E(g) eta->pi+pi-pi0", 100,0.,2.);
+   hst[148] = new TH1D("mc_3pi2gC", "cos(g) eta->pi+pi-pi0", 100,-1.,1.);
 
    // final ntuple for e+ e- -> Pi+ Pi- 2 gammas
    m_tuple[2] = new TNtupleD("a4c2","after 4C kinematic fit (2 gammas)",
@@ -522,9 +531,9 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
    static const int Vpdg = 70022; // 'pdg' of virtual particle
    int idx_virt = -99; // primary vertex
 
-   // select pi+ pi- eta
+   // search for decay eta->2gamma or eta->3pi0 or eta->pi+pi-pi0
    int idx_eta = -1;
-   int n_pi0 = 0; // for eta -> 3pi0
+   vector<int> Pdg_eta;
 
    TIter mcIter(mcParticles);
    while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
@@ -565,41 +574,13 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
       } // end of primary vertex
 
       if ( part->getMother() == idx_eta ) {
-         if ( part_pdg == 22 ) { // eta -> 2gamma
-            Slct.decEta = 1;
-            Slct.mcPg.push_back( HepLorentzVector(Vp,Ep) );
-            hst[134]->Fill(Ep);
-            hst[135]->Fill(Vp.cosTheta());
-         } else if ( part_pdg == 111 ) { // eta -> 3pi0
-            Slct.decEta = 2;
-            n_pi0 += 1;
-            hst[136]->Fill(Vp.mag());
-            hst[137]->Fill(Vp.cosTheta());
-            // fill gammas from pi0 decays
-            int idx_pi0 = part->getTrackIndex();
-            TIter mcIpi0(mcParticles);
-            while( auto part0 = static_cast<TMcParticle*>(mcIpi0.Next()) ) {
-               if (
-                    part0->getMother() == idx_pi0
-                    &&  part0->getParticleID() == 22
-                  )                                     {
-
-                  Hep3Vector Vg( part0->getInitialMomentumX(),
-                                 part0->getInitialMomentumY(),
-                                 part0->getInitialMomentumZ() );
-                  double Eg = part0->getInitialMomentumE();
-                  Slct.mcPg.push_back( HepLorentzVector(Vg,Eg) );
-                  hst[138]->Fill(Eg);
-                  hst[139]->Fill(Vg.cosTheta());
-               }
-            }
-         }
+         Pdg_eta.push_back(int(part_pdg));  // eta -> ...
       }
-
    } // end of while
+
+   // ISR histograms
    hst[114]->Fill(Ng_isr);
    hst[115]->Fill(Etot_isr * 1e3); // => MeV
-
    double S = Pr*Pr;
    HepLorentzVector Prp = Pr - Pisr;
    double Sp = Prp*Prp;
@@ -607,25 +588,89 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
    hst[116]->Fill(Slct.Xisr);
    hst[118]->Fill( (sqrt(S) - Slct.LVcms.e()) * 1e3 ); // => MeV
 
-   // paranoid checks
-   if ( Slct.decEta == 1 && Slct.mcPg.size() != 2 ) {
-      cout << "WARNING: Slct.decEta= " << Slct.decEta
-           << " Nmc_gammas= " << Slct.mcPg.size() << endl;
-      Slct.decEta = -1;
+   // paranoid check
+   if ( idx_eta == -1 ) {
+      cout << "WARNING: idx_eta= " << idx_eta << endl;
       selector->PrintMcDecayTree(-99,0); // What is it?
-      Warning("MC: bad eta decay (-> 2gammas)");
-   }
-   if ( Slct.decEta == 2 && n_pi0 != 3 ) {
-      cout << "WARNING: Slct.decEta= " << Slct.decEta
-           << " N(pi0)= " << n_pi0
-           << " Nmc_gammas= " << Slct.mcPg.size() << endl;
-      Slct.decEta = -1;
-      selector->PrintMcDecayTree(-99,0); // What is it?
-      Warning("MC: bad eta decay (-> 3pi0)");
+      Warning("MC: bad eta index");
+      return;
    }
 
+   // set Slct.decEta
+   Slct.decEta = 0;
+   if ( Pdg_eta.size() == 2 && Pdg_eta[0]==22 && Pdg_eta[1]==22 ) {
+      Slct.decEta = 1; // eta -> 2 gamma
+   } else if ( Pdg_eta.size() == 3 ) {
+      if ( Pdg_eta[0]==111 && Pdg_eta[1]==111 && Pdg_eta[2]==111 ) {
+         Slct.decEta = 2; // eta -> 3pi0
+      } else {
+         sort(Pdg_eta.begin(),Pdg_eta.end());
+         if ( Pdg_eta[0]==-211 && Pdg_eta[1] ==111 && Pdg_eta[2]==211 ) {
+            Slct.decEta = 3; // eta -> pi- pi0 pi+
+         }
+      }
+   }
    //Fill histo with decay codes of eta
    hst[119]->Fill(Slct.decEta);
+
+   // fill MC-histograms for eta decay
+   vector<int> idx_pi0; // indexes of pi0 from eta->pi0+...
+   TIter mcIter2(mcParticles);
+   while( auto part = static_cast<TMcParticle*>(mcIter2.Next()) ) {
+      long int part_pdg = part->getParticleID ();
+
+      Hep3Vector Vp( part->getInitialMomentumX(),
+                     part->getInitialMomentumY(),
+                     part->getInitialMomentumZ() );
+      double Ep = part->getInitialMomentumE();
+
+      if ( part->getMother() == idx_eta ) {
+         if ( Slct.decEta == 1 ) { // eta -> 2gamma
+            if ( part_pdg == 22 ) {
+               Slct.mcPg.push_back( HepLorentzVector(Vp,Ep) );
+               hst[134]->Fill(Ep);
+               hst[135]->Fill(Vp.cosTheta());
+            }
+         } else if ( Slct.decEta == 2 ) { // eta -> 3pi0
+            if ( part_pdg == 111 ) {
+               hst[136]->Fill(Vp.mag());
+               hst[137]->Fill(Vp.cosTheta());
+               // fill gammas from pi0 decays
+               idx_pi0.push_back( int(part->getTrackIndex()) );
+            }
+         } else if ( Slct.decEta == 3 ) { // eta -> pi+ pi- pi0
+            if ( part_pdg == 211 ) {         // pi+
+               hst[141]->Fill(Vp.mag());
+               hst[142]->Fill(Vp.cosTheta());
+            } else if ( part_pdg == -211 ) { // pi-
+               hst[143]->Fill(Vp.mag());
+               hst[144]->Fill(Vp.cosTheta());
+            } else if ( part_pdg == 111 ) {  // pi0
+               hst[145]->Fill(Vp.mag());
+               hst[146]->Fill(Vp.cosTheta());
+               idx_pi0.push_back( int(part->getTrackIndex()) );
+            }
+         }
+         continue;
+      }
+
+      // search for gammas from pi0 decays
+      if ( part_pdg == 22 ) {
+         for (auto idx : idx_pi0) {
+            if ( part->getMother() == idx ) {
+               if ( Slct.decEta == 2 ) { // eta -> 3pi0
+                  hst[138]->Fill(Ep);
+                  hst[139]->Fill(Vp.cosTheta());
+                  Slct.mcPg.push_back( HepLorentzVector(Vp,Ep) );
+               } else if ( Slct.decEta == 3 ) { // eta -> pi+ pi- pi0
+                  hst[147]->Fill(Ep);
+                  hst[148]->Fill(Vp.cosTheta());
+                  Slct.mcPg.push_back( HepLorentzVector(Vp,Ep) );
+               }
+            }
+         }
+      } // end if gamma
+   } // end of while-2
 
    return;
 }
@@ -712,7 +757,9 @@ static bool ChargedTracksTwoPi(ReadDst* selector, SelectEtaTwoPi& Slct) {
    if ( isMC ) {
       if ( Slct.decJpsi > -1 ) {
          hst[101]->Fill( Slct.decJpsi );
-      }
+      } else {
+         hst[101]->Fill( Slct.decEta );
+      } 
    }
 
    // recoil mass of pi+ pi-
@@ -817,6 +864,8 @@ static int NeutralTracks(ReadDst* selector, SelectEtaTwoPi& Slct) {
    if ( isMC ) {
       if ( Slct.decJpsi > -1 ) {
          hst[102]->Fill( Slct.decJpsi );
+      } else {
+         hst[102]->Fill( Slct.decEta );
       }
    }
 
@@ -918,6 +967,8 @@ static bool VertKinFit_2(SelectEtaTwoPi& Slct) {
    if ( isMC ) {
       if ( Slct.decJpsi > -1 ) {
          hst[103]->Fill( Slct.decJpsi );
+      } else {
+         hst[103]->Fill( Slct.decEta );
       }
    }
 
@@ -1119,6 +1170,8 @@ static bool VertKinFit_6(SelectEtaTwoPi& Slct) {
    if ( isMC ) {
       if ( Slct.decJpsi > -1 ) {
          hst[103]->Fill( Slct.decJpsi );
+      } else {
+         hst[103]->Fill( Slct.decEta );
       }
    }
 
