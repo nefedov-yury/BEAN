@@ -71,6 +71,10 @@ struct SelectEtaTwoPi {
    // Pion candidate
    vector<RecMdcKalTrack*> trk_Pip;  // positive tracks
    vector<RecMdcKalTrack*> trk_Pim;  // negative tracks
+   vector<double> pid_Pip; //pid of positive tracks
+   vector<double> pid_Pim; //pid of negative tracks
+   vector<double> E_p_Pip; //"E over p" of positive tracks
+   vector<double> E_p_Pim; //"E over p" of negative tracks
 
    // gamma tracks
    vector<RecEmcShower*> gtrk;
@@ -212,6 +216,9 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[14] = new TH1D("theta","#theta", 180,0.,180.);
    hst[15] = new TH1D("PQ","Charged momentum (Q*P)", 600,-3.,3.);
 
+   hst[16] = new TH1D("EoP","E/P for all charged tracks", 150,0.,1.5);
+   hst[17] = new TH1D("Pid_clPi","lg(CL_{#pi})", 100,-4.,0.);
+
    hst[23] = new TH1D("Pi_Q","Charged momentum (Q*P)for Pi", 300,-1.5,1.5);
    hst[24] = new TH2D("Pi_pm","N(Pi+) vs N(Pi-)", 10,-0.5,9.5, 10,-0.5,9.5);
    hst[25] = new TH1D("Pi_N","number of good pions", 10,-0.5,9.5);
@@ -299,8 +306,8 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    // final ntuple for e+ e- -> Pi+ Pi- 2 gammas
    m_tuple[2] = new TNtupleD("a4c2","after 4C kinematic fit (2 gammas)",
                 "ch2:"            // chi^2 of 4C fit
-                "Ppip:Cpip:phipip:"  // P, cos(Theta) and phi of Pi+
-                "Ppim:Cpim:phipim:"  // P, cos(Theta) and phi of Pi-
+                "Ppip:Cpip:phipip:pidpip:E_ppip:"  // P, cos(Theta), phi, PID and "E over p" of Pi+
+                "Ppim:Cpim:phipim:pidpim:E_ppim:"  // P, cos(Theta), phi, PID and "E over p" of Pi-
                 "Eg1:Cg1:phig1:"   // E, cos(Theta) and phi of gamma-1
                 "Eg2:Cg2:phig2:"   // E, cos(Theta) and phi of gamma-2
                 "Pgg:Cgg:phigg:"   // P, cos(Theta) and phi of eta (2gamma)
@@ -312,8 +319,8 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    // final ntuple for e+ e- -> Pi+ Pi- 6 gammas
    m_tuple[6] = new TNtupleD("a4c6","after 4C kinematic fit (6 gammas)",
                 "ch2:"            // chi^2 of 4C fit
-                "Ppip:Cpip:phipip:"  // P, cos(Theta) and phi of Pi+
-                "Ppim:Cpim:phipim:"  // P, cos(Theta) and phi of Pi-
+                "Ppip:Cpip:phipip:pidpip:E_ppip:"  // P, cos(Theta), phi, PID and "E over p" of Pi+
+                "Ppim:Cpim:phipim:pidpim:E_ppim:"  // P, cos(Theta), phi, PID and "E over p" of Pi-
                 "Eg1:Cg1:phig1:"   // E, cos(Theta) and phi of gamma-1
                 "Eg2:Cg2:phig2:"   // E, cos(Theta) and phi of gamma-2
                 "Eg3:Cg3:phig3:"   // E, cos(Theta) and phi of gamma-3
@@ -688,6 +695,7 @@ static bool ChargedTracksTwoPi(ReadDst* selector, SelectEtaTwoPi& Slct) {
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
    const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
+   ParticleID* pid = ParticleID::instance();
 
    for(int i = 0; i < evtRecEvent->totalCharged(); i++) {
 
@@ -697,7 +705,7 @@ static bool ChargedTracksTwoPi(ReadDst* selector, SelectEtaTwoPi& Slct) {
          continue;
       }
 
-      RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      RecMdcTrack *mdcTrk = itTrk->mdcTrack();
 
       double theta = mdcTrk->theta();
       double cosTheta = cos(theta);
@@ -728,6 +736,57 @@ static bool ChargedTracksTwoPi(ReadDst* selector, SelectEtaTwoPi& Slct) {
          continue;
       }
 
+      // E/p check (no cut here, E_p could be used to add cut while making histograms)
+      double E_p = -1.;
+      if ( itTrk->isEmcShowerValid() ) {
+         RecEmcShower *emcTrk = itTrk->emcShower();
+         double EnergyEMC = emcTrk->energy();
+         double pMDC =  mdcTrk->p();
+         E_p =  EnergyEMC / pMDC;
+      }
+      hst[16]->Fill( E_p );
+
+      // PID information
+      pid->init();
+      pid->setMethod(pid->methodProbability());
+      pid->setChiMinCut(4);
+      pid->setRecTrack(itTrk);
+
+      // list of systems used for PID
+      pid->usePidSys( pid->useDedx() |
+                      pid->useTof1() | pid->useTof2() |
+                      pid->useTofE() );
+
+      pid->identify(
+         pid->onlyPion()    |
+         pid->onlyKaon()    |
+         pid->onlyProton()  |
+         pid->onlyMuon()    |
+         pid->onlyElectron()
+      );
+
+      pid->calculate(Slct.runNo);
+      double check_pion = 0.0;
+      if ( pid->IsPidInfoValid() ) {
+         if( pid->probPion() > 0 ) {
+            hst[17]->Fill( log10(pid->probPion()) );
+         } else {
+            hst[17]->Fill(-5.);
+         }
+         // check that track is pion:
+         if ( (pid->probPion() > 0.001)             &&
+               (pid->probPion() > pid->probKaon())   &&
+               (pid->probPion() > pid->probProton())
+            ) {
+            check_pion = pid->probPion();
+         }
+      } // end IsPidInfoValid
+
+      //Check_pion cut (could be used during makinng histograms or right here)
+      /*if( check_pion == 0 ) {
+         continue;
+      }*/
+
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
       if ( !mdcKalTrk ) {
@@ -738,8 +797,12 @@ static bool ChargedTracksTwoPi(ReadDst* selector, SelectEtaTwoPi& Slct) {
       hst[23]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
       if( mdcKalTrk->charge() > 0 ) {
          Slct.trk_Pip.push_back(mdcKalTrk);
+         Slct.pid_Pip.push_back(check_pion);
+         Slct.E_p_Pip.push_back(E_p);
       } else {
          Slct.trk_Pim.push_back(mdcKalTrk);
+         Slct.pid_Pim.push_back(check_pion);
+         Slct.E_p_Pim.push_back(E_p);
       }
    }  //-------------------------------------------------End for (i)
 
@@ -759,7 +822,7 @@ static bool ChargedTracksTwoPi(ReadDst* selector, SelectEtaTwoPi& Slct) {
          hst[101]->Fill( Slct.decJpsi );
       } else {
          hst[101]->Fill( Slct.decEta );
-      } 
+      }
    }
 
    // recoil mass of pi+ pi-
@@ -1049,8 +1112,8 @@ static bool VertKinFit_2(SelectEtaTwoPi& Slct) {
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
    Double_t xfill[] = {
       chisq,
-      Ppp.rho(), Ppp.cosTheta(), Ppp.phi(),
-      Ppm.rho(), Ppm.cosTheta(), Ppm.phi(),
+      Ppp.rho(), Ppp.cosTheta(), Ppp.phi(), Slct.pid_Pip[0], Slct.E_p_Pip[0],
+      Ppm.rho(), Ppm.cosTheta(), Ppm.phi(), Slct.pid_Pim[0], Slct.E_p_Pim[0],
       Pg1.e(), Pg1.cosTheta(), Pg1.phi(),
       Pg2.e(), Pg2.cosTheta(), Pg2.phi(),
       Pgg.rho(), Pgg.cosTheta(), Pgg.phi(),
@@ -1265,8 +1328,8 @@ static bool VertKinFit_6(SelectEtaTwoPi& Slct) {
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
    Double_t xfill[] = {
       chisq,
-      Ppp.rho(), Ppp.cosTheta(), Ppp.phi(),
-      Ppm.rho(), Ppm.cosTheta(), Ppm.phi(),
+      Ppp.rho(), Ppp.cosTheta(), Ppp.phi(), Slct.pid_Pip[0], Slct.E_p_Pip[0],
+      Ppm.rho(), Ppm.cosTheta(), Ppm.phi(), Slct.pid_Pim[0], Slct.E_p_Pim[0],
       Pg1.e(), Pg1.cosTheta(), Pg1.phi(),
       Pg2.e(), Pg2.cosTheta(), Pg2.phi(),
       Pg3.e(), Pg3.cosTheta(), Pg3.phi(),
