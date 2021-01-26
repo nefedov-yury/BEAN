@@ -1412,7 +1412,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       (Slct.decPsip > 0) ? static_cast<UShort_t>(Slct.decPsip) : 0;
    xnt1.mcmkk = Slct.mc_mkk;
 
-//    m_nt1->Fill(); // ATTENTION!
+   m_nt1->Fill(); // ATTENTION!
 
    return true;
 }
