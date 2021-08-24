@@ -52,7 +52,6 @@ using CLHEP::HepLorentzVector;
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
 
-
 using namespace std;
 
 //-------------------------------------------------------------------------
@@ -69,7 +68,12 @@ struct Select_PsipJpsiPhiEta {
    int decPsip, decJpsi;      // decay codes for MC events
    int dec_eta;               // 1 if eta->2gamma
    Hep3Vector mcPip, mcPim;   // true pi+/pi- momentums from Psi(2S) decay
-   double mc_mkk;             // true inv. mass of K+K- from phi decay
+   double mc_mkk;             // true inv. mass of K+K-
+   double mc_mkpeta;          // true inv. mass of K+eta
+   double mc_cosT;            // true cosT: T is the angle between the
+                              // K+ direction in K+K- rest frame and
+                              // the prior direction of the K+K- system
+                              // in J/Psi rest frame
 
    long int pip_pdg, pim_pdg; // pdg of the best selected candidates
    int      pip_ok,  pim_ok;
@@ -104,6 +108,8 @@ struct Select_PsipJpsiPhiEta {
       decPsip = decJpsi = -1;
       dec_eta = 0;
       mc_mkk = 0;
+      mc_mkpeta = 0;
+      mc_cosT = 2;
       pip_pdg = 0; pim_pdg = 0;
       pip_ok = -1; pim_ok = -1;
       Mrec_sig = 0;
@@ -134,7 +140,9 @@ struct Xnt1 {
    UShort_t nch;         // N charged tracks
    UShort_t Nm;          // number of els in Mrec: use @Mrec.size()
    UShort_t decPsip;     // decay code of Psi(2S)
-   float mcmkk;          // true inv. mass of K+K- from phi decay
+   float mcmkk;          // true inv. mass of K+K-
+   float mcmkpet;        // true inv. mass of K+eta
+   float mccosT;         // true cosT
 } xnt1;
 
 //    float cosPM;          // cos(Theta(pi+ pi-)) for best
@@ -469,6 +477,11 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[147] = new TH1D("mc_KmCRC",
               "cos(#Theta) of K^{-} in the rest frame of J/#Psi",100,-1.,1.);
 
+   hst[181] = new TH1D("mc_Mkpeta", "Minv(K^{+}eta)", 140,1.8,2.5);
+   hst[182] = new TH2D("mc_M1M2", "Minv2(K+K-) vs Minv2(K+ eta)",
+                       140,0.,7.,140,0.,7.);
+   hst[183] = new TH1D("mc_cosT", "MC truth cosT", 100,-1.,1.);
+
    // MatchRecMcTrks:
    hst[151] = new TH1D("mc_mdp_p","REC-MC ok min dP #pi^{+}",100,-0.05,0.05);
    hst[152] = new TH1D("mc_mdp_np","REC-MC no min dP #pi^{+}",100,-0.05,0.05);
@@ -566,6 +579,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt1->Branch("Nm",&xnt1.Nm);  // just for convenience,
    m_nt1->Branch("dec",&xnt1.decPsip);
    m_nt1->Branch("mcmkk",&xnt1.mcmkk);
+   m_nt1->Branch("mcmkpet",&xnt1.mcmkpet);
+   m_nt1->Branch("mccosT",&xnt1.mccosT);
 
    // final ntuple for
    //   Psi(2S) -> pi+ pi- J/Psi
@@ -588,7 +603,9 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
                 "M2kpeta:M2kmeta:"   // M_inv^2( K(+/-) eta )
                 "Ptpip:Ptpim:Ptkp:Ptkm:Ptgg" // for compatibility
                 ":dec:decj"          // MC: decay codes of Psi(2S) and J/Psi
-                ":mcmkk"             // MC: invariant masses of MCtrue K+K-
+                ":mcmkk"             // MCtrue: inv. mass of K+K-
+                ":mcmkpet"           // MCtrue: inv. mass of K+eta
+                ":mccosT"            // MCtrue: cosT
                             );
 
    // ntuple for eta efficiency study
@@ -707,11 +724,11 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    PsipTbl.Reset();
    JpsiTbl.Reset();
 
-   // momentum eta & phi in rest frame of J/Psi
+   // boost vector for go to rest frame of J/Psi
    Hep3Vector beta_jpsi;
+   // momentum eta & phi & K+,K-
    HepLorentzVector LVeta, LVphi;
-   // momentum K+ & K- from phi decay
-   vector<HepLorentzVector> LVK;
+   vector<HepLorentzVector> LVKp, LVKm;
 
    TIter mcIter(mcParticles);
    while( auto part = static_cast<TMcParticle*>(mcIter.Next()) ) {
@@ -771,8 +788,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
             idx_eta = part->getTrackIndex();
 
             HepLorentzVector LV( Vp, sqrt(Vp.mag2() + SQ(meta)) );
-            LV.boost(-beta_jpsi);
             LVeta=LV;
+            LV.boost(-beta_jpsi);
             hst[141]->Fill( LV.cosTheta() );
 
          } else if ( part_pdg == 333 ) {           // phi
@@ -782,8 +799,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
             idx_phi = part->getTrackIndex();
 
             HepLorentzVector LV( Vp, sqrt(Vp.mag2() + SQ(mphi)) );
-            LV.boost(-beta_jpsi);
             LVphi=LV;
+            LV.boost(-beta_jpsi);
             hst[142]->Fill( LV.cosTheta() );
          }
       }
@@ -794,7 +811,12 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
             int signK = ( part_pdg > 0 ) ? 1 : -1;
             hst[138]->Fill( signK*Vp.mag() );
             hst[139]->Fill(Vp.cosTheta());
-            LVK.push_back( HepLorentzVector( Vp,sqrt(Vp.mag2()+SQ(mk)) ) );
+            HepLorentzVector LV( Vp,sqrt(Vp.mag2()+SQ(mk)) );
+            if ( signK == 1 ) {
+               LVKp.push_back(LV);
+            } else {
+               LVKm.push_back(LV);
+            }
          }
       }
 
@@ -808,13 +830,42 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 
    if ( decJpsi == 68 ) {     // J/Psi -> phi eta
       // check angle(phi,eta) in the rest frame of J/Psi
-      double alpha= LVeta.angle(LVphi.vect());
+      HepLorentzVector LV1 = LVeta, LV2 = LVphi;
+      LV1.boost(-beta_jpsi);
+      LV2.boost(-beta_jpsi);
+      double alpha= LV1.angle(LV2.vect());
       hst[143]->Fill( RtoD(alpha) );
 
-      // study cut-off in invariant mass of K+ K- from phi decays
-      if ( LVK.size() == 2 ) {
-         Slct.mc_mkk = (LVK[0]+LVK[1]).m();
+      // save invariant masses: M(K+K-), M(K+eta)
+      //  and cosT (see Select_PsipJpsiPhiEta)
+      if ( LVKp.size() == 1 && LVKm.size() == 1  ) {
+         Slct.mc_mkk = (LVKp[0]+LVKm[0]).m();
          hst[145]->Fill( Slct.mc_mkk );
+         Slct.mc_mkpeta = (LVKp[0]+LVeta).m();
+         hst[181]->Fill( Slct.mc_mkpeta );
+         hst[182]->Fill( SQ(Slct.mc_mkk), SQ(Slct.mc_mkpeta) );
+
+//          HepLorentzVector LVPkk = LVKp[0]+LVKm[0];
+//          Hep3Vector boostKK = LVPkk.boostVector();
+//          LVPkk.boost(-beta_jpsi); // KK in J/Psi rest system
+//          HepLorentzVector LV = LVKp[0];
+//          LV.boost(-boostKK); // K+ in KK rest system
+//          Hep3Vector Pkk = LVPkk.vect();
+//          Hep3Vector Pkp = LV.vect();
+//          Slct.mc_cosT = Pkp.dot(Pkk)/(Pkp.mag()*Pkk.mag());
+//          hst[183]->Fill( Slct.mc_cosT );
+
+         HepLorentzVector LVkpJ = LVKp[0];
+         LVkpJ.boost(-beta_jpsi); // K+ in J/Psi rest system
+         HepLorentzVector LVkmJ = LVKm[0];
+         LVkmJ.boost(-beta_jpsi); // K- in J/Psi rest system
+         HepLorentzVector LVkkJ = LVkpJ+LVkmJ; // KK in J/Psi rest system
+         Hep3Vector boostKKJ = LVkkJ.boostVector();
+         LVkpJ.boost(-boostKKJ); // K+ in KK rest system
+         Hep3Vector VkkJ = LVkkJ.vect();
+         Hep3Vector VkpJ = LVkpJ.vect();
+         Slct.mc_cosT = VkpJ.dot(VkkJ)/(VkpJ.mag()*VkkJ.mag());
+         hst[183]->Fill( Slct.mc_cosT );
       }
 
       // set Slct.dec_eta
@@ -877,7 +928,11 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
                hst[138]->Fill( signK*Vp.mag() );
                hst[139]->Fill(Vp.cosTheta());
                HepLorentzVector LV( Vp, sqrt(Vp.mag2()+SQ(mk)) );
-               LVK.push_back(LV);
+               if ( signK == 1 ) {
+                  LVKp.push_back(LV);
+               } else {
+                  LVKm.push_back(LV);
+               }
 
                LV.boost(-beta_jpsi);
                if ( signK > 0 ) {
@@ -892,15 +947,31 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
                hst[133]->Fill(Vp.cosTheta());
 
                HepLorentzVector LV( Vp, sqrt(Vp.mag2() + SQ(meta)) );
+               LVeta=LV;
                LV.boost(-beta_jpsi);
                hst[141]->Fill( LV.cosTheta() );
             }
          } // end J/Psi daughters
       } // end of while()
 
-      // invariant mass of K+ K-
-      if ( LVK.size() == 2 ) {
-         Slct.mc_mkk = (LVK[0]+LVK[1]).m();
+      // save invariant masses: M(K+K-), M(K+eta)
+      //  and cosT (see Select_PsipJpsiPhiEta)
+      if ( LVKp.size() == 1 && LVKm.size() == 1  ) {
+         Slct.mc_mkk = (LVKp[0]+LVKm[0]).m();
+         hst[145]->Fill( Slct.mc_mkk );
+         Slct.mc_mkpeta = (LVKp[0]+LVeta).m();
+         hst[181]->Fill( Slct.mc_mkpeta );
+         hst[182]->Fill( SQ(Slct.mc_mkk), SQ(Slct.mc_mkpeta) );
+
+         HepLorentzVector LVPkk = LVKp[0]+LVKm[0];
+         Hep3Vector boostKK = LVPkk.boostVector();
+         LVPkk.boost(-beta_jpsi); // KK in J/Psi rest system
+         HepLorentzVector LV = LVKp[0];
+         LV.boost(-boostKK); // K+ in KK rest system
+         Hep3Vector Pkk = LVPkk.vect();
+         Hep3Vector Pkp = LV.vect();
+         Slct.mc_cosT = Pkp.dot(Pkk)/(Pkp.mag()*Pkk.mag());
+         hst[183]->Fill( Slct.mc_cosT );
       }
    }
 }
@@ -1411,6 +1482,8 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    xnt1.decPsip =
       (Slct.decPsip > 0) ? static_cast<UShort_t>(Slct.decPsip) : 0;
    xnt1.mcmkk = Slct.mc_mkk;
+   xnt1.mcmkpet = Slct.mc_mkpeta;
+   xnt1.mccosT = Slct.mc_cosT;
 
    m_nt1->Fill(); // ATTENTION!
 
@@ -1940,7 +2013,7 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       M2kpeta,M2kmeta,
       Ppip.perp(), Ppim.perp(), Pkp.perp(), Pkm.perp(), Pgg.perp(),
       double(Slct.decPsip), double(Slct.decJpsi),
-      Slct.mc_mkk
+      Slct.mc_mkk, Slct.mc_mkpeta, Slct.mc_cosT
    };
 //       Mrec_fit,cosPMfit,invPMfit,
 //       Mkk0, Mgg0,
