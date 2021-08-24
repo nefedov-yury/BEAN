@@ -86,7 +86,6 @@ def GetTimestamp():
         sock = opener.open(HOST+"/db.timestamp")
         text = sock.read()
         sock.close()
-#          lines=text.splitlines()
         lines=text.decode('UTF-8').splitlines()
     except urllib.error.URLError as e:
         msg = "Can't access server "+HOST
@@ -111,7 +110,7 @@ def GetTimestamp():
     try:
         timestamp=int(lines[0])
     except:
-        print(lines)
+        print('ERROR: lines are ',lines)
         exit(-1)
     for line in lines[1:]:
         temp1,temp2 = line.split()
@@ -236,16 +235,17 @@ def main(argv):
               " nor can be derived from $BesArea. Use local directory.")
         destdir="./"
 
-    print("Install/update databases in the directory "+destdir)
+# Change directory to destdir and check if it is writable
+    if not CheckDirectory(destdir):
+        exit(-1)
+    else:
+        print("Install/update databases in the directory",destdir)
 
 # Check wget is in the PATH
     if os.system("wget > /dev/null 2>&1")==32512:
         print("Unable to find wget. Please install it first")
         exit(-1);
 
-# Change directory to destdir and check if it is writable
-    if not CheckDirectory(destdir):
-        exit(-1)
 
 # Get timestamp and checksums
     timestamp,Files = GetTimestamp()
