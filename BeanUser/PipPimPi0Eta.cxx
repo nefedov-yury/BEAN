@@ -54,6 +54,7 @@ using CLHEP::twopi;
 #include "ParticleID/ParticleID.h"
 #include "MagneticField/MagneticFieldSvc.h"
 #include "EventTag/EventTagSvc.h"
+#include "EventTag/DecayTable.h"
 
 #include "DstEvtRecTracks.h"
 #include "TofHitStatus.h"
@@ -111,6 +112,10 @@ static EventTagSvc* m_EventTagSvc = 0;
 static std::vector<TH1D*> his1;
 static std::vector<TH2D*> his2;
 static std::vector<TNtupleD* > m_tuple;
+
+// decays classification
+static DecayTable JpsiTbl;  // final selection for phi eta
+static DecayTable JpsiTblW; // for omega-eta
 
 // container for warnings
 static map<string,int> warning_msg;
@@ -224,9 +229,13 @@ void PipPimPi0EtaStartJob (ReadDst* selector)
   his1[19] = new TH1D("NGamma","N_{#gamma}",10 ,0 ,10);
   his1[20] = new TH1D("G_ang","angle with closest chg.trk", 180,0.,180.);
 
+  his1[25] = new TH1D("Mpi0","M_{#pi^{0}}", 200, 0., 0.2);
+  his1[26] = new TH1D("Mpi0phi","M_{#pi^{0}} phi-eta", 200, 0., 0.2);
+  his1[27] = new TH1D("Mpi0w","M_{#pi^{0}} omega-eta", 200, 0., 0.2);
+
   his1[41] = new TH1D("vtx_fit", "vertex fit: 0/1 - bad/good", 2,-0.5,1.5);
   his1[42] = new TH1D("vtx_chi2", "vertex fit #chi^2", 100,0.,100.);
-  
+
   his1[45] = new TH1D("f5c_loop","0,1=false Fit0,Fit1,5=oksq",10,-0.5,10.5);
   his1[51] = new TH1D("f5c_chisq","5C-fit: min #chi^{2}", 300,0.,300.);
   his1[52] = new TH1D("f5c_chi2","5C-fit: final min #chi^{2}", 200,0.,200.);
@@ -276,7 +285,8 @@ void PipPimPi0EtaStartJob (ReadDst* selector)
                "Ppi0:Cpi0:phipi0:"  // P, cos(Theta), phi of pi0
                "P2g:C2g:phi2g:"     // P, cos(Theta), phi of gamma-gamma
                "M2pi3:M2gg:M2rec:"  // squares of invariant mass
-               "dec:deceta:decphi"  // MC decay codes of J/Psi, eta, phi
+               "dec:deceta:decphi:" // MC decay codes of J/Psi, eta, phi
+               "M2pi0:Npi0"
                                 );
 
   const char* SaveDir = "one";
@@ -359,6 +369,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct)
    }
    his1[100]->Fill( Slct.decJpsi );
 
+   JpsiTbl.Reset();
+
    int idx_jpsi=-1;
    int idx_eta=-1;
    int idx_phi=-1;
@@ -390,6 +402,11 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct)
          idx_jpsi = part->getTrackIndex();
          HepLorentzVector LVjpsi( Vp, sqrt(Vp.mag2() + SQ(mjpsi)) );
          beta_jpsi = LVjpsi.boostVector();
+      }
+
+      if( part->getMother() == idx_jpsi ) {  // decays of J/Psi
+         // collect decays of J/psi
+         JpsiTbl.vecdec.push_back(part_pdg);
       }
 
       if ( part->getMother() == idx_jpsi
@@ -636,7 +653,7 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
     // select Pions only
 //     if ( pid->probPion() <  0.001 ) return false;
-    if ( pid->probPion() <  0.001 ) continue;
+    if ( pid->probPion() <  0.001 || pid->probPion() < pid->probKaon() || pid->probPion() < pid->probProton() ) continue;
 
     RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
     //his1[25]->Fill( (double)(mdcKalTrk != 0) );
@@ -889,13 +906,14 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
          << endl;
     Warning("Bad second fit");
     return false;
-  } 
+  }
   his1[52]->Fill(chi2);
 
   HepLorentzVector P_pip = kmfit->pfit(0);
   HepLorentzVector P_pim = kmfit->pfit(1);
   HepLorentzVector P_pi0 = kmfit->pfit(2) + kmfit->pfit(3);
   HepLorentzVector P_3pi = P_pip + P_pim + P_pi0;
+  HepLorentzVector P_pi02 = Slct.Pg[ig[0]]+Slct.Pg[ig[1]]; //g11Trk & g21Trk;
 
   HepLorentzVector P_2g = kmfit->pfit(4) + kmfit->pfit(5);
   HepLorentzVector P_tot = P_3pi + P_2g;
@@ -905,6 +923,39 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
   double M2_3pi = P_3pi.m2();
   double M2_2g  = P_2g.m2();
   double M2_rec = P_rec.m2();
+  double M_2g   = sqrt(M2_2g);
+  double M_3pi  = sqrt(M2_3pi);
+
+  int Npi0 = 0;
+  for ( int i = 0; i < nGam-1; i++ ) {
+     if ( i == ig[0] || i == ig[1] ) {
+        continue;
+     }
+     for ( int j = i+1; j < nGam; j++ ) {
+        if ( j == ig[0] || j == ig[1] ) {
+            continue;
+        }
+        double Mgg0 = (Slct.Pg[i] + Slct.Pg[j]).m();
+        his1[25]->Fill( Mgg0 );
+
+        if ( Mgg0 > 0.115 && Mgg0 < 0.155 ) {
+           Npi0++;
+        }
+
+        if ( chi2 < 100
+               && fabs(M_2g-meta) < 0.016
+               && M_3pi > 1.01 && M_3pi < 1.03
+           ) {
+           his1[26]->Fill( Mgg0 );
+        }
+        if ( chi2 < 100
+               && fabs(M_2g-meta) < 0.024
+               && M_3pi > 0.76 && M_3pi < 0.80
+           ) {
+           his1[27]->Fill( Mgg0 );
+        }
+     }
+  }
 
   his1[1]->Fill( ( Slct.ppip + Slct.ppim + Slct.Pg[ig[0]] + Slct.Pg[ig[1]] + Slct.Pg[ig[2]] + Slct.Pg[ig[3]] ).m() );
   his1[2]->Fill( P_tot.m() );
@@ -913,13 +964,6 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 
   his1[6]->Fill( P_rec.m() );
 
-//   float xfill[] = {
-//                 chi2,
-//                 P_tot.e(),P_tot.rho()
-//                   };
-//   m_tuple[0]->Fill( xfill );
-
-
   double xfill[] = {
       chi2,
       P_pip.rho(), P_pip.cosTheta(), P_pip.phi(),
@@ -927,9 +971,28 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
       P_pi0.rho(), P_pi0.cosTheta(), P_pi0.phi(),
       P_2g.rho(),  P_2g.cosTheta(),  P_2g.phi(),
       M2_3pi, M2_2g, M2_rec,
-      double(Slct.decJpsi), double(Slct.dec_eta), double(Slct.dec_phi)
+      double(Slct.decJpsi), double(Slct.dec_eta), double(Slct.dec_phi),
+      P_pi02.m2(), double(Npi0)
   };
   m_tuple[0]->Fill( xfill );
+
+  if ( isMC ) {
+     // fill decay table of Jpsi for very narrow region of phi-eta
+     if ( chi2 < 100
+            && fabs(M_2g-meta) < 0.016
+            && M_3pi > 1.01 && M_3pi < 1.03
+        ) {
+            JpsiTbl.Add();
+          }
+     // fill decay table of Jpsi for region of omega-eta
+     if ( chi2 < 100
+            && fabs(M_2g-meta) < 0.024
+            && M_3pi > 0.76 && M_3pi < 0.80
+        ) {
+            JpsiTblW.vecdec = JpsiTbl.vecdec;
+            JpsiTblW.Add();
+          }
+  }
 
   return true;
 }
@@ -937,6 +1000,36 @@ bool PipPimPi0EtaEvent (ReadDst* selector,
 void PipPimPi0EtaEndJob (ReadDst* selector)
 {
   if ( selector->Verbose() ) cout << __func__ << "()" << endl;
+
+  if ( isMC ) {
+     // print tables of decays for phi-eta
+     string my_cuts(
+        " List of cuts for J/Psi -> pi+ pi- pi0 eta:\n "
+        "      chi2<100 && abs(Mgg-meta)<0.016 && 1.01<M3pi<1.03"
+     );
+     cout << my_cuts << endl << endl;
+
+     cout << string(65,'#') << endl;
+     cout << "Decays of J/psi" << endl
+          << JpsiTbl.ntot << " decays" << endl
+          << "       size of table is " << JpsiTbl.Size() << endl;
+     JpsiTbl.Print(0.1); // do not print decays with P<0.1% of all
+     cout << "Enddecay" << endl << endl;
+
+     // print tables of decays for omega-eta
+     string my_cutsW(
+        " List of cuts for J/Psi -> pi+ pi- pi0 eta:\n "
+        "      chi2<100 && abs(Mgg-meta)<0.024 && 0.76<M3pi<0.80"
+     );
+     cout << my_cutsW << endl << endl;
+
+     cout << string(65,'#') << endl;
+     cout << "Decays of J/psi W" << endl
+          << JpsiTblW.ntot << " decays" << endl
+          << "       size of table is " << JpsiTblW.Size() << endl;
+     JpsiTblW.Print(0.1); // do not print decays with P<0.1% of all
+     cout << "Enddecay" << endl << endl;
+  }
 
   string module = string(__func__);
   module = module.substr(0,module.size()-6);
