@@ -67,6 +67,8 @@ struct SelectEtaTwoPi {
    double Xisr;            // Xisr = s'/s
    int decEta;             // eta decay:1=2gamma, 2=3pi0, 3=pi+pi-pi0
    vector<HepLorentzVector> mcPg; // 4-mom. of gammas from eta decay
+   double M2_pip_pim;       //squared invariant mass of (pi+, pi-)
+   double M2_pip_eta;       //squared invariant mass of (pi+, eta)
 
    // Pion candidate
    vector<RecMdcKalTrack*> trk_Pip;  // positive tracks
@@ -110,6 +112,7 @@ static AbsCor* m_abscor = 0;
 static EventTagSvc* m_EventTagSvc = 0;
 
 static std::vector<TH1*> hst;
+static std::vector<TH2*> hst2;
 static std::vector<TNtupleD*> m_tuple;
 
 // container for warnings
@@ -151,6 +154,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    }
 
    hst.resize(500,nullptr);
+   hst2.resize(10, nullptr);
    m_tuple.resize(10,nullptr);
 
    // init Absorption Correction
@@ -203,7 +207,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   //--------- Book histograms ------------------------------------------------ NEED TO CHANGE HISTOS
+   //--------- Book histograms ------------------------------------------------
 
    hst[0] = new TH1D("Runs", "run numbers", 1000,0.,50000);
    hst[1] = new TH1D("cuts_0","preselections cuts", 20,-0.5,19.5);
@@ -303,6 +307,9 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[147] = new TH1D("mc_3pi2gE", "E(g) eta->pi+pi-pi0", 100,0.,2.);
    hst[148] = new TH1D("mc_3pi2gC", "cos(g) eta->pi+pi-pi0", 100,-1.,1.);
 
+   hst2[2] = new TH2D("Dalitz_ini_2g", "Dalitz Plot for initial momenta of particles, eta->2g", 400, 0., 10.,400,0.,10.);
+   hst2[6] = new TH2D("Dalitz_ini_6g", "Dalitz Plot for initial momenta of particles, eta->3pi0->6g", 400, 0., 10.,400,0.,10.);
+
    // final ntuple for e+ e- -> Pi+ Pi- 2 gammas
    m_tuple[2] = new TNtupleD("a4c2","after 4C kinematic fit (2 gammas)",
                 "ch2:"            // chi^2 of 4C fit
@@ -312,6 +319,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
                 "Eg2:Cg2:phig2:"   // E, cos(Theta) and phi of gamma-2
                 "Pgg:Cgg:phigg:"   // P, cos(Theta) and phi of eta (2gamma)
                 "M2pi:Mgg:"        // invariant masses of Pi+Pi- and 2gammas
+                "M2pp_true:M2pe_true:" //squared invariant masses of (pi+,pi-) and (pi+,eta) with momenta taken before kinematic fit for 2 gamma
                 "dec:"            // MC: decay codes of J/Psi or eta
                 "xisr"            // MC: Xisr = s'/s
                             );
@@ -329,6 +337,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
                 "Eg6:Cg6:phig6:"   // E, cos(Theta) and phi of gamma-6
                 "Pgg:Cgg:phigg:"   // P, cos(Theta) and phi of eta (6gamma)
                 "M2pi:Mgg:"        // invariant masses of Pi+Pi- and 6gammas
+                "M2pp_true:M2pe_true:" //squared invariant masses of (pi+,pi-) and (pi+,eta) with momenta taken before kinematic fit for 6 gamma
                 "dec:"            // MC: decay codes of J/Psi or eta
                 "xisr"            // MC: Xisr = s'/s
                             );
@@ -337,6 +346,8 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    const char* SaveDir = "Eta_TwoPi";
    VecObj his1o(hst.begin(),hst.end());
    selector->RegInDir(his1o,SaveDir);
+   VecObj his2o(hst2.begin(),hst2.end());
+   selector->RegInDir(his2o,SaveDir);
    VecObj ntuples(m_tuple.begin(),m_tuple.end());
    selector->RegInDir(ntuples,SaveDir);
 }
@@ -533,6 +544,10 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
    double Etot_isr  = 0.;      // total energy
    HepLorentzVector Pisr;      // sum of ISR photons
    HepLorentzVector Pr;        // sum of primary particles
+   HepLorentzVector Ppip;      // momentum of Pi+ for Dalitz plot
+   HepLorentzVector Ppim;      // momentum of Pi- for Dalitz plot
+   HepLorentzVector Peta;      // momentum of Eta for Dalitz plot
+   double M2_pp, M2_pe;        // squared invariant masses for Dalitz plots
 
    // e+ e- -> g(ISR) + virt_ptcl -> g(ISR) + pi+ pi- eta
    static const int Vpdg = 70022; // 'pdg' of virtual particle
@@ -567,16 +582,22 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
             hst[121]->Fill(Vp.mag());
             hst[122]->Fill(Vp.rho());
             hst[123]->Fill(Vp.cosTheta());
+            Ppip.setE(Ep);
+            Ppip.setVect(Vp);
          } else if ( part_pdg == -211 ) { // pi-
 //             idx_pim = part->getTrackIndex();
             hst[124]->Fill(Vp.mag());
             hst[125]->Fill(Vp.rho());
             hst[126]->Fill(Vp.cosTheta());
+            Ppim.setE(Ep);
+            Ppim.setVect(Vp);
          } else if ( part_pdg ==  221 ) { // eta
             idx_eta = part->getTrackIndex();
             hst[131]->Fill(Vp.mag());
             hst[132]->Fill(Vp.rho());
             hst[133]->Fill(Vp.cosTheta());
+            Peta.setE(Ep);
+            Peta.setVect(Vp);
          }
       } // end of primary vertex
 
@@ -607,9 +628,19 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
    Slct.decEta = 0;
    if ( Pdg_eta.size() == 2 && Pdg_eta[0]==22 && Pdg_eta[1]==22 ) {
       Slct.decEta = 1; // eta -> 2 gamma
+      M2_pp = (Ppip+Ppim).m2();
+      M2_pe = (Ppip+Peta).m2();
+      Slct.M2_pip_pim = M2_pp;
+      Slct.M2_pip_eta = M2_pe;
+      hst2[2]->Fill(M2_pp, M2_pe);
    } else if ( Pdg_eta.size() == 3 ) {
       if ( Pdg_eta[0]==111 && Pdg_eta[1]==111 && Pdg_eta[2]==111 ) {
          Slct.decEta = 2; // eta -> 3pi0
+         M2_pp = (Ppip+Ppim).m2();
+         M2_pe = (Ppip+Peta).m2();
+         Slct.M2_pip_pim = M2_pp;
+         Slct.M2_pip_eta = M2_pe;
+         hst2[6]->Fill(M2_pp, M2_pe);
       } else {
          sort(Pdg_eta.begin(),Pdg_eta.end());
          if ( Pdg_eta[0]==-211 && Pdg_eta[1] ==111 && Pdg_eta[2]==211 ) {
@@ -1118,6 +1149,7 @@ static bool VertKinFit_2(SelectEtaTwoPi& Slct) {
       Pg2.e(), Pg2.cosTheta(), Pg2.phi(),
       Pgg.rho(), Pgg.cosTheta(), Pgg.phi(),
       M2pi, Mgg,
+      Slct.M2_pip_pim, Slct.M2_pip_eta,
       dec, Slct.Xisr
    };
    m_tuple[2]->Fill( xfill );
@@ -1338,6 +1370,7 @@ static bool VertKinFit_6(SelectEtaTwoPi& Slct) {
       Pg6.e(), Pg6.cosTheta(), Pg6.phi(),
       Pgg.rho(), Pgg.cosTheta(), Pgg.phi(),
       M2pi, Mgg,
+      Slct.M2_pip_pim, Slct.M2_pip_eta,
       dec, Slct.Xisr
    };
    m_tuple[6]->Fill( xfill );
