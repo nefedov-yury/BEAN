@@ -645,7 +645,7 @@ void ReadDst::RegInDir(const VecObj* hst, const char* dir)
    if( Verbose() ) cout << " ReadDst::RegInDir(VecObj*) " << endl;
 
    // add the prefix (=="$dir_") to the name
-   // so that the names is unique in the current directory 
+   // so that the names is unique in the current directory
    string prefix;
    if ( dir ) {
       prefix = string(dir) + "_";
@@ -741,7 +741,7 @@ void ReadDst::Save_histo() const
          // in this case remove the prefix (=="$dir_")
          // from the names (see RegInDir(VecObj*))
          if (directoryMap) {
-            TObjString* dir_name = 
+            TObjString* dir_name =
                (TObjString*) directoryMap->GetValue(hst->GetName());
             size_t pref_size = string(dir_name->GetName()).size();
             if ( pref_size > 0 ) {
@@ -762,7 +762,7 @@ void ReadDst::Save_histo() const
          }
 
          // to store TMap/TCollection/etc as single object
-         obj->Write(NULL, TObject::kSingleKey); 
+         obj->Write(NULL, TObject::kSingleKey);
 
      } else {
 

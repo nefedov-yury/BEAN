@@ -35,20 +35,20 @@ class ReadDst : public DstFormat
 public :
                         ReadDst();
    virtual             ~ReadDst();
-   
+
    bool                 LoadConfig(Bean* _bean = 0);
    bool                 Verbose() const;
    void                 SetVerbose() {bean->SetVerbose();}
    void                 SetSilent()  {bean->SetSilent();}
    std::string          GetBaseDir() const;
    std::string          AbsPath(std::string rel_path) const;
-   
+
    const TObjArray*     GetEvtRecTrkCol() const {return m_evtRecTrkCol;}
 
    void                 SetEntryList(TEntryList* el);
    Long64_t             GetEntryNumber();
    void                 SaveEntryInList(TEntryList* el);
-   
+
    // TSelector functions
    void                 Begin(TTree* );
    void                 SlaveBegin(TTree* );
@@ -87,7 +87,7 @@ private :
    TFile*               f_select;
    TProofOutputFile*    fp_select;
    int                  n_select_events;
-   
+
    // -- time measuring
    time_t               start_time;
    Int_t                n_events;
@@ -98,7 +98,7 @@ private :
    // -- internal functions:
    void                 CheckDupName(TObject *obj);
    void                 WriteJobInfo();
-   
+
    // ClassVersionID=0 because we don't need object I/O
    ClassDef(ReadDst,0); // Primary class to read DST
 };

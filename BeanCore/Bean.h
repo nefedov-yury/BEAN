@@ -49,23 +49,23 @@ public :
    std::string  DstFile() const                 {return dst_file;}
    std::string  DstFileName() const             {return dst_file_name;}
 
-// 'is local' means 'is in local sandbox' 
-// i.e. output should be stored in current directory. 
+// 'is local' means 'is in local sandbox'
+// i.e. output should be stored in current directory.
 // may be rename it to DstFileIsSandbox ?
-   bool         DstFileIsLocal() const;       
+   bool         DstFileIsLocal() const;
    bool         DstFileIsDataset() const        {return dst_file_is_dataset;}
-   
-   
+
+
    std::string  ProofClr() const                {return proof_clr;}
    std::string  ProofParam() const              {return proof_param;}
    bool         IsProof() const                 {return !proof_clr.empty();}
    TProof*      Proof() const                   {return proof;}
    bool         IsProofLite() const             {return proof_lite;}
-   
+
    long         MaxNumberEvents() const         {return max_number_events;}
    void         PrintOptions() const;
    bool         ProofXrdOutput() const          {return proof_xrd_output;}
-   
+
    // -- user functions
    void         AddUserFcn(const char* name);
    unsigned int NUserFns() const                {return Ufn_names.size();}
@@ -76,13 +76,13 @@ public :
    void         LoadUserLib();
    void         LoadUserFcn(const char* name);
    void         LoadUserFcns();
-   
+
    std::string  GetProofMasterWorkdir();
    std::string  ParseDatasetName(const char * name);
-   
+
    void         SetBaseDir(std::string dir)     {base_dir = dir;}
    std::string  GetBaseDir() const              {return base_dir;}
-   
+
 private :
    bool         verbose;         // by default false => silent mode
    int          user_signal;
@@ -100,13 +100,13 @@ private :
    VecUF        Ufn_event; //! vector of user Event functions
    VecUF        Ufn_end;   //! vector of user functions EndJob
    VecName      Ufn_names; // names of loaded functions
-   
+
    int          proof_xrd_output;
-   
+
    std::string  dst_file_name;
    bool         dst_file_is_local;
    bool         dst_file_is_dataset;
-   
+
    std::string  base_dir; // directory with Analysis, BeanUser, etc.
 
    // ClassVersionID=1 because we have need object I/O

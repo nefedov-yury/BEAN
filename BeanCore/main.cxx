@@ -616,7 +616,7 @@ int main(int argc, char **argv)
 
       check_upload_enable(proof, "par/Analysis.par");
       check_upload_enable(proof, "par/BeanUser.par");
-      check_upload_enable(proof, 
+      check_upload_enable(proof,
             ("par/BeanLib_" + to_string(BOSS_VER) + ".par").c_str()
                          );
 
