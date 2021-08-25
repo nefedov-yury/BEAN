@@ -272,6 +272,9 @@ SET( VertexFit_DIR  ${CMAKE_SOURCE_DIR}/Analysis/VertexFit )
 ADD_SUBDIRECTORY( Analysis/RscanDQ )
 SET( RscanDQ_DIR  ${CMAKE_SOURCE_DIR}/Analysis/RscanDQ )
 
+ADD_SUBDIRECTORY( Analysis/TrackCorrection )
+SET( TrackCorrection_DIR  ${CMAKE_SOURCE_DIR}/Analysis/TrackCorrection )
+
 # -- User --
 ADD_SUBDIRECTORY( BeanUser )
 

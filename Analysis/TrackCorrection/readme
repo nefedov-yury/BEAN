@@ -1,0 +1,11 @@
+https://docbes3.ihep.ac.cn/~charmoniumgroup/index.php/XYZProposal#The_helix_correction_factors
+
+The 'TrackCorrection' class based on "TrackCorrection" package
+modified for use in a BEAN (see ~guoyp/public/TrackCorrection)
+
+The corrections we use are taken from memo:
+http://docbes3.ihep.ac.cn/~charmoniumgroup/index.php/File:Helix_zhangjielei.pdf
+for ψ' → K+ K− π+ π− process in 2009 (TABLE VI) and 2012(TABLE V)
+
+IMPORTANT: Remember to update the correction factors to the ones
+corresoonding to your analysis BOSS version. 

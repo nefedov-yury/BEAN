@@ -57,6 +57,7 @@ INCLUDE_DIRECTORIES(
    ${DatabaseSvc_DIR}
    ${EventTag_DIR}
    ${RscanDQ_DIR}
+   ${TrackCorrection_DIR}
    ${ROOT_INCLUDE_DIR}
    ${CLHEP_INCLUDE_DIR}
 )
@@ -73,6 +74,7 @@ TARGET_LINK_LIBRARIES( ${libname}
    DatabaseSvc
    EventTag
    RscanDQ
+   TrackCorrection
    ${ROOT_LIBRARIES}
    ${CLHEP_LIBRARIES}
 )
