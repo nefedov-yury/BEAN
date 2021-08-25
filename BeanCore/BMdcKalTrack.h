@@ -45,9 +45,9 @@ class BMdcKalTrack
 
    const TMdcKalTrack* getTMdcKalTrack() const {return m_trk;}
 
-   void setPidType(PidType pidType = pion) {m_pid = pidType;} 
+   void setPidType(PidType pidType = pion) {m_pid = pidType;}
    PidType getPidType()                    {return m_pid;}
-   
+
    const int trackId()  const {return m_trk->getTrackId();}
    // const double mass()  const { return m_mass[m_pid];  }
    const int charge()   const {return getCharge(m_pid);}
@@ -58,10 +58,10 @@ class BMdcKalTrack
    const double p()     const;
    const double theta() const;
    const double phi()   const;
-     
-   const double x()     const   {return x(m_pid);}   
+
+   const double x()     const   {return x(m_pid);}
    const double y()     const   {return y(m_pid);}
-   const double z()     const   {return z(m_pid);}     
+   const double z()     const   {return z(m_pid);}
 
    const double x(int pid)  const;
    const double y(int pid)  const;
@@ -76,7 +76,7 @@ class BMdcKalTrack
    const int    firstLayer()  const {return m_trk->getFirstLayer(m_pid);}
    const int    lastLayer()   const {return m_trk->getLastLayer(m_pid); }
 #endif
-   
+
    const double dr()    const {return getZHelix_pid(0,m_pid);}
    const double fi0()   const {return getZHelix_pid(1,m_pid);}
    const double kappa() const {return getZHelix_pid(2,m_pid);}
@@ -93,7 +93,7 @@ class BMdcKalTrack
 
 //    const HepLorentzVector p4() const;
    const HepLorentzVector p4(double mass) const;
-   
+
    const int getTrackId()                 const {return m_trk->getTrackId();}
    const int getCharge(const int pid)     const;
    const int getStat(const int pid)       const {return m_trk->getStat(pid);}
@@ -101,9 +101,9 @@ class BMdcKalTrack
    const int getNdf(const int pid)        const {return m_trk->getNdf(pid);}
 #if BOSS_VER < 663
    const int getNster(const int pid)      const {return m_trk->getNster(pid);}
-   const int getFirstLayer(const int pid) const 
+   const int getFirstLayer(const int pid) const
                 {return m_trk->getFirstLayer(pid);}
-   const int getLastLayer(const int pid)  const 
+   const int getLastLayer(const int pid)  const
                 {return m_trk->getLastLayer(pid); }
 #endif
 
@@ -111,8 +111,8 @@ class BMdcKalTrack
    const HepSymMatrix getZError(const int pid)  const;
    const HepVector getFHelix(const int pid)     const;
    const HepSymMatrix getFError(const int pid)  const;
-//    const HepPoint3D getPoca(const int pid)      const; 
-   
+//    const HepPoint3D getPoca(const int pid)      const;
+
    // this is functions from MdcRecEvent/RecMdcKalTrack.h
    const HepVector    getZHelix() const { return getZHelix(pion); }
    const HepSymMatrix getZError() const { return getZError(pion); }
@@ -144,6 +144,17 @@ class BMdcKalTrack
 //    const HepPoint3D getPoca()   const { return getPoca(pion); }
 //    const HepPoint3D getPocaK()  const { return getPoca(kaon); }
 //    const HepPoint3D getPocaP()  const { return getPoca(proton); }
+
+   // set functions: see DstEvent/DstMdcKalTrack.h
+   void setZHelix(const HepVector& helix, const int pid);
+   void setZHelix(double* helix, const int pid);
+   void setZError(const HepSymMatrix& error, const int pid);
+   void setZError(double* error, const int pid);
+
+   void setFHelix(const HepVector& fhelix, const int pid);
+   void setFHelix(double* fhelix, const int pid);
+   void setFError(const HepSymMatrix& ferror, const int pid);
+   void setFError(double* ferror, const int pid);
 
  private:
    TMdcKalTrack*        m_trk;
@@ -182,7 +193,7 @@ class BMdcKalTrack
 //       }
 //       return m_trk->getPoca(i);
 //    }
-         
+
    double getFHelix_pid(int i,int pid = 2) const {
       switch( pid ) {
          case 0: return m_trk->getFHelixE(i);
