@@ -48,6 +48,7 @@ using CLHEP::HepLorentzVector;
 #include "MagneticField/MagneticFieldSvc.h"
 #include "EventTag/EventTagSvc.h"
 #include "EventTag/DecayTable.h"
+#include "TrackCorrection/TrackCorrection.h"
 
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
@@ -187,6 +188,9 @@ static map<string,int> warning_msg;
 
 // expect one data taking period for all events
 static int DataPeriod = 0;
+
+// helix corrections for signal MC
+static TrackCorrection* helix_cor = nullptr;
 
 static bool isMC = false;
 
@@ -360,7 +364,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[15] = new TH1D("Pid_clpi","lg(CL_{#pi})", 100,-4.,0.);
    hst[16] = new TH1D("Pid_ispi","1 - #pi, 0 - another particle", 2,-0.5,1.5);
    hst[17] = new TH1D("noKalTrk", "0,1 - no/yes mdcKalTrk", 2,-0.5,1.5);
-   hst[18] = new TH1D("pi_QP","Charged momentum (Q*P)", 200,-1.,1.);
+   hst[18] = new TH1D("pi_QP","Charged momentum (Q*P) for pi", 200,-1.,1.);
    hst[19] = new TH1D("pi_ct","soft pions cos(#theta)", 200,-1.,1.);
    hst[20] = new TH2D("pi_pm","N(+) vs N(-)", 10,-0.5,9.5, 10,-0.5,9.5);
 
@@ -481,6 +485,9 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[182] = new TH2D("mc_M1M2", "Minv2(K+K-) vs Minv2(K+ eta)",
                        140,0.,7.,140,0.,7.);
    hst[183] = new TH1D("mc_cosT", "MC truth cosT", 100,-1.,1.);
+
+   hst[185] = new TH1D("mc_pi_QP0","Q*P(pi) before helix corr.", 200,-1.,1.);
+   hst[186] = new TH1D("mc_K_QP0","Q*P(K) before helix corr.", 300,-1.5,1.5);
 
    // MatchRecMcTrks:
    hst[151] = new TH1D("mc_mdp_p","REC-MC ok min dP #pi^{+}",100,-0.05,0.05);
@@ -1312,6 +1319,12 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       }
       mdcKalTrk->setPidType(RecMdcKalTrack::pion);
 
+      // apply helix corrections for MC tracks
+      if ( isMC && helix_cor ) {
+         hst[185]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
+         helix_cor -> calibration( mdcKalTrk );
+      }
+
       hst[18]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
       hst[19]->Fill( cos(mdcKalTrk->theta()) );
       if( mdcKalTrk->p() > 0.45 ) {
@@ -1595,6 +1608,13 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       }
 
       mdcKalTrk->setPidType(RecMdcKalTrack::kaon);
+
+      // apply helix corrections for MC tracks
+      if ( isMC && helix_cor ) {
+         hst[186]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
+         helix_cor -> calibration( mdcKalTrk );
+      }
+
       hst[43]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
       if( mdcKalTrk->charge() > 0 ) {
          Slct.trk_Kp.push_back(mdcKalTrk);
@@ -2463,6 +2483,15 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
            << endl;
       Warning("Incorrect number of MC particles");
       return false;
+   }
+
+   // set helix_cor
+   if ( isMC && !helix_cor && DataPeriod > 0 ) {
+      if ( DataPeriod == 2009 ) {
+         helix_cor = new TrackCorrection(0);
+      } else if ( DataPeriod == 2012 ) {
+         helix_cor = new TrackCorrection(1);
+      }
    }
 
    FillHistoMC(selector,Slct); // MC histo
