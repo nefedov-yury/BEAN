@@ -15,6 +15,9 @@ using CLHEP::HepMatrix;
 using CLHEP::HepSymMatrix;
 using namespace std;
 
+// #define DEBUGPRT
+#undef DEBUGPRT
+
 // Helper functions
 //-------------------------------------------------------------------------
 inline double SQ(double x) {
@@ -115,6 +118,18 @@ TrackCorrection::TrackCorrection(int period) {
            << period << " is not defined yet" << endl;
       exit(EXIT_FAILURE);
    }
+
+   // print table
+   auto prtline = [](string name,const vector<double>& mean,
+                                 const vector<double>& sig) -> void {
+      string fmt = "%5s %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n"; 
+      printf( fmt.c_str(), name.c_str(), 
+              mean[0],sig[0], mean[1],sig[1], mean[2],sig[2] );
+   };
+   prtline("pi+",pip_mu,pip_sig);
+   prtline("pi-",pim_mu,pim_sig);
+   prtline(" K+",Kp_mu, Kp_sig);
+   prtline(" K-",Km_mu, Km_sig);
 }
 
 //-------------------------------------------------------------------------
@@ -158,14 +173,28 @@ void TrackCorrection::calibration(RecMdcKalTrack* trk) const {
    h_zcal[0][0] = (SQ((*sigma)[0])-1) * h_zerr[1][1]; // phi0
    h_zcal[1][1] = (SQ((*sigma)[1])-1) * h_zerr[2][2]; // kappa
    h_zcal[2][2] = (SQ((*sigma)[2])-1) * h_zerr[4][4]; // tan(lambda)
+#ifdef DEBUGPRT
+   cout << " h_zcal= " << h_zcal << endl;
+#endif
 
    HepMatrix h_zerr_corr = corset(h_zcal);
    HepVector h_zgen = corgen(h_zerr_corr);
+#ifdef DEBUGPRT
+   cout << " h_zerr_corr= " << h_zerr_corr << endl;
+   cout << " h_zgen= " << h_zgen << endl;
+#endif
 
    HepVector zhelix = trk -> getZHelix(pid);
+#ifdef DEBUGPRT
+   cout << " befor corrections: zhelix= " << zhelix << endl;
+#endif
    zhelix[1] += (*mean)[0] * sqrt(h_zerr[1][1]) + h_zgen[0];
    zhelix[2] += (*mean)[1] * sqrt(h_zerr[2][2]) + h_zgen[1];
    zhelix[4] += (*mean)[2] * sqrt(h_zerr[4][4]) + h_zgen[2];
    trk -> setZHelix(zhelix,pid);
+
+#ifdef DEBUGPRT
+   cout << " after corrections: zhelix= " << zhelix << endl;
+#endif
 }
 
