@@ -1,0 +1,104 @@
+digraph Model{
+"Model" [ color=red, label="RooExtendPdf
+Model"];
+"model0" [ color=red, label="RooAddPdf
+model0"];
+"Res" [ color=red, label="RooFFTConvPdf
+Res"];
+"mkk" [ color=blue, label="RooRealVar
+mkk"];
+"bwphi" [ color=red, label="RooAbsPdf
+bwphi"];
+"mphi" [ color=blue, label="RooRealVar
+mphi"];
+"gphi" [ color=blue, label="RooRealVar
+gphi"];
+"gauss" [ color=red, label="RooGaussian
+gauss"];
+"mg" [ color=blue, label="RooRealVar
+mg"];
+"sigma" [ color=blue, label="RooRealVar
+sigma"];
+"C1" [ color=red, label="RooFormulaVar
+C1"];
+"Fb" [ color=blue, label="RooRealVar
+Fb"];
+"Bkg" [ color=red, label="RooFFTConvPdf
+Bkg"];
+"argus" [ color=red, label="RooAbsPdf
+argus"];
+"A" [ color=blue, label="RooRealVar
+A"];
+"B" [ color=blue, label="RooRealVar
+B"];
+"L" [ color=red, label="RooConstVar
+L"];
+"U" [ color=red, label="RooConstVar
+U"];
+"C2" [ color=red, label="RooFormulaVar
+C2"];
+"Intfr" [ color=red, label="RooFFTConvPdf
+Intfr"];
+"intfr0" [ color=red, label="RooAbsPdf
+intfr0"];
+"Ang" [ color=blue, label="RooRealVar
+Ang"];
+"C3" [ color=red, label="RooFormulaVar
+C3"];
+"Nr" [ color=blue, label="RooRealVar
+Nr"];
+"Model" -> "model0";
+"Model" -> "Nr";
+"model0" -> "C3";
+"model0" -> "C2";
+"model0" -> "C1";
+"model0" -> "Intfr";
+"model0" -> "Bkg";
+"model0" -> "Res";
+"C3" -> "Fb";
+"C2" -> "Fb";
+"C1" -> "Fb";
+"Intfr" -> "intfr0";
+"Intfr" -> "Ang";
+"Intfr" -> "B";
+"Intfr" -> "A";
+"Intfr" -> "gphi";
+"Intfr" -> "mphi";
+"Intfr" -> "gauss";
+"Intfr" -> "sigma";
+"Intfr" -> "mg";
+"Intfr" -> "mkk";
+"intfr0" -> "Ang";
+"intfr0" -> "U";
+"intfr0" -> "L";
+"intfr0" -> "B";
+"intfr0" -> "A";
+"intfr0" -> "gphi";
+"intfr0" -> "mphi";
+"intfr0" -> "mkk";
+"Bkg" -> "argus";
+"Bkg" -> "B";
+"Bkg" -> "A";
+"Bkg" -> "gauss";
+"Bkg" -> "sigma";
+"Bkg" -> "mg";
+"Bkg" -> "mkk";
+"argus" -> "U";
+"argus" -> "L";
+"argus" -> "B";
+"argus" -> "A";
+"argus" -> "mkk";
+"Res" -> "bwphi";
+"Res" -> "gphi";
+"Res" -> "mphi";
+"Res" -> "gauss";
+"Res" -> "sigma";
+"Res" -> "mg";
+"Res" -> "mkk";
+"bwphi" -> "gphi";
+"bwphi" -> "mphi";
+"bwphi" -> "mkk";
+"gauss" -> "sigma";
+"gauss" -> "mg";
+"gauss" -> "mkk";
+}

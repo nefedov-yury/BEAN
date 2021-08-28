@@ -1,0 +1,13 @@
+# find /data/bes3/664p01/psip/mc/09dst/ -name "*.dst" |sort > mcincl_09psip.list
+# find /data/bes3/664p03/psip/12mc/dst/ -name "*.dst" |sort > mcincl_12psip.list
+# 
+# find /data/bes3/phasejpsiscan/MC/psip_jpsi_phieta/psip_jpsi_kketa/ -maxdepth 1 -name "12*.dst" |sort > mckketa_12psip.list
+# 
+# find /home/nefedov/data/bes3/mumu_phokhara/ -name "09*dst" |sort > mumu_09.list
+# 
+# find /data/bes3/phasejpsiscan/MC/psip_jpsi_phieta/  -maxdepth 1 -name "12*.dst" |sort -n --key=1.70 > mcsig_12psip.list
+# 
+# find /data/bes3/phasejpsiscan/MC/psip_jpsi_gammaeta/ -maxdepth 1 -name "12*dst" |sort > mcgammaeta_12psip.list
+# 
+# find /data/bes3/phasejpsiscan/MC/psip_jpsi_phieta/psip_jpsi_phieta2/  -name "12*.dst" |sort > mcphieta2_12psip.list
+# 
