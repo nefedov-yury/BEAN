@@ -189,7 +189,7 @@ static map<string,int> warning_msg;
 // expect one data taking period for all events
 static int DataPeriod = 0;
 
-// helix corrections for signal MC
+// helix corrections for MC
 static TrackCorrection* helix_cor = nullptr;
 
 static bool isMC = false;

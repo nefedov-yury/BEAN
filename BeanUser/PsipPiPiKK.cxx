@@ -47,6 +47,7 @@ using CLHEP::HepLorentzVector;
 #include "ParticleID/ParticleID.h"
 #include "MagneticField/MagneticFieldSvc.h"
 #include "EventTag/EventTagSvc.h"
+#include "TrackCorrection/TrackCorrection.h"
 
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
@@ -54,7 +55,7 @@ using CLHEP::HepLorentzVector;
 using namespace std;
 
 //-------------------------------------------------------------------------
-// Structure with job options
+// {{{1 Structure with job options
 //-------------------------------------------------------------------------
 struct JobOption {
    int Hshift;                  // shift for histograms
@@ -75,7 +76,7 @@ struct JobOption {
 };
 
 //-------------------------------------------------------------------------
-// Structure to save variables for a single event
+// {{{1 Structure to save variables for a single event
 //-------------------------------------------------------------------------
 struct PipPimKpKm {
    // Run-info
@@ -121,7 +122,7 @@ struct PipPimKpKm {
 };
 
 //-------------------------------------------------------------------------
-// Global variables
+// {{{1 Global variables
 //-------------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
@@ -152,10 +153,13 @@ static map<string,int> warning_msg;
 // expect one data taking period for all events
 static int DataPeriod = 0;
 
+// helix corrections for MC
+static TrackCorrection* helix_cor = nullptr;
+
 static bool isMC = false;
 
 //-------------------------------------------------------------------------
-// Functions: use C-linkage names
+// {{{1 Functions: use C-linkage names
 //-------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
@@ -284,6 +288,7 @@ static void CloneHistograms(int Hmin, int Hmax) {
    }
 }
 
+// {{{1 StartJob, book histograms
 //-------------------------------------------------------------------------
 void PsipPiPiKKStartJob(ReadDst* selector) {
 //-------------------------------------------------------------------------
@@ -641,6 +646,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
 
 }
 
+// {{{1 getVertexOrigin()
 //-------------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
 //-------------------------------------------------------------------------
@@ -685,6 +691,7 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    return xorigin;
 }
 
+// {{{1 FillHistoMC()
 //-------------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, PipPimKpKm& ppKK) {
 //-------------------------------------------------------------------------
@@ -886,7 +893,7 @@ static void FillHistoMC(const ReadDst* selector, PipPimKpKm& ppKK) {
 
 }
 
-// 1A) select pions, kaons and other charged tracks
+// {{{1 1A) select pions, kaons and other charged tracks
 //-------------------------------------------------------------------------
 static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 //-------------------------------------------------------------------------
@@ -973,6 +980,12 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
             ) {
             flag_pik = 1;
             mdcKalTrk->setPidType(RecMdcKalTrack::pion);
+            
+            // apply helix corrections for MC tracks
+            if ( isMC && helix_cor ) {
+               helix_cor -> calibration( mdcKalTrk );
+            }
+
             ppKK.trk_Pi.push_back(mdcKalTrk);
             Nzpi += mdcKalTrk->charge();
             ppKK.LVpi.push_back(
@@ -986,6 +999,12 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
                ) {
                flag_pik = 2;
                mdcKalTrk->setPidType(RecMdcKalTrack::kaon);
+
+               // apply helix corrections for MC tracks
+               if ( isMC && helix_cor ) {
+                  helix_cor -> calibration( mdcKalTrk );
+               }
+
                ppKK.trk_K.push_back(mdcKalTrk);
                Nzk += mdcKalTrk->charge();
                ppKK.LVk.push_back(
@@ -1051,7 +1070,7 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
    return true;
 }
 
-// 1B) analysis of the neutral tracks
+// {{{1 1B) analysis of the neutral tracks
 //-------------------------------------------------------------------------
 static bool NeutralTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 //-------------------------------------------------------------------------
@@ -1192,7 +1211,7 @@ static bool NeutralTracks(ReadDst* selector, PipPimKpKm& ppKK) {
    return true;
 }
 
-// 2) recoil masses of soft pi+ pi-
+// {{{1 2) recoil masses of soft pi+ pi-
 //-------------------------------------------------------------------------
 static void MrecPiPi(PipPimKpKm& ppKK) {
 //-------------------------------------------------------------------------
@@ -1252,7 +1271,7 @@ static void MrecPiPi(PipPimKpKm& ppKK) {
    }
 }
 
-// 3) Kaons track reconstruction efficiency
+// {{{1 3) Kaons track reconstruction efficiency
 //-------------------------------------------------------------------------
 static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
 //-------------------------------------------------------------------------
@@ -1380,7 +1399,7 @@ static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
    } // end for Kaons
 }
 
-// 4) reconstruct invariant masses of pi+ pi- K+ K-
+// {{{1 4) reconstruct invariant masses of pi+ pi- K+ K-
 //-------------------------------------------------------------------------
 static void MinvPiPiKK(PipPimKpKm& ppKK) {
 //-------------------------------------------------------------------------
@@ -1448,7 +1467,7 @@ static void MinvPiPiKK(PipPimKpKm& ppKK) {
 
 }
 
-// 5) Pions track reconstruction efficiency
+// {{{1 5) Pions track reconstruction efficiency
 //-------------------------------------------------------------------------
 static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
 //-------------------------------------------------------------------------
@@ -1592,7 +1611,7 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
    } // end loop for pions
 }
 
-// Loop for each event
+// {{{1 MAIN: Loop for each event
 //-------------------------------------------------------------------------
 bool PsipPiPiKKEvent( ReadDst*       selector,
                       TEvtHeader*    m_TEvtHeader,
@@ -1651,6 +1670,15 @@ bool PsipPiPiKKEvent( ReadDst*       selector,
       return false;
    }
 
+   // set helix_cor
+   if ( isMC && !helix_cor && DataPeriod > 0 ) {
+      if ( DataPeriod == 2009 ) {
+         helix_cor = new TrackCorrection(0);
+      } else if ( DataPeriod == 2012 ) {
+         helix_cor = new TrackCorrection(1);
+      }
+   }
+
    FillHistoMC(selector,ppKK); // MC histo
 
    Hep3Vector xorigin = getVertexOrigin(runNo);
@@ -1677,6 +1705,7 @@ bool PsipPiPiKKEvent( ReadDst*       selector,
    return true;
 }
 
+// {{{1 EndJob
 //-------------------------------------------------------------------------
 void PsipPiPiKKEndJob(ReadDst* selector) {
 //-------------------------------------------------------------------------
