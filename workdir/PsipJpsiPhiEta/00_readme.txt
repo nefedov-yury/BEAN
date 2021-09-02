@@ -22,8 +22,8 @@ pipi_dataMC.cc - plot data distributions vs MC
 
 MrecFitSB.cc - Calculate number of Psi(2S) -> J/Psi pi+ pi- decays
                in data using side-band method.
-               -> Mrec_YEAR.pdf
-               -> Mrec_YEAR_fsb.pdf
+               MrecDraw() -> Mrec_YEAR.pdf
+               DoFitSB()  -> Mrec_YEAR_fsb.pdf
 
 MrecFit.cc - fit data by convolution of MC inclusive signal
              with Gauss and scaling of MC inclusive background;

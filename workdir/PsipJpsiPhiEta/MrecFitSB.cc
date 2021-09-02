@@ -7,7 +7,8 @@
 // Number of signal events is calculated by subtracting the estimated
 // background from the data.  (The contribution of the continuum
 // is taken into account.)
-// -> Mrec_YEAR_fsb.pdf
+//                MrecDraw() -> Mrec_YEAR.pdf
+//                DoFitSB()  -> Mrec_YEAR_fsb.pdf
 
 // for cuts.h:
 #define CONSTANTS_ONLY
@@ -17,7 +18,7 @@ void print_Numbers(TH1D* hst[], double Emin, double Emax);
 //----------------------------------------------------------------------
 // GLOBAL:
 // name of folder with root files
-static const string dir("prod-9/");
+static const string dir("prod-11/");
 
 //----------------------------------------------------------------------
 constexpr double SQ(double x) {
@@ -77,7 +78,7 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
 
    TH1D* hst = new TH1D(hname.c_str(),
                         ";M_{rec}(#pi^{+}#pi^{-}), GeV/c^{2}"
-                        ";Entries / 0.001GeV/c^{2}",
+                        ";Entries/0.001, GeV/c^{2}",
                         200,3.0,3.2 // 1bin = 1MeV
 //                        400,3.0,3.2 // 1bin = 0.5MeV
                        );
@@ -87,7 +88,7 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
    TCut cut;
    if ( type == 1 ) {
       dr = string("Mrs>>") + hname;
-      cut = TCut("MrsW*(dec==64)");
+      cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
    } else if ( type == 2 ) {
       cut = TCut("dec==64");
    } else if ( type == 3 ) {
@@ -212,6 +213,7 @@ void set_draw_opt(TH1D* hst[]) {
 double PolN(double x, const double* p, int n) {
 //-------------------------------------------------------------------------
    // calculate value of the polynomial by Horner's method:
+   // here 'n' is the polynomial order, size of coefficients is p[n+1]
    double res = 0;
    for ( int i = n; i >= 0; --i ) {
       res = res*x + p[i];
@@ -223,7 +225,9 @@ double PolN(double x, const double* p, int n) {
 class myChi2 {
    public:
       // ctor:
+      //-------------------------------------------------------------------
       myChi2(TH1D* hst[], double ExMin, double ExMax) {
+      //-------------------------------------------------------------------
          // ExMin/Max -> boundary of excluded region
          int nbins = hst[0]->GetNbinsX();
          en.reserve(nbins);
@@ -262,17 +266,23 @@ class myChi2 {
       }
 
       // Size function
+      //-------------------------------------------------------------------
       unsigned int Size() const {
+      //-------------------------------------------------------------------
          return data.size();
       }
 
+      //-------------------------------------------------------------------
       void SetNpol(int n) {
+      //-------------------------------------------------------------------
          npol = n;
       }
 
       // chi^2 - function
       // the signature of this operator() MUST be exactly this:
+      //-------------------------------------------------------------------
       double operator() (const double* p) {
+      //-------------------------------------------------------------------
          static const double maxResValue = DBL_MAX / 1000;
 
          double chi2 = 0;
@@ -311,7 +321,7 @@ class myChi2 {
       vector<double> bg, er_bg;
       vector<double> bgn, er_bgn;
 
-      int npol = 2;
+      int npol = 3;
 };
 //-------------------------------------------------------------------------
 
@@ -338,19 +348,19 @@ void DoFitSB(int date) {
    if ( date==2009 ) {
       fill_hist2009(hst);
       hst[0]->SetMaximum(7.e6);
-//       hst[0]->SetMinimum(5.e4);
-      hst[0]->SetMinimum(1.e5);
+      hst[0]->SetMinimum(0.99e5);
    } else if(date==2012) {
       fill_hist2012(hst);
       hst[0]->SetMaximum(2.e7);
-//       hst[0]->SetMinimum(1.e5);
       hst[0]->SetMinimum(3.e5);
    }
+   hst[0]->SetTitle(";M_{rec}(#pi^{+}#pi^{-}), GeV/c^{2}"
+                    ";Entries/0.001, GeV/c^{2}");
 
    // exclude (ExMin; ExMax) from fit
    double ExMin = 3.06;
    double ExMax = 3.14;
-   // systematic study
+   // systematic study (shift +/- 0.01)
 //    double ddE = -0.01;
 //    ExMin -= ddE;
 //    ExMax += ddE;
@@ -368,7 +378,7 @@ void DoFitSB(int date) {
    min_opt.Print();
 
    const unsigned int Npol = 3; // order of polynomial (base=3)
-//    const unsigned int Npol = 4; // sysmetic study: 2 && 4
+//    const unsigned int Npol = 4; // systematic study: 2 && 4
    chi2_fit.SetNpol(Npol);
 
    // set names and start values for parameters
@@ -379,19 +389,25 @@ void DoFitSB(int date) {
    vector<double> par_ini;
    if ( date == 2009 ) {
       if ( Npol == 2 ) {
-         par_ini = { 1.0277, 0.075, 1.6 };
+//          par_ini = { 1.0277, 0.075, 1.6 };
+         par_ini = { 1.0264, 0.064, 1.6 }; // helix corr
       } else if ( Npol == 3 ) {
-         par_ini = { 1.0274, 0.049, 1.65, 4.2 };
+//          par_ini = { 1.0274, 0.049, 1.65, 4.2 };
+         par_ini = { 1.0261, 0.036, 1.66, 4.4 }; // helix corr
       } else if ( Npol == 4 ) {
-         par_ini = { 1.0296, 0.047, 0.66, 4.5, 90. };
+//          par_ini = { 1.0296, 0.047, 0.66, 4.5, 90. };
+         par_ini = { 1.0284, 0.034, 0.60, 4.7, 96. }; // helix corr
       }
    } else if ( date == 2012 ) {
       if ( Npol == 2 ) {
-         par_ini = { 1.0440, 0.075, 1.48 };
+//          par_ini = { 1.0440, 0.075, 1.48 };
+         par_ini = { 1.0405, 0.040, 1.46 }; // helix corr
       } else if ( Npol == 3 ) {
-         par_ini = { 1.0438, 0.060, 1.51, 2.4 };
+//          par_ini = { 1.0438, 0.060, 1.51, 2.4 };
+         par_ini = { 1.0402, 0.021, 1.51, 3.1 }; // helix corr
       } else if ( Npol == 4 ) {
-         par_ini = { 1.0447, 0.060, 1.1, 2.5, 38. };
+//          par_ini = { 1.0447, 0.060, 1.1, 2.5, 38. };
+         par_ini = { 1.0412, 0.020, 1.1, 3.2, 41. }; // helix corr
       }
    }
    if ( par_ini.size() != Npol+1 ) {
@@ -443,8 +459,8 @@ void DoFitSB(int date) {
 
    set_draw_opt(hst);
    SetHstFace(hst[0]);
-   hst[0]->GetXaxis()->SetTitleOffset(0.9);
-   hst[0]->GetYaxis()->SetTitleOffset(0.9);
+//    hst[0]->GetXaxis()->SetTitleOffset(1.1);
+   hst[0]->GetYaxis()->SetTitleOffset(1.2);
 
    hst[0]->Draw("E"); // data
 
@@ -474,11 +490,11 @@ void DoFitSB(int date) {
 
 //    hst[14]->Draw("SAME,HIST"); // Rescaled Bg
 
-//    TLegend* leg = new TLegend(0.55,0.65,0.89,0.89);
-   TLegend* leg = new TLegend(0.53,0.65,0.89,0.89);
-   leg->SetHeader("#bf{Recoil Mass of #pi^{+}#pi^{-}}", "C");
+//    TLegend* leg = new TLegend(0.53,0.65,0.89,0.89);
+//    leg->SetHeader("#bf{Recoil Mass of #pi^{+}#pi^{-}}", "C");
+   TLegend* leg = new TLegend(0.55,0.65,0.89,0.89);
    leg->AddEntry(hst[0],
-         (string("#bf{Data ")+to_string(date)+"}").c_str(), "EP");
+         (string("Data ")+to_string(date)).c_str(), "EP");
 
    leg->AddEntry(hst[7], Form("#color[%i]{sum of backgrounds}",
             hst[7]->GetLineColor() ),"L");
@@ -498,6 +514,7 @@ void DoFitSB(int date) {
    leg->Draw();
 
    TPaveText* pt = new TPaveText(0.11,0.65,0.44,0.89,"NDC");
+//    TPaveText* pt = new TPaveText(0.55,0.39,0.89,0.63,"NDC"); // TEST
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    pt->AddText(
@@ -601,6 +618,8 @@ void MrecDraw(int date, bool zoom=false) {
          hst[0]->GetYaxis()->SetMaxDigits(3);
       }
    }
+   hst[0]->SetTitle(";M_{rec}(#pi^{+}#pi^{-}), GeV/c^{2}"
+                    ";Entries/0.001, GeV/c^{2}");
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
    c1->cd();
@@ -612,7 +631,7 @@ void MrecDraw(int date, bool zoom=false) {
    set_draw_opt(hst);
    SetHstFace(hst[0]);
    hst[0]->GetXaxis()->SetTitleOffset(1.);
-   hst[0]->GetYaxis()->SetTitleOffset(0.9);
+   hst[0]->GetYaxis()->SetTitleOffset(1.2);
 
    hst[0]->Draw("E"); // data
 
@@ -633,20 +652,19 @@ void MrecDraw(int date, bool zoom=false) {
    hst[2]->SetLineStyle(kDashed);
    hst[2]->Draw("SAME,HIST"); // Signal
 
-   TLegend* leg = new TLegend(0.53,0.55,0.89,0.89);
-   leg->SetHeader("Recoil Mass of #pi^{+} #pi^{-}", "C");
+//    TLegend* leg = new TLegend(0.53,0.55,0.89,0.89);
+//    leg->SetHeader("Recoil Mass of #pi^{+} #pi^{-}", "C");
+   TLegend* leg = new TLegend(0.55,0.60,0.89,0.89);
    leg->AddEntry(hst[0],
-         (string("#bf{Data ")+to_string(date)+"}").c_str(), "EP");
+         (string("Data ")+to_string(date)).c_str(), "EP");
 
    leg->AddEntry(hst[6], Form("#color[%i]{MCsig + MCbg + Cont.}",
             hst[6]->GetLineColor() ),"L");
 
-//    leg->AddEntry(hst[2], Form("#color[%i]{MC signal}",
    leg->AddEntry(hst[2],
       Form("#color[%i]{MC #pi^{+}#pi^{-}J/#Psi correct #pi^{+}#pi^{-}}",
          hst[2]->GetLineColor() ),"L");
 
-//    leg->AddEntry(hst[3], Form("#color[%i]{MC bg from #pi^{+}#pi^{-}J/#Psi}",
    leg->AddEntry(hst[3],
       Form("#color[%i]{MC #pi^{+}#pi^{-}J/#Psi wrong #pi^{+}#pi^{-}}",
          hst[3]->GetLineColor() ),"L");
@@ -668,12 +686,11 @@ void MrecFitSB() {
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(112);
    gStyle->SetStatFont(62);
-//    gStyle->SetLegendFont(62);  // do not use this!
-//    gStyle->SetLegendTextSize(0.03);
-   gStyle->SetLegendTextSize(0.0275);
+//    gStyle->SetLegendTextSize(0.0275);
+   gStyle->SetLegendFont(42);
 
-//    int date=2009;
-   int date=2012;
+   int date=2009;
+//    int date=2012;
 
    bool zoom = true;
 //    MrecDraw(date, !zoom);

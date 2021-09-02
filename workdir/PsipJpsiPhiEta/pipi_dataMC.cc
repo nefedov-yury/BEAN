@@ -1,6 +1,5 @@
 // plot data distributions vs MC
 // for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
-//      -> Mrec_YEAR.pdf
 //      -> VarName_YEAR.pdf
 
 // for cuts.h:
@@ -10,7 +9,7 @@
 typedef TH1D* (*FILL_H)(string, string, string);
 
 // global name of folder with root files
-static string dir("prod-9/");
+static string dir("prod-11/");
 
 //----------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
@@ -346,6 +345,7 @@ void plot_One(int date, string var, FILL_H fill_h, int pos=0, int log=0) {
 //       hst[0]->SetMinimum(1.);
    }
    SetHstFace(hst[0]);
+   hst[0]->GetYaxis()->SetTitleOffset(1.2);
    hst[0]->Draw("E"); // data
    hst[2]->Draw("SAME,HIST"); // inc. MC
    hst[1]->Draw("SAME,HIST"); // cont.
@@ -574,27 +574,38 @@ void plot_hist(string hname, int date) {
 
    c1->cd();
    gPad->SetGrid();
+
+   SetHstFace(hst[0]);
+
    double hst_max = hst[3]->GetMaximum();
    int pos = 0;
    if ( hname == "cosPM" ) {
       hst[0]->SetTitle( ";cos #Theta_{#pi^{+} #pi^{-}}"
                         ";Events/0.02" );
+      if ( date == 2009 ) {
+         hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      }
    } else if ( hname == "invPM" ) {
       hst[0]->SetTitle( ";M^{ inv}_{#pi^{+} #pi^{-}} , GeV/c^{2}"
-                        ";Events/0.005GeV/c^{2}" );
+                        ";Events/0.005, GeV/c^{2}" );
       hst[0]->SetAxisRange(0.,1.15*hst_max,"Y");
+      if ( date == 2009 ) {
+         hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      }
    } else if ( hname == "Pip_P" ) {
       pos = 1;
       box = nullptr;
       hst[0]->SetTitle( ";Momentum of #pi^{+}, GeV/c"
-                        ";Events/0.005GeV/c" );
+                        ";Events/0.005, GeV/c" );
       hst[0]->SetAxisRange(0.,1.15*hst_max,"Y");
+      hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pim_P" ) {
       pos = 1;
       box = nullptr;
       hst[0]->SetTitle( ";Momentum of #pi^{-}, GeV/c"
-                        ";Events/0.005GeV/c" );
+                        ";Events/0.005, GeV/c" );
       hst[0]->SetAxisRange(0.,1.15*hst_max,"Y");
+      hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pip_C") {
       pos = 2;
       hst[0]->SetTitle( ";cos #Theta_{#pi^{+}}"
@@ -605,7 +616,6 @@ void plot_hist(string hname, int date) {
                         ";Events/0.02" );
    }
 
-   SetHstFace(hst[0]);
    hst[0]->Draw("E"); // data
    if ( hname == "cosPM" ) {
       box->DrawBox(0.8,.0,1.0,hst_max);
@@ -654,8 +664,8 @@ void pipi_dataMC() {
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(0);
    gStyle->SetStatFont(62);
-   gStyle->SetLegendFont(62);
-   gStyle->SetLegendTextSize(0.03);
+   gStyle->SetLegendFont(42);
+//    gStyle->SetLegendTextSize(0.03);
 
 //========================================================
 
@@ -664,21 +674,22 @@ void pipi_dataMC() {
 //    plot_hist("invPM",2009);
 //    plot_hist("invPM",2012);
 
-//    plot_Ppi(2009); // ?
-//    plot_Ppi(2012); // ?
-//    plot_Cpi(2009); // ?
-//    plot_Cpi(2012); // ?
-
 //    plot_hist("Pip_P",2009);
 //    plot_hist("Pim_P",2009);
 //    plot_hist("Pip_P",2012);
 //    plot_hist("Pim_P",2012);
 
-   plot_hist("Pip_C",2012); // log; lin - ???
-
 //    plot_One(2009,"Nm",fill_Nm,0,1);
-//    plot_One(2012,"Nm",fill_Nm,0,1);
 //    plot_One(2009,"Nch",fill_nch,0,1);
+//    plot_One(2012,"Nm",fill_Nm,0,1);
 //    plot_One(2012,"Nch",fill_nch,0,1);
+
+//    plot_hist("Pip_C",2012); // log; lin - ???
+
+// OLD:
+//    plot_Ppi(2009); // ?
+//    plot_Ppi(2012); // ?
+//    plot_Cpi(2009); // ?
+//    plot_Cpi(2012); // ?
 
 }
