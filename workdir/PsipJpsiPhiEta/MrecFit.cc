@@ -113,11 +113,13 @@ void fill_hist2009(TH1D* hst[]) {
 #include "cuts.h"
 
    // optimization of Mrec shift(data-MC) !after helix corrections!
-   const double shift = 0.000072; //            100 iterations
-                                  //   MeV      chi^2       fix-bg
-                                  // +0.071     9854.81     11204.8
-                                  // +0.072**   9803.96     11152.5
-                                  // +0.073     9862.79     11209.8
+   const double shift = 0.000025; //   100 iterations
+                                  //   MeV      chi^2
+                                  // +0.023     9651.79
+                                  // +0.024     9582.05
+                                  // +0.025**   9507.92
+                                  // +0.026     9518.52
+                                  // +0.027     9575.62
 
    vector<string> hname {
       "data09", "data3650_09",
@@ -172,12 +174,13 @@ void fill_hist2012(TH1D* hst[]) {
 #include "cuts.h"
 
    // optimization of Mrec shift(data-MC) !after helix corrections!
-   const double shift =-0.000149; //            100 iterations
-                                  //   MeV      chi^2       fix-bg
-                                  // -0.148     32489.1     42166.9
-                                  // -0.149**     32296.3     41978.6
-                                  // -0.150     32355.6     42043.5
-                                  // -0.151     32509.1     42202.8
+   const double shift =-0.000201; //  100 iterations
+                                  //   MeV      chi^2       
+                                  // -0.199     32526.9
+                                  // -0.200     32358.3
+                                  // -0.201**   32263.4
+                                  // -0.202     32407
+                                  // -0.203     32548.7
    vector<string> hname {
       "data12", "data3650_12",
       "mc12sig", "mc12bg1", "mc12bg2",
@@ -251,6 +254,30 @@ void set_draw_opt(TH1D* hst[]) {
 //-------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------
+double ChebN(int nch, double Xmin, double Xmax, double x, const double* p) {
+//-------------------------------------------------------------------------
+   // calculate value of the Chebyshev polynomial of 'nch' order
+   // [Xmin Xmax] is the range of polynomial orthogonality
+   if (nch == 0) {
+      return p[0];
+   }
+   x = (2*x-Xmin-Xmax)/(Xmax-Xmin); // map [Xmin,Xmax] -> [-1,+1]
+   double sum = p[0] + x*p[1];
+   if (nch == 1) {
+      return sum;
+   }
+   double T0 = 1, T1 = x;
+   for ( int i = 2; i <= nch; ++i ) {
+      double Tmp = 2*x*T1 - T0;
+      sum += p[i]*Tmp;
+      T0 = T1;
+      T1 = Tmp;
+   }
+   return sum;
+
+}
+
+//-------------------------------------------------------------------------
 double PolN(double x, const double* p, int n) {
 //-------------------------------------------------------------------------
    // calculate value of the polynomial by Horner's method:
@@ -293,10 +320,11 @@ vector<double> Vsmear(double wbin, double sig) {
 //             gw.size(), sig1, wsum-gw[0]);
 
    int ngw = gw.size();
-   vector<double> res(2*ngw); // result
-   for ( int i = 0; i < ngw ; ++i ) {
-      res[i]     = gw[ngw-1-i];
-      res[ngw+i] = gw[i];
+   vector<double> res(2*ngw-1); // result
+   int m = ngw-1; // midle point of res
+   res[m] = gw[0];
+   for ( int i = 1; i < ngw ; ++i ) {
+      res[m-i] = res[m+i] = gw[i];
    }
 
    return res;
@@ -330,6 +358,51 @@ bool decon_vec(vector<double>& vec, double wbin, double sig) {
    }
    return true;
 }
+
+/*
+// convolution
+//-------------------------------------------------------------------------
+bool conv_vec(vector<double>& vec, double wbin, double sig) {
+//-------------------------------------------------------------------------
+   vector<double> res = Vsmear(wbin, sig);
+   if ( res.empty() ) {
+      return false;
+   }
+   int n = vec.size();
+
+   // calculate "new" MC signal by convolution with Gauss
+   // ATTENTION: errors must be multiplied on sqrt(weight)
+   vector<double> sig_n(n), er_sig_n(n);
+   for ( int i = 0; i < n; i++ ) {
+      double d = sig[i];
+      double e = er_sig[i];
+      for ( int j = 0; j < ngw; j++ ) {
+         double dd = d*gw[j];
+         double ed = e*gw[j];
+
+         if ( i+j < n ) { // to forward
+            sig_n[i+j] += dd;
+            er_sig_n[i+j] += ed;
+         } else {
+            sig_n[i] += dd;
+            er_sig_n[i] += ed;
+         }
+
+         if( j==0 ) {
+            continue;
+         }
+
+         if ( i-j >=0 ) { // to backward
+            sig_n[i-j] += dd;
+            er_sig_n[i-j] += ed;
+         } else {
+            sig_n[i] += dd;
+            er_sig_n[i] += ed;
+         }
+      }
+   }
+}
+*/
 
 //-------------------------------------------------------------------------
 class myChi2 {
@@ -431,8 +504,8 @@ class myChi2 {
             }
 
             // re-weight MC background by polynomial
-            double xm = x-3.1; // subtract midpoint
-            double bgscl = PolN(xm, &p[2], npol); // p[2,2+npol]
+//             double bgscl = PolN(x-3.1, &p[2], npol); // p[2,2+npol]
+            double bgscl = ChebN(npol,Emin,Emax,x,&p[2]);
             double bgscl2 = bgscl*bgscl;
 
             double dif = data[i] -
@@ -512,7 +585,8 @@ TH1D* decon_hst(const TH1D* hst, const double* p) {
 }
 
 //-------------------------------------------------------------------------
-TH1D* rescale_bg(TH1D* hst, const double* p, int npol) {
+TH1D* rescale_bg( TH1D* hst, const double* p, int npol,
+      double Emin,double Emax ) {
 //-------------------------------------------------------------------------
    // rescale ignoring over and underflow bins
 
@@ -522,8 +596,9 @@ TH1D* rescale_bg(TH1D* hst, const double* p, int npol) {
 
    int nbins = hst->GetNbinsX();
    for ( int n = 1; n <= nbins; ++n ) {
-      double x = hst->GetBinCenter(n) - 3.1;
-      double w = PolN(x,p,npol);
+      double x = hst->GetBinCenter(n);
+//       double w = PolN(x-3.1,p,npol);
+      double w = ChebN(npol,Emin,Emax,x,p);
       double d = hst->GetBinContent(n);
       double e = hst->GetBinError(n);
       hst_n->SetBinContent(n,d*w);
@@ -572,13 +647,9 @@ void DoFit(int date) {
 
    vector<double> par_ini;
    if ( date == 2009 ) {
-      // helix corr
-//       par_ini = { 0.98,0.84e-3, 1.0261, 0.036, 1.66, 4.4 }; // FitSB!
-      par_ini = { 0.982,0.845e-3, 1.041, 0.10, -1.9, -16. }; // +72**
+      par_ini = { 0.982,0.868e-3, 1.0343,0.0069,0.0083,0.0011 }; // +25**
    } else if ( date == 2012 ) {
-      // helix corr
-//       par_ini = { 0.99,0.59e-3, 1.0402,0.021,1.51,3.1 }; // FitSB
-      par_ini = { 0.984,0.605e-3, 1.0635,0.169,-3.99,-36. }; // -149**
+      par_ini = { 0.9836,0.627e-3, 1.0478,0.0044,0.0076,0.0008 }; // -201**
    }
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -616,8 +687,8 @@ void DoFit(int date) {
    hst[12] = decon_hst(hst[2],par.data()); // 2 -> 12 Mc(sig) new
 
    // rescale BG:
-   hst[13] = rescale_bg( hst[3], &par[2], Npol );
-   hst[14] = rescale_bg( hst[4], &par[2], Npol );
+   hst[13] = rescale_bg( hst[3], &par[2], Npol, ExMin,ExMax);
+   hst[14] = rescale_bg( hst[4], &par[2], Npol, ExMin,ExMax);
 
    // ========================= draw results ========================
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
@@ -668,19 +739,15 @@ void DoFit(int date) {
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
 //    pt->AddText( Form("#bf{Fit in [%.2f,%.2f]}",ExMin,ExMax) );
-   pt->AddText( Form("#chi^{2}/ndf=  %.0f / %i",chi2,ndf) );
-   pt->AddText( Form("%s= %.4f #pm %.4f",
+   pt->AddText( Form("#chi^{2}/ndf =  %.0f / %i",chi2,ndf) );
+   pt->AddText( Form("%s = %.4f #pm %.4f",
                 par_name[0].c_str(),par[0],er_par[0]) );
-   pt->AddText( Form("%s= %.3f #pm %.3f MeV",
+   pt->AddText( Form("%s = %.3f #pm %.3f MeV ",
                 par_name[1].c_str(),1e3*par[1],1e3*er_par[1]) );
-   pt->AddText( Form("%s=  %.4f #pm %.4f",
-                par_name[2].c_str(),par[2],er_par[2]) );
-   pt->AddText( Form("%s=  %.3f #pm %.3f",
-                par_name[3].c_str(),par[3],er_par[3]) );
-   pt->AddText( Form("%s=  %.2f #pm %.2f",
-                par_name[4].c_str(),par[4],er_par[4]) );
-   pt->AddText( Form("%s=  %.1f #pm %.1f",
-                par_name[5].c_str(),par[5],er_par[5]) );
+   for ( int i = 2; i <= 2+Npol; ++i ) {
+      pt->AddText( Form("%s =  %.4f #pm %.4f",
+                   par_name[i].c_str(),par[i],er_par[i]) );
+   }
    pt->Draw();
    gPad->RedrawAxis();
 
@@ -801,7 +868,7 @@ void print_eff(int date, TH1D* hst[],
       vector<double> par1(par);
       par1[0] = 1.; // absolute scaling should be 1
       if ( it != 0 ) {
-         int ipar = (it+1)/2; // 1,2 -> 1; 3,4 -> 2 ... 
+         int ipar = (it+1)/2; // 1,2 -> 1; 3,4 -> 2 ...
          par1[ipar] += (1-2*(it%2))*er_par[ipar]; // -/+ err
       }
 
@@ -845,8 +912,8 @@ void MrecFit() {
 //    gStyle->SetLegendTextSize(0.03);
    gStyle->SetLegendFont(42);
 
-//    int date=2009;
-   int date=2012;
+   int date=2009;
+//    int date=2012;
 
    DoFit(date);
 }

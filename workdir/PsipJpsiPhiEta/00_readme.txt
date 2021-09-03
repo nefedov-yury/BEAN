@@ -25,11 +25,12 @@ MrecFitSB.cc - Calculate number of Psi(2S) -> J/Psi pi+ pi- decays
                MrecDraw() -> Mrec_YEAR.pdf
                DoFitSB()  -> Mrec_YEAR_fsb.pdf
 
-MrecFit.cc - fit data by convolution of MC inclusive signal
+MrecFit.cc - FOR MC AFTER HELIX CORRECTIONS
+             (archive/MrecFit.cc - version before helix corrections)
+           - fit data by de-convolution of MC inclusive signal
              with Gauss and scaling of MC inclusive background;
-              - calculate number of J/Psi in Psi'->J/Psi pi+ pi- decay
-              -> Mrec_YEAR_fit.pdf
-
+           - calculate number of J/Psi in Psi'->J/Psi pi+ pi- decay
+           -> Mrec_YEAR_fit.pdf
 
 //-------------------------------------------------------------------------
 2) Selection Jpsi -> phi eta

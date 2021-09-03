@@ -210,6 +210,30 @@ void set_draw_opt(TH1D* hst[]) {
 //-------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------
+double ChebN(int nch, double Xmin, double Xmax, double x, const double* p) {
+//-------------------------------------------------------------------------
+   // calculate value of the Chebyshev polynomial of 'nch' order
+   // [Xmin Xmax] is the range of polynomial orthogonality
+   if (nch == 0) { 
+      return p[0]; 
+   }
+   x = (2*x-Xmin-Xmax)/(Xmax-Xmin); // map [Xmin,Xmax] -> [-1,+1]
+   double sum = p[0] + x*p[1];
+   if (nch == 1) { 
+      return sum; 
+   }
+   double T0 = 1, T1 = x;
+   for ( int i = 2; i <= nch; ++i ) {
+      double Tmp = 2*x*T1 - T0;
+      sum += p[i]*Tmp;
+      T0 = T1;
+      T1 = Tmp;
+   }
+   return sum;
+
+}
+
+//-------------------------------------------------------------------------
 double PolN(double x, const double* p, int n) {
 //-------------------------------------------------------------------------
    // calculate value of the polynomial by Horner's method:
@@ -246,7 +270,8 @@ class myChi2 {
             if ( x > ExMin && x < ExMax ) {
                continue;
             }
-            en.push_back(x-3.1); // subtract midpoint
+//             en.push_back(x-3.1); // subtract midpoint
+            en.push_back(x); // for Chebyshev polynomial
 
             data.push_back(hst[0]->GetBinContent(n));
             er_data.push_back(SQ(hst[0]->GetBinError(n)));
@@ -289,7 +314,11 @@ class myChi2 {
          unsigned int n = Size();
          for(unsigned int i = 0; i < n; i++) {
             double x = en[i];
-            double bgscl = PolN(x,p,npol);
+//             double bgscl = PolN(x,p,npol);
+            double bgscl = ChebN(npol,Emin,Emax,x,p);
+            if ( bgscl < 0 ) {
+               return maxResValue;
+            }
             double bgscl2 = bgscl*bgscl;
 
             double dif = data[i] -
@@ -306,7 +335,7 @@ class myChi2 {
             if( resval < maxResValue ) {
                chi2 += resval;
             } else {
-               chi2 += maxResValue;
+               return maxResValue;
             }
          } // end of for()
 
@@ -322,23 +351,31 @@ class myChi2 {
       vector<double> bgn, er_bgn;
 
       int npol = 3;
+      const double Emin = 3.0, Emax = 3.2; // fit range
 };
 //-------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------
-void rescale_bg(TH1D* hst, const double* p, int npol) {
+TH1D* rescale_bg(TH1D* hst, const double* p, int npol) {
 //-------------------------------------------------------------------------
    // rescale ignoring over and underflow bins
+   const double Emin = 3.0, Emax = 3.2; // fit range
+
+   // create copy of hst
+   string new_name = string(hst->GetName()) + string("_Rescaled");
+   TH1D* hst_n = (TH1D*)hst->Clone(new_name.c_str());
 
    int nbins = hst->GetNbinsX();
    for(int n = 1; n <= nbins; ++n) {
-      double x = hst->GetBinCenter(n) - 3.1;
-      double w = PolN(x,p,npol);
+      double x = hst->GetBinCenter(n);
+//       double w = PolN(x-3.1,p,npol);
+      double w = ChebN(npol,Emin,Emax,x,p);
       double d = hst->GetBinContent(n);
       double e = hst->GetBinError(n);
-      hst->SetBinContent(n,d*w);
-      hst->SetBinError(n,e*w);
+      hst_n->SetBinContent(n,d*w);
+      hst_n->SetBinError(n,e*w);
    }
+   return hst_n;
 }
 
 //-------------------------------------------------------------------------
@@ -378,7 +415,7 @@ void DoFitSB(int date) {
    min_opt.Print();
 
    const unsigned int Npol = 3; // order of polynomial (base=3)
-//    const unsigned int Npol = 4; // systematic study: 2 && 4
+                                // systematic study: 2 && 4
    chi2_fit.SetNpol(Npol);
 
    // set names and start values for parameters
@@ -386,28 +423,12 @@ void DoFitSB(int date) {
    for ( int i = 0; i <= Npol; ++i ) {
       par_name.push_back( string("p") + to_string(i) );
    }
-   vector<double> par_ini;
-   if ( date == 2009 ) {
-      if ( Npol == 2 ) {
-//          par_ini = { 1.0277, 0.075, 1.6 };
-         par_ini = { 1.0264, 0.064, 1.6 }; // helix corr
-      } else if ( Npol == 3 ) {
-//          par_ini = { 1.0274, 0.049, 1.65, 4.2 };
-         par_ini = { 1.0261, 0.036, 1.66, 4.4 }; // helix corr
-      } else if ( Npol == 4 ) {
-//          par_ini = { 1.0296, 0.047, 0.66, 4.5, 90. };
-         par_ini = { 1.0284, 0.034, 0.60, 4.7, 96. }; // helix corr
-      }
-   } else if ( date == 2012 ) {
-      if ( Npol == 2 ) {
-//          par_ini = { 1.0440, 0.075, 1.48 };
-         par_ini = { 1.0405, 0.040, 1.46 }; // helix corr
-      } else if ( Npol == 3 ) {
-//          par_ini = { 1.0438, 0.060, 1.51, 2.4 };
-         par_ini = { 1.0402, 0.021, 1.51, 3.1 }; // helix corr
-      } else if ( Npol == 4 ) {
-//          par_ini = { 1.0447, 0.060, 1.1, 2.5, 38. };
-         par_ini = { 1.0412, 0.020, 1.1, 3.2, 41. }; // helix corr
+   vector<double> par_ini(Npol+1,1.); // for Chebyshev 
+   if ( Npol == 3 ) {
+      if ( date == 2009 ) {
+         par_ini = { 1.0343, 0.0069, 0.0083, 0.0011 };
+      } else if ( date == 2012 ) {
+         par_ini = { 1.0478, 0.0044, 0.0076, 0.0008 };
       }
    }
    if ( par_ini.size() != Npol+1 ) {
@@ -444,10 +465,8 @@ void DoFitSB(int date) {
    const vector<double> er_par = res.Errors();
 
    // rescale BG:
-   hst[13]=(TH1D*)hst[3]->Clone("RescaledBG");
-   rescale_bg( hst[13], par.data(), Npol );
-   hst[14]=(TH1D*)hst[4]->Clone("RescaledBGn");
-   rescale_bg( hst[14], par.data(), Npol );
+   hst[13] = rescale_bg( hst[3], par.data(), Npol );
+   hst[14] = rescale_bg( hst[4], par.data(), Npol );
 
    // ========================= draw results ========================
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
@@ -490,9 +509,8 @@ void DoFitSB(int date) {
 
 //    hst[14]->Draw("SAME,HIST"); // Rescaled Bg
 
-//    TLegend* leg = new TLegend(0.53,0.65,0.89,0.89);
-//    leg->SetHeader("#bf{Recoil Mass of #pi^{+}#pi^{-}}", "C");
    TLegend* leg = new TLegend(0.55,0.65,0.89,0.89);
+//    leg->SetHeader("#bf{Recoil Mass of #pi^{+}#pi^{-}}", "C");
    leg->AddEntry(hst[0],
          (string("Data ")+to_string(date)).c_str(), "EP");
 
@@ -514,20 +532,17 @@ void DoFitSB(int date) {
    leg->Draw();
 
    TPaveText* pt = new TPaveText(0.11,0.65,0.44,0.89,"NDC");
-//    TPaveText* pt = new TPaveText(0.55,0.39,0.89,0.63,"NDC"); // TEST
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    pt->AddText(
-      Form("#bf{Fit in [%.2f,%.2f] & [%.2f,%.2f]}",3.0,ExMin,ExMax,3.2)
+      Form("#bf{Fit in [%.2f,%.2f] & [%.2f,%.2f] }",3.0,ExMin,ExMax,3.2)
    );
    pt->AddText(
-      Form("#chi^{2}/ndf   %.1f / %i",chi2,ndf)
+      Form("#chi^{2}/ndf = %.1f / %i",chi2,ndf)
    );
    for(unsigned int i = 0; i < par.size(); i++) {
-      pt->AddText(
-         Form("%s         %.3f #pm %.3f",
-            par_name[i].c_str(),par[i],er_par[i])
-      );
+      pt->AddText( Form("%s =       %.4f #pm %.4f",
+                   par_name[i].c_str(),par[i],er_par[i]) );
    }
    pt->Draw();
 
