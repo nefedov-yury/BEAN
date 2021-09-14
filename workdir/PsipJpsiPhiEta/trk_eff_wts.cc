@@ -1,6 +1,8 @@
 // plot weights for K+K- and pi+ pi- pairs:
 // -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
 
+#include "ReWeightTrkPid_11.h"
+
 //----------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //----------------------------------------------------------------------
@@ -25,135 +27,6 @@ void SetHstFace(TH1* hst) {
       Z->SetTitleFont(62);
       Z->SetTitleSize(0.04);
    }
-}
-
-// copy from trk_eff_fit.cc
-//----------------------------------------------------------------------
-double ReWeightTrkPid_OLD(int DataPeriod, int Kp, double Pt) {
-//----------------------------------------------------------------------
-// This correction is based on "prod-12eff"
-// and independent of cos(Theta)
-// Kp = 1 for kaons and Kp = 0 for pions
-
-   double W = 1.;
-
-   auto CUBE = [](double x)-> double{return x*x*x;};
-   if ( Kp == 1 ) {             // kaons
-      Pt = max( 0.1, Pt );
-      Pt = min( 1.4, Pt );
-      if ( DataPeriod == 2009 ) {
-         W = 1.00931 - 0.02363 * Pt;
-         // OLD: prod-te6; -te10
-//          W = 1.00703 - 0.01977 * Pt;
-         if ( Pt < 0.2 ) {
-            W = 0.9278;
-//             W = 0.9311; // OLD: prod-te6; -te10
-         }
-      } else if ( DataPeriod == 2012 ) {
-         static TF1* cK12 = nullptr;
-         if ( !cK12 ) {
-            int nch = 4;
-            auto Lchb = [nch](const double* xx, const double* p) -> double {
-               if (nch == 0) { return p[0]; }
-               double x = xx[0];
-               double sum = p[0] + x*p[1];
-               if (nch == 1) { return sum; }
-               double T0 = 1, T1 = x;
-               for ( int i = 2; i <= nch; ++i ) {
-                  double Tmp = 2*x*T1 - T0;
-                  sum += p[i]*Tmp;
-                  T0 = T1;
-                  T1 = Tmp;
-               }
-               return sum;
-            };
-            cK12 = new TF1("cK12", Lchb, 0.1, 1.4,nch+1);
-            cK12->SetParameters(1.82144,-1.41435,0.83606,-0.32437,0.05736);
-            // OLD: prod-te6; -te10
-//             cK12->SetParameters(2.04378,-1.78748,1.05229,-0.40293,0.07065);
-         }
-         W = cK12->Eval(Pt);
-      }
-   } else if ( Kp == 0 ) {      // pions
-      Pt = max( 0.05, Pt );
-      Pt = min( 0.4, Pt );
-      if ( DataPeriod == 2009 ) {
-         W = 0.9878 + CUBE(0.0219/Pt);
-         // OLD: prod-te6; -te10
-//          W = 0.9871 + CUBE(0.0224/Pt);
-      } else if ( DataPeriod == 2012 ) {
-         W = 0.9859 + CUBE(0.02974/Pt);
-         // OLD: prod-te6; -te10
-//          W = 0.9843 + CUBE(0.03015/Pt);
-      }
-   }
-   return W;
-}
-
-//----------------------------------------------------------------------
-double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
-//----------------------------------------------------------------------
-// The corrections are based on production-11(helix corrections for MC).
-// They do not dependent of the sign of the particle and cos(Theta) of
-// the track. Input parameters are following.
-// Kp is the type of the particle: 1 for kaon and 0 for pion.
-// Pt is the transverse momentum if the particle.
-// The return value is the weight of MC event with such a particle. 
-
-   // parameters
-   static const vector<double> K09 {0.991,-0.018};
-   static const double K09_first = 0.922;
-   static const vector<double> pi09 {0.9872,0.0243};
-
-   static const vector<double> K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
-   static const vector<double> pi12 {0.9851,0.032};
-
-   double W = 1.;
-
-   if ( Kp == 1 ) {             // kaons
-      const double Ptmin = 0.1, Ptmax = 1.4;
-      Pt = max( Ptmin, Pt );
-      Pt = min( Ptmax, Pt );
-
-      int nch = (DataPeriod == 2009) ? 1 : 4;
-      double xmin = Ptmin, xmax = Ptmax;
-      auto Lchb = [nch,xmin,xmax](double xx, const double* p) {
-         if (nch == 0) { return p[0]; }
-         // [xmin,xmax] -> [-1,+1]
-         double x = (2*xx-xmin-xmax)/(xmax-xmin);
-         double sum = p[0] + x*p[1];
-         if (nch == 1) { return sum; }
-         double T0 = 1, T1 = x;
-         for ( int i = 2; i <= nch; ++i ) {
-            double Tmp = 2*x*T1 - T0;
-            sum += p[i]*Tmp;
-            T0 = T1;
-            T1 = Tmp;
-         }
-         return sum;
-      };
-
-      if ( DataPeriod == 2009 ) {
-         W = Lchb(Pt,K09.data());
-         if ( Pt < 0.2 ) {
-            W = K09_first;
-         }
-      } else if ( DataPeriod == 2012 ) {
-         W = Lchb( Pt, K12.data() );
-      }
-   } else if ( Kp == 0 ) {      // pions
-      const double Ptmin = 0.05, Ptmax = 0.4;
-      Pt = max( Ptmin, Pt );
-      Pt = min( Ptmax, Pt );
-
-      auto CUBE = [](double x)-> double{return x*x*x;};
-      if ( DataPeriod == 2009 ) {
-         W = pi09[0] + CUBE(pi09[1]/Pt);
-      } else if ( DataPeriod == 2012 ) {
-         W = pi12[0] + CUBE(pi12[1]/Pt);
-      }
-   }
-   return W;
 }
 
 //-------------------------------------------------------------------------
@@ -396,15 +269,6 @@ void trk_eff_wts() {
    gStyle->SetStatW(0.3);
    gStyle->SetLegendFont(42);
 
-// OLD
-//    plot_WK("archive/prod-9/mcsig_kkmc_09.root", 2009);
-//    plot_WK("archive/prod-9/mcsig_kkmc_12.root", 2012);
-//
-//    plot_WPi("archive/prod-9/mcsig_kkmc_09.root", 2009);
-//    plot_WPi("archive/prod-9/mcsig_kkmc_12.root", 2012);
-//    plot_WPi("archive/prod-9/mcinc_09psip_all.root", 2009);  // for testing
-
-// NEW
 //    plot_WK("prod-11/mcsig_kkmc_09.root", 2009);
 //    plot_WK("prod-11/mcsig_kkmc_12.root", 2012);
 

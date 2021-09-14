@@ -2,6 +2,8 @@
 //                     single photon rec.efficiency
 // -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
+#include "ReWeightEtaEff.h"
+
 //--------------------------------------------------------------------
 // Common parameters:
 struct Params {
@@ -167,14 +169,6 @@ void SetHstFace(TH1* hst) {
       Z->SetTitleFont(62);
       Z->SetTitleSize(0.04);
    }
-}
-
-//--------------------------------------------------------------------
-double ReWeightEtaEff(int DataPeriod) {
-//--------------------------------------------------------------------
-// This correction is based on "prod-13eff"
-   double W = 0.997; //0.9970 +/- 0.0044
-   return W;
 }
 
 //--------------------------------------------------------------------

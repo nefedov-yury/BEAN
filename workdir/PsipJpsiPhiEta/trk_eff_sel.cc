@@ -1441,6 +1441,7 @@ void trk_eff_sel() {
    gStyle->SetLegendFont(42);
 //    gStyle->SetStatFont(62); // ?
 
+   // -- pi0 rejection, fig.27
 //    plot_pi0(2009);
 //    plot_pi0(2012);
 
@@ -1483,7 +1484,7 @@ void trk_eff_sel() {
 //    plot_dThPi(2009);
 //    plot_dThPi(2012);
 
-   // other
-//    plot_Weights(2012); // do not use
+   // other -> do not use
+//    plot_Weights(2012);
 //    plot_Weights(2009);
 }

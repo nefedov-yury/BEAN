@@ -7,27 +7,26 @@
 //----------------------------------------------------------------------
 // GLOBAL:
 // name of folder with root files
-// static const string dir("local/");
-// static const string dir("prod-te6/");
-const string dir("prod-te10/");
-
+static string dir;
 // names of files to use
 static vector<string> fnames;
-void InitFnames() { // must be in main()
-   fnames = {
-      "data_09psip.root", "mcinc_09psip.root",
-      "data_12psip.root", "mcinc_12psip.root"
-   };
-}
+
+const int date = 2009;
 
 // use weighted histograms:
+// <0 - do KolmogorovTest and exit
 // 0 - no weights;
 // 1 - calculate weights here; } plot only TRK*PID eff
 // 2 - use "W" histograms.     }
-const int use_rew = 2;
+const int use_rew = 0;
 
-// presentation mode:
-bool PR=true;
+void InitFnames() { // must be in main()
+   dir = string("prod-12eff/");
+   fnames = {
+      "data_09psip_all.root", "mcinc_09psip_all.root",
+      "data_12psip_all.root", "mcinc_12psip_all.root"
+   };
+}
 
 //----------------------------------------------------------------------
 //----------------------------------------------------------------------
@@ -39,7 +38,7 @@ constexpr double SQ(double x) {
 //----------------------------------------------------------------------
 double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
 //----------------------------------------------------------------------
-// This correction is based on "prod-te6"
+// This correction is based on "prod-12eff"
 // and independent of cos(Theta)
 // Kp = 1 for kaons and Kp = 0 for pions
 
@@ -50,9 +49,12 @@ double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
       Pt = max( 0.1, Pt );
       Pt = min( 1.4, Pt );
       if ( DataPeriod == 2009 ) {
-         W = 1.00703 - 0.01977 * Pt;
+         W = 1.00931 - 0.02363 * Pt;
+         // OLD: prod-te6; -te10
+//          W = 1.00703 - 0.01977 * Pt;
          if ( Pt < 0.2 ) {
-            W = 0.9311;
+            W = 0.9278;
+//             W = 0.9311; // OLD: prod-te6; -te10
          }
       } else if ( DataPeriod == 2012 ) {
          static TF1* cK12 = nullptr;
@@ -73,7 +75,9 @@ double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
                return sum;
             };
             cK12 = new TF1("cK12", Lchb, 0.1, 1.4,nch+1);
-            cK12->SetParameters(2.04378,-1.78748,1.05229,-0.40293,0.07065);
+            cK12->SetParameters(1.82144,-1.41435,0.83606,-0.32437,0.05736);
+            // OLD: prod-te6; -te10
+//             cK12->SetParameters(2.04378,-1.78748,1.05229,-0.40293,0.07065);
          }
          W = cK12->Eval(Pt);
       }
@@ -81,11 +85,13 @@ double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
       Pt = max( 0.05, Pt );
       Pt = min( 0.4, Pt );
       if ( DataPeriod == 2009 ) {
-         W = 0.9871 + CUBE(0.0224/Pt);
-//          W = 0.9870 + CUBE(0.0232/Pt); //second iteration
+         W = 0.9878 + CUBE(0.0219/Pt);
+         // OLD: prod-te6; -te10
+//          W = 0.9871 + CUBE(0.0224/Pt);
       } else if ( DataPeriod == 2012 ) {
-         W = 0.9843 + CUBE(0.03015/Pt);
-//          W = 0.9837 + CUBE(0.0315/Pt); //second iteration
+         W = 0.9859 + CUBE(0.02974/Pt);
+         // OLD: prod-te6; -te10
+//          W = 0.9843 + CUBE(0.03015/Pt);
       }
    }
    return W;
@@ -345,15 +351,16 @@ void get_hst( string fname, int type, vector<TH2D*>& hst ) {
 
    // re-weighting PID hst
    if ( isMC  && use_rew == 1 && type >= 10 ) {
-      int data = 2012;
+      int dataP = 2012;
       if ( fname.find("_09") != string::npos ) {
-         data = 2009;
+         dataP = 2009;
       }
-      ReWeightTrkPid(data,1,hst[1]); // pid K+
-      ReWeightTrkPid(data,1,hst[3]); // pid K-
-      ReWeightTrkPid(data,0,hst[5]); // pid pi+
-      ReWeightTrkPid(data,0,hst[7]); // pid pi+
-      cout << " ===> re-weighting " << fname << endl;
+      ReWeightTrkPid(dataP,1,hst[1]); // pid K+
+      ReWeightTrkPid(dataP,1,hst[3]); // pid K-
+      ReWeightTrkPid(dataP,0,hst[5]); // pid pi+
+      ReWeightTrkPid(dataP,0,hst[7]); // pid pi+
+      cout << " ===> re-weighting " << fname
+           << " dataP= " << dataP << endl;
    }
 
 //    DebPrint<TH2D*>(hst, "get_hst: ");
@@ -608,9 +615,9 @@ void get_diff( const vector<TH1D*>& hA, const vector<TH1D*>& hB,
 }
 
 //-------------------------------------------------------------------------
-void plot_pict(int date, string pdf) {
+void plot_pict(string pdf) {
 //-------------------------------------------------------------------------
-   int idx = (date==2009) ? 0 : 2;
+   int idx = (date==2009) ? 0 : 2; // date is global
 
    vector<TH1D*> eff_d, eff_mc, rat0;
    get_eff_1D(fnames[idx], 0, eff_d);
@@ -705,10 +712,8 @@ void plot_pict(int date, string pdf) {
       RmFromTitle(eff_dp[i],"data ");
       RmFromTitle(etp_d[i],"data ");
 
-      if ( PR ) {
-         RmFromTitle(etp_d[i],"eff(trk*pid)");
-         RmFromTitle(rat_tp[i],"eff(trk*pid)");
-      }
+      RmFromTitle(etp_d[i],"eff(trk*pid)");
+      RmFromTitle(rat_tp[i],"eff(trk*pid)");
 
       setBlue(eff_d[i]);
       setBlue(diff_d[i]);
@@ -761,7 +766,8 @@ void plot_pict(int date, string pdf) {
       }
    }
 
-   TLegend* leg1 = new TLegend(0.40,0.20,0.72,0.40);
+//    TLegend* leg1 = new TLegend(0.40,0.20,0.72,0.40);
+   TLegend* leg1 = new TLegend(0.35,0.25,0.65,0.45);
    leg1->AddEntry(eff_d[0], Form("#color[%i]{data %i}",
                   eff_d[0]->GetLineColor(),date),"LP");
    leg1->AddEntry(eff_mc[0], Form("#color[%i]{MC %i}",
@@ -773,8 +779,8 @@ void plot_pict(int date, string pdf) {
    pl0->SetLineColor(kGreen+2);
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   TCanvas* c1 = new TCanvas("c1","...",0,0,1100,900);
+//    TCanvas* c1 = new TCanvas("c1","...",0,0,1100,900);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1200,800);
    c1->Divide(2,2);
    for (int i = 1; i <= 4; ++i ) {
       c1->cd(i);
@@ -797,9 +803,10 @@ void plot_pict(int date, string pdf) {
    int Nh2 = Nh/2;
 
 ///////////////////////////////////////////////////////////////////
-   double eff_min = 0, eff_max = 1.;
+//    double eff_min = 0, eff_max = 1.;
+   double eff_min = 0.4, eff_max = 1.;
    double rat_min = 0.9, rat_max = 1.1;
-//    double rat_min = 0., rat_max = 2.;
+//    double rat_min = 0.8, rat_max = 1.2;
 //    bool plot_delta_eff = false, plot_delta_rat = true;
    bool plot_delta_eff = false, plot_delta_rat = false;
    double diff_min = -0.05, diff_max = 0.05;
@@ -1064,7 +1071,7 @@ void plot_pict(int date, string pdf) {
 }
 
 //-------------------------------------------------------------------------
-void test_KS(int date) {
+void test_KS() {
 //-------------------------------------------------------------------------
 // use the Kolmogorov–Smirnov test to compare K+ and K- (pi+ and pi-)
 // 1D distributions of the data/MC ratio
@@ -1110,38 +1117,16 @@ void trk_eff() {
    gStyle->SetFitFormat(".4f");
    InitFnames();
 
-   // TESTS ---------------------------------------------------------
-//    vector<TH2D*> hst;
-//    get_hst(fnames[0], 1, hst);
-//    get_hst_SBsub(fnames[0], 1, hst);
-
-//    vector<TH1D*> eff;
-//    get_eff_1D(fnames[0], 0, eff);
-//    get_eff_1D(fnames[0], 20, eff);
-
-//    int idx = 0;
-//    int type = 10;
-//    vector<TH1D*> effdat, effmc;
-//    get_eff_1D(fnames[idx], type, effdat);
-//    get_eff_1D(fnames[idx+1], type, effmc);
-//    vector<TH1D*> rat; // data/MC
-//    get_ratio( effdat, effmc, rat );
-
-//    vector<TH1D*> effA, effB;
-//    get_eff_1D(fnames[0], 20, effA);
-//    get_eff_1D(fnames[0], 21, effB);
-//    vector<TH1D*> diff; // A-B
-//    get_diff( effA, effB, diff );
-   // TESTS ---------------------------------------------------------
-
-//    int date = 2009;
-   int date = 2012;
-
-//    test_KS(date);
+   if ( use_rew < 0 ) {
+      test_KS();
+      return;
+   }
 
 //    string pdf = ""; // debug
    string pdf = string("Trkeff_")
-              + ( (use_rew==2) ? "W_" : ((use_rew==1) ? "_TW_" : "_") )
-              + to_string(date) + string(".pdf");
-   plot_pict(date,pdf);
+              + ( (use_rew==2) ? "OW_" : ((use_rew==1) ? "TW_" : "") )
+              + to_string(date)
+              + string(".pdf");
+
+   plot_pict(pdf);
 }
