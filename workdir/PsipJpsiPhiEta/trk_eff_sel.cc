@@ -1,5 +1,5 @@
 // trk_eff_sel.cc - Pictures for presentation/memo
-// Study of the track reconstruction efficiency for pi and K:
+// Study of the track reconstruction efficiency for pi and K
 
 //----------------------------------------------------------------------
 // Common parameters:
@@ -31,7 +31,8 @@ struct Params {
       use_rew = rew;
 
       // name of folder with root-files
-      string dir("prod-13eff/");
+//       string dir("prod-13eff/");
+      string dir("prod-11/");
       fnames = {
          "data_09psip_all.root", "mcinc_09psip_all.root",
          "data_12psip_all.root", "mcinc_12psip_all.root"
@@ -189,7 +190,7 @@ void plot_pi0(int date) {
    hdat[0] -> SetAxisRange(0.005,0.03,"X");
    hdat[0] -> SetTitle(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
                         ";Entries/0.0002 GeV^{2}/c^{4}");
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -257,7 +258,8 @@ void plot_MmisK(int date) {
    printf(" %i background is %.1f%%",date,bg/sum*100);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg->SetHeader(to_string(date).c_str(),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -274,12 +276,17 @@ void plot_MmisK(int date) {
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   if ( date == 2012 ) {
-      hdat[0] -> GetYaxis() -> SetTitleOffset(1.0);
+   if ( date == 2009 ) {
+      hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    }
    hdat[0] -> Draw("E");
 
-   double ymax=1.06*hdat[0]->GetMaximum();
+   double ymax = hdat[0] -> GetMaximum();
+   if ( date == 2009 ) {
+      ymax *= 1.07;
+   } else if ( date == 2012) {
+      ymax *= 1.065;
+   }
    box->DrawBox(0.15,0.,M2l,ymax);
    box->DrawBox(M2r,0.,0.35,ymax);
    hdat[0] -> Draw("E,SAME");
@@ -334,7 +341,8 @@ void plot_dPK(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg->SetHeader( to_string(date).c_str(),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -353,10 +361,16 @@ void plot_dPK(int date) {
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> Draw("E");
 
 //    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax=1.8*hdat[0]->GetMaximum(); // Log
+   double ymax = hdat[0] -> GetMaximum(); // Log
+   if ( date == 2009 ) {
+      ymax *= 1.9;
+   } else if (date == 2012 ) {
+      ymax *= 1.9;
+   }
    box->DrawBox(-0.15,0.,-0.12,ymax);
    box->DrawBox(0.08,0.,0.15,ymax);
    hdat[0] -> Draw("E,SAME");
@@ -411,7 +425,8 @@ void plot_dThK(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg->SetHeader( to_string(date).c_str(),"C" );
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -430,10 +445,11 @@ void plot_dThK(int date) {
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> Draw("E");
 
 //    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax=1.8*hdat[0]->GetMaximum(); // Log
+   double ymax=1.9*hdat[0]->GetMaximum(); // Log
    box->DrawBox(10.,0.,20.,ymax);
    hdat[0] -> Draw("E,SAME");
 
@@ -491,7 +507,7 @@ void plot_PtKp(int date) {
    }
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{+}",date),"C");
+   leg->SetHeader( Form("%i  K^{#plus}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -504,7 +520,7 @@ void plot_PtKp(int date) {
          ";Entries/0.025 GeV/c"
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -563,7 +579,7 @@ void plot_PtKm(int date) {
    }
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{-}",date),"C");
+   leg->SetHeader( Form("%i  K^{#minus}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -576,7 +592,7 @@ void plot_PtKm(int date) {
          ";Entries/0.025 GeV/c"
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -635,7 +651,7 @@ void plot_CKp(int date) {
    }
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{+}",date),"C");
+   leg->SetHeader( Form("%i  K^{#plus}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -650,7 +666,7 @@ void plot_CKp(int date) {
          ";Entries/0.05 "
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -709,7 +725,7 @@ void plot_CKm(int date) {
    }
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{-}",date),"C");
+   leg->SetHeader( Form("%i  K^{#minus}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -724,7 +740,7 @@ void plot_CKm(int date) {
          ";Entries/0.05 "
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -779,7 +795,8 @@ void plot_MinvJ(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.61,0.69,0.895,0.895);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg->SetHeader( to_string(date).c_str(),"C" );
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -789,19 +806,19 @@ void plot_MinvJ(int date) {
    // Data
    hdat[0] -> SetAxisRange(3.06,3.13,"X");
    hdat[0] -> SetTitle(
-         ";M^{ inv}_{#pi^{+}#pi^{-}K^{+}K^{-}}, GeV/c^{2}"
-         ";Entries/0.0009 GeV/c^{2}"
+       ";M^{ inv}_{#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}}, GeV/c^{2}"
+       ";Entries/0.0009 GeV/c^{2}"
                        );
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   if ( date == 2012 ) {
-      hdat[0] -> GetYaxis() -> SetTitleOffset(1.0);
+   if ( date == 2009 ) {
+      hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    }
    hdat[0] -> Draw("E");
 
-   double ymax=1.06*hdat[0]->GetMaximum();
+   double ymax = 1.06 * hdat[0] -> GetMaximum();
    box->DrawBox(3.06,0.,3.087,ymax);
    box->DrawBox(3.105,0.,3.13,ymax);
    hdat[0] -> Draw("E,SAME");
@@ -863,9 +880,9 @@ void plot_MmisP(int date) {
 //    cout << " bg=" << bg << " sum= " << sum << " R= " << bg/sum << endl;
    printf(" %i background is %.1f%%",date,bg/sum*100);
 
-//    TLegend* leg = new TLegend(0.61,0.69,0.895,0.895);
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg->SetHeader( to_string(date).c_str(),"C" );
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -875,19 +892,26 @@ void plot_MmisP(int date) {
    // Data
 //    hdat[0] -> SetAxisRange(3.06,3.13,"X");
    hdat[0] -> SetTitle(
-         ";M^{2}_{recoil}(#pi^{#pm}#pi^{+}#pi^{-}K^{+}K^{-}), GeV^{2}/c^{4}"
+         ";M^{2}_{recoil}"
+         "(#pi^{#pm}#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}),"
+         " GeV^{2}/c^{4}"
          ";Entries/0.0003 GeV^{2}/c^{4}"
                        );
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   if ( date == 2012 ) {
-      hdat[0] -> GetYaxis() -> SetTitleOffset(1.0);
+   if ( date == 2009 ) {
+      hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    }
    hdat[0] -> Draw("E");
 
-   double ymax=1.06*hdat[0]->GetMaximum();
+   double ymax = hdat[0] -> GetMaximum();
+   if ( date == 2009 ) {
+      ymax *= 1.07;
+   } else if ( date == 2012 ) {
+      ymax *= 1.06;
+   }
    box->DrawBox(-0.01,0.,M2l,ymax);
    box->DrawBox(M2r,0.,0.05,ymax);
    hdat[0] -> Draw("E,SAME");
@@ -942,7 +966,7 @@ void plot_dPpi(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg -> SetHeader( to_string(date).c_str(),"C" );
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -961,10 +985,11 @@ void plot_dPpi(int date) {
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> Draw("E");
 
 //    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax=1.8*hdat[0]->GetMaximum(); // Log
+   double ymax = 1.9 * hdat[0] -> GetMaximum(); // Log
    box->DrawBox(-0.15,0.,-0.12,ymax);
    box->DrawBox(0.08,0.,0.15,ymax);
    hdat[0] -> Draw("E,SAME");
@@ -1019,7 +1044,7 @@ void plot_dThPi(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
+   leg -> SetHeader( to_string(date).c_str(),"C" );
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -1038,10 +1063,11 @@ void plot_dThPi(int date) {
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> Draw("E");
 
 //    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax=1.8*hdat[0]->GetMaximum(); // Log
+   double ymax = 1.9 * hdat[0] -> GetMaximum(); // Log
    box->DrawBox(15.,0.,20.,ymax);
    hdat[0] -> Draw("E,SAME");
 
@@ -1099,7 +1125,7 @@ void plot_PtPip(int date) {
    }
 
    TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg->SetHeader( Form("%i  #pi^{+}",date),"C");
+   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -1112,7 +1138,7 @@ void plot_PtPip(int date) {
          ";Entries/0.01 GeV/c"
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1171,7 +1197,7 @@ void plot_PtPim(int date) {
    }
 
    TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg->SetHeader( Form("%i  #pi^{-}",date),"C");
+   leg -> SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -1184,7 +1210,7 @@ void plot_PtPim(int date) {
          ";Entries/0.01 GeV/c"
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1243,7 +1269,7 @@ void plot_CPip(int date) {
    }
 
    TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg->SetHeader( Form("%i  #pi^{+}",date),"C");
+   leg -> SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -1258,7 +1284,7 @@ void plot_CPip(int date) {
          ";Entries/0.05 "
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1317,7 +1343,7 @@ void plot_CPim(int date) {
    }
 
    TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg->SetHeader( Form("%i  #pi^{-}",date),"C");
+   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
@@ -1332,7 +1358,7 @@ void plot_CPim(int date) {
          ";Entries/0.05 "
                        );
    hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1412,50 +1438,50 @@ void trk_eff_sel() {
 //-------------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
-   gStyle->SetLegendFont(62);
-   gStyle->SetStatFont(62);
+   gStyle->SetLegendFont(42);
+//    gStyle->SetStatFont(62); // ?
 
-//    plot_pi0(2012);
 //    plot_pi0(2009);
+//    plot_pi0(2012);
 
-   // ---- K+ K- ----
-//    plot_MmisK(2012);
+   // ---- K+ K- ---- fig 28..30
 //    plot_MmisK(2009);
+//    plot_MmisK(2012);
 
-//    plot_dPK(2012);
-//    plot_dPK(2009);
-//    plot_dThK(2012);
-//    plot_dThK(2009);
-
-//    plot_PtKp(2012);
 //    plot_PtKp(2009);
-//    plot_PtKm(2012);
 //    plot_PtKm(2009);
-//    plot_CKp(2012);
 //    plot_CKp(2009);
-//    plot_CKm(2012);
 //    plot_CKm(2009);
+//    plot_PtKp(2012);
+//    plot_PtKm(2012);
+//    plot_CKp(2012);
+//    plot_CKm(2012);
 
-   // ---- pi+ pi- ----
-//    plot_MinvJ(2012);
+//    plot_dPK(2009);
+//    plot_dPK(2012);
+//    plot_dThK(2009);
+//    plot_dThK(2012);
+
+   // ---- pi+ pi- ---- fig 31..34
 //    plot_MinvJ(2009);
+//    plot_MinvJ(2012);
 
-//    plot_MmisP(2012);
 //    plot_MmisP(2009);
+//    plot_MmisP(2012);
 
-//    plot_dPpi(2012);
-//    plot_dPpi(2009);
-//    plot_dThPi(2012);
-//    plot_dThPi(2009);
-
-//    plot_PtPip(2012);
 //    plot_PtPip(2009);
-//    plot_PtPim(2012);
 //    plot_PtPim(2009);
-//    plot_CPip(2012);
 //    plot_CPip(2009);
-//    plot_CPim(2012);
 //    plot_CPim(2009);
+//    plot_PtPip(2012);
+//    plot_PtPim(2012);
+//    plot_CPip(2012);
+//    plot_CPim(2012);
+
+//    plot_dPpi(2009);
+//    plot_dPpi(2012);
+//    plot_dThPi(2009);
+//    plot_dThPi(2012);
 
    // other
 //    plot_Weights(2012); // do not use

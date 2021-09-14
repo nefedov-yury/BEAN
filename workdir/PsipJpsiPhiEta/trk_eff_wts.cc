@@ -9,8 +9,7 @@ void SetHstFace(TH1* hst) {
       X->SetLabelFont(62);
       X->SetLabelSize(0.04);
       X->SetTitleFont(62);
-      X->SetTitleSize(0.045);
-      X->SetTitleOffset(1.0);
+      X->SetTitleSize(0.04);
    }
    TAxis* Y = hst->GetYaxis();
    if ( Y ) {
@@ -18,7 +17,6 @@ void SetHstFace(TH1* hst) {
       Y->SetLabelSize(0.04);
       Y->SetTitleFont(62);
       Y->SetTitleSize(0.04);
-      Y->SetTitleOffset(1.3);
    }
    TAxis* Z = hst->GetZaxis();
    if ( Z ) {
@@ -31,7 +29,7 @@ void SetHstFace(TH1* hst) {
 
 // copy from trk_eff_fit.cc
 //----------------------------------------------------------------------
-double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
+double ReWeightTrkPid_OLD(int DataPeriod, int Kp, double Pt) {
 //----------------------------------------------------------------------
 // This correction is based on "prod-12eff"
 // and independent of cos(Theta)
@@ -92,6 +90,72 @@ double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
    return W;
 }
 
+//----------------------------------------------------------------------
+double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
+//----------------------------------------------------------------------
+// The corrections are based on production-11(helix corrections for MC).
+// They do not dependent of the sign of the particle and cos(Theta) of
+// the track. Input parameters are following.
+// Kp is the type of the particle: 1 for kaon and 0 for pion.
+// Pt is the transverse momentum if the particle.
+// The return value is the weight of MC event with such a particle. 
+
+   // parameters
+   static const vector<double> K09 {0.991,-0.018};
+   static const double K09_first = 0.922;
+   static const vector<double> pi09 {0.9872,0.0243};
+
+   static const vector<double> K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
+   static const vector<double> pi12 {0.9851,0.032};
+
+   double W = 1.;
+
+   if ( Kp == 1 ) {             // kaons
+      const double Ptmin = 0.1, Ptmax = 1.4;
+      Pt = max( Ptmin, Pt );
+      Pt = min( Ptmax, Pt );
+
+      int nch = (DataPeriod == 2009) ? 1 : 4;
+      double xmin = Ptmin, xmax = Ptmax;
+      auto Lchb = [nch,xmin,xmax](double xx, const double* p) {
+         if (nch == 0) { return p[0]; }
+         // [xmin,xmax] -> [-1,+1]
+         double x = (2*xx-xmin-xmax)/(xmax-xmin);
+         double sum = p[0] + x*p[1];
+         if (nch == 1) { return sum; }
+         double T0 = 1, T1 = x;
+         for ( int i = 2; i <= nch; ++i ) {
+            double Tmp = 2*x*T1 - T0;
+            sum += p[i]*Tmp;
+            T0 = T1;
+            T1 = Tmp;
+         }
+         return sum;
+      };
+
+      if ( DataPeriod == 2009 ) {
+         W = Lchb(Pt,K09.data());
+         if ( Pt < 0.2 ) {
+            W = K09_first;
+         }
+      } else if ( DataPeriod == 2012 ) {
+         W = Lchb( Pt, K12.data() );
+      }
+   } else if ( Kp == 0 ) {      // pions
+      const double Ptmin = 0.05, Ptmax = 0.4;
+      Pt = max( Ptmin, Pt );
+      Pt = min( Ptmax, Pt );
+
+      auto CUBE = [](double x)-> double{return x*x*x;};
+      if ( DataPeriod == 2009 ) {
+         W = pi09[0] + CUBE(pi09[1]/Pt);
+      } else if ( DataPeriod == 2012 ) {
+         W = pi12[0] + CUBE(pi12[1]/Pt);
+      }
+   }
+   return W;
+}
+
 //-------------------------------------------------------------------------
 void plot_WPi(string fname, int date) {
 //-------------------------------------------------------------------------
@@ -107,23 +171,94 @@ void plot_WPi(string fname, int date) {
    // Psi(2S) -> pi+ pi- J/Psi
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
 
-   TH1D* hstWpi = new TH1D("hstWpi",";correction factor",200,0.9,1.1);
+//Declaration of leaves types
+   Float_t         Mrs;
+   Float_t         mdp;
+   Float_t         MrsW;
+//    vector<float>   Mrec;
+   Float_t         Mrb;
+   Float_t         Ptp;
+   Float_t         Cpls;
+   Float_t         Ptm;
+   Float_t         Cmns;
+   UShort_t        nch;
+   UShort_t        Nm;
+   UShort_t        dec;
+//    Float_t         mcmkk;
+//    Float_t         mcmkpet;
+//    Float_t         mccosT;
 
-   nt1->Draw("MrsW>>hstWpi","dec==64","goff");
+   // Set branch addresses.
+   nt1->SetBranchAddress("Mrs",&Mrs);
+   nt1->SetBranchAddress("mdp",&mdp);
+   nt1->SetBranchAddress("MrsW",&MrsW);
+//    nt1->SetBranchAddress("Mrec",&Mrec);
+   nt1->SetBranchAddress("Mrb",&Mrb);
+   nt1->SetBranchAddress("Ptp",&Ptp);
+   nt1->SetBranchAddress("Cpls",&Cpls);
+   nt1->SetBranchAddress("Ptm",&Ptm);
+   nt1->SetBranchAddress("Cmns",&Cmns);
+   nt1->SetBranchAddress("nch",&nch);
+   nt1->SetBranchAddress("Nm",&Nm);
+   nt1->SetBranchAddress("dec",&dec);
+//    nt1->SetBranchAddress("mcmkk",&mcmkk);
+//    nt1->SetBranchAddress("mcmkpet",&mcmkpet);
+//    nt1->SetBranchAddress("mccosT",&mccosT);
 
-   TLegend* leg = new TLegend(0.49,0.79,0.89,0.89);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader( Form("#pi^{+}#pi^{-} pair: %i",date),"C");
+
+   TH1D* hstMrsW = new TH1D("hstMrsW",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
+
+   nt1->Draw("MrsW>>hstMrsW","dec==64","goff");
+
+   TH1D* hstMrbW = new TH1D("hstMrbW",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
+
+   TH1D* hstDelta = new TH1D("hstDelta",
+         ";delta MrsW-MrbW;Entries/0.0001",
+         200,-0.01,0.01);
+
+   Long64_t nentries = nt1 -> GetEntries();
+   for (Long64_t i=0; i<nentries;i++) {
+      nt1 -> GetEntry(i);
+
+      if ( dec != 64 ) continue;
+      if ( Mrb < 3.0 || Mrb > 3.2 ) continue;
+
+      // correction for pi+,pi- eff:
+      double wp = ReWeightTrkPid(date,0,Ptp);
+      double wm = ReWeightTrkPid(date,0,Ptm);
+      double MrbW = wp*wm;
+
+      hstMrbW -> Fill(MrbW);
+
+      double delta = MrsW - MrbW;
+      hstDelta -> Fill(delta);
+   }
+
+   TLegend* leg = new TLegend(0.59,0.79,0.89,0.89);
+   leg->SetHeader(Form("#pi^{#plus}#pi^{#minus} pairs %i",date),"C");
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,700,700);
    c1->cd();
    gPad->SetGrid();
 
+   TH1D* hstWpi = hstMrbW;
    SetHstFace(hstWpi);
    hstWpi -> SetLineWidth(2);
 //    hstWK -> SetLineColor(kBlack);
-   hstWpi -> GetYaxis() -> SetMaxDigits(3);
+//    hstWpi -> GetYaxis() -> SetMaxDigits(3);
+   hstWpi -> GetYaxis() -> SetTitleOffset(1.25);
    hstWpi -> Draw("HIST");
+
+   // test
+//    hstMrsW -> SetLineWidth(1);
+//    hstMrsW -> SetLineColor(kRed);
+//    hstMrsW -> Draw("HIST SAME");
+//    hstDelta -> Draw("HIST");
+
    leg->Draw();
 
    gPad->RedrawAxis();
@@ -211,7 +346,9 @@ void plot_WK(string fname, int date) {
 //    const double weta = 4*seta; // uncertainties study: 2x, 4x
    auto c_cpgg = [meta,weta](double Mgg)->bool{return fabs(Mgg-meta)<weta;};
 
-   TH1D* hstWK = new TH1D("hst_WK",";correction factor",200,0.9,1.1);
+   TH1D* hstWK = new TH1D("hst_WK",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
 
    Long64_t nentries = a4c->GetEntries();
    for (Long64_t i=0; i<nentries;i++) {
@@ -228,9 +365,8 @@ void plot_WK(string fname, int date) {
       hstWK -> Fill(w);
    }
 
-   TLegend* leg = new TLegend(0.49,0.79,0.89,0.89);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader( Form("K^{+}K^{-} pair: %i",date),"C");
+   TLegend* leg = new TLegend(0.59,0.79,0.89,0.89);
+   leg->SetHeader( Form("K^{#plus}K^{#minus} pairs %i",date),"C");
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,700,700);
    c1->cd();
@@ -253,16 +389,26 @@ void plot_WK(string fname, int date) {
 void trk_eff_wts() {
 //-------------------------------------------------------------------------
    gROOT->Reset();
-   gStyle->SetOptStat(0);
-   gStyle->SetLegendFont(62);
-   gStyle->SetStatFont(62);
+   gStyle->SetStatFont(42);
+   gStyle->SetOptStat(1100);
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.79);
+   gStyle->SetStatW(0.3);
+   gStyle->SetLegendFont(42);
 
+// OLD
+//    plot_WK("archive/prod-9/mcsig_kkmc_09.root", 2009);
+//    plot_WK("archive/prod-9/mcsig_kkmc_12.root", 2012);
+//
+//    plot_WPi("archive/prod-9/mcsig_kkmc_09.root", 2009);
+//    plot_WPi("archive/prod-9/mcsig_kkmc_12.root", 2012);
+//    plot_WPi("archive/prod-9/mcinc_09psip_all.root", 2009);  // for testing
 
-   plot_WK("prod-9/mcsig_kkmc_12.root", 2012);
-//    plot_WK("prod-9/mcsig_kkmc_09.root", 2009);
+// NEW
+//    plot_WK("prod-11/mcsig_kkmc_09.root", 2009);
+//    plot_WK("prod-11/mcsig_kkmc_12.root", 2012);
 
-//    plot_WPi("prod-9/mcinc_12psip_all.root", 2012);
+//    plot_WPi("prod-11/mcsig_kkmc_09.root", 2009);
+//    plot_WPi("prod-11/mcsig_kkmc_12.root", 2012);
 
-//    plot_WPi("prod-9/mcsig_kkmc_12.root", 2012);
-//    plot_WPi("prod-9/mcsig_kkmc_09.root", 2009);
 }

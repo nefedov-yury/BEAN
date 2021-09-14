@@ -1,4 +1,5 @@
 // Pictures for presentation/memo
+// Study of the eta -> 2gamma reconstruction efficiency
 
 //--------------------------------------------------------------------
 // Common parameters:
@@ -28,14 +29,18 @@ struct Params {
       use_rew = rew;
 
       // names of root-files
-      string Dir("prod-13eff/");
+//       string Dir("prod-13eff/");
+      string Dir("prod-11/");
       fnames = {
          Dir+"data_09psip_all.root", Dir+"mcinc_09psip_all.root",
          Dir+"data_12psip_all.root", Dir+"mcinc_12psip_all.root",
          // signal
-         Dir+"mcgammaeta2_kkmc_09.root", Dir+"mcgammaeta2_kkmc_12.root",
-         Dir+"mcphieta2_kkmc_09.root",   Dir+"mcphieta2_kkmc_12.root"
-         // eta -> 2gamma decay only
+         Dir+"mcgammaeta_kkmc_09.root", Dir+"mcgammaeta_kkmc_12.root",
+         Dir+"mcphieta2_kkmc_09.root",  Dir+"mcphieta2_kkmc_12.root"
+         // signal prog-13eff
+         // Dir+"mcgammaeta2_kkmc_09.root", Dir+"mcgammaeta2_kkmc_12.root",
+         // Dir+"mcphieta2_kkmc_09.root",   Dir+"mcphieta2_kkmc_12.root"
+         // eta -> 2gamma decay only prod13-eff
          // Dir+"mcgammaeta_kkmc_09.root", Dir+"mcgammaeta_kkmc_12.root"
          // Dir+"mcsig_kkmc_09.root",      Dir+"mcsig_kkmc_12.root"
       };
@@ -223,7 +228,8 @@ void plot_pi0(int date) {
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -237,7 +243,7 @@ void plot_pi0(int date) {
       hdat[0] -> GetYaxis() -> SetMaxDigits(2);
       hdat[0] -> GetYaxis() -> SetNdivisions(1005);
    }
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -334,7 +340,7 @@ void plot_Mpipig(int date) { // recoil mass pi+ pi- gamma
    // Data
 //    hdat[0] -> SetAxisRange(-0.1,0.7,"X");
    hdat[0] -> SetTitle(
-         ";M^{2}_{recoil}(#pi^{+}#pi^{-}#gamma), GeV^{2}/c^{4}"
+         ";M^{2}_{recoil}(#pi^{#plus}#pi^{#minus}#gamma), GeV^{2}/c^{4}"
          ";Entries/0.01 GeV^{2}/c^{4}");
    if ( date == 2009 ) {
       hdat[0] -> GetYaxis() -> SetNdivisions(1005);
@@ -444,7 +450,7 @@ void plot_Minv2g(int date) { // inv.mass of 2nd photon and «missing photon»
    // Data
    hdat[0] -> SetAxisRange(0.198,0.4019,"X");
    hdat[0] -> SetTitle(
-            ";M^{2}_{inv}(#gamma_{2}#gamma_{missing}), GeV^{2}/c^{4}"
+            ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
             ";Entries/0.003 GeV^{2}/c^{4}");
    if ( date == 2009 ) {
       hdat[0] -> GetYaxis() -> SetNdivisions(1005);
@@ -552,7 +558,8 @@ void plot_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    hdat[0] -> SetAxisRange(0.,0.0079,"X");
    hdat[0] -> SetMinimum(0.5);
    hdat[0] -> SetTitle(
-            ";M^{2}_{missing}(#pi^{+}#pi^{-}#gamma#gamma), GeV^{2}/c^{4}"
+            ";M^{2}_{missing}(#pi^{#plus}#pi^{#minus}#gamma#gamma),"
+            " GeV^{2}/c^{4}"
             ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
    hdat[0] -> GetXaxis() -> SetNdivisions(1004);
    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
@@ -662,7 +669,6 @@ void plot_Eg(int date) { // E of gamma from decay eta -> 2gamms
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
    gPad->SetGrid();
@@ -680,7 +686,7 @@ void plot_Eg(int date) { // E of gamma from decay eta -> 2gamms
    } else {
       hdat[0] -> GetYaxis() -> SetNdivisions(504);
    }
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -746,21 +752,20 @@ void plot_rE(int date) { // match Energy
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
-//    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
    hdat[0] -> SetMinimum(1.);
    hdat[0] -> SetTitle(
-            ";E_{#gamma}(pred.) / E_{#gamma}(rec.)"
-            ";Entries/0.01"); // OK!
+            ";E_{#gamma}(pred) / E_{#gamma}(rec)"
+            ";Entries / 0.01");
 //    hdat[0] -> GetXaxis() -> SetNdivisions(1004);
    hdat[0] -> SetAxisRange(0.0,2.0,"X");
    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+   hdat[0] -> GetXaxis() -> SetTitleOffset(1.1);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -828,20 +833,18 @@ void plot_dTh(int date) { // match Theta
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
-//    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
    hdat[0] -> SetMinimum(1.);
    hdat[0] -> SetTitle(
-         ";#delta#Theta(#gamma), deg"
-         ";Entries/0.2 deg");
+         ";#delta#Theta(#gamma), deg."
+         ";Entries / 0.2 deg.");
 //    hdat[0] -> GetXaxis() -> SetNdivisions(1004);
    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -922,7 +925,7 @@ void plot_Mgg(int date) { // plot of Mgg
    TF1* gs = (TF1*)gROOT->GetFunction("gaus");
    gs->SetLineWidth(2);
    gs->SetLineColor(kGreen+1);
-   gStyle->SetFitFormat(".3g");
+   gStyle->SetFitFormat(".4g");
 
    // box to show cut
    TBox* box = new TBox;
@@ -931,7 +934,7 @@ void plot_Mgg(int date) { // plot of Mgg
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.12,0.68,0.37,0.89);
+   TLegend* leg = new TLegend(0.11,0.64,0.36,0.89);
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
@@ -939,7 +942,6 @@ void plot_Mgg(int date) { // plot of Mgg
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.19);
    gStyle->SetStatH(0.12);
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
    gPad->SetGrid();
@@ -949,7 +951,7 @@ void plot_Mgg(int date) { // plot of Mgg
    hdat[0] -> SetTitle(
             ";M_{inv}(#gamma#gamma), GeV/c^{2}"
             ";Entries/0.001 GeV/c^{2}");
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.1);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetLineColor(kBlack);
    hdat[0] -> SetMarkerStyle(20);
@@ -1044,7 +1046,6 @@ void plot_Peta(int date) { // P(eta)
    leg -> SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
    gPad->SetGrid();
@@ -1054,7 +1055,7 @@ void plot_Peta(int date) { // P(eta)
    hdat[0] -> SetTitle(
             ";P_{#eta}, GeV/c"
             ";Entries/0.01 GeV/c");
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.1);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1143,7 +1144,6 @@ void plot_Ceta(int date) { // cos(Theta(eta))
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
    gPad->SetGrid();
@@ -1156,7 +1156,7 @@ void plot_Ceta(int date) { // cos(Theta(eta))
    hdat[0] -> SetTitle( Form(
             ";cos(#Theta_{#eta}) "
             ";Entries/%g",2./Nbins));
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.1);
 //    hdat[0] -> GetXaxis() -> SetNdivisions(504);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
@@ -1243,10 +1243,10 @@ void plot2_MKK(int date) { // inv mass K+K-
    // Data
    hdat[0] -> SetAxisRange(0.98,1.0999,"X");
    hdat[0] -> SetTitle(
-         ";M^{2}_{inv}(K^{+}K^{-}), GeV^{2}/c^{4}"
+         ";M^{2}_{inv}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}"
          ";Entries/0.001 GeV^{2}/c^{4}");
-   hdat[0] -> GetYaxis() -> SetMaxDigits(2);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+//    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.25);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1335,7 +1335,7 @@ void plot2_Minv2g(int date) { // inv.mass of photon and «missing photon»
    // Data
    hdat[0] -> SetAxisRange(0.198,0.4019,"X");
    hdat[0] -> SetTitle(
-            ";M^{2}_{inv}(#gamma#gamma_{missing}), GeV^{2}/c^{4}"
+            ";M^{2}_{inv}(#gamma#gamma_{missing} ), GeV^{2}/c^{4}"
             ";Entries/0.003 GeV^{2}/c^{4}");
    hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
    hdat[0] -> SetLineWidth(2);
@@ -1426,11 +1426,10 @@ void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    box -> SetLineColor(kRed-9);
    box -> SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1 -> cd(0);
    gPad -> SetGrid();
@@ -1439,13 +1438,14 @@ void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    // Data
    hdat[0] -> SetAxisRange(0.,0.0079,"X");
    hdat[0] -> SetMinimum(0.5);
-   hdat[0] -> SetTitle(
-            ";M^{2}_{missing}(#pi^{+}#pi^{-}K^{+}K^{-}#gamma), GeV^{2}/c^{4}"
-            ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
+   hdat[0] -> SetTitle( ";M^{2}_{missing}"
+            "(#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}#gamma),"
+            " GeV^{2}/c^{4}"
+            ";Entries/0.0002 GeV^{2}/c^{4}");
    hdat[0] -> GetXaxis() -> SetNdivisions(1005);
    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
    hdat[0] -> GetXaxis() -> SetTitleOffset(1.1);
+   hdat[0] -> GetYaxis() -> SetTitleOffset(1.1);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1513,24 +1513,22 @@ void plot2_rE(int date) { // match Energy
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
-//    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
    hdat[0] -> SetMinimum(0.5);
    hdat[0] -> SetTitle(
-            ";E_{#gamma}(pred.) / E_{#gamma}(rec.)"
-            ";Entries/0.01"); // OK!
+            ";E_{#gamma}(pred) / E_{#gamma}(rec)"
+            ";Entries/0.01");
    hdat[0] -> SetAxisRange(0.0,2.0,"X");
    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+   hdat[0] -> GetXaxis() -> SetTitleOffset(1.1);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1594,24 +1592,22 @@ void plot2_dTh(int date) { // match Theta
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
    leg->SetHeader( Form("%i",date),"C");
 
    // Draw:
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
    c1->cd(0);
-//    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
    hdat[0] -> SetMinimum(0.5);
    hdat[0] -> SetTitle(
-         ";#delta#Theta(#gamma), deg"
-         ";Entries/0.2 deg");
+         ";#delta#Theta(#gamma), deg."
+         ";Entries/0.2 deg.");
 //    hdat[0] -> GetXaxis() -> SetNdivisions(1004);
    hdat[0] -> GetYaxis() -> SetMaxDigits(2);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+//    hdat[0] -> GetXaxis() -> SetTitleOffset(1.);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1712,7 +1708,9 @@ void plot2_Peta(int date) { // P(eta)
    hdat[0] -> SetTitle(
             ";P_{#eta}, GeV/c"
             ";Entries/0.01 GeV/c");
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   if ( date == 2012 ) {
+      hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   }
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
    hdat[0] -> SetLineColor(kBlack);
@@ -1813,7 +1811,9 @@ void plot2_Ceta(int date) { // cos(Theta(eta))
    hdat[0] -> SetTitle( Form (
             ";cos(#Theta_{#eta}) "
             ";Entries/%1g",2./Nbins));
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   if ( date == 2012 ) {
+      hdat[0] -> GetYaxis() -> SetTitleOffset(1.3);
+   }
    hdat[0] -> GetXaxis() -> SetNdivisions(504);
    hdat[0] -> SetLineWidth(2);
    hdat[0] -> SetMarkerStyle(20);
@@ -1847,61 +1847,62 @@ void plot2_Ceta(int date) { // cos(Theta(eta))
 }
 
 //--------------------------------------------------------------------
-void eta_eff_pr() {
+void eta_eff_sel() {
 //--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
-   gStyle->SetLegendFont(62);
-//    gStyle->SetLegendTextSize(0.04);
-   gStyle->SetStatFont(62);
+   gStyle->SetLegendFont(42);
+//    gStyle->SetStatFont(62);
 //    gStyle->SetStatFontSize(0.07);
 
-//    plot_pi0(2012);
+   // -- pi0 rejection, fig.49
 //    plot_pi0(2009);
+//    plot_pi0(2012);
 
-//    plot_Mpipig(2012);
+   // -- J/Psi -> gamma eta, fig 50..56
 //    plot_Mpipig(2009);
+//    plot_Mpipig(2012);
 
-//    plot_Minv2g(2012);
 //    plot_Minv2g(2009);
+//    plot_Minv2g(2012);
 
-//    plot_M2mis(2012);
 //    plot_M2mis(2009);
+//    plot_M2mis(2012);
 
-//    plot_Eg(2012);
 //    plot_Eg(2009);
+//    plot_Eg(2012);
 
-//    plot_rE(2012);
 //    plot_rE(2009);
-//    plot_dTh(2012);
+//    plot_rE(2012);
 //    plot_dTh(2009);
+//    plot_dTh(2012);
 
-//    plot_Mgg(2012);
 //    plot_Mgg(2009);
+//    plot_Mgg(2012);
 
-//    plot_Peta(2012);
 //    plot_Peta(2009);
-//    plot_Ceta(2012);
+//    plot_Peta(2012);
 //    plot_Ceta(2009);
+//    plot_Ceta(2012);
 
-   // phi-eta
-//    plot2_MKK(2012);
+   // -- J/Psi -> phi eta, fig 59..63
 //    plot2_MKK(2009);
+//    plot2_MKK(2012);
 
-//    plot2_Minv2g(2012);
 //    plot2_Minv2g(2009);
+//    plot2_Minv2g(2012);
 
-//    plot2_M2mis(2012);
 //    plot2_M2mis(2009);
+//    plot2_M2mis(2012);
 
-//    plot2_rE(2012);
 //    plot2_rE(2009);
-//    plot2_dTh(2012);
+//    plot2_rE(2012);
 //    plot2_dTh(2009);
+//    plot2_dTh(2012);
 
-//    plot2_Peta(2012);
 //    plot2_Peta(2009);
-//    plot2_Ceta(2012);
+//    plot2_Peta(2012);
 //    plot2_Ceta(2009);
+//    plot2_Ceta(2012);
 
 }

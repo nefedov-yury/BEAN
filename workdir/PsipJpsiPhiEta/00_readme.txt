@@ -105,40 +105,44 @@ OLD: mkk_fitch2.cc - chi^2 fit (binning ???)
 //      photon reconstruction efficiencies
 //-------------------------------------------------------------------------
 trk_eff_sel.cc - Pictures for presentation/memo
-        Study of the track reconstruction efficiency for pi and K:
+                 Study of the track reconstruction efficiency for
+                 pi and K
 
 
 trk_eff_fit.cc - The reconstruction efficiency (data and MC)
                  and their ratio (data/MC) for pions and kaons.
                  Get corrections as function of P_t
                  by fitting the ratio.
-                 Kolmogorov–Smirnov probability test to compare
-                 the ratios for K+ and K- (pi+ and pi-)
+                 Kolmogorov–Smirnov  && Chi2 probability tests to
+                 compare the ratios for K+ and K- (pi+ and pi-)
 
-trk_eff_wts.cc -  plot weights for K+K- and pi+ pi- pairs:
-                  -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
+trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
+                 -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
 
 OLD: archive/
-trk_eff.cc - Study of the track reconstruction efficiency for pi and K:
-             I)  plot 1D distributions
-             ->  Trkeff_[date].pdf
-             II) Kolmogorov–Smirnov test to compare K+ and K- (pi+ and pi-)
+trk_eff.cc -     Study of the track reconstruction efficiency for pi
+                 and K:
+                 I)  plot 1D distributions
+                 ->  Trkeff_[date].pdf
+                 II) Kolmogorov–Smirnovtests to compare K+ and K-
+                     (pi+ and pi-)
 
 trk_eff_fit.cc - Study of the track reconstruction efficiency for pi and K:
                  fit the ratio data/MC as function of cos(Theta) and P_t
                  -> trk_fit_[date].pdf
 //-------------------------------------------------------------------------
 
-eta_eff.cc - Study of the eta -> eta reconstruction efficiency &
-                                 single photon rec.efficiency
-           -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
+eta_eff_sel.cc - Pictures for presentation/memo
+                 Study of the eta -> 2gamma reconstruction efficiency
 
-eta_eff_pr.cc - Pictures for presentation/memo
+eta_eff.cc -     Study of the eta -> 2gamma reconstruction efficiency
+                 single photon rec.efficiency
+                 -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
 //-------------------------------------------------------------------------
 // Calculation of branching
 //-------------------------------------------------------------------------
-eff_mc.cc   calculate efficiencies for selection of the J/Psi -> phi eta
+eff_mc.cc - calculate efficiencies for selection of the J/Psi -> phi eta
             > root -q -b eff_mc.cc
 
 

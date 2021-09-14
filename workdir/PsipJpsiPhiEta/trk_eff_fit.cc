@@ -2,9 +2,8 @@
 // and their ratio (data/MC) for pions and kaons.
 // Get corrections as function of P_t
 // by fitting the ratio.
-// Kolmogorov–Smirnov probability test to compare
-// the ratios for K+ and K- (pi+ and pi-)
-// TODO: rewighting!!!
+// Kolmogorov–Smirnov  && Chi2 probability tests to
+// compare the ratios for K+ and K- (pi+ and pi-)
 
 //----------------------------------------------------------------------
 // Common parameters:
@@ -36,7 +35,8 @@ struct Params {
       use_rew = rew;
 
       // name of folder with root-files
-      string dir("prod-13eff/");
+//       string dir("prod-13eff/");
+      string dir("prod-11/");
       fnames = {
          "data_09psip_all.root", "mcinc_09psip_all.root",
          "data_12psip_all.root", "mcinc_12psip_all.root"
@@ -106,15 +106,15 @@ void SetHstFace(TH1* hst) {
    if ( X ) {
       X->SetLabelFont(62);
       X->SetLabelSize(0.04);
-      X->SetTitleFont(62);
-      X->SetTitleSize(0.04);
+      X->SetTitleFont(42);
+      X->SetTitleSize(0.05);
    }
    TAxis* Y = hst->GetYaxis();
    if ( Y ) {
       Y->SetLabelFont(62);
       Y->SetLabelSize(0.04);
-      Y->SetTitleFont(62);
-      Y->SetTitleSize(0.04);
+      Y->SetTitleFont(42);
+      Y->SetTitleSize(0.05);
    }
    TAxis* Z = hst->GetZaxis();
    if ( Z ) {
@@ -125,8 +125,29 @@ void SetHstFace(TH1* hst) {
    }
 }
 
+// for very small hst
 //----------------------------------------------------------------------
-double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
+void SetHstFaceTbl(TH1* hst) {
+//----------------------------------------------------------------------
+   TAxis* X = hst -> GetXaxis();
+   if ( X ) {
+      X -> SetLabelFont(42);
+      X -> SetLabelSize(0.06);
+      X -> SetTitleFont(42);
+      X -> SetTitleSize(0.06);
+      X -> SetTickLength(0.05);
+   }
+   TAxis* Y = hst -> GetYaxis();
+   if ( Y ) {
+      Y -> SetLabelFont(42);
+      Y -> SetLabelSize(0.06);
+      Y -> SetTitleFont(42);
+      Y -> SetTitleSize(0.06);
+   }
+}
+
+//----------------------------------------------------------------------
+double ReWeightTrkPid_OLD(int DataPeriod, int Kp, double Pt) {
 //----------------------------------------------------------------------
 // This correction is based on "prod-12/13eff"
 // and independent of cos(Theta)
@@ -175,6 +196,72 @@ double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
       } else if ( DataPeriod == 2012 ) {
 //          W = 0.9859 + CUBE(0.02974/Pt);
          W = 0.9856 + CUBE(0.02967/Pt); // Mar 2020
+      }
+   }
+   return W;
+}
+
+//----------------------------------------------------------------------
+double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
+//----------------------------------------------------------------------
+// The corrections are based on production-11(helix corrections for MC).
+// They do not dependent of the sign of the particle and cos(Theta) of
+// the track. Input parameters are following.
+// Kp is the type of the particle: 1 for kaon and 0 for pion.
+// Pt is the transverse momentum if the particle.
+// The return value is the weight of MC event with such a particle. 
+
+   // parameters
+   static const vector<double> K09 {0.991,-0.018};
+   static const double K09_first = 0.922;
+   static const vector<double> pi09 {0.9872,0.0243};
+
+   static const vector<double> K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
+   static const vector<double> pi12 {0.9851,0.032};
+
+   double W = 1.;
+
+   if ( Kp == 1 ) {             // kaons
+      const double Ptmin = 0.1, Ptmax = 1.4;
+      Pt = max( Ptmin, Pt );
+      Pt = min( Ptmax, Pt );
+
+      int nch = (DataPeriod == 2009) ? 1 : 4;
+      double xmin = Ptmin, xmax = Ptmax;
+      auto Lchb = [nch,xmin,xmax](double xx, const double* p) {
+         if (nch == 0) { return p[0]; }
+         // [xmin,xmax] -> [-1,+1]
+         double x = (2*xx-xmin-xmax)/(xmax-xmin);
+         double sum = p[0] + x*p[1];
+         if (nch == 1) { return sum; }
+         double T0 = 1, T1 = x;
+         for ( int i = 2; i <= nch; ++i ) {
+            double Tmp = 2*x*T1 - T0;
+            sum += p[i]*Tmp;
+            T0 = T1;
+            T1 = Tmp;
+         }
+         return sum;
+      };
+
+      if ( DataPeriod == 2009 ) {
+         W = Lchb(Pt,K09.data());
+         if ( Pt < 0.2 ) {
+            W = K09_first;
+         }
+      } else if ( DataPeriod == 2012 ) {
+         W = Lchb( Pt, K12.data() );
+      }
+   } else if ( Kp == 0 ) {      // pions
+      const double Ptmin = 0.05, Ptmax = 0.4;
+      Pt = max( Ptmin, Pt );
+      Pt = min( Ptmax, Pt );
+
+      auto CUBE = [](double x)-> double{return x*x*x;};
+      if ( DataPeriod == 2009 ) {
+         W = pi09[0] + CUBE(pi09[1]/Pt);
+      } else if ( DataPeriod == 2012 ) {
+         W = pi12[0] + CUBE(pi12[1]/Pt);
       }
    }
    return W;
@@ -326,10 +413,10 @@ void plot_pict_K(int date, int pm = 0) {
    double rat_min = 0.9, rat_max = 1.1;
 ///////////////////////////////////////////////////////////////////
    string p_pdf("K"), p_leg("K");
-   if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{+}";}
-   if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{-}";}
+   if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{#plus}";}
+   if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{#minus}";}
 
-   TLegend* leg = new TLegend(0.65,0.40,0.89,0.60);
+   TLegend* leg = new TLegend(0.65,0.30,0.89,0.60);
    leg->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
    leg -> AddEntry(eff_d[0],  "  data ", "LP");
    leg -> AddEntry(eff_mc[0], "  MC ",   "LP");
@@ -349,7 +436,8 @@ void plot_pict_K(int date, int pm = 0) {
          string(";#epsilon(K)");
       eff_d[i] -> SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
-      eff_d[i] -> GetYaxis() -> SetTitleOffset(1.0);
+      eff_d[i] -> GetYaxis() -> SetTitleOffset(0.8);
+      eff_d[i] -> GetXaxis() -> SetTitleOffset(0.9);
       eff_d[i] -> Draw("E");
       eff_mc[i] -> Draw("E SAME");
       leg -> Draw();
@@ -373,11 +461,13 @@ void plot_pict_K(int date, int pm = 0) {
                      string(";#epsilon(data) / #epsilon(MC)");
       rat0[i] -> SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i] -> GetYaxis() -> SetTitleOffset(1.15);
+      rat0[i] -> GetYaxis() -> SetTitleOffset(0.9);
+      rat0[i] -> GetXaxis() -> SetTitleOffset(0.9);
       rat0[i] -> SetLineWidth(2);
       rat0[i] -> SetMarkerStyle(20);
       rat0[i] -> SetLineColor(kBlack);
       rat0[i] -> Fit( pl0, "" );
+      rat0[i] -> Draw("SAME E0");
    }
 
    gPad -> RedrawAxis();
@@ -428,10 +518,10 @@ void plot_pict_pi(int date, int pm = 0) {
    double rat_min = 0.9, rat_max = 1.1;
 ///////////////////////////////////////////////////////////////////
    string p_pdf("Pi"), p_leg("#pi");
-   if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{+}";}
-   if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{-}";}
+   if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{#kern[0.25]{#plus}}";}
+   if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{#kern[0.25]{#minus}}";}
 
-   TLegend* leg = new TLegend(0.65,0.40,0.89,0.60);
+   TLegend* leg = new TLegend(0.65,0.30,0.89,0.60);
    leg->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
    leg -> AddEntry(eff_d[0],  "  data ", "LP");
    leg -> AddEntry(eff_mc[0], "  MC ",   "LP");
@@ -451,7 +541,8 @@ void plot_pict_pi(int date, int pm = 0) {
          string(";#epsilon(#pi)");
       eff_d[i] -> SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
-      eff_d[i] -> GetYaxis() -> SetTitleOffset(1.0);
+      eff_d[i] -> GetYaxis() -> SetTitleOffset(0.8);
+      eff_d[i] -> GetXaxis() -> SetTitleOffset(0.9);
       eff_d[i] -> Draw("E");
       eff_mc[i] -> Draw("E SAME");
       leg -> Draw();
@@ -470,16 +561,21 @@ void plot_pict_pi(int date, int pm = 0) {
       c2 -> cd(i+1);
       gPad -> SetGrid();
       rat0[i] -> SetAxisRange(rat_min,rat_max,"Y");
+      if ( date == 2012 && i == 0 ) {
+         rat0[i] -> SetAxisRange(0.95,1.25,"Y");
+      }
       string title = string(Form("%s, data/MC %i",p_leg.c_str(),date)) +
                      ( (i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)" ) +
                      string(";#epsilon(data) / #epsilon(MC)");
       rat0[i] -> SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i] -> GetYaxis() -> SetTitleOffset(1.15);
+      rat0[i] -> GetYaxis() -> SetTitleOffset(0.9);
+      rat0[i] -> GetXaxis() -> SetTitleOffset(0.9);
       rat0[i] -> SetLineWidth(2);
       rat0[i] -> SetMarkerStyle(20);
       rat0[i] -> SetLineColor(kBlack);
       rat0[i] -> Fit( pl0, "" );
+      rat0[i] -> Draw("SAME E0");
    }
 
    gPad -> RedrawAxis();
@@ -489,11 +585,10 @@ void plot_pict_pi(int date, int pm = 0) {
 }
 
 //-------------------------------------------------------------------------
-void test_KS(int date, int kpi) {
+void test_PM(int date, int kpi, int test=1) {
 //-------------------------------------------------------------------------
-// use the Kolmogorov–Smirnov test to compare K+ and K- (pi+ and pi-)
-// 1D distributions of the data/MC ratio
-// see http://root.cern.ch/root/html/TH1.html#TH1:KolmogorovTest
+// compare K+ and K- (pi+ and pi-) 1D distributions of the data/MC
+// ratio to check their identity
 
    Params* parP = new Params(date,kpi,1,0); // date, K/pi, "+", rew
    vector<TH1D*> eff_d, eff_mc, ratP;
@@ -507,19 +602,45 @@ void test_KS(int date, int kpi) {
    get_eff(parM, 1, eff_mc);
    get_ratio( eff_d, eff_mc, ratM );
 
-   cout << " data-" << date << ": probability test for data/MC" << endl;
-   for (int i = 0; i < 2; ++i ) {
-      if ( kpi == 1 ) {
-         cout << " K+ <--> K- ";
-      } else {
-         cout << " pi+ <--> pi- ";
+   cout << " data-" << date << ": ";
+   if ( test == 1 ) {
+      cout << "Kolmogorov–Smirnov";
+   } else if ( test == 2 ) {
+      cout << "chi^2";
+   }
+   cout << " probability test for data/MC efficiency ratio" << endl;
+
+   bool verbose = false;
+   for (int i = 1; i >= 0; --i ) {
+      string info = (kpi == 1) ?  " K+ <--> K- " : " pi+ <--> pi- ";
+      info += (i==0) ? "; P_{t}:      " : "; cos(#Theta):";
+      if ( test == 1 ) {
+         // use the Kolmogorov–Smirnov test:
+         // http://root.cern.ch/root/html/TH1.html#TH1:KolmogorovTest
+         if ( verbose ) {
+            cout << info << endl;
+            ratP[i]->KolmogorovTest(ratM[i],"D");
+            cout << endl;
+         } else {
+            printf("%s p-value(chi2)= %.3f Max Dist= %.4f\n",
+                  info.c_str(), ratP[i]->KolmogorovTest(ratM[i]),
+                  ratP[i]->KolmogorovTest(ratM[i],"M") );
+         }
+      } else if ( test == 2 ) {
+         // use chi^2 test:
+         // http://root.cern.ch/root/html/TH1.html#TH1:Chi2Test
+         if ( verbose ) {
+            cout << info << endl;
+            ratP[i]->Chi2Test(ratM[i],"WWP");
+            cout << endl;
+         } else {
+            int igood = 0, ndf = 0;
+            double chi2 = 0;
+            double pval = ratP[i]->Chi2TestX(ratM[i],chi2,ndf,igood,"WW");
+            printf("%s p-value(chi2)= %.3f chi^2/NDF= %.1f/%d\n",
+                  info.c_str(),pval,chi2,ndf);
+         }
       }
-      cout << ( (i==0) ? ";P_{t} " : ";cos(#Theta) ");
-//       cout << endl; ratP[i]->KolmogorovTest(ratM[i],"D"); // debug
-//       cout << " Prob= " << ratP[i]->KolmogorovTest(ratM[i],"");
-//       cout << " Prob(X)= " << ratP[i]->KolmogorovTest(ratM[i],"X");
-      cout << " p-value(chi2)= " << ratP[i]->KolmogorovTest(ratM[i]);
-      cout << endl;
    }
 }
 
@@ -562,9 +683,6 @@ void Fill_Khst( Params* p, int mc, TH1D* hst[],
 //    auto c_KPtC = [](double Ptk, double Ck) -> bool {
 //       return (0.1<Ptk && Ptk<1.4) && (fabs(Ck)<0.8);
 //    };
-   auto c_plus = [](double Z) -> bool{
-      return Z>0;
-   };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt) -> bool {
       return (Ptmin<=Pt && Pt<Ptmax);
    };
@@ -578,8 +696,9 @@ void Fill_Khst( Params* p, int mc, TH1D* hst[],
    for ( Long64_t i = 0; i < nentries; ++i ) {
       eff_K -> GetEntry(i);
       if ( !c_kaon(Mrec,Mrk2) ) continue;
-      if ( p -> use_pm == 1  && !c_plus(Zk) ) continue;
-      if ( p -> use_pm == -1  && c_plus(Zk) ) continue;
+      int signK = (Zk > 0) ? 1 : -1;
+      if ( p -> use_pm == 1  && signK == -1 ) continue;
+      if ( p -> use_pm == -1  && signK == 1 ) continue;
       if ( !c_Ptbin(Ptk) ) continue;
 
       // reweiting
@@ -635,9 +754,6 @@ void Fill_PIhst( Params* p, int mc, TH1D* hst[],
 //    auto c_PiPtC = [](double Ptpi, double Cpi) -> bool {
 //       return (0.05<Ptpi && Ptpi<0.4) && (fabs(Cpi)<0.8);
 //    };
-   auto c_plus = [](double Z) -> bool{
-      return Z>0;
-   };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt) -> bool {
       return (Ptmin<=Pt && Pt<Ptmax);
    };
@@ -651,8 +767,9 @@ void Fill_PIhst( Params* p, int mc, TH1D* hst[],
    for ( Long64_t i = 0; i < nentries; ++i ) {
       eff_Pi -> GetEntry(i);
       if ( !c_pion(MppKK,Mrpi2) ) continue;
-      if ( p -> use_pm == 1  && !c_plus(Zpi) ) continue;
-      if ( p -> use_pm == -1  && c_plus(Zpi) ) continue;
+      int signPi = (Zpi > 0) ? 1 : -1;
+      if ( p -> use_pm == 1  && signPi == -1 ) continue;
+      if ( p -> use_pm == -1  && signPi == 1 ) continue;
       if ( !c_Ptbin(Ptpi) ) continue;
 
       // reweiting
@@ -671,8 +788,8 @@ void Fill_PIhst( Params* p, int mc, TH1D* hst[],
 TH1D* get_eff_cos(Params* p, int mc, double Ptmin, double Ptmax) {
 //--------------------------------------------------------------------
    vector<string> hns = { "C0", "C1" };
-   auto hC = [](string nm) {return (new TH1D(nm.c_str(),"",40,-1.,1.));};
-//    auto hC = [](string nm) {return (new TH1D(nm.c_str(),"",20,-1.,1.));};
+   int nbins = ( p->date == 2009 ) ? 20 : 40; 
+   auto hC = [nbins](string nm) {return (new TH1D(nm.c_str(),"",nbins,-1.,1.));};
 
    vector<TH1D*> hst(2,nullptr);
    for ( int i = 0; i < 2; ++i ) {
@@ -737,9 +854,11 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
             nch = 1;  // strait line
          }
 
-         auto Lchb = [nch](const double* xx, const double* p) -> double {
+         double xmin = Ptmin, xmax = Ptmax;
+         auto Lchb = [nch,xmin,xmax](const double* xx, const double* p) {
             if (nch == 0) { return p[0]; }
-            double x = xx[0];
+            // [xmin,xmax] -> [-1,+1]
+            double x = (2*xx[0]-xmin-xmax)/(xmax-xmin);
             double sum = p[0] + x*p[1];
             if (nch == 1) { return sum; }
             double T0 = 1, T1 = x;
@@ -751,10 +870,12 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
             }
             return sum;
          };
-         // fit2 = new TF1("fit2", "cheb4", Ptmin, Ptmax);
+
          fit2 = new TF1("fit2", Lchb, Ptmin, Ptmax,nch+1);
          if ( date == 2012 ) {
-            fit2 -> SetParameters(1.77, -1.34, 0.80, -0.315, 0.057);
+            fit2 -> SetParameters(0.989, 0.0, 0.007, 0.011, 0.102);
+         } else if ( date == 2009 ) {
+            fit2 -> SetParameters(0.989, -0.018);
          }
       } else {             // Pions
          // functions to the second fit of pions
@@ -803,15 +924,28 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
       c1 -> cd(Ic1);
       gPad -> SetGrid();
       rat -> SetAxisRange(0.8,1.2,"Y");
+      if ( i == 0 ) {
+         rat -> SetAxisRange(0.6,1.4,"Y");
+      }
       rat -> GetYaxis() -> SetNdivisions(1004);
-      rat -> GetYaxis() -> SetTitleOffset(0.9);
       rat -> SetTitle(Form(
                "<Pt> = %.3f GeV"
                "; cos(#Theta)"
                ";#epsilon(data) / #epsilon(MC)",
                ptav));
-      SetHstFace(rat);
-      rat -> Fit(fit1,"Q","",-0.799,0.799);
+      SetHstFaceTbl(rat);
+      if ( kpi == 1 ) {
+         gStyle -> SetTitleFontSize(0.1);
+         rat -> GetYaxis() -> SetTitleOffset(0.5);
+      } else {
+         gStyle -> SetTitleFontSize(0.08);
+         rat -> GetYaxis() -> SetTitleOffset(0.8);
+      }
+      rat -> GetXaxis() -> SetTitleOffset(0.8);
+//       rat -> Fit(fit1,"Q","",-0.799,0.799);
+      TFitResultPtr rs = rat -> Fit(fit1,"SEQ","",-0.8,0.8);
+      rat -> Draw("SAME E0");
+//       rs->Print();
       yy[i] = fit1 -> GetParameter(0);
       ey[i] = fit1 -> GetParError(0);
       cout << " i= " << i << " pt= " << ptav
@@ -846,6 +980,9 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
                                              ex.data(),ey.data() );
    gX->GetHistogram()->SetMaximum(1.1);
    gX->GetHistogram()->SetMinimum(0.9);
+//    if ( date == 2009 && kpi == 1 && pm == 1 && rew == 0 ) {
+//       gX->GetHistogram()->SetMinimum(0.84);
+//    }
    gX->SetMarkerColor(kBlue);
    gX->SetMarkerStyle(21);
    gX->Draw("AP");
@@ -855,18 +992,30 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
          "; #epsilon(data)/#epsilon(MC)"
                );
 
+   TFitResultPtr res(nullptr);
    if ( kpi == 1 && date == 2009 && rew == 0 ) { // reduce fit range
-      gX->Fit("fit2","EX0","", 0.2, Ptmax);
+      res = gX -> Fit("fit2","SE EX0","", 0.2, Ptmax);
+      gX -> Draw("SAME 0P");
    } else {
-      gX->Fit("fit2","REX0");
+      res = gX -> Fit("fit2","SER EX0");
+   }
+   if ( rew == 0 ) {
+      res -> Print("V"); // results and error matrix and correlation
+   }
+   if ( kpi == 1 && date == 2009 ) {
+      // print first point
+      double x = gX -> GetPointX(0);
+      double y = gX -> GetPointY(0);
+      double err_y  = gX -> GetErrorY(0);
+      printf(" First point: Pt= %.2f, W= %.4f +/- %.4f\n",x,y,err_y);
    }
 
    // --------------------------------------------
    TLegend* leg = new TLegend(0.20,0.82,0.50,0.89);
    string p_leg( ((kpi==1) ? "K" : "#pi") );
-   if ( pm == 0 ) { p_leg += "^{#pm}"; }
-   if ( pm == 1 ) { p_leg += "^{+}"; }
-   if ( pm == -1 ){ p_leg += "^{-}"; }
+   if ( pm == 0 ) { p_leg += "^{#kern[0.25]{#pm}}"; }
+   if ( pm == 1 ) { p_leg += "^{#kern[0.25]{#plus}}"; }
+   if ( pm == -1 ){ p_leg += "^{#kern[0.25]{#minus}}"; }
    leg -> SetHeader( Form("%i  %s",date,p_leg.c_str()),"C" );
    leg -> Draw();
 
@@ -882,45 +1031,40 @@ void trk_eff_fit() {
 //-------------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
-   gStyle->SetLegendFont(62);
+   gStyle->SetLegendFont(42);
    gStyle->SetStatFont(62);
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.89);
 //    gStyle->SetStatW(0.25);
 
+//    plot_pict_K(2009,1);  // +
+//    plot_pict_K(2009,-1); // -
 //    plot_pict_K(2012,1);
 //    plot_pict_K(2012,-1);
-//    plot_pict_K(2009,1);
-//    plot_pict_K(2009,-1);
 
-//    test_KS(2012,1); // Kaons
-//    test_KS(2009,1); // Kaons
-
-//    plot_pict_pi(2012,1);
-//    plot_pict_pi(2012,-1);
 //    plot_pict_pi(2009,1);
 //    plot_pict_pi(2009,-1);
+//    plot_pict_pi(2012,1);
+//    plot_pict_pi(2012,-1);
 
-//    test_KS(2012,2); // Pions
-//    test_KS(2009,2); // Pions
+//    int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
+//    test_PM(2009,1,test); // Kaons
+//    test_PM(2009,2,test); // Pions
+//    test_PM(2012,1,test); // Kaons
+//    test_PM(2012,2,test); // Pions
 
-//    FitRatio(2012,1); // Kaons
-//    FitRatio(2009,1); // Kaons
-//    FitRatio(2012,2); // Pions
-//    FitRatio(2009,2); // Pions
+//    FitRatio(2009,1,0); // 2009, Kaons, (1=K+, -1=K-, 0=K+/-)
+//    FitRatio(2009,1,0,1); // re-weighted
+
+//    FitRatio(2009,2,0); // 2009, Pions, (1=K+, -1=K-, 0=K+/-)
+//    FitRatio(2009,2,0,1); // re-weighted
+
+//    FitRatio(2012,1,0); // 2012, Kaons, (1=K+, -1=K-, 0=K+/-)
+//    FitRatio(2012,1,0,1); // re-weighted
+
+//    FitRatio(2012,2,0); // 2012, Pions, (1=K+, -1=K-, 0=K+/-)
+//    FitRatio(2012,2,0,1); // re-weighted
 
 
-//    FitRatio(2012,1,1,1); // Kaons+ re-weighted
-//    FitRatio(2012,1,-1,1); // Kaons- re-weighted
-//    FitRatio(2012,1,0,1); // Kaons+/- re-weighted
-//    FitRatio(2009,1,1,1); // Kaons+ re-weighted
-//    FitRatio(2009,1,-1,1); // Kaons- re-weighted
-//    FitRatio(2009,1,0,1); // Kaons+/- re-weighted
 
-//    FitRatio(2012,2,1,1); // Pions+ re-weighted
-//    FitRatio(2012,2,-1,1); // Pions- re-weighted
-   FitRatio(2012,2,0,1); // Pions+/- re-weighted
-//    FitRatio(2009,2,1,1); // Pions+ re-weighted
-//    FitRatio(2009,2,-1,1); // Pions- re-weighted
-//    FitRatio(2009,2,0,1); // Pions+/- re-weighted
 }

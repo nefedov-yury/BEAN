@@ -1,4 +1,4 @@
-// Study of the eta -> eta reconstruction efficiency &
+// Study of the eta -> 2gamma reconstruction efficiency &
 //                     single photon rec.efficiency
 // -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
@@ -30,14 +30,18 @@ struct Params {
       use_rew = rew;
 
       // names of root-files
-      string Dir("prod-13eff/");
+//       string Dir("prod-13eff/");
+      string Dir("prod-11/");
       fnames = {
          Dir+"data_09psip_all.root", Dir+"mcinc_09psip_all.root",
          Dir+"data_12psip_all.root", Dir+"mcinc_12psip_all.root",
          // signal
-         Dir+"mcgammaeta2_kkmc_09.root", Dir+"mcgammaeta2_kkmc_12.root",
-         Dir+"mcphieta2_kkmc_09.root",   Dir+"mcphieta2_kkmc_12.root"
-         // eta -> 2gamma decay only
+         Dir+"mcgammaeta_kkmc_09.root", Dir+"mcgammaeta_kkmc_12.root",
+         Dir+"mcphieta2_kkmc_09.root",  Dir+"mcphieta2_kkmc_12.root"
+         // signal prog-13eff
+         // Dir+"mcgammaeta2_kkmc_09.root", Dir+"mcgammaeta2_kkmc_12.root",
+         // Dir+"mcphieta2_kkmc_09.root",   Dir+"mcphieta2_kkmc_12.root"
+         // eta -> 2gamma decay only prog-13eff
          // Dir+"mcgammaeta_kkmc_09.root", Dir+"mcgammaeta_kkmc_12.root"
          // Dir+"mcsig_kkmc_09.root",      Dir+"mcsig_kkmc_12.root"
       };
@@ -146,15 +150,15 @@ void SetHstFace(TH1* hst) {
    if ( X ) {
       X->SetLabelFont(62);
       X->SetLabelSize(0.04);
-      X->SetTitleFont(62);
-      X->SetTitleSize(0.04);
+      X->SetTitleFont(42);
+      X->SetTitleSize(0.05);
    }
    TAxis* Y = hst->GetYaxis();
    if ( Y ) {
       Y->SetLabelFont(62);
       Y->SetLabelSize(0.04);
-      Y->SetTitleFont(62);
-      Y->SetTitleSize(0.04);
+      Y->SetTitleFont(42);
+      Y->SetTitleSize(0.05);
    }
    TAxis* Z = hst->GetZaxis();
    if ( Z ) {
@@ -389,8 +393,8 @@ void get_ratio( const vector<TH1D*>& effdat,
 //--------------------------------------------------------------------
 void plot_pict_gamma_eta(int date) {
 //--------------------------------------------------------------------
-//    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
-   Params* par = new Params(date,1,0); // date, gamma_eff, no_rew
+   Params* par = new Params(date,2,0); // date, eta_eff, no_rew
+//    Params* par = new Params(date,1,0); // date, gamma_eff, no_rew
 
    vector<TH1D*> eff_d, eff_mc, rat0;
    get_eff_data(par, eff_d);
@@ -426,13 +430,14 @@ void plot_pict_gamma_eta(int date) {
    c1 -> Divide(2,1);
 
 ///////////////////////////////////////////////////////////////////
-   double eff_min = 0.6, eff_max = 1.1;
+   double eff_min = 0.6, eff_max = 1.0;
    double rat_min = 0.9, rat_max = 1.1;
 ///////////////////////////////////////////////////////////////////
 
-//    TLegend* leg = new TLegend(0.64,0.70,0.89,0.89);
-   TLegend* leg = new TLegend(0.64,0.75,0.89,0.89);
+//    TLegend* leg = new TLegend(0.11,0.70,0.30,0.89);
+   TLegend* leg = new TLegend(0.11,0.71,0.50,0.89);
    leg -> SetHeader( Form("%i",date),"C");
+   leg -> SetNColumns(2);
    leg -> AddEntry(eff_d[0],  "  data ", "LP");
    leg -> AddEntry(eff_mc[0], "  MC ",   "LP");
 
@@ -456,6 +461,7 @@ void plot_pict_gamma_eta(int date) {
       }
       eff_d[i] -> SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
+      eff_d[i] -> GetXaxis() -> SetTitleOffset(0.9);
       eff_d[i] -> GetYaxis() -> SetTitleOffset(1.);
       eff_d[i] -> GetYaxis() -> SetNdivisions(1005);
       eff_d[i] -> Draw("E");
@@ -492,11 +498,13 @@ void plot_pict_gamma_eta(int date) {
       }
       rat0[i] -> SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i] -> GetYaxis() -> SetTitleOffset(1.2);
+      rat0[i] -> GetXaxis() -> SetTitleOffset(0.9);
+      rat0[i] -> GetYaxis() -> SetTitleOffset(1.);
       rat0[i] -> SetLineWidth(2);
       rat0[i] -> SetMarkerStyle(20);
       rat0[i] -> SetLineColor(kBlack);
       rat0[i] -> Fit( pl0, "" );
+      rat0[i] -> Draw("SAME E0");
    }
 
    gPad -> RedrawAxis();
@@ -554,9 +562,10 @@ void plot_pict_phi_eta(int date) {
    double rat_min = 0.8, rat_max = 1.2;
 ///////////////////////////////////////////////////////////////////
 
-//    TLegend* leg = new TLegend(0.64,0.70,0.89,0.89);
-   TLegend* leg = new TLegend(0.12,0.70,0.35,0.89);
+//    TLegend* leg = new TLegend(0.12,0.70,0.35,0.89);
+   TLegend* leg = new TLegend(0.11,0.71,0.50,0.89);
    leg -> SetHeader( Form("%i",date),"C");
+   leg -> SetNColumns(2);
    leg -> AddEntry(eff_d[0], " data ", "LP");
    leg -> AddEntry(eff_mc[0], " MC ", "LP");
 
@@ -574,6 +583,7 @@ void plot_pict_phi_eta(int date) {
                      string(";#epsilon(#eta)");
       eff_d[i] -> SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
+      eff_d[i] -> GetXaxis() -> SetTitleOffset(0.9);
       eff_d[i] -> GetYaxis() -> SetTitleOffset(1.);
 //       eff_d[i] -> GetYaxis() -> SetNdivisions(1005);
       eff_d[i] -> Draw("E");
@@ -598,7 +608,8 @@ void plot_pict_phi_eta(int date) {
                      string(";#epsilon(data) / #epsilon(MC)");
       rat0[i] -> SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i] -> GetYaxis() -> SetTitleOffset(1.2);
+      rat0[i] -> GetXaxis() -> SetTitleOffset(0.9);
+      rat0[i] -> GetYaxis() -> SetTitleOffset(1.);
       rat0[i] -> SetLineWidth(2);
       rat0[i] -> SetMarkerStyle(20);
       rat0[i] -> SetLineColor(kBlack);
@@ -616,14 +627,14 @@ void eta_eff() {
 //--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
-   gStyle->SetLegendFont(62);
-//    gStyle->SetLegendTextSize(0.05);
-   gStyle->SetStatFont(62);
-//    gStyle->SetStatFontSize(0.07);
+   gStyle->SetLegendFont(42);
+//    gStyle->SetStatFont(62);
 
-   plot_pict_gamma_eta(2012);
+   // -- J/Psi -> gamma eta, fig 57,58
 //    plot_pict_gamma_eta(2009);
+//    plot_pict_gamma_eta(2012);
 
-//    plot_pict_phi_eta(2012);
+   // -- J/Psi -> phi eta, fig 64,65
 //    plot_pict_phi_eta(2009);
+//    plot_pict_phi_eta(2012);
 }
