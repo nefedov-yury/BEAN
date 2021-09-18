@@ -2,9 +2,6 @@
 // for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
 //      -> VarName_YEAR.pdf
 
-// for cuts.h:
-#define CONSTANTS_ONLY
-
 // pointer on function wich fill one histo
 typedef TH1D* (*FILL_H)(string, string, string);
 
@@ -81,11 +78,11 @@ TH1D* fill_Nm(string fname, string hname, string hcut) {
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
 
    TH1D* hst = new TH1D(hname.c_str(),
-                        ";Number of Mrec combinations"
-                        ";Events",
-//                         30,0.5,30.5
-                        20,0.5,20.5
-                       );
+         ";Number of M^{rec}_{#pi^{#plus}#pi^{#minus}} combinations"
+         ";Events",
+         20,0.5,20.5
+//       30,0.5,30.5
+         );
    hst->Sumw2();
 
    string dr = string("Nm+(Mrs>0)>>") + hname;
@@ -265,7 +262,7 @@ TH1D* fill_invPM(string fname, string hname, string hcut) {
 //-------------------------------------------------------------------------
 void fill_hist2009(FILL_H fill_h, string var, TH1D* hst[]) {
 //-------------------------------------------------------------------------
-#include "cuts.h"
+#include "norm.h"
 
    string hn0 = var + string("09");
    hst[0]=fill_h("data_09psip_all.root", hn0, "");
@@ -295,7 +292,7 @@ void fill_hist2009(FILL_H fill_h, string var, TH1D* hst[]) {
 //-------------------------------------------------------------------------
 void fill_hist2012(FILL_H fill_h, string var, TH1D* hst[]) {
 //-------------------------------------------------------------------------
-#include "cuts.h"
+#include "norm.h"
 
    string hn0 = var + string("12");
    hst[0]=fill_h("data_12psip_all.root", hn0, "");
@@ -362,8 +359,9 @@ void plot_One(int date, string var, FILL_H fill_h, int pos=0, int log=0) {
                               hst[2]->GetLineColor() ),"L");
    leg->AddEntry(hst[1], Form("#color[%i]{Continuum}",
                               hst[1]->GetLineColor() ),"L");
-   leg->AddEntry(hst[3], Form("#color[%i]{non #pi^{+}#pi^{-}J/#Psi decay}",
-                              hst[3]->GetLineColor() ),"L");
+   leg->AddEntry(hst[3],
+         Form("#color[%i]{non #pi^{#plus}#pi^{#minus}J/#Psi decay}",
+         hst[3]->GetLineColor() ),"L");
    leg->Draw();
 
    c1->Update();
@@ -509,7 +507,7 @@ TH1D* get_hst(string fname, string hname) {
 //-------------------------------------------------------------------------
 void get_hist2009(string hname, TH1D* hst[]) {
 //-------------------------------------------------------------------------
-#include "cuts.h"
+#include "norm.h"
 
    hst[0]=get_hst("data_09psip_all.root", hname);
    hst[0]->SetMarkerStyle(20);
@@ -530,7 +528,7 @@ void get_hist2009(string hname, TH1D* hst[]) {
 //-------------------------------------------------------------------------
 void get_hist2012(string hname, TH1D* hst[]) {
 //-------------------------------------------------------------------------
-#include "cuts.h"
+#include "norm.h"
 
    hst[0]=get_hst("data_12psip_all.root", hname);
    hst[0]->SetMarkerStyle(20);
@@ -580,14 +578,14 @@ void plot_hist(string hname, int date) {
    double hst_max = hst[3]->GetMaximum();
    int pos = 0;
    if ( hname == "cosPM" ) {
-      hst[0]->SetTitle( ";cos #Theta_{#pi^{+} #pi^{-}}"
+      hst[0]->SetTitle( ";cos #Theta_{#pi^{#plus}#pi^{#minus}}"
                         ";Events/0.02" );
       if ( date == 2009 ) {
          hst[0]->GetYaxis()->SetTitleOffset(1.2);
       }
    } else if ( hname == "invPM" ) {
-      hst[0]->SetTitle( ";M^{ inv}_{#pi^{+} #pi^{-}} , GeV/c^{2}"
-                        ";Events/0.005, GeV/c^{2}" );
+      hst[0]->SetTitle( ";M^{ inv}_{#pi^{#plus}#pi^{#minus}}, GeV/c^{2}"
+                        ";Events/0.005 GeV/c^{2}" );
       hst[0]->SetAxisRange(0.,1.15*hst_max,"Y");
       if ( date == 2009 ) {
          hst[0]->GetYaxis()->SetTitleOffset(1.2);
@@ -595,24 +593,24 @@ void plot_hist(string hname, int date) {
    } else if ( hname == "Pip_P" ) {
       pos = 1;
       box = nullptr;
-      hst[0]->SetTitle( ";Momentum of #pi^{+}, GeV/c"
-                        ";Events/0.005, GeV/c" );
+      hst[0]->SetTitle( ";Momentum of #pi^{#plus}, GeV/c"
+                        ";Events/0.005 GeV/c" );
       hst[0]->SetAxisRange(0.,1.15*hst_max,"Y");
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pim_P" ) {
       pos = 1;
       box = nullptr;
-      hst[0]->SetTitle( ";Momentum of #pi^{-}, GeV/c"
-                        ";Events/0.005, GeV/c" );
+      hst[0]->SetTitle( ";Momentum of #pi^{#minus}, GeV/c"
+                        ";Events/0.005 GeV/c" );
       hst[0]->SetAxisRange(0.,1.15*hst_max,"Y");
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pip_C") {
       pos = 2;
-      hst[0]->SetTitle( ";cos #Theta_{#pi^{+}}"
+      hst[0]->SetTitle( ";cos #Theta_{#pi^{#plus}}"
                         ";Events/0.02" );
    } else if ( hname == "Pim_C") {
       pos = 2;
-      hst[0]->SetTitle( ";cos #Theta_{#pi^{-}}"
+      hst[0]->SetTitle( ";cos #Theta_{#pi^{#minus}}"
                         ";Events/0.02" );
    }
 
@@ -684,9 +682,9 @@ void pipi_dataMC() {
 //    plot_One(2012,"Nm",fill_Nm,0,1);
 //    plot_One(2012,"Nch",fill_nch,0,1);
 
+// OLD:
 //    plot_hist("Pip_C",2012); // log; lin - ???
 
-// OLD:
 //    plot_Ppi(2009); // ?
 //    plot_Ppi(2012); // ?
 //    plot_Cpi(2009); // ?

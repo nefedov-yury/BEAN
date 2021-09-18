@@ -8,6 +8,11 @@ cuts.h     -> List of cuts for
               1) Psi' -> J/Psi pi+ pi-
               2) J/Psi -> phi eta
 
+norm.h     -> normalization constants for inclusive MC and for
+              non-resonance data.
+
+masses.h   -> masses of particles (GeV) from PDG 2021
+
 p10a4c.h   -> declaration of variables in prod-10 a4c ntuple
 p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
               ntuple
@@ -33,10 +38,13 @@ MrecFitSB.cc - Calculate number of Psi(2S) -> J/Psi pi+ pi- decays
 
 MrecFit.cc - FOR MC AFTER HELIX CORRECTIONS
              (archive/MrecFit.cc - version before helix corrections)
-           - fit data by de-convolution of MC inclusive signal
-             with Gauss and scaling of MC inclusive background;
-           - calculate number of J/Psi in Psi'->J/Psi pi+ pi- decay
-           -> Mrec_YEAR_fit.pdf
+           - data fitting by correcting of MC signal and scaling of MC
+             background
+             -> Mrec_YEAR_fitMODEL.pdf
+             -> diffYEAR_MODEL.pdf for delta(data-MC)
+           - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
+             and efficiency of selection;
+           - estimate systematic associated with a fit model
 
 //--------------------------------------------------------------------
 2) Selection Jpsi -> phi eta
