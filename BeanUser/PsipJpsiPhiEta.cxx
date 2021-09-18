@@ -156,7 +156,7 @@ struct Xnt1 {
 //-------------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
-// masses of particles (GeV)           from PDG:
+// masses of particles (GeV) from PDG:
 static const double mpsip  = 3.686097; // 3686.097  +/- 0.025   MeV
 static const double mjpsi  = 3.096916; // 3096.916  +/- 0.011   MeV
 static const double mpi    = 0.13957;  // 139.57018 +/- 0.00035 MeV
@@ -232,56 +232,68 @@ static bool SelectPM(double cosPM, double invPM) {
    return ret;
 }
 
-//-------------------------------------------------------------------------
-static double ReWeightTrkPid(int Kp, double Pt) {
-//-------------------------------------------------------------------------
-// This correction is based on "prod-12/13eff"
-// and independent of cos(Theta)
-// Kp = 1 for kaons and Kp = 0 for pions
+// copy ReWeightTrkPid_11.h
+//----------------------------------------------------------------------
+double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
+//----------------------------------------------------------------------
+// The corrections are based on production-11(helix corrections for MC).
+// They do not dependent of the sign of the particle and cos(Theta) of
+// the track. Input parameters are following.
+// Kp is the type of the particle: 1 for kaon and 0 for pion.
+// Pt is the transverse momentum if the particle.
+// The return value is the weight of MC event with such a particle.
+
+   // parameters
+   static const vector<double> K09 {0.991,-0.018};
+   static const double K09_first = 0.922;
+   static const vector<double> pi09 {0.9872,0.0243};
+
+   static const vector<double> K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
+   static const vector<double> pi12 {0.9851,0.032};
 
    double W = 1.;
 
-   auto CUBE = [](double x)-> double{return x*x*x;};
    if ( Kp == 1 ) {             // kaons
-      Pt = max( 0.1, Pt );
-      Pt = min( 1.4, Pt );
+      const double Ptmin = 0.1, Ptmax = 1.4;
+      Pt = max( Ptmin, Pt );
+      Pt = min( Ptmax, Pt );
+
+      int nch = (DataPeriod == 2009) ? 1 : 4;
+      double xmin = Ptmin, xmax = Ptmax;
+      auto Lchb = [nch,xmin,xmax](double xx, const double* p) {
+         if (nch == 0) { return p[0]; }
+         // [xmin,xmax] -> [-1,+1]
+         double x = (2*xx-xmin-xmax)/(xmax-xmin);
+         double sum = p[0] + x*p[1];
+         if (nch == 1) { return sum; }
+         double T0 = 1, T1 = x;
+         for ( int i = 2; i <= nch; ++i ) {
+            double Tmp = 2*x*T1 - T0;
+            sum += p[i]*Tmp;
+            T0 = T1;
+            T1 = Tmp;
+         }
+         return sum;
+      };
+
       if ( DataPeriod == 2009 ) {
-         W = 1.00931 - 0.02363 * Pt;
+         W = Lchb(Pt,K09.data());
          if ( Pt < 0.2 ) {
-            W = 0.9278;
+            W = K09_first;
          }
       } else if ( DataPeriod == 2012 ) {
-         static TF1* cK12 = nullptr;
-         if ( !cK12 ) {
-            int nch = 4;
-            auto Lchb = [nch](const double* xx, const double* p) -> double {
-               if (nch == 0) { return p[0]; }
-               double x = xx[0];
-               double sum = p[0] + x*p[1];
-               if (nch == 1) { return sum; }
-               double T0 = 1, T1 = x;
-               for ( int i = 2; i <= nch; ++i ) {
-                  double Tmp = 2*x*T1 - T0;
-                  sum += p[i]*Tmp;
-                  T0 = T1;
-                  T1 = Tmp;
-               }
-               return sum;
-            };
-            cK12 = new TF1("cK12", Lchb, 0.1, 1.4,nch+1);
-            cK12->SetParameters(1.82144,-1.41435,0.83606,-0.32437,0.05736);
-         }
-         W = cK12->Eval(Pt);
+         W = Lchb( Pt, K12.data() );
       }
    } else if ( Kp == 0 ) {      // pions
-      Pt = max( 0.05, Pt );
-      Pt = min( 0.4, Pt );
+      const double Ptmin = 0.05, Ptmax = 0.4;
+      Pt = max( Ptmin, Pt );
+      Pt = min( Ptmax, Pt );
+
+      auto CUBE = [](double x)-> double{return x*x*x;};
       if ( DataPeriod == 2009 ) {
-//          W = 0.9878 + CUBE(0.0219/Pt);
-         W = 0.9863 + CUBE(0.02234/Pt); // Mar 2020
+         W = pi09[0] + CUBE(pi09[1]/Pt);
       } else if ( DataPeriod == 2012 ) {
-//          W = 0.9859 + CUBE(0.02974/Pt);
-         W = 0.9856 + CUBE(0.02967/Pt); // Mar 2020
+         W = pi12[0] + CUBE(pi12[1]/Pt);
       }
    }
    return W;
@@ -1458,10 +1470,10 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    xnt1.Mrs_mindp = Slct.Mrec_sig_mindp;
    if ( Slct.Pip_sig && Slct.Pim_sig ) {
       double ptp = Slct.Pip_sig->pxy();
-      double wp  = ReWeightTrkPid(0,ptp);
+      double wp  = ReWeightTrkPid(DataPeriod,0,ptp);
       hst[99]->Fill(wp);
       double ptm = Slct.Pim_sig->pxy();
-      double wm  = ReWeightTrkPid(0,ptm);
+      double wm  = ReWeightTrkPid(DataPeriod,0,ptm);
       hst[99]->Fill(wm);
       xnt1.MrsW = wp*wm;
    } else {
