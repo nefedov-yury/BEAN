@@ -31,19 +31,21 @@
    const double seta = 0.008;
    const double weta = 3*seta; // standard: 3x,
                                // uncertainties study: 2x, 4x
-   string str_c_cpgg( Form("abs(Mgg-%.6f)<%.6f",meta,weta) );
+   string str_c_cpgg( Form("abs(Mgg-%.6f)<%.6f",Meta,weta) );
    TCut c_cpgg(str_c_cpgg.c_str());
 
    // Meta: side-band
-   // actually 'shft' is the gap between signal region and side-band
-   double shft_eta = 6*seta - weta;
+   // 'shift_eta' is the start of the side-band
+//    double shift_eta = 6*seta; // old
+   double shift_eta = 7*seta; // it is better for 2012; prod-11
    string str_c_sbgg( Form("abs(Mgg-%.6f)>%.6f&&abs(Mgg-%.6f)<%.6f",
-                      meta,weta+shft_eta,meta,2*weta+shft_eta)     );
+            Meta,shift_eta,Meta,shift_eta+weta) );
    TCut c_sbgg(str_c_sbgg.c_str());
 
 
-   // Mphi cut: [2*mk, 1.08GeV] -> only for pictures !
+   // Mphi cut: [2*Mk, 1.08GeV] -> only for pictures:
+   //                              mass_eta.cc
    //                              see eff_mc.cc for efficiency
-   string str_c_phi( Form("Mkk>%.6f&&Mkk<1.08",2*mk) );
+   string str_c_phi( Form("Mkk>%.6f&&Mkk<1.08",2*Mk) );
    TCut c_phi(str_c_phi.c_str());
 //--------------------------------------------------------------------
