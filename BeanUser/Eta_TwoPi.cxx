@@ -277,8 +277,8 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
                         2001,-1000.5,1000.5);
    hst[113] = new TH1D("mc_Eg", "ISR: E(#gamma) (MeV)", 100,0.,1000.);
    hst[114] = new TH1D("mc_Ng", "ISR: N_{#gamma}", 10,-0.5,9.5);
-   hst[115] = new TH1D("mc_Etot","ISR: Eisr (MeV)",100,0.,2000.);
-   hst[116] = new TH1D("mc_xisr","ISR: s'/s",100,0.,1.);
+   hst[115] = new TH1D("mc_Etot","ISR: Eisr (MeV)",200,0.,2000.);
+   hst[116] = new TH1D("mc_xisr","ISR: s'/s",1000,0.,1.);
    hst[118] = new TH1D("mc_bspr","MC: energy spread (MeV)",100,-5.,5.);
    hst[119] = new TH1D("mc_dec_Eta", "Decay codes for eta (1 - 2g, 2 - 6g)",
                        5, -1.5, 3.5);
