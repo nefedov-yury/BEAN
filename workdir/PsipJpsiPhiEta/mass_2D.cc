@@ -1,9 +1,11 @@
 // 1) plot M(gamma,gamma) vs M(K+K-)
-// 2) Dalitz plots ( for >=prod-9m )
+//    -> Mass2D_XXXX.pdf;
+//
+// 2) Dalitz plots (for >=prod-9m)
+//    after 4C kinematic fit and chi^2 cut
 //      type = 1 M^2(K-eta) vs M^2(K+eta)
 //      type = 2 M^2(K+K-) vs M^2(K+eta)
-// after 4C kinematic fit and chi^2 cut (see cuts.h)
-// -> Mass2D_XXXX.pdf; -> Dalitz_xxx.pdf
+//    -> Dalitz_xxx.pdf
 
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
@@ -31,9 +33,9 @@ void SetHstFace(TH1* hst) {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void plot_2D(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #include "cuts.h"
 
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -46,21 +48,16 @@ void plot_2D(string fname, string title, string pdf="") {
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
    TH2D* m2d = new TH2D("m2d",
-                        ";M^{ inv}_{ #gamma#gamma} , GeV/c^{2}"
-                        ";M^{ inv}_{ K^{+}K^{-}} , GeV/c^{2}",
-                        100, 0.0, 1.2,   // gg
-                        100, 0.9, 2.0  );// KK
-//                         100, 0.9, 2.1  );// KK
+         ";M^{ inv}_{ #gamma#gamma}, GeV/c^{2}"
+         ";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}",
+         100, 0.0, 1.2,   // gg
+         100, 0.9, 2.0  );// KK
 
    a4c->Draw("Mkk:Mgg>>m2d",c_Mrec+c_chi2,"goff");
 
-   //-----------------------------------------------------------------------
-
    TCanvas* c1 = new TCanvas("c1","...",0,0,873,800);
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
 
    c1->cd();
-//   gPad->SetGrid();
    SetHstFace(m2d);
 //    m2d->GetXaxis()->SetTitleOffset(0.9);
    m2d->GetYaxis()->SetTitleOffset(1.2);
@@ -69,24 +66,25 @@ void plot_2D(string fname, string title, string pdf="") {
 
    m2d->Draw();
 
-   const double mphi = 1.019461; // 1019.461 +/- 0.019 MeV
    TEllipse* l = new TEllipse;
    l->SetLineColor(kRed+1);
    l->SetLineWidth(3);
    double Reta=0.05;
    double Rphi=0.04;
    l->SetFillStyle(0);
-   l->DrawEllipse(meta,mphi,Reta,Rphi,0.,360.,0.);
+   l->DrawEllipse(Meta,Mphi,Reta,Rphi,0.,360.,0.);
 
    TLatex* t = new TLatex;
    t->SetTextFont(42);
    t->SetTextColor(kRed+1);
-   t->DrawLatex(0.6,0.94,"#phi#eta signal");
+//    t->DrawLatex(0.6,0.94,"#phi#eta signal");
+   t->DrawLatex(0.6,0.94,"#phi#eta");
 
    double width = 0.02*title.size();
    TLegend* leg = new TLegend(0.89-width,0.79,0.89,0.89);
+   leg -> SetTextSize(0.05);
    leg -> SetHeader(title.c_str(), "C");
-   leg->Draw();
+   leg -> Draw();
 
 
    c1->Update();
@@ -95,9 +93,9 @@ void plot_2D(string fname, string title, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void plot_Mgg(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #include "cuts.h"
 
    gStyle->SetOptStat(0);
@@ -117,8 +115,6 @@ void plot_Mgg(string fname, string title, string pdf="") {
 
    a4c->Draw("Mgg>>mgg",c_here,"goff");
 
-   //-----------------------------------------------------------------------
-
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
 
    c1->cd();
@@ -137,9 +133,9 @@ void plot_Mgg(string fname, string title, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void plot_Mkk(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #include "cuts.h"
 
    gStyle->SetOptStat(0);
@@ -153,13 +149,11 @@ void plot_Mkk(string fname, string title, string pdf="") {
    froot->cd("PsipJpsiPhiEta");
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
    TH1D* mkk = new TH1D("mkk",
-                        ";M(K^{+}K^{-})",
+                        ";M(K^{#plus}K^{#minus})",
                         100, 0.9, 2.1  );// KK
    TCut c_here = c_Mrec+c_chi2;
    c_here += c_cpgg;
    a4c->Draw("Mkk>>mkk",c_here,"goff");
-
-   //-----------------------------------------------------------------------
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
 
@@ -182,9 +176,9 @@ void plot_Mkk(string fname, string title, string pdf="") {
 // Dalitz plot for KKeta
 // type = 1 M^2(K-eta) vs M^2(K+eta)
 // type = 2 M^2(K+K-) vs M^2(K+eta)
-//-------------------------------------------------------------------------
-void plot_Dalitz(string fname, int type, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void plot_Dalitz(string fname,int type,string title,string pdf="") {
+//--------------------------------------------------------------------
 #include "cuts.h"
 
    if ( type == 1 ) {
@@ -221,8 +215,6 @@ void plot_Dalitz(string fname, int type, string title, string pdf="") {
    cout << n << endl;
    n = min(n,65000); // > 10*Ndata12
 
-   //-----------------------------------------------------------------------
-
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
 
    c1 -> cd();
@@ -230,16 +222,17 @@ void plot_Dalitz(string fname, int type, string title, string pdf="") {
 
    TGraph* gr = new TGraph(n, m2X, m2Y);
 
-   // set ranges: https://root-forum.cern.ch/t/how-to-set-ranges-on-axis/28254
+   // set ranges:
+   // https://root-forum.cern.ch/t/how-to-set-ranges-on-axis/28254
    gr -> GetXaxis() -> SetLimits(0.,7.);
    if ( type == 1 ) {
-      gr -> SetTitle(";M^{2}(K^{+}#eta), GeV^{2}/c^{4}"
-                     ";M^{2}(K^{-}#eta), GeV^{2}/c^{4}");
+      gr -> SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
+                     ";M^{2}(K^{#minus}#eta), GeV^{2}/c^{4}");
       gr -> GetHistogram() -> SetMinimum(0.);
       gr -> GetHistogram() -> SetMaximum(7.);
    } else if ( type == 2 ) {
-      gr -> SetTitle(";M^{2}(K^{+}#eta), GeV^{2}/c^{4}"
-                     ";M^{2}(K^{+}K^{-}), GeV^{2}/c^{4}");
+      gr -> SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
+                     ";M^{2}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}");
       gr -> GetHistogram() -> SetMinimum(0.);
       gr -> GetHistogram() -> SetMaximum(7.);
    }
@@ -249,6 +242,7 @@ void plot_Dalitz(string fname, int type, string title, string pdf="") {
 
    double width = max(0.2,0.015*title.size());
    TLegend* leg = new TLegend(0.89-width,0.79,0.89,0.89);
+   leg -> SetTextSize(0.04);
    leg -> SetHeader(title.c_str(), "C");
    leg -> Draw();
 
@@ -259,14 +253,13 @@ void plot_Dalitz(string fname, int type, string title, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
-void mass_2D(int iset=1) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void mass_2D() {
+//--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetStatFont(62);
    gStyle->SetLegendFont(42);
-   gStyle->SetLegendTextSize(0.04);
 
    vector<string> fnames = {
       "data_09psip_all.root",
@@ -277,7 +270,7 @@ void mass_2D(int iset=1) {
       "mcsig_kkmc_09.root",
       "mcsig_kkmc_12.root",
       "mckketa_kkmc_09.root",
-      "mckketa_kkmc_12.root",
+      "mckketa_kkmc_12.root"
    };
    vector<string> titles = {
       "Data 2009",
@@ -288,29 +281,47 @@ void mass_2D(int iset=1) {
       "MC signal #phi#eta 2009",
       "MC signal #phi#eta 2012",
       "MC non-#phi KK#eta 2009",
-      "MC non-#phi KK#eta 2012",
-//       "MC non-#phi KK#eta",
+      "MC non-#phi KK#eta 2012"
    };
 
-   string fn = fnames.at(iset);
-//    string fname = string("prod-9m/") + fn;
-   string fname = string("prod-10/") + fn;
-   string::size_type idx = fn.find("_");
+//    string dir = string("prod-9m/");
+//    string dir = string("prod-10/");
+   string dir = string("prod-11/");
 
-//    string pdf = string("Mass2D_") + fn.substr(0,idx)
-//                 + fn.substr(idx+1,2) + ".pdf";
-//    cout << " pdf= " << pdf << endl;
-//    plot_2D(fname, titles[iset], pdf);
+   bool Mass2D = false;
+   vector<int> list {0,1,3,4};
+   if ( !Mass2D ) {
+      list = {0,1,6,8};
+   }
+
+   for (int iset : list) {
+      string fn = fnames.at(iset);
+      string::size_type idx = fn.find("_");
+      string fname = dir + fn;
+
+      if (Mass2D) {
+         // Mass2D .. fig.9
+         string pdf = string("Mass2D_") + fn.substr(0,idx)
+                      + fn.substr(idx+1,2) + ".pdf";
+         plot_2D(fname, titles[iset], pdf);
+      } else {
+      // Dalitz .. fig.14
+         string pdf = fn.substr(0,idx);
+         if ( iset < 5 ) {
+            pdf += fn.substr(idx+1,2) + ".pdf";
+         } else {
+            pdf += fn.substr(idx+6,2) + ".pdf";
+         }
+//       type = 1 M^2(K-eta) vs M^2(K+eta)
+//       type = 2 M^2(K+K-) vs M^2(K+eta)
+         int type = 1;
+         plot_Dalitz(fname, type, titles[iset], pdf);
+      }
+
+      getchar(); // pause
+   }
+
 
 //   plot_Mgg(fname, titles.at(iset)); //, "Mgg_09.pdf");
-
 //   plot_Mkk(fname, titles.at(iset));
-
-   string pdf = fn.substr(0,idx);
-   if ( iset < 5 ) {
-      pdf += fn.substr(idx+1,2) + ".pdf";
-   } else {
-      pdf += fn.substr(idx+6,2) + ".pdf";
-   }
-   plot_Dalitz(fname, 2, titles[iset], pdf);
 }

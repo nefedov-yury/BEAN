@@ -1,4 +1,4 @@
-// data vs MC for  Jpsi -> phi eta  selection (see cuts.h)
+// data vs MC for  Jpsi -> phi eta  selection
 // -> variable_YEAR.pdf
 
 //--------------------------------------------------------------------
@@ -27,13 +27,14 @@ void SetHstFace(TH1* hst) {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 TH1D* get_hist(string fname, string var, string hname, int type=0) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #include "cuts.h"
 
    // name of folder with root files
-   static string dir("prod-9/");
+//    static string dir("prod-9/");
+   static string dir("prod-11/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -52,11 +53,11 @@ TH1D* get_hist(string fname, string var, string hname, int type=0) {
       title = ";cos #Theta(#eta);Events/0.04";
    } else if ( var == "Pgg" ) {
       Nbins = 55; Vmin = 1.05; Vmax = 1.6;
-      title = ";P(#eta), GeV/c;Events/0.01GeV/c";
+      title = ";P(#eta), GeV/c;Events/0.01 GeV/c";
       var="Ptgg/sqrt(1-Cgg*Cgg)";
    } else if ( var == "Ptk" ) {
       Nbins = 110; Vmin = -1.1; Vmax = 1.1;
-      title = ";P_{t}(K), GeV/c;Events/0.02GeV/c";
+      title = ";P_{t}(K), GeV/c;Events/0.02 GeV/c";
       var="Ptkp";
    } else if ( var == "Ckk" ) {
       Nbins = 40; Vmin = -1; Vmax = 1;
@@ -92,9 +93,9 @@ TH1D* get_hist(string fname, string var, string hname, int type=0) {
    return hst;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void fill_hists(string var, int date, TH1D* hst[]) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    vector<string> fnames = {
       "data_09psip_all.root",
       "data_12psip_all.root",
@@ -136,9 +137,9 @@ void fill_hists(string var, int date, TH1D* hst[]) {
 
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void plot_var(string var, int date, string pdf) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    TH1D* hst[10];
    fill_hists( var, date, hst);
 
@@ -166,23 +167,24 @@ void plot_var(string var, int date, string pdf) {
    hst[0] -> SetLineWidth(2);
    hst[0] -> SetLineColor(kBlack);
    hst[0] -> SetMarkerStyle(20);
-   hst[0] ->GetYaxis()->SetTitleOffset(1.25);
+   hst[0] -> GetYaxis() -> SetTitleOffset(1.25);
 
    hst[0] -> Draw("EP");
-   leg->AddEntry(hst[0], (string("Data ")+to_string(date)).c_str(), "EP");
+   leg -> AddEntry(hst[0],
+         (string("Data ")+to_string(date)).c_str(), "EP");
 
    // 2) signal MC
    hst[2] -> SetLineColor(kGreen+2);
    hst[2] -> SetLineWidth(2);
    hst[2] -> Draw("SAME HIST");
-   leg->AddEntry(hst[2], "MC signal #phi#eta", "L");
+   leg -> AddEntry(hst[2], "MC signal #phi#eta", "L");
 
    // 3) side-band
    hst[3] -> SetLineColor(kBlue+2);
    hst[3] -> SetFillColor(kBlue+1);
    hst[3] -> SetFillStyle(3001);
    hst[3] -> Draw("SAME HIST");
-   leg->AddEntry(hst[3],"Data: side-band","F");
+   leg -> AddEntry(hst[3], "Data: side-band", "F");
 
    // ?) all inclusive MC ???
 //    hst[1] -> SetLineColor(kRed+1);
@@ -195,33 +197,32 @@ void plot_var(string var, int date, string pdf) {
    hst[4] -> SetLineWidth(2);
    hst[4] -> SetLineStyle(kDashed);
    hst[4] -> Draw("SAME HIST");
-   leg->AddEntry(hst[4], "Bkg. from incl. MC", "L");
+   leg -> AddEntry(hst[4], "Bkg. from incl. MC", "L");
 
-   leg->Draw();
+   leg -> Draw();
 
-   c1->Print(pdf.c_str());
+   gPad -> RedrawAxis();
+   c1 -> Update();
+   c1 -> Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void kkgg_dataMC() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
-//    gStyle->SetOptFit(112); // print all parameters (fixed)
-//    gStyle->SetFitFormat(".3g");
-//    gStyle->SetLegendFont(62);
-   gStyle->SetLegendTextSize(0.03);
-   gStyle->SetStatFont(62);
+   gStyle->SetLegendFont(42);
 
-   //----------------------------------------------------------------
+   // fig.12
 //    plot_var("Pgg",2009, "Pgg_datMC09.pdf");
 //    plot_var("Cgg", 2009, "Cgg_datMC09.pdf");
 //    plot_var("Pgg",2012, "Pgg_datMC12.pdf");
 //    plot_var("Cgg", 2012, "Cgg_datMC12.pdf");
-//
+
+   // fig.15
 //    plot_var("Ptk",2009, "Ptk_datMC09.pdf");
 //    plot_var("Ckk",2009, "Ckk_datMC09.pdf");
 //    plot_var("Ptk",2012, "Ptk_datMC12.pdf");
 //    plot_var("Ckk",2012, "Ckk_datMC12.pdf");
-   //----------------------------------------------------------------
+
 }
