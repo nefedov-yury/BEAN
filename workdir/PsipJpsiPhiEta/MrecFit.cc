@@ -900,9 +900,6 @@ void print_eff(int date, int Model, TH1D* hst[],
       exit(0);
    }
    double Nppj = MCdec -> GetBinContent(65);
-   printf("\n");
-   printf(" Initial number of pi+ pi- J/Psi (dec# %i) = %.1f\n",
-         int(MCdec -> GetBinCenter(65)), Nppj);
 
    // to study systematic vary parameters of MC signal (Model)
    // on one sigma:
@@ -914,8 +911,9 @@ void print_eff(int date, int Model, TH1D* hst[],
    for (int it = 0; it < niter; ++it ) {
       vector<double> par1(par);
       par1[0] = 1.; // absolute scaling should be 1
+      int ipar = it;
       if ( it != 0 ) {
-         int ipar = (it+1)/2; // 1,2 -> 1; 3,4 -> 2 ...
+         ipar = (it+1)/2; // 1,2 -> 1; 3,4 -> 2 ...
          if ( res.HasMinosError(ipar) ) {
             if ( it%2 ) {
                par1[ipar] -= fabs(res.LowerError(ipar));
@@ -944,7 +942,8 @@ void print_eff(int date, int Model, TH1D* hst[],
 
       eff[it] = Nmc / Nppj;
       err[it] = eff[it] * sqrt(SQ(er_Nmc/Nmc) + 1./Nppj);
-//       printf(" it=%i eff: %.5f +/- %.5f\n",it,eff[it],err[it]);
+//       printf(" ipar=%i par=%g par1=%g -> eff: %.5f +/- %.5f\n",
+//             ipar, par[ipar], par1[ipar], eff[it], err[it]);
 
       if ( it > 0 ) {
          double diff = fabs(eff[it]-eff[0]);
@@ -953,20 +952,24 @@ void print_eff(int date, int Model, TH1D* hst[],
    }
 
    // error on normalization constant
-   double sys_norm = 0;
-   if ( res.HasMinosError(0) ) {
-      sys_norm = max( fabs(res.LowerError(0)),
-                      fabs(res.UpperError(0)) ) / par[0];
+   // MUST NOT BE INCLUDED!
+//    double sys_norm = 0;
+//    if ( res.HasMinosError(0) ) {
+//       sys_norm = max( fabs(res.LowerError(0)),
+//                       fabs(res.UpperError(0)) ) / par[0];
 
-   } else {
-      sys_norm = er_par[0]/par[0];
-   }
-   sys_err = sqrt(SQ(sys_err)+SQ(eff[0]*sys_norm));
+//    } else {
+//       sys_norm = er_par[0]/par[0];
+//    }
+//    sys_err = sqrt(SQ(sys_err)+SQ(eff[0]*sys_norm));
 
    printf("\n");
+   printf(" Initial number of pi+ pi- J/Psi (dec# %i) = %.1f\n",
+         int(MCdec -> GetBinCenter(65)), Nppj);
    printf(" Efficiency in [%.3f, %.3f]:\n", Emin,Emax);
    printf(" eff(pi+pi-J/Psi): %.3f +/- %.3f +/- %.3f %%\n",
          100*eff[0],100*err[0],100*sys_err);
+   printf("\n");
 }
 
 // {{{1 Fit
@@ -1229,12 +1232,11 @@ void MrecFit() {
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(112);
-//    gStyle->SetLegendTextSize(0.03);
    gStyle->SetLegendFont(42);
 //    gStyle->SetFitFormat(".8g"); // DEBUG
 
-   int date=2009;
-//    int date=2012;
+//    int date=2009;
+   int date=2012;
 
    DoFit(date);
 }

@@ -51,49 +51,37 @@ MrecFit.cc - FOR MC AFTER HELIX CORRECTIONS
 //           see ../phieta/ with such scripts for J/Psi scan data
 //--------------------------------------------------------------------
 
-mass_2D.cc - 1) plot M(gamma-gamma) vs M(K+K-)
-             2) Dalitz plots ( for >=prod-9m )
-                type = 1 M^2(K-eta) vs M^2(K+eta)
-                type = 2 M^2(K+K-) vs M^2(K+eta)
-             after 4C kinematic fit and chi^2 cut (see cuts.h)
-             -> Mass2D_xxx.pdf; -> Dalitz_xxx.pdf
+mass_2D.cc - 1) plot M(gamma,gamma) vs M(K+K-)
+                -> Mass2D_XXXX.pdf;
+
+             2) Dalitz plots (for >=prod-9m)
+                after 4C kinematic fit and chi^2 cut
+                  type = 1 M^2(K-eta) vs M^2(K+eta)
+                  type = 2 M^2(K+K-) vs M^2(K+eta)
+                -> Dalitz_xxx.pdf
 
 mass_eta.cc - plot M(gamma gamma) distributions
-              after 4C kinematic fit and chi^2 cut (see cuts.h)
+              after 4C kinematic fit and chi^2 cut
               -> mass_eta.pdf
 
-mass_phi.cc - /archive/ - plot M(K+K-) distributions
-              after 4C kinematic fit and chi^2 cut (see cuts.h)
-              -> mass_phi.pdf
-
-mass_kk.cc - plot M(K+K-) for data, inclusive MC, signal MC and
-             MC KKeta cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
-             -> mass_kk.pdf
+chi2_Pr.cc - plot chi2 of the kinematic fit
+             1) data vs signal MC in the window for M(K+K-) and M(gg)
+                -> chi2_sb_YEAR.pdf
+             2) data vs inclusive MC
+                -> chi2_YEAR.pdf
 
 kkgg_dataMC.cc - data vs MC for  Jpsi -> phi eta  selection
                -> variable_YEAR.pdf
 
-chi2_Pr.cc - plot chi2 of 4C kinematic fit
-             1) data vs inclusive MC
-                -> chi2_YEAR.pdf
-             2) data vs signal MC in the window for M(K+K-) and M(gg)
-                -> chi2_sb_YEAR.pdf
+mass_kk.cc - plot M(K+K-) for data, inclusive MC, signal MC and
+             MC KKeta cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
+             -> mass_kk.pdf
 
 mrec_4C.cc - plot Mrec after 4C-kinematik fit
              we require cuts for:
              chi^2(4C) && |Mgg-Meta| && |Mkk-Mphi|
              Data, inclusive MC, signal MC and MC KKeta
              -> mrec_4Cyear.pdf
-
-Mkk_tail.cc - study the tail in M(K+K-) distribution
-              0) plot Mkk for data
-              plot data vs MC for 1.1 < Mkk < 2.0 GeV/c^2
-               or 1.08 < Mkk < 1.3 GeV/c^2 in J/Psi rest frame
-              1) Mgg
-              2) cos(Theta(Eta))
-              3) cos(Theta(K+/-))
-              4) P(K+/-)
-              5) cos(K+,K-)
 
 //--------------------------------------------------------------------
 // 2a) Study M(K+K-)

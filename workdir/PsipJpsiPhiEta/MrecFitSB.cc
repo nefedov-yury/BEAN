@@ -468,9 +468,9 @@ void DoFitSB(int date) {
    double ExMin = 3.06;
    double ExMax = 3.14;
    // systematic study (shift +/- 0.01)
-   double ddE = -0.01;
-   ExMin -= ddE;
-   ExMax += ddE;
+//    double ddE = -0.01;
+//    ExMin -= ddE;
+//    ExMax += ddE;
 
    myChi2 chi2_fit(hst,ExMin,ExMax);
 
@@ -618,7 +618,7 @@ void DoFitSB(int date) {
    gPad->RedrawAxis();
 
    c1->Update();
-   string pdf = string("Mrec") + to_string(date) + "_fsb_wide.pdf";
+   string pdf = string("Mrec") + to_string(date) + "_fsb.pdf";
    c1->Print(pdf.c_str());
 
    // print for E in [Emin,Emax]
@@ -723,11 +723,10 @@ void MrecFitSB() {
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(112);
    gStyle->SetStatFont(62);
-//    gStyle->SetLegendTextSize(0.0275);
    gStyle->SetLegendFont(42);
 
-//    int date=2009;
-   int date=2012;
+   int date=2009;
+//    int date=2012;
 
    bool zoom = true;
 //    MrecDraw(date, !zoom);
