@@ -10,28 +10,44 @@
 
 #include "gsl/gsl_errno.h"   // GSL error handler
 
-// {{{1 ===== Handler for GSL exceptions =====
+#include "masses.h"
+
+// {{{1 constants
+//--------------------------------------------------------------------
+// the meson radial parameter in Blatt-Weisskopf form factor
+static const double R_BW = 3.; // GeV^{-1}; +/-1 uncertainties study
+
+static const double dL = 2*Mk; // the left cutoff = 0.987354
+
+// binning for Breit-Wigner: bin width 1.0 MeV
+static const int Nbins = 100;
+static const double bL = 0.98; // first bin < dL
+static const double dU = 1.08; // MUST BE < 1.0835 !!!
+static const double bW = (dU-bL)/Nbins; // bin width
+
+// {{{1 handler for GSL exceptions
+//--------------------------------------------------------------------
 static char gsl_integral_func[91] {"not used"};
 // histograms for debug
 static bool DEBUG = false;
 static TH1D* htt[10];
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 void my_handler(const char* reason, const char* file, int line,
                 int gsl_errno) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    printf("-- GSL EXCEPTION: %s in func %s\n",reason,gsl_integral_func);
    return;
 }
 
-// {{{1 helper functions and constants
-//----------------------------------------------------------------------
+// {{{1 helper functions
+//--------------------------------------------------------------------
 // adapter class to use lambda functions with closures in ROOT::MATH
 // Using:  rmath_fun< decltype(Lambda) > Functor(Lambda);
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 template< typename F >
 class rmath_fun: public ROOT::Math::IBaseFunctionOneDim {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    public:
       rmath_fun(const F& lam) : _f(lam) {}
       rmath_fun* Clone() const {
@@ -44,9 +60,9 @@ class rmath_fun: public ROOT::Math::IBaseFunctionOneDim {
       }
 };
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // adapter class for handling parameters and errors
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct ParAndErr {
    vector<double> Fpar; // parameters
    vector<double> Perr; // symmetric errors
@@ -54,9 +70,9 @@ struct ParAndErr {
    vector<double> Lerr; // lower minos errors
 
    // ctor
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
    ParAndErr(const ROOT::Fit::FitResult& res) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
       Fpar = res.Parameters();
       Perr = res.Errors();
 
@@ -71,7 +87,7 @@ struct ParAndErr {
          if ( res.HasMinosError(np) ) {
             double uerr = fabs(res.UpperError(np));
             double lerr = fabs(res.LowerError(np));
-            if ( uerr*lerr == 0 ) { // one of the errors is not defined
+            if ( uerr*lerr == 0 ) {// one of the errors is not defined
                continue;
             }
             Uerr[np] = uerr;
@@ -90,103 +106,79 @@ struct ParAndErr {
    }
 
    // pretty print parameters with errors
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
    const char* Eform (int i,string fm, double X = 1) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
       if ( Perr[i] > 0 ) {
          string fmt = "%" +fm+ " #pm %" +fm;
          return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
       } else if ( Perr[i] < 0 ) {
          string fmt = "%" + fm
-            + "^{#lower[0.1]{#kern[0.1]{%+" + fm + "}}" + "}"
-            + "_{#lower[-0.1]{#kern[0.2]{%+" + fm + "}}" + "}";
-         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,-Lerr[i]*X);
+            + "^{#lower[0.15]{#kern[0.15]{#plus}#kern[0.05]{%"
+            + fm + "}}" + "}"
+            + "_{#lower[-0.15]{#kern[0.15]{#minus}#kern[0.05]{%"
+            + fm + "}}" + "}";
+         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,Lerr[i]*X);
       }
       string fmt = "%" +fm+ " (fixed)";
       return Form(fmt.c_str(),Fpar[i]*X);
    }
 };
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct ValErr {
-   double val;
-   double err;
+   double val = 0.;
+   double err = 0.;
    const char* prt(string fm) const {
       string fmt = "%" + fm + " +/- %" + fm;
       return Form(fmt.c_str(),val,err);
    }
 };
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 constexpr double SQ(double x) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    return x*x;
 }
 
-static const double Mjpsi = 3.096916; // 3096.916 +/- 0.011 MeV
-static const double Mphi  = 1.019461; //1019.461  +/- 0.016 MeV
-static const double Gphi  = 4.247e-3; //   4.249  +/- 0.013 MeV
-static const double Meta  = 0.547862; // 547.862  +/- 0.017 MeV
-static const double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-
-static const double Mjpsi2 = SQ(Mjpsi);
-static const double Meta2  = SQ(Meta);
-static const double Mk2    = SQ(Mk);
-// the meson radial parameter in Blatt-Weisskopf form factor:
-static const double R_BW   = 3.; // GeV^{-1} for
-// static const double R_BW   = 4.; // GeV^{-1} for
-
-static const double dL = 2*Mk; // the left cutoff = 0.987354
-
-// binning
-static const int Nbins = 100;
-static const double bL = 0.98; // first bin < dL
-// ------ Breit-Wigner: bin width 1.0 MeV ------
-static const double dU = 1.08; // MUST BE < 1.0835 !!!
-// ---------------------------------------------
-static const double bW = (dU-bL)/Nbins; // bin width
-
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
-//----------------------------------------------------------------------
-   TAxis* X = hst->GetXaxis();
+//--------------------------------------------------------------------
+   TAxis* X = hst -> GetXaxis();
    if ( X ) {
-      X->SetLabelFont(62);
-      X->SetLabelSize(0.04);
-      X->SetTitleFont(62);
-      X->SetTitleSize(0.04);
+      X -> SetLabelFont(62);
+      X -> SetLabelSize(0.04);
+      X -> SetTitleFont(62);
+      X -> SetTitleSize(0.04);
    }
-   TAxis* Y = hst->GetYaxis();
+   TAxis* Y = hst -> GetYaxis();
    if ( Y ) {
-      Y->SetLabelFont(62);
-      Y->SetLabelSize(0.04);
-      Y->SetTitleFont(62);
-      Y->SetTitleSize(0.04);
+      Y -> SetLabelFont(62);
+      Y -> SetLabelSize(0.04);
+      Y -> SetTitleFont(62);
+      Y -> SetTitleSize(0.04);
    }
-   TAxis* Z = hst->GetZaxis();
+   TAxis* Z = hst -> GetZaxis();
    if ( Z ) {
-      Z->SetLabelFont(62);
-      Z->SetLabelSize(0.04);
-      Z->SetTitleFont(62);
-      Z->SetTitleSize(0.04);
+      Z -> SetLabelFont(62);
+      Z -> SetLabelSize(0.04);
+      Z -> SetTitleFont(62);
+      Z -> SetTitleSize(0.04);
    }
 }
 
-// {{{1 DATA
-//-------------------------------------------------------------------------
-// DATA
-//-------------------------------------------------------------------------
-
-//-------------------------------------------------------------------------
+// {{{1 data processing
+//--------------------------------------------------------------------
 vector<double> get_mkk_hist( string fname, string hname,
                              TH1D* hst[], int type = 0 ) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #include "cuts.h"
    bool isMC = (fname.find("mcsig") != string::npos);
 
    // name of folder with root files
 //    static string dir("prod-9/");
-   static string dir("prod-10/");
+//    static string dir("prod-10/");
+   static string dir("prod-11/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -194,7 +186,7 @@ vector<double> get_mkk_hist( string fname, string hname,
       exit(0);
    }
 
-   froot->cd("PsipJpsiPhiEta");
+   froot -> cd("PsipJpsiPhiEta");
    TTree* a4c = (TTree*)gDirectory -> Get("a4c");
 
    TCut c_here = c_Mrec+c_chi2;
@@ -214,7 +206,7 @@ vector<double> get_mkk_hist( string fname, string hname,
    double* buffer = a4c -> GetVal(0);
    vector<double> mkk(buffer, buffer+n);
 
-   string title(";M^{ inv}_{ K^{+}K^{-}} , GeV/c^{2}");
+   string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
    int ibW = int(bW*1e5+0.1);
    title += string(";Entries / ") +
       ( (ibW%10 == 0) ? string(Form("%.0f MeV/c^{2}",bW*1e3))
@@ -228,53 +220,50 @@ vector<double> get_mkk_hist( string fname, string hname,
    return mkk;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 TH1D* plot_Mkk( string fname, string hname, int type = 0 ) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    TH1D* hist[1];
    get_mkk_hist( fname, hname, hist, type );
    return hist[0];
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 TH1D* get_mcMkk(string fname) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( !froot ) {
       cerr << "can not open " << fname << endl;
       exit(0);
    }
 
-   froot->cd("PsipJpsiPhiEta");
-   TH1D* mcmkk = (TH1D*) gDirectory->Get("mc_Mkk");
+   froot -> cd("PsipJpsiPhiEta");
+   TH1D* mcmkk = (TH1D*) gDirectory -> Get("mc_Mkk");
    if( !mcmkk ) {
       cerr << "can not find mc_Mkk" << endl;
       exit(0);
    }
 
-   string title(";M^{ inv}_{ K^{+}K^{-}} , GeV/c^{2}");
-   title += string(";Entries/1.0 MeV/c^{2}");
-   mcmkk->SetTitle(title.c_str());
+   string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
+   title += string(";Entries / 1 MeV/c^{2}");
+   mcmkk -> SetTitle(title.c_str());
 //    mcmkk->Sumw2(true);
 
    return mcmkk;
 }
 
 // {{{1 Breigt Wigner for phi -> KK
-//----------------------------------------------------------------------
-// Breigt Wigner for phi -> KK
-//----------------------------------------------------------------------
-
-//----------------------------------------------------------------------
-double BreitWigner(double m, double mphi, double gphi, double R = R_BW) {
-//----------------------------------------------------------------------
-// see BAM-00117:  PhysRevD.91.112001.pdf (arXiv:1504.03194v2)
-//
-// we assume that mphi and gphi are the fit parameters
-
+//--------------------------------------------------------------------
+double BreitWigner(double m, double mphi, double gphi, double R=R_BW){
+//--------------------------------------------------------------------
+// we assume that mphi, gphi and R are the fit parameters
    if ( m < dL ) { // phase space becomes zero (see p_k)
       return 0;
    }
+
+   constexpr double Mjpsi2 = SQ(Mjpsi);
+   constexpr double Meta2  = SQ(Meta);
+   constexpr double Mk2    = SQ(Mk);
 
    double m2    = SQ(m);
    double mphi2 = SQ(mphi);
@@ -304,23 +293,23 @@ double BreitWigner(double m, double mphi, double gphi, double R = R_BW) {
    return (kap * SQ(fm)) / ( SQ(m2-mphi2) + SQ(GM) );
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double BreitWignerGauss( double m,
                          double mphi, double gphi, // BW parameters
                          double sigma,             // Gauss
                          double slope              // eff(m)
                        ) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Function Fun(x) folded with a normal distribution:
 //
 //        1                        [                  (X'-X)^2    ]
 // ---------------- *   Integral   [ Fun(X') * exp( - --------- ) ] dX'
 // sqrt(2*pi)*sigma   (-oo<X'<+oo) [                  2*sigma^2   ]
 //
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // sigma ~ 1/3 gphi (bes3-exp)
 // integration in +/-5 sigma interval
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    static const double Ngauss = 1./sqrt(2*M_PI);
 
    // integrand lambda function
@@ -340,21 +329,21 @@ double BreitWignerGauss( double m,
       // int status = gsl_int.Status();
       // the estimate of the absolute Error
       if ( gsl_int.Error() > 1e-6 ) {
-         htt[0]->Fill(log10(gsl_int.Error()));
+         htt[0] -> Fill(log10(gsl_int.Error()));
       } else {
-         htt[0]->Fill(-7.);
+         htt[0] -> Fill(-7.);
       }
    }
 
    return Ngauss * result;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double BreitWignerGaussN( double m,
                           double mphi, double gphi, double sigma,
                           double slope
                         ) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Numeric normalisation on one for range [dL,dU]
 
    double norm = 0;
@@ -379,11 +368,11 @@ double BreitWignerGaussN( double m,
       ROOT::Math::GSLIntegrator gsl_int(1.e-7, 1.e-6, 1000);
       norm = gsl_int.Integral(Lint,p,dL,dU);
       if ( DEBUG ) {
-         htt[1]->Fill(norm);
+         htt[1] -> Fill(norm);
          if ( gsl_int.Error() > 1e-6 ) {
-            htt[2]->Fill(log10(gsl_int.Error()));
+            htt[2] -> Fill(log10(gsl_int.Error()));
          } else {
-            htt[2]->Fill(-7.);
+            htt[2] -> Fill(-7.);
          }
       }
       cacheN = norm;
@@ -396,9 +385,9 @@ double BreitWignerGaussN( double m,
    return BreitWignerGauss(m,mphi,gphi,sigma,slope) / norm;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void test_BreitWigner() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
    // 1) BreitWigner (internally normalized to 1)
    auto Lbw = [](const double* x,const double* p) -> double {
@@ -411,7 +400,7 @@ void test_BreitWigner() {
    bw -> SetLineColor(kBlue);
    bw -> SetNpx(500);
 
-   double norm = 1./bw->Integral(dL,dU,1e-8);
+   double norm = 1./bw -> Integral(dL,dU,1e-8);
    printf("norm = %.7f\n",norm);
    bw -> SetParameter(0, norm );
 
@@ -462,23 +451,25 @@ void test_BreitWigner() {
 
 
 //    bwgn -> DrawCopy("SAME");
-//    leg -> AddEntry(bwgn -> Clone(), Form("#sigma=%.2f sl=%.2f",
-//             bwgn->GetParameter(3)*1e3, bwgn->GetParameter(4) ), "L");
+//    leg -> AddEntry( bwgn -> Clone(), Form("#sigma=%.2f sl=%.2f",
+//             bwgn -> GetParameter(3)*1e3,
+//             bwgn -> GetParameter(4) ), "L" );
 
 //    bwgn -> SetParameter(4, -1.9 );  // slope
 //    bwgn -> SetLineColor(kGreen);
 //    bwgn -> DrawCopy("SAME");
 //    leg -> AddEntry(bwgn -> Clone(), Form("#sigma=%.2f sl=%.2f",
-//             bwgn->GetParameter(3)*1e3, bwgn->GetParameter(4) ), "L");
+//             bwgn -> GetParameter(3)*1e3,
+//             bwgn -> GetParameter(4) ), "L");
 
    leg -> Draw();
    gPad -> RedrawAxis();
    c1 -> Update();
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void sig_fit(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
    // Get un-binned data
@@ -495,12 +486,12 @@ void sig_fit(string fname, string title, string pdf="") {
    }
    cout << " norm= " << norm << " n= " << n << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit signal MC(phi,eta) by Breit-Wigner convoluted with Gauss
    // function MUST be normalized to 1 on the fit range
-   double slope = -1.87;
+   double slope = -1.8; // -1.83
    if ( is2009 ) {
-      slope = -1.78;
+      slope = -1.8;     // -1.77
    }
    auto Lbwg = [slope](const double* x,const double* p) -> double {
       return BreitWignerGaussN(x[0],p[0],p[1],p[2],slope);
@@ -515,9 +506,9 @@ void sig_fit(string fname, string title, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 fbwg( *bwg );
-   fitter.SetFunction( fbwg, false); // false == no parameter derivatives
+   fitter.SetFunction(fbwg,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -526,11 +517,11 @@ void sig_fit(string fname, string title, string pdf="") {
    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01,Mphi+0.01); // Mphi
 //    fitter.Config().ParSettings(0).Fix();
 //    fitter.Config().ParSettings(1).SetLimits(Gphi-1e-4,Gphi+1e-4); // Gphi
-//    fitter.Config().ParSettings(1).SetValue(4.3e-3); // MC
+//    fitter.Config().ParSettings(1).SetValue(4.247e-3); // MC-val
    fitter.Config().ParSettings(1).Fix();
    fitter.Config().ParSettings(2).SetLimits(0.2e-3, 2.e-3);       // sigma
 
-   fitter.LikelihoodFit( Sig, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Sig,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -539,8 +530,8 @@ void sig_fit(string fname, string title, string pdf="") {
    ParAndErr PE(res);
    vector<double>& Fpar = PE.Fpar;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof = [Lbwg,Fpar](double x) -> double {
       return Lbwg(&x,Fpar.data());
@@ -559,7 +550,7 @@ void sig_fit(string fname, string title, string pdf="") {
    double pvalueKS = goftest -> KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    double Wn = bW*n;
    auto Lfit = [Wn,Lbwg,Fpar](double* x,double* p) -> double {
@@ -570,7 +561,7 @@ void sig_fit(string fname, string title, string pdf="") {
    ffit -> SetLineColor(kRed);
    ffit -> SetNpx(500);
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
@@ -595,10 +586,10 @@ void sig_fit(string fname, string title, string pdf="") {
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
 //    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
+   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
    pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -608,56 +599,59 @@ void sig_fit(string fname, string title, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void sig_fit_mc(string fname, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+   bool is2009 = (fname.find("_09") != string::npos);
+
    TH1D* hst = get_mcMkk(fname);
-   double bin_width = hst->GetBinWidth(1);
+   double bin_width = hst -> GetBinWidth(1);
 
    // Fit signal MC(phi,eta) by Breit-Wigner
-   auto Lbwg = [bin_width](const double* x,const double* p) -> double {
-//       return bin_width*p[0]*BreitWigner(x[0],p[1],p[2]);
+   auto Lbwg = [bin_width](const double* x,const double* p) -> double{
       return bin_width*p[0]*BreitWigner(x[0],p[1],p[2],p[3]);
    };
    TF1* bwg = new TF1("bwg", Lbwg, 0.98, 2., 4);
-   bwg->SetParNames("Norm","Mphi","Gphi","r");
-   bwg->SetParameters(1.e5, Mphi, Gphi, R_BW);
+   bwg -> SetParNames("Norm","Mphi","Gphi","r");
+   bwg -> SetParameters(1.e5, Mphi, Gphi, R_BW);
 
-//    bwg->FixParameter(1, Mphi);
-//    bwg->FixParameter(2, Gphi);
-//    bwg->FixParameter(3, R_BW);
-   bwg->SetParLimits(3, 0.5, 5.);
+//    bwg -> FixParameter(1, Mphi);
+//    bwg -> FixParameter(2, Gphi);
+//    bwg -> FixParameter(3, R_BW);
+   bwg -> SetParLimits(3, 0.5, 5.);
 
-   bwg->SetLineWidth(2);
-   bwg->SetLineColor(kRed);
-   bwg->SetNpx(500);
+   bwg -> SetLineWidth(2);
+   bwg -> SetLineColor(kRed);
+   bwg -> SetNpx(500);
 
-//    gStyle->SetOptFit(111); // do not print fixed parameters!
-   gStyle->SetOptFit(112); // do not print fixed parameters!
+//    gStyle -> SetOptFit(111); // do not print fixed parameters!
+   gStyle -> SetOptFit(112); // print all parameters!
+   gStyle -> SetStatFont(42);
+   gStyle -> SetFitFormat(".7g"); // or .6f
+   gStyle -> SetStatX(0.89);
+   gStyle -> SetStatY(0.89);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd();
-   gPad->SetGrid();
-   gPad->SetLogy();
-   gStyle->SetFitFormat(".7g");
-   gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.89);
+   c1 -> cd();
+   gPad -> SetGrid();
+   gPad -> SetLogy();
 
    SetHstFace(hst);
-   hst->SetMinimum(1.);
-   hst->GetYaxis()->SetTitleOffset(1.25);
-   hst->SetLineWidth(3);
-   hst->SetLineColor(kBlack);
+   hst -> SetMinimum(1.);
+   hst -> GetXaxis() -> SetTitleOffset(1.1);
+   hst -> GetYaxis() -> SetTitleOffset(1.25);
+   hst -> SetLineWidth(3);
+   hst -> SetLineColor(kBlack);
 
-   hst->Draw("EP");
+   hst -> Draw("EP");
    double maxMkk=1.0835;
-   hst->Fit("bwg","E","",dL,maxMkk);
+   hst -> Fit("bwg","E","",dL,maxMkk);
 
    TLine* lB = new TLine;
    lB -> SetLineColor(kBlue+1);
    lB -> SetLineWidth(2);
    lB -> SetLineStyle(kDashed);
-   lB -> DrawLine(maxMkk,1,maxMkk,hst->GetBinContent(103));
+   lB -> DrawLine(maxMkk,1,maxMkk,hst -> GetBinContent(103));
 
    TF1* bwg1 = (TF1*) bwg -> Clone();
    bwg1 -> SetLineStyle(kDashed);
@@ -675,33 +669,30 @@ void sig_fit_mc(string fname, string pdf="") {
    cout << " norm108= " << norm108 << endl;
    cout << " norm12= " << norm12 << endl;
 
-   gStyle->SetLegendTextSize(0.03);
    TLegend* leg = new TLegend(0.22,0.20,0.62,0.40);
-   if ( genEv > 8e5 ) {
-      leg->AddEntry(hst,"MC truth 2012","LEP");
+   leg -> SetTextSize(0.03);
+   leg -> SetHeader(
+         Form(" Cut-off corr.: %.3f #pm %.3f",corr,dcorr), "C" );
+   if ( is2009 ) {
+      leg -> AddEntry(hst,"MC truth 2009","LEP");
    } else {
-      leg->AddEntry(hst,"MC truth 2009","LEP");
+      leg -> AddEntry(hst,"MC truth 2012","LEP");
    }
-   leg->AddEntry(bwg,"Breit-Wigner","L");
-   leg->AddEntry(lB,"Cut-off","L");
-   string txt(Form(" Cut-off corr.: %.3f #pm %.3f",corr,dcorr));
-   leg -> SetHeader( txt.c_str(), "C" );
-   leg->Draw();
+   leg -> AddEntry(bwg,"Breit-Wigner","L");
+   leg -> AddEntry(lB,"Cut-off","L");
+   leg -> Draw();
 
-   c1->Update();
+   gPad -> RedrawAxis();
+   c1 -> Update();
    if ( !pdf.empty() ) {
       c1 -> Print(pdf.c_str());
    }
 }
 
 // {{{1 Argus functions
-//----------------------------------------------------------------------
-// Argus functions
-//----------------------------------------------------------------------
-
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double Argus(double x, double a) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
 // This is a regular ARGUS distribution with one parameter 'a'.
 
@@ -727,9 +718,9 @@ double Argus(double x, double a) {
    return Ar;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double RevArgus(double m, double A) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Argus function with left cutoff (L)
 //      U is the upper limit of fitting
 //      L,U - must be const for fit
@@ -741,9 +732,9 @@ double RevArgus(double m, double A) {
    return Argus(x,A)/(U-L);
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double RevArgusN(double m, double A, double slope) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Numeric normalisation on one for range [dL,dU]
 // * multiply Argus by function of efficiency(m) (parameter slope)
 
@@ -766,11 +757,11 @@ double RevArgusN(double m, double A, double slope) {
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
       norm = gsl_int.Integral(Lint,p,dL,dU);
       if ( DEBUG ) {
-         htt[3]->Fill(norm);
+         htt[3] -> Fill(norm);
          if ( gsl_int.Error() > 1e-6 ) {
-            htt[4]->Fill(log10(gsl_int.Error()));
+            htt[4] -> Fill(log10(gsl_int.Error()));
          } else {
-            htt[4]->Fill(-7.);
+            htt[4] -> Fill(-7.);
          }
       }
       cacheN = norm;
@@ -781,9 +772,9 @@ double RevArgusN(double m, double A, double slope) {
    return RevArgus(m,A) * (1+slope*(m-1.02)) / norm;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void test_Agrus() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    auto Largus = [](const double* x,const double* p) -> double {
 //       return p[0]*Argus(x[0],p[1]);
       return p[0]*RevArgus(x[0],p[1]);
@@ -803,7 +794,7 @@ void test_Agrus() {
    fbkg -> DrawCopy();
 
    // test normalization:
-//    printf(" norm= %.15f\n",fbkg->Integral(0.,1.));
+//    printf(" norm= %.15f\n",fbkg -> Integral(0.,1.));
    printf(" norm= %.15f\n",fbkg -> Integral(2*Mk,Mjpsi-Meta));
 
    fbkg -> SetParameters(1., 1.);
@@ -811,9 +802,9 @@ void test_Agrus() {
    fbkg -> DrawCopy("SAME");
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void test_RevAgrus() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    auto Lrargus = [](const double* x,const double* p) -> double {
       return p[0]*RevArgusN(x[0],p[1],p[2]);
    };
@@ -828,7 +819,7 @@ void test_RevAgrus() {
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
 
-   c1->cd();
+   c1 -> cd();
    gPad -> SetGrid();
    fbkg -> DrawCopy();
    leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
@@ -855,9 +846,9 @@ void test_RevAgrus() {
    leg -> Draw();
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void bkg_fit(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
    // Get un-binned data
@@ -874,12 +865,12 @@ void bkg_fit(string fname, string title, string pdf="") {
    }
    cout << " norm= " << norm << " n= " << n << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit KKeta background by reversed Argus function
    // function MUST be normalized to 1 on the fit range
-   double slope = -1.87;
+   double slope = -1.8; // -1.83
    if ( is2009 ) {
-      slope = -1.78;
+      slope = -1.8;     // -1.77
    }
    auto Lan = [slope](const double* x,const double* p) -> double {
       return RevArgusN(x[0],p[0],slope);
@@ -894,9 +885,9 @@ void bkg_fit(string fname, string title, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 fbkg( *bkg );
-   fitter.SetFunction( fbkg, false); // false == no parameter derivatives
+   fitter.SetFunction(fbkg,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -904,7 +895,7 @@ void bkg_fit(string fname, string title, string pdf="") {
    // fix/limit/step for parameters
    fitter.Config().ParSettings(0).SetLimits(-2.5, 2.5);
 
-   fitter.LikelihoodFit( Bkg, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Bkg,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -913,8 +904,8 @@ void bkg_fit(string fname, string title, string pdf="") {
    ParAndErr PE(res);
    vector<double>& Fpar = PE.Fpar;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof = [Lan,Fpar](double x) -> double {
       return Lan(&x,Fpar.data());
@@ -928,7 +919,7 @@ void bkg_fit(string fname, string title, string pdf="") {
    double pvalueKS = goftest -> KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    double Wn = bW*n;
    auto Lfit = [Wn,Lan,Fpar](double* x,double* p) -> double {
@@ -939,7 +930,7 @@ void bkg_fit(string fname, string title, string pdf="") {
    ffit -> SetLineColor(kBlue);
    ffit -> SetNpx(200);
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
@@ -947,7 +938,8 @@ void bkg_fit(string fname, string title, string pdf="") {
    SetHstFace(hst);
    hst -> SetMaximum( 1.3*hst->GetMaximum() );
    hst -> GetYaxis() -> SetMaxDigits(3);
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
+   hst -> GetXaxis() -> SetTitleOffset(1.1);
+   hst -> GetYaxis() -> SetTitleOffset(1.25);
    hst -> SetLineWidth(2);
    hst -> SetLineColor(kBlack);
    hst -> SetMarkerStyle(20);
@@ -964,8 +956,8 @@ void bkg_fit(string fname, string title, string pdf="") {
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
 //    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("a= %s",PE.Eform(0,".2f")) );
+   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
+   pt -> AddText( Form("a = %s",PE.Eform(0,".2f")) );
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -975,16 +967,16 @@ void bkg_fit(string fname, string title, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void bkg_fit2(string fname09, string fname12, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    double norm09 = 107.0/1.2;
    double norm12 = 341.1/3.6;
 
    // Get un-binned data
    TH1D* hist[2];
-   vector<double> mkk09 = get_mkk_hist( fname09, "mkk_kketa09", &hist[0] );
-   vector<double> mkk12 = get_mkk_hist( fname12, "mkk_kketa12", &hist[1] );
+   vector<double> mkk09= get_mkk_hist(fname09,"mkk_kketa09",&hist[0]);
+   vector<double> mkk12= get_mkk_hist(fname12,"mkk_kketa12",&hist[1]);
 
    TH1D* hst = hist[0];
    hst -> Add(hist[0], hist[1], norm09, norm12);
@@ -1001,7 +993,7 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
       Bkg.Add(mkk12[i], norm12);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit KKeta background by reversed Argus function
    // function MUST be normalized to 1 on the fit range
    auto Lan = [](const double* x,const double* p) -> double {
@@ -1018,9 +1010,9 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 fbkg( *bkg );
-   fitter.SetFunction( fbkg, false); // false == no parameter derivatives
+   fitter.SetFunction(fbkg,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -1028,7 +1020,7 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
    // fix/limit/step for parameters
    fitter.Config().ParSettings(0).SetLimits(-2.5, 2.5);
 
-   fitter.LikelihoodFit( Bkg, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Bkg,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -1037,8 +1029,8 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
    ParAndErr PE(res);
    vector<double>& Fpar = PE.Fpar;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof = [Lan,Fpar](double x) -> double {
       return Lan(&x,Fpar.data());
@@ -1053,7 +1045,7 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
    double pvalueKS = goftest -> KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    double Wn = bW*norm;
    auto Lfit = [Wn,Lan,Fpar](double* x,double* p) -> double {
@@ -1064,7 +1056,7 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
    ffit -> SetLineColor(kBlue);
    ffit -> SetNpx(200);
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
@@ -1102,9 +1094,10 @@ void bkg_fit2(string fname09, string fname12, string pdf="") {
 }
 
 // {{{1 data_fit() no interference
-//-------------------------------------------------------------------------
-void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void data_fit(string fname,string title,int date,int Mphix,
+      string pdf="") {
+//--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
    // Get un-binned data
@@ -1121,11 +1114,11 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
    }
    cout << " norm= " << norm << " n= " << n << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
-   double slope = -1.87;
+   double slope = -1.8; // -1.83
    if ( is2009 ) {
-      slope = -1.78;
+      slope = -1.8;     // -1.77
    }
    // function represents the total number of events (extended LH)
    auto Lsum = [slope](const double* x,const double* p) -> double {
@@ -1133,7 +1126,7 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
              p[5] * RevArgusN(x[0],fabs(p[3]),slope);
    };
    vector<string> par_name { "M#phi", "#Gamma#phi", "#sigma",
-                             "Ar", "N#phi", "Nbkg"                     };
+                             "Ar", "N#phi", "Nbkg"                  };
    vector<double> par_ini  { Mphi, Gphi, 1.16e-3,
                              0., 0.94*norm, 0.06*norm };
 
@@ -1144,9 +1137,9 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFsum( *fsum );
-   fitter.SetFunction( WFsum, false); // false == no parameter derivatives
+   fitter.SetFunction(WFsum,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -1168,7 +1161,7 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
 //    fitter.Config().ParSettings(4).SetLimits(0.,1.5*norm);   // Nphi
 //    fitter.Config().ParSettings(5).SetLimits(0.,norm);       // Nbkg
 
-   fitter.LikelihoodFit( Dat, true ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Dat,true); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -1177,19 +1170,19 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
    ParAndErr PE(res);
    vector<double>& Fpar = PE.Fpar;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof = [Lsum,Fpar](double x) -> double {
       return Lsum(&x,Fpar.data());
    };
-   rmath_fun< decltype(Lgof) > ftest(Lgof); // adapter lambda -> Root1Dfunc
+   rmath_fun< decltype(Lgof) > ftest(Lgof);
    ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
          mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS = goftest -> KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Lfit = [Lsum,Fpar](double* x,double* p) -> double {
       return bW * Lsum(x,Fpar.data());
@@ -1207,13 +1200,14 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
    fbkg -> SetLineColor(kBlue);
    fbkg -> SetLineStyle(kDashed);
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
 
    SetHstFace(hst);
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
+   hst -> GetXaxis() -> SetTitleOffset(1.1);
+   hst -> GetYaxis() -> SetTitleOffset(1.25);
    hst -> SetLineWidth(2);
    hst -> SetLineColor(kBlack);
    hst -> SetMarkerStyle(20);
@@ -1232,13 +1226,14 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
 //    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
+   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
    pt -> AddText( Form("N_{non-#phi}= %s",PE.Eform(5,".1f")) );
-   pt -> AddText( Form("a= %s",PE.Eform(3,".2f")) );
+   pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -1248,26 +1243,259 @@ void data_fit(string fname,string title,int date,int Mphix,string pdf="") {
    }
 }
 
-// {{{1 Interference BW with Argus bkg.
-//----------------------------------------------------------------------
-// Interference BW with Argus bkg.
-//----------------------------------------------------------------------
+// dataSB_fit() no interference + side-band fit
+//--------------------------------------------------------------------
+struct myFCN_nointer_sb {
+   double sl = -1.8;    // efficiency parameters
+   vector<double> mkk;  // data central part
+   vector<double> sb;   // data side band
 
-//----------------------------------------------------------------------
+   // minimization function
+   // the signature of this operator() MUST be exactly this:
+   // THE EXTENDED MAXIMUM LIKELIHOOD ESTIMATOR
+   // Kai-Feng Chen "FittingMinuitRooFit" p.35
+   //-----------------------------------------------------------------
+   double operator() (const double* p) {
+   //-----------------------------------------------------------------
+      double Nphi  = p[4];
+      double Nnphi = p[5];
+      double Nsb   = p[6];
+
+      double res = 2*(Nphi+Nnphi+Nsb);
+      int n_mkk = mkk.size();
+      for ( int i = 0; i < n_mkk; ++i ) {
+         double m = mkk[i];
+         double L = Nphi  * BreitWignerGaussN(m,p[0],p[1],p[2],sl) +
+                    Nnphi * RevArgusN(m,fabs(p[3]),sl) +
+                    Nsb/(dU-bL); // bL !
+         if (L > 0.) {
+            res -= 2*log(L);
+         } else {
+            return DBL_MAX;
+         }
+      }
+
+      // fit SB by constant
+      int n_sb = sb.size();
+      res += 2*Nsb - n_sb * 2*log(Nsb/(dU-bL));
+
+      return res;
+   }
+};
+
+//--------------------------------------------------------------------
+void dataSB_fit( string fname,string title,int date,int Mphix,
+      string pdf="" ) {
+//--------------------------------------------------------------------
+   bool is2009 = (fname.find("_09") != string::npos);
+
+   myFCN_nointer_sb my_fcn; // class for 'FitFCN'
+   double sl = -1.8;        // efficiency parameters
+   my_fcn.sl = sl;
+
+   // Get un-binned data
+   TH1D* hist[2];
+   my_fcn.mkk = get_mkk_hist( fname, "mkk_cp", &hist[0] );
+   TH1D* hst = hist[0];
+   const vector<double>& mkk = my_fcn.mkk;
+   int n = mkk.size();
+
+   my_fcn.sb = get_mkk_hist( fname, "mkk_sb", &hist[1], 1 );
+   TH1D* hsb = hist[1];
+   const vector<double>& sb = my_fcn.sb;
+   int nsb = sb.size();
+
+   //-----------------------------------------------------------------
+   // Fit data
+   ROOT::Fit::Fitter fitter;
+   fitter.Config().MinimizerOptions().SetPrintLevel(3);
+
+   vector<string> par_name { "Mphi", "Gphi", "sigma", "Ar",
+                             "Nphi", "Nnonphi", "Nbkg"          };
+
+   vector<double> par_ini  { Mphi, Gphi, 1.2e-3, 0.,
+                             0.94*n, 0.05*n, double(nsb) };
+   if ( is2009 ) {
+      par_ini[2] = 1.4; // sigma09
+   }
+
+   const unsigned int Npar = par_name.size(); // number of parameters
+
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
+   for( unsigned int i = 0; i < Npar; ++i ) {
+      fitter.Config().ParSettings(i).SetName(par_name[i]);
+   }
+
+   // fix/limit/step for parameters
+   if ( Mphix == 1 ) {
+      fitter.Config().ParSettings(0).SetValue(1.01953); // like MC
+      fitter.Config().ParSettings(0).Fix();
+   } else {
+      fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
+   }
+   fitter.Config().ParSettings(1).Fix(); // Gphi
+   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sigma
+   fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // Argus
+   fitter.Config().ParSettings(3).Fix();                    // Ar
+//    fitter.Config().ParSettings(4).SetLimits(0.,1.5*norm);   // Nphi
+//    fitter.Config().ParSettings(5).SetLimits(0.,norm);       // Nnonphi
+//    fitter.Config().ParSettings(6).SetLimits(0.,norm);       // Nbkg
+
+   // == Fit
+   int Ndat = n + nsb;
+   fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateMinosErrors();
+
+   ROOT::Fit::FitResult res = fitter.Result();
+   res.Print(cout);
+//    res.PrintCovMatrix(cout); // print error matrix and correlations
+
+   double Lmin = res.MinFcnValue();
+   ParAndErr PE(res);
+   vector<double>& Fpar = PE.Fpar;
+
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
+   auto Lcr = [Fpar,sl](double x) -> double {
+      return
+      Fpar[4] * BreitWignerGaussN(x,Fpar[0],Fpar[1],Fpar[2],sl) +
+      Fpar[5] * RevArgusN(x,fabs(Fpar[3]),sl) +
+      Fpar[6]/(dU-bL);
+   };
+   rmath_fun< decltype(Lcr) > fcr(Lcr);
+   ROOT::Math::GoFTest* gofcr =
+      new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
+            ROOT::Math::GoFTest::kPDF, bL,dU );
+   double pvalueKS = gofcr -> KolmogorovSmirnovTest();
+   cout << " pvalueKS(cr)= " << pvalueKS << endl;
+//    double pvalueAD = gofcr -> AndersonDarlingTest();
+//    cout << " pvalueAD= " << pvalueAD << endl;
+
+   auto Lsb = [Fpar](double x) -> double {
+      return Fpar[6]/(dU-bL);
+   };
+   rmath_fun< decltype(Lsb) > fsb(Lsb);
+   ROOT::Math::GoFTest* gofsb =
+      new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
+         ROOT::Math::GoFTest::kPDF, bL,dU );
+   double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
+   cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+   double pvalueADsb = gofsb -> AndersonDarlingTest();
+   cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+
+   //-----------------------------------------------------------------
+   // Functions to draw
+   auto Ldr = [Fpar,sl](double* x,double* p) -> double {
+      int isw = int(p[0]+0.5);
+      double m = x[0];
+      double BW =
+         Fpar[4] * BreitWignerGaussN(m,Fpar[0],Fpar[1],Fpar[2],sl);
+      if ( isw == 1 ) { return bW * BW; }
+      double Ar = Fpar[5] * RevArgusN(m,fabs(Fpar[3]),sl);
+      if ( isw == 2 ) { return bW * Ar; }
+      double Bg = Fpar[6]/(dU-bL);
+      if ( isw == 3 ) { return bW * Bg; }
+
+      return bW * (BW + Ar + Bg);
+   };
+   TF1* fdr = new TF1("fdr", Ldr, bL, dU, 1);
+   fdr -> SetNpx(500);
+
+   //-----------------------------------------------------------------
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   c1 -> cd();
+   gPad -> SetGrid();
+
+   SetHstFace(hst);
+   hst -> GetXaxis() -> SetTitleOffset(1.1);
+   hst -> GetYaxis() -> SetTitleOffset(1.25);
+   hst -> SetLineWidth(2);
+   hst -> SetLineColor(kBlack);
+   hst -> SetMarkerStyle(20);
+
+   hst -> Draw("EP");
+
+   TLegend* leg = new TLegend(0.55,0.745,0.89,0.89);
+   leg -> AddEntry(hst,title.c_str(),"LEP");
+
+   fdr -> SetParameter(0, 0); // Sum
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineColor(kRed+1);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry(fdr -> Clone(),"Result of fit","L");
+
+   fdr -> SetParameter(0, 1); // BW
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineStyle(kDashed);
+   fdr -> SetLineColor(kGreen+2);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry( fdr -> Clone(), "Breit-Wigner #phi#eta", "L");
+
+   fdr -> SetParameter(0, 2); // Ar
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineStyle(kDashed);
+   fdr -> SetLineColor(kBlue);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry(fdr -> Clone(),"non-#phi KK#eta","L");
+
+//    fdr -> SetParameter(0, 3); // SB
+//    fdr -> SetLineWidth(1);
+//    fdr -> SetLineStyle(kDashed);
+//    fdr -> SetLineColor(kCyan+3);
+//    fdr -> DrawCopy("SAME");
+//    leg -> AddEntry(fdr -> Clone(),"background","L");
+
+   leg -> Draw();
+
+   TPaveText* pt = new TPaveText(0.55,0.45,0.89,0.74,"NDC");
+   pt -> SetTextAlign(12);
+   pt -> SetTextFont(42);
+   pt -> AddText( Form("#it{p-value(KS)= %.3f}",pvalueKS) );
+   pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
+   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt -> AddText( Form("N_{non-#phi}= %s",PE.Eform(5,".1f")) );
+   pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
+   pt -> Draw();
+
+   TPaveText* ptsb = new TPaveText(0.55,0.36,0.89,0.45,"NDC");
+   ptsb -> SetTextAlign(12);
+   ptsb -> SetTextFont(42);
+   ptsb -> AddText( Form("#it{p-val.(sideband)= %.3f}",
+            pvalueKSsb) );
+   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
+            PE.Eform(6,".1f")) );
+   ptsb -> Draw();
+
+   gPad -> RedrawAxis();
+   c1 -> Update();
+   if ( !pdf.empty() ) {
+      c1 -> Print(pdf.c_str());
+   }
+}
+
+// {{{1 Interference BW with Argus bkg.
+//--------------------------------------------------------------------
 vector<double> IntfrBWAR( double m,
-                  double mphi, double gphi,      // B-W
-                  double A, double F, double Ang // Argus & interference
-               ) {
-//----------------------------------------------------------------------
+      double mphi, double gphi,      // B-W
+      double A, double F, double Ang // Argus & interference
+      ) {
+//--------------------------------------------------------------------
 // see memo and BreitWigner() function
 // The return vector contains:
 //                   0    1     2        3
 //        ret     { Sum, B-W, Argus, Interference }
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( m < dL ) { // phase space becomes zero
       vector<double> ret(4,0.);
       return ret;
    }
+
+   constexpr double Mjpsi2 = SQ(Mjpsi);
+   constexpr double Meta2  = SQ(Meta);
+   constexpr double Mk2    = SQ(Mk);
 
    double m2    = SQ(m);
    double mphi2 = SQ(mphi);
@@ -1278,7 +1506,8 @@ vector<double> IntfrBWAR( double m,
    double gam = mphi*sqrt(mphi2+gphi2);
    double kap = 2*M_SQRT2*mphi*gphi*gam / (M_PI*sqrt(mphi2+gam));
 
-   double p_phi0 = sqrt(SQ(Mjpsi2-mphi2-Meta2)-4*mphi2*Meta2) / (2*Mjpsi);
+   double p_phi0 = sqrt(SQ(Mjpsi2-mphi2-Meta2)-4*mphi2*Meta2) /
+      (2*Mjpsi);
    double p_phi  = sqrt(SQ(Mjpsi2-m2-Meta2)-4*m2*Meta2) / (2*Mjpsi);
    double r_phi  = p_phi / p_phi0;
 
@@ -1314,21 +1543,21 @@ vector<double> IntfrBWAR( double m,
    return ret;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double IntfrBWARG( double m,
-                   const double p[],    // {mphi,gphi,sigma,A,F,Ang,sl}
-                   unsigned int idx = 0 // what to return
-                 ) {
-//----------------------------------------------------------------------
+      const double p[],    // {mphi,gphi,sigma,A,F,Ang,sl}
+      unsigned int idx = 0 // what to return
+      ) {
+//--------------------------------------------------------------------
 // Function Fun(x) folded with a normal distribution:
 //
 //        1                        [                  (X'-X)^2    ]
 // ---------------- *   Integral   [ Fun(X') * exp( - --------- ) ] dX'
 // sqrt(2*pi)*sigma   (-oo<X'<+oo) [                  2*sigma^2   ]
 //
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // integration in +/-5 sigma interval
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    static const double Ngauss = 1./sqrt(2*M_PI);
 
    // paranoic check
@@ -1356,12 +1585,12 @@ double IntfrBWARG( double m,
    return Ngauss * result;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double IntfrBWARGN( double m,
-                    const double p[], // {mphi,gphi,sigma,A,F,Ang,sl}
-                    int idx = 0       // what to return
-                  ) {
-//----------------------------------------------------------------------
+      const double p[], // {mphi,gphi,sigma,A,F,Ang,sl}
+      int idx = 0       // what to return
+      ) {
+//--------------------------------------------------------------------
 // Numerical normalisation to one for range [dL,dU]
 
    // cash parameters
@@ -1405,11 +1634,12 @@ double IntfrBWARGN( double m,
    return IntfrBWARG(m,p,idx) / norm;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void test_Intfr() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    double mphi = Mphi, gphi = Gphi;
-   auto Lintfr = [mphi,gphi](const double* x, const double* p) -> double {
+   auto Lintfr = [mphi,gphi](const double* x, const double* p) ->
+      double {
       double pp[] { mphi, gphi, p[0],p[1],p[2],p[3],p[4] };
       return IntfrBWARGN( x[0], pp, int(p[5]) );
    };
@@ -1448,14 +1678,14 @@ void test_Intfr() {
    fun -> SetLineStyle(kSolid);
    fun -> DrawCopy("SAME");
 
-   c1->Update();
+   c1 -> Update();
 }
 
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
-                  double sl, unsigned int idx ) {
-//----------------------------------------------------------------------
+      double sl, unsigned int idx ) {
+//--------------------------------------------------------------------
 // Numerical calculation of integrals and their errors
    // desired errors:
    constexpr double eps_abs = 1.e-6;
@@ -1467,7 +1697,8 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
    vector<double> Fpar = res.Parameters();
 
    if ( Npar != 6 && Npar != 7 ) {
-      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar << endl;
+      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
+           << endl;
       exit(1);
    }
 
@@ -1484,9 +1715,9 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
    }
 
    // 1) calculate integral of normalized component
-   auto Lfc = [sl,idx,Npar](const double* x,const double* p) -> double {
+   auto Lfc = [sl,idx,Npar](const double* x,const double* p)->double{
       double m = x[0];
-      double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl }; // use real slope
+      double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl }; // real slope
       double normI = IntfrBWARGN( m,pp,100 );
       pp[6] = 0.; // set slope to zero
       double intfr = IntfrBWARG( m,pp,idx ) / normI;
@@ -1549,9 +1780,9 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
    return (ValErr {Integ,err_Int});
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void data_Intfr_fit(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
    // Get un-binned data
@@ -1566,12 +1797,12 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
       Dat.Add(mkk[i]);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    // efficiency parameters
-   double sl = -1.87;
+   double sl = -1.8;    // 1.83
    if ( is2009 ) {
-      sl = -1.78;
+      sl = -1.8;        // 1.77
    }
    // function MUST be normalized to 1 on the fit range
    auto Lfit = [sl](const double* x,const double* p) -> double {
@@ -1586,7 +1817,7 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
 //    vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,1.0,0.7}; // 12 neg
 //    vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,1.0,-0.7}; // 12 pos
 
-   bool neg_pos = par_ini.back() > 0; // true for negative interference
+   bool neg_pos = par_ini.back() > 0; //true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
    TF1* Ffit = new TF1("Ffit", Lfit, dL, dU, Npar);
@@ -1595,9 +1826,9 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFit( *Ffit );
-   fitter.SetFunction( WFit, false); // false == no parameter derivatives
+   fitter.SetFunction(WFit,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -1615,7 +1846,7 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
 //    fitter.Config().ParSettings(5).SetValue(-95*M_PI/180);
 //    fitter.Config().ParSettings(5).Fix();
 
-   fitter.LikelihoodFit( Dat, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Dat,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
@@ -1640,19 +1871,19 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    }
    double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof = [Lfit,Fpar](double x) -> double {
       return Lfit( &x,Fpar.data() );
    };
-   rmath_fun< decltype(Lgof) > ftest(Lgof); // adapter lambda -> Root1Dfunc
+   rmath_fun< decltype(Lgof) > ftest(Lgof);
    ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
          mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS = goftest -> KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr = [n,Fpar,sl](double* x,double* p) -> double {
       const double pp[]
@@ -1665,7 +1896,8 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    // find max/min to draw
    ffit -> SetParameter(0, 1); // BW
    int maxbin = hst -> GetMaximumBin();
-   double hmax = hst -> GetBinContent(maxbin) + hst -> GetBinError(maxbin);
+   double hmax = hst -> GetBinContent(maxbin) +
+      hst -> GetBinError(maxbin);
    double fmax = ffit -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax = floor(1.1 * max( hmax, fmax ));
    if ( hmax > 0 ) {
@@ -1679,13 +1911,14 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
       hst -> SetMinimum(hmin);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
 
    SetHstFace(hst);
 
+   hst -> GetXaxis() -> SetTitleOffset(1.1);
    hst -> GetYaxis() -> SetTitleOffset(1.3);
    hst -> SetLineWidth(2);
    hst -> SetLineColor(kBlack);
@@ -1727,14 +1960,14 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
 //    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
+   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    pt -> AddText( Form("N_{#phi} = %.1f #pm %.1f",Nphi,err_Nphi) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
    pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("a= %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("F= %s",PE.Eform(4,".2f")) );
-   pt -> AddText( Form("#vartheta= %s",PE.Eform(5,".2f")) );
+   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt -> AddText( Form("a = %s",PE.Eform(3,".1f")) );
+   pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
+   pt -> AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -1745,10 +1978,10 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    }
 }
 
-// combined with side-band
-//----------------------------------------------------------------------
-struct myFCN {
-   double sl;           // efficiency parameter
+// dataSB_Intfr(): combined with side-band
+//--------------------------------------------------------------------
+struct myFCN_inter {
+   double sl = -1.8;    // efficiency parameter
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
 
@@ -1756,9 +1989,9 @@ struct myFCN {
    // the signature of this operator() MUST be exactly this:
    // THE EXTENDED MAXIMUM LIKELIHOOD ESTIMATOR
    // Kai-Feng Chen "FittingMinuitRooFit" p.35
-   //------------------------------------------------------------------
+   //-----------------------------------------------------------------
    double operator() (const double* p) {
-   //------------------------------------------------------------------
+   //-----------------------------------------------------------------
       double Nkk = p[6];
       double Nsb = p[7];
       double res = 2*(Nkk+Nsb);
@@ -1767,7 +2000,9 @@ struct myFCN {
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
-         double L = Nkk*IntfrBWARGN( m,pp,0 ) + Nsb/(dU-bL);
+         double L = Nkk*IntfrBWARGN( m,pp,0 ) +
+                    Nsb/(dU-bL); // bL !
+
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -1775,18 +2010,18 @@ struct myFCN {
          }
       }
 
-//       int n_sb = sb.size();
-//       res += 2*Nsb - n_sb*2*log(Nsb/(dU-bL)); // fit SB by constant
+      // fit SB by constant
+      int n_sb = sb.size();
+      res += 2*Nsb - n_sb*2*log(Nsb/(dU-bL));
 
       return res;
    }
 };
-//----------------------------------------------------------------------
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
-                    double sl, unsigned int idx ) {
-//----------------------------------------------------------------------
+      double sl, unsigned int idx ) {
+//--------------------------------------------------------------------
 // Numerical calculation of integrals and their errors
    // desired errors:
    constexpr double eps_abs = 1.e-6;
@@ -1797,10 +2032,12 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
    int Npar = res.NPar();
    vector<double> Fpar = res.Parameters();
 
-   if ( Npar != 7 ) {
-      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar << endl;
+   if ( Npar != 8 ) {
+      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
+           << endl;
       exit(1);
    }
+   Npar = 6; // remove NKK and Nbg parameters!
 
    int covMatrStatus = res.CovMatrixStatus();
    if ( covMatrStatus != 3 ) {
@@ -1817,23 +2054,21 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
    // 1) calculate integral of normalized component
    auto Lfc = [sl,idx](const double* x,const double* p) -> double {
       double m = x[0];
-      double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl }; // use real slope
-      double normI = IntfrBWARGN( m,pp,100 );
-      pp[6] = 0.; // set slope to zero
-      double intfr = IntfrBWARG( m,pp,idx ) / normI;
-      // remove background from consideration
-      return (1-p[6])*intfr;
+      double q[] { p[0],p[1],p[2],p[3],p[4],p[5],sl }; // real slope
+      double normI = IntfrBWARGN( m,q,100 );
+      q[6] = 0.; // set slope to zero
+      double intfr = IntfrBWARG( m,q,idx ) / normI;
+      return intfr;
    };
-   TF1 FC("FC", Lfc, dL, dU, Npar);
+   TF1 FC("FC", Lfc, dL, dU, Npar); // dL !
    FC.SetParameters( Fpar.data() );
 
    double err_num = 0;
-   double Integ = FC.IntegralOneDim(dL,dU,eps_rel,eps_abs, err_num);
-//    cout << " err_num(" << idx << ") = " << err_num << endl;
+   double Integ = FC.IntegralOneDim(dL,dU,eps_rel,eps_abs,err_num);
+//    printf(" err_FC_Integ[%d] = %.2g\n",idx,err_num);
    if ( err_num > epsilon ) {
-      cout << " WARNING: " << __func__ << " numerical error of"
-         " integration of F_C(" << idx << ") is too big "
-         << err_num << endl;
+      printf(" WARNING: %s numerical error of integration of "
+            "F_C[%d] is too big: %.2g\n", __func__,idx,err_num);
    }
 
    // 2) calculate error of this integral
@@ -1856,74 +2091,65 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
       };
       TF1 dF("dF",LdF,dL,dU,0);
       double err_num = 0;
-      IntGrad[i] = dF.IntegralOneDim(dL,dU,eps_rel,eps_abs, err_num);
+      IntGrad[i] = dF.IntegralOneDim(dL,dU,eps_rel,eps_abs,err_num);
       err_num = covMatrix(i,i) * IntGrad[i] * err_num;
-//       cout << " abs err_num(" << i << ") = " << err_num << endl;
       err_num2 += SQ(err_num);
-//       cout << " IntGrad[" << i << "] = " << IntGrad[i] << endl;
+//       printf(" IntGrad(dF[%i]/d_%d)= %.4g -> err_num= %.4g\n",
+//             idx,i, IntGrad[i], err_num);
    }
 
    double err_Int = sqrt( covMatrix.Similarity(IntGrad) );
+//    printf(" Integral[%d] = %.6g +/- %.2g\n",idx,Integ,err_Int);
+
    err_num2 = sqrt( err_num2 / err_Int ); // abs numerical error
-//    cout << " err_num(" << idx << ") = " << err_num2 << endl;
    if ( err_num2 > epsilon ) {
-      cout << " WARNING: " << __func__ << " numerical error "
-         "of integration of dF is too big " << err_num2 << endl;
+      printf(" WARNING: %s numerical error of integration of "
+            "dF[%d] is too big: %.2g\n", __func__,idx,err_num2);
    }
 
    return (ValErr {Integ,err_Int});
 }
 
-//-------------------------------------------------------------------------
-void data_Intfr_sb(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void dataSB_Intfr( string fname, string title, string pdf="" ) {
+//--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
-   myFCN my_fcn; // class for 'FitFCN'
-
-   // efficiency parameters
-   double sl = -1.87;
-   if ( is2009 ) {
-      sl = -1.78;
-   }
+   myFCN_inter my_fcn;  // class for 'FitFCN'
+   double sl = -1.8;    // efficiency parameters
    my_fcn.sl = sl;
 
    // Get un-binned data
    TH1D* hist[2];
-   my_fcn.mkk = get_mkk_hist( fname, "mkk_data_cp", hist );
-   const vector<double>& mkk = my_fcn.mkk;
+   my_fcn.mkk = get_mkk_hist( fname, "mkk_cp", &hist[0] );
    TH1D* hst = hist[0];
+   const vector<double>& mkk = my_fcn.mkk;
+   int n = mkk.size();
 
-   // side-band:
    my_fcn.sb = get_mkk_hist( fname, "mkk_sb", &hist[1], 1 );
-   const vector<double>& sb = my_fcn.sb;
    TH1D* hsb = hist[1];
+   const vector<double>& sb = my_fcn.sb;
+   int nsb = sb.size();
 
-   int n = my_fcn.mkk.size();
-   int nsb = my_fcn.sb.size();
-
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "M#phi", "G#phi", "#sigma", "A",
-                             "F", "#vartheta","NKK","Nbg" };
+   vector<string> par_name { "Mphi", "Gphi", "sigma", "Ar",
+                             "F", "angle", "NKK", "Nbg" };
 
-   vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,0.75,0.75,
-                           double(n-nsb),double(nsb)};  // 09 neg
-//    vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,0.75,-0.8,
-//                            double(n-nsb),double(nsb)};  // 09 pos
-//    vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,0.8,0.8,
-//                            double(n-nsb),double(nsb)};  // 12 neg
-//    vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,1.0,-0.7,
-//                            double(n-nsb),double(nsb)};  // 12 pos
+//    vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,0.8,0.8, 909.,14.};//09neg
+//    vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,0.8,-0.9, 909.,14.};//09pos
+   vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,0.8,0.01, 2754.,36.};//12zero
+
+//       double(n-nsb),double(nsb)};  // ini for Nkk & Nbg
 
    bool neg_pos = par_ini[5] > 0; // true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -1938,15 +2164,17 @@ void data_Intfr_sb(string fname, string title, string pdf="") {
    fitter.Config().ParSettings(3).Fix();                    // A
    fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
    fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // vartheta
-//    fitter.Config().ParSettings(5).SetValue(-95*M_PI/180);
+//    fitter.Config().ParSettings(5).SetStepSize(1e-4);
+//    fitter.Config().ParSettings(5).SetValue(0.8);
 //    fitter.Config().ParSettings(5).Fix();
 //    fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
-   fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
+//    fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
 
    // == Fit
-   int Ndat = n+nsb;
-   fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false == likelihood fit
+   int Ndat = n + nsb;
+   fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
    fitter.CalculateMinosErrors();
+   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    const ROOT::Fit::FitResult& res = fitter.Result();
    res.Print(cout);
@@ -1956,153 +2184,200 @@ void data_Intfr_sb(string fname, string title, string pdf="") {
    ParAndErr PE(res);
    vector<double>& Fpar = PE.Fpar;
 
-   cout << " n= " << n << " nsb= " << nsb << endl;
-//    vector<string> names { "N(KK)", "Nphi", "Nnonphi", "Nifr"  };
-//    vector<ValErr> Nos;
-//    Nos.reserve(4);
-//    for ( int idx = 0; idx <= 3; ++idx ) {
-//       ValErr Integ = CalcIntErSb( res, sl, idx );
-//       printf("Int[%i] = %s\n",idx,Integ.prt(".4f")); // DEBUG
-//       double Num = n * Integ.val;
-//       double Err = fabs(Num) * sqrt( 1./n + SQ(Integ.err/Integ.val) );
-//       Nos.push_back( ValErr {Num,Err} );
-//       printf("%s = %s\n",names[idx].c_str(),Nos[idx].prt(".1f"));
-//    }
-//    double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
+   double Nfit = Fpar[6];
+   double Nfit_err = max({PE.Perr[6],PE.Uerr[6],PE.Lerr[6]});
+   cout << " NKK_fit(no slope corrections)= " << Nfit
+        << " +/- " << Nfit_err << endl;
+   vector<string> names { "NKK", "Nphi", "Nnonphi", "Nifr" };
+   vector<ValErr> Nos( names.size() );
+   for ( int idx = 0; idx <= 3; ++idx ) {
+      ValErr Integ = CalcIntErSb( res, sl, idx );
+//       printf("Int[%i] = %s\n",idx,Integ.prt(".6f")); // DEBUG
+      double Num = Nfit * Integ.val;
+      double Err = fabs(Num) *
+         sqrt( SQ(Integ.err/Integ.val) + SQ(Nfit_err/Nfit) );
+      Nos[idx] = {Num,Err};
+      printf("%s = %s\n",names[idx].c_str(),Nos[idx].prt(".1f"));
+   }
+   double Nkk = Nos[0].val, err_Nkk = Nos[0].err;
+   double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto LgofCR = [Fpar,sl](double x) -> double {
-      double pp[] {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
-      return Fpar[6]*IntfrBWARGN( x,pp,0 ) + Fpar[7]/(dU-bL);
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
+   auto Lcr = [Fpar,sl](double x) -> double {
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
+      return Fpar[6]*IntfrBWARGN( x,pp,0 ) +
+             Fpar[7]/(dU-bL);
    };
-   rmath_fun< decltype(LgofCR) > ftestCR(LgofCR);
-   ROOT::Math::GoFTest* goftestCR = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftestCR,ROOT::Math::GoFTest::kPDF,bL,dU);
-   double pvalueKScr = goftestCR -> KolmogorovSmirnovTest();
-   cout << " pvalueKScr= " << pvalueKScr << endl;
+   rmath_fun< decltype(Lcr) > fcr(Lcr);
+   ROOT::Math::GoFTest* gofcr =
+      new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
+            ROOT::Math::GoFTest::kPDF, bL,dU );
+   double pvalueKS = gofcr -> KolmogorovSmirnovTest();
+   cout << " pvalueKS(cr)= " << pvalueKS << endl;
 
-   auto LgofSB = [Fpar](double x) -> double {
+   auto Lsb = [Fpar](double x) -> double {
       return Fpar[7]/(dU-bL);
    };
-   rmath_fun< decltype(LgofSB) > ftestSB(LgofSB);
-   ROOT::Math::GoFTest* goftestSB = new ROOT::Math::GoFTest(
-         sb.size(),sb.data(),ftestSB,ROOT::Math::GoFTest::kPDF,bL,dU);
-   double pvalueKSsb = goftestSB -> KolmogorovSmirnovTest();
-   cout << " pvalueKSsb= " << pvalueKSsb << endl;
+   rmath_fun< decltype(Lsb) > fsb(Lsb);
+   ROOT::Math::GoFTest* gofsb =
+      new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
+         ROOT::Math::GoFTest::kPDF, bL,dU );
+   double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
+   cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+   double pvalueADsb = gofsb -> AndersonDarlingTest();
+   cout << " pvalueAD(sb)= " << pvalueADsb << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr = [Fpar,sl](double* x,double* p) -> double {
-      double pp[] {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
-      return bW * Fpar[6]*IntfrBWARGN(x[0],pp,int(p[0]));
-   };
-   TF1* ffit = new TF1("ffit", Ldr, bL, dU, 1);
-   ffit -> SetNpx(500);
+      int isw = int(p[0]+0.5);
 
-   auto Ldr_bg = [Fpar](double* x,double* p) -> double {
-      return bW * Fpar[7]/(dU-dL);
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
+      double BWARG = Fpar[6] * IntfrBWARGN(x[0],pp,isw);
+      if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
+
+      double Bg = Fpar[7]/(dU-bL);
+      if ( isw == 4 ) { return bW * Bg; }
+
+      return bW * (BWARG + Bg);
    };
-   TF1* f_bg = new TF1("f_bg", Ldr_bg, bL, dU, 0);
+   TF1* fdr = new TF1("fdr", Ldr, bL, dU, 1);
+   fdr -> SetNpx(500);
 
    // find max/min to draw
-   ffit -> SetParameter(0, 1); // BW
+   fdr -> SetParameter(0, 1); // BW
    int maxbin = hst -> GetMaximumBin();
-   double hmax = hst -> GetBinContent(maxbin) + hst -> GetBinError(maxbin);
-   double fmax = ffit -> GetMaximum( 1.01, 1.03, 1e-6);
+   double hmax = hst -> GetBinContent(maxbin) +
+      hst -> GetBinError(maxbin);
+   double fmax = fdr -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax = floor(1.1 * max( hmax, fmax ));
    if ( hmax > 0 ) {
       hst -> SetMaximum(hmax);
    }
 
-   ffit -> SetParameter(0, 3); // interference
-   double hmin = ffit -> GetMinimum( 1.01, 1.03, 1e-6);
+   fdr -> SetParameter(0, 3); // interference
+   double hmin = fdr -> GetMinimum( 1.01, 1.03, 1e-6);
    hmin = floor(1.15 * min( 0., hmin ));
    if ( hmin < 0 ) {
       hst -> SetMinimum(hmin);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Draw results
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
-   c1 -> Divide(1,2);
+   bool two_panels = false;
 
-   c1 -> cd(1);
+   TLegend* leg = nullptr;
+   TLegendEntry* le_bg = nullptr;
+   TPaveText* pt = nullptr;
+   TPaveText* ptres = nullptr;
+   TCanvas* c1 = nullptr;
+   if ( two_panels ) {
+      leg = new TLegend(0.51,0.58,0.89,0.99);
+//       leg -> SetHeader("side-band","C");
+      le_bg = leg->AddEntry(fdr,"Bkg (sideband)","L"); // template
+      pt = new TPaveText(0.51,0.44,0.89,0.99,"NDC");
+      ptres = new TPaveText(0.51,0.34,0.89,0.44,"NDC");
+
+      c1 = new TCanvas("c1","...",0,0,800,1000);
+      c1 -> Divide(1,2);
+      c1 -> cd(1);
+   } else {
+      leg = new TLegend(0.58,0.725,0.89,0.89);
+      pt = new TPaveText(0.58,0.41,0.89,0.72,"NDC");
+      ptres = new TPaveText(0.58,0.34,0.89,0.41,"NDC");
+      c1 = new TCanvas("c1","...",0,0,900,900);
+      c1 -> cd();
+
+      hst -> GetYaxis() -> SetTitleOffset(1.3);
+   }
+
    gPad -> SetGrid();
-   SetHstFace(hsb);
 
-   hsb -> SetLineWidth(2);
-   hsb -> SetLineColor(kBlack);
-   hsb -> SetMarkerStyle(20);
-
-   hsb -> Draw("EP");
-
-   f_bg -> SetParameter(0, double(n));
-   f_bg -> SetLineWidth(2);
-   f_bg -> SetLineColor(kBlue+2);
-   f_bg -> DrawCopy("SAME");
-
-   c1 -> cd(2);
-   gPad -> SetGrid();
    SetHstFace(hst);
-
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
+   hst -> GetXaxis() -> SetTitleOffset(1.1);
    hst -> SetLineWidth(2);
    hst -> SetLineColor(kBlack);
    hst -> SetMarkerStyle(20);
 
    hst -> Draw("EP");
-
-   TLegend* leg = new TLegend(0.51,0.45,0.89,0.89);
-   leg -> SetHeader("side-band(top), central(bottom)}","C");
    leg -> AddEntry(hst,title.c_str(),"LEP");
 
-   ffit -> SetParameter(0, 0); // SUM
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kRed);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Result of fit", "L");
+   fdr -> SetParameter(0, 0); // SUM
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineColor(kRed+1);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry( fdr -> Clone(), "Result of fit", "L");
 
-   ffit -> SetParameter(0, 1); // BW
-   ffit -> SetLineWidth(1);
-   ffit -> SetLineStyle(kDashed);
-   ffit -> SetLineColor(kGreen+2);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Breit-Wigner #phi#eta", "L");
+   fdr -> SetParameter(0, 1); // BW
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineStyle(kDashed);
+   fdr -> SetLineColor(kGreen+2);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry( fdr -> Clone(), "Breit-Wigner #phi#eta", "L");
 
-   ffit -> SetParameter(0, 2); // Argus
-   ffit -> SetLineColor(kBlue);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Non-#phi KK#eta", "L");
+   fdr -> SetParameter(0, 2); // Argus
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineStyle(kDashed);
+   fdr -> SetLineColor(kBlue);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry( fdr -> Clone(), "Non-#phi KK#eta", "L");
 
-   ffit -> SetParameter(0, 3); // interference
-   ffit -> SetLineColor(kMagenta+1);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Interference", "L");
+   fdr -> SetParameter(0, 3); // interference
+   fdr -> SetLineWidth(2);
+   fdr -> SetLineStyle(kDashed);
+   fdr -> SetLineColor(kMagenta+1);
+   fdr -> DrawCopy("SAME");
+   leg -> AddEntry( fdr -> Clone(), "Interference", "L");
 
-   leg -> AddEntry( f_bg -> Clone(), "Background", "L" );
-
-   TPaveText* pt = new TPaveText(0.51,0.34,0.89,0.99,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value = %.3f}",pvalueKScr) );
-   pt -> AddText( Form("#it{p-val(SB) = %.3f}",pvalueKSsb) );
-//    pt -> AddText( Form("N_{#phi} = %.1f #pm %.1f",Nphi,err_Nphi) );
+   pt -> AddText( Form("#it{p-value = %.3f}",pvalueKS) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("a= %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("F= %s",PE.Eform(4,".2f")) );
-   pt -> AddText( Form("#vartheta= %s",PE.Eform(5,".2f")) );
-   pt -> AddText( Form("NKK= %s", PE.Eform(6,".1f")) );
-   pt -> AddText( Form("Nbg= %s", PE.Eform(7,".1f")) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt -> AddText( Form("a = %s",PE.Eform(3,".1f")) );
+   pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
+   pt -> AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
+   pt -> AddText( Form("NKK(fit)= %s", PE.Eform(6,".1f")) );
+   pt -> AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(7,".1f")) );
    pt -> Draw();
 
+   ptres -> SetTextAlign(12);
+   ptres -> SetTextFont(42);
+   ptres -> AddText(Form("N_{KK} = %.1f #pm %.1f", Nkk,err_Nkk));
+   ptres -> AddText(Form("N_{#phi } = %.1f #pm %.1f",Nphi,err_Nphi));
+   ptres -> Draw();
    gPad -> RedrawAxis();
 
-   c1 -> cd(1);
+   if ( two_panels ) {
+      c1 -> cd(2);
+      gPad -> SetGrid();
+
+      SetHstFace(hsb);
+      if ( is2009 ) {
+         hsb -> SetMaximum(4);
+      } else {
+         hsb -> SetMaximum(5);
+      }
+      hsb -> GetXaxis() -> SetTitleOffset(1.1);
+      hsb -> GetYaxis() -> SetTitleOffset(1.);
+      hsb -> SetLineWidth(2);
+      hsb -> SetLineColor(kBlack);
+      hsb -> SetMarkerStyle(20);
+
+      hsb -> Draw("EP");
+
+      fdr -> SetParameter(0, 4); // side-band
+      fdr -> SetLineWidth(2);
+      fdr -> SetLineColor(kBlue+2);
+      fdr -> DrawCopy("SAME");
+      le_bg -> SetObject( fdr -> Clone() );
+   }
+
    leg -> Draw();
    gPad -> RedrawAxis();
 
@@ -2114,13 +2389,10 @@ void data_Intfr_sb(string fname, string title, string pdf="") {
 }
 
 // {{{1 Combined fit
-//-------------------------------------------------------------------------
-// Combined fit
-//-------------------------------------------------------------------------
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 vector<ValErr> CombIntEr( const ROOT::Fit::FitResult& res,
-                          double sl09, double sl12, unsigned int idx ) {
-//----------------------------------------------------------------------
+      double sl09, double sl12, unsigned int idx ) {
+//--------------------------------------------------------------------
 // Numerical calculation of integrals and their errors
    // desired errors:
    constexpr double eps_abs = 1.e-6;
@@ -2134,7 +2406,8 @@ vector<ValErr> CombIntEr( const ROOT::Fit::FitResult& res,
    vector<double> Fp = res.Parameters();
 
    if ( Npar != 7 && Npar != 9 ) {
-      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar << endl;
+      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
+           << endl;
       exit(1);
    }
 
@@ -2226,7 +2499,8 @@ vector<ValErr> CombIntEr( const ROOT::Fit::FitResult& res,
             continue;
          }
 
-         auto L_dF = [FC,i](const double* x, const double* p) -> double {
+         auto L_dF = [FC,i](const double* x, const double* p) ->
+            double {
             TF1 tmp(FC); // may modify 'tmp' but not FC
             return tmp.GradientPar(i,x);
          };
@@ -2235,13 +2509,14 @@ vector<ValErr> CombIntEr( const ROOT::Fit::FitResult& res,
          IntGrad[i] =
             dF.IntegralOneDim(dL,Mkk_max,eps_rel,eps_abs, err_num);
          err_num = covMatrix(i,i) * IntGrad[i] * err_num;
-//          cout << " abs err_num(dF_" << i << ") = " << err_num << endl;
          err_num2 += SQ(err_num);
-//          cout << " IntGrad-"<<idat<<"[" << i << "] = "<<IntGrad[i]<<endl;
+//          cout << " abs err_num(dF_" << i << ") = " << err_num << endl;
+//          cout << " IntGrad-" << idat << "[" << i << "] = "
+//               << IntGrad[i] << endl;
       }
 
       err_Int[idat] = sqrt( covMatrix.Similarity(IntGrad) );
-      err_num2 = sqrt( err_num2 / err_Int[idat] ); // abs numerical error
+      err_num2 = sqrt( err_num2 / err_Int[idat] ); // abs error
 //       cout << " err_num(dBW-" << idat << ") = " << err_num2 << endl;
       if ( err_num2 > epsilon ) {
          cout << " WARNING: " << __func__ << " numerical error"
@@ -2255,13 +2530,13 @@ vector<ValErr> CombIntEr( const ROOT::Fit::FitResult& res,
    return ret;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void combine_Intfr(string fname09, string fname12, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // Get un-binned data
    TH1D* hist[2];
-   vector<double> mkk09 = get_mkk_hist( fname09, "mkk_09_cp", &hist[0] );
-   vector<double> mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[1] );
+   vector<double> mkk09 = get_mkk_hist(fname09,"mkk_09_cp",&hist[0]);
+   vector<double> mkk12 = get_mkk_hist(fname12,"mkk_12_cp",&hist[1]);
    TH1D* h09 = hist[0];
    TH1D* h12 = hist[1];
 
@@ -2276,11 +2551,11 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
       Dat.Add(mkk12[i]);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    // efficiency parameters
-   double sl09 = -1.78;
-   double sl12 = -1.87;
+   double sl09 = -1.8; // -1.77
+   double sl12 = -1.8; // -1.83
    // systematic study: (sl09 = -1.53,-2.03; sl12 = -1.72,-2.02)
 //    double sl09 = -2.03;
 //    double sl12 = -2.02;
@@ -2299,8 +2574,8 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    };
    vector<string> par_name { "M#phi", "G#phi", "A", "F", "#vartheta",
                              "#sigma{09}", "#sigma{12}"  };
-   vector<double> par_ini {Mphi,Gphi,0.,1.0,0.8,1.5e-3,1.2e-3};  // neg
-//    vector<double> par_ini {Mphi,Gphi,0.,1.0,-0.8,1.5e-3,1.2e-3}; // pos
+   vector<double> par_ini {Mphi,Gphi,0.,1.0,0.8,1.5e-3,1.2e-3};  //neg
+//    vector<double> par_ini {Mphi,Gphi,0.,1.0,-0.8,1.5e-3,1.2e-3}; //pos
 
    bool neg_pos = par_ini[4] > 0; // true for negative interference
 
@@ -2312,9 +2587,9 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFit( *Ffit );
-   fitter.SetFunction( WFit, false); // false == no parameter derivatives
+   fitter.SetFunction(WFit,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -2333,7 +2608,7 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    fitter.Config().ParSettings(6).SetLimits(0.2e-3, 2.e-3); // sigma12
 
    // == Fit
-   fitter.LikelihoodFit( Dat, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Dat,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -2365,40 +2640,46 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    double Nphi09 = Nos[2].val, err_Nphi09 = Nos[2].err;
    double Nphi12 = Nos[3].val, err_Nphi12 = Nos[3].err;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof09 = [Fpar,sl09](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
       return IntfrBWARGN( x,pp,0 );
    };
    rmath_fun< decltype(Lgof09) > ftest09(Lgof09);
    ROOT::Math::GoFTest* goftest09 = new ROOT::Math::GoFTest(
-         mkk09.size(),mkk09.data(),ftest09,ROOT::Math::GoFTest::kPDF,dL,dU);
+         mkk09.size(),mkk09.data(),ftest09,
+         ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS09 = goftest09 -> KolmogorovSmirnovTest();
    cout << " pvalueKS09= " << pvalueKS09 << endl;
 
    auto Lgof12 = [Fpar,sl12](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
       return IntfrBWARGN( x,pp,0 );
    };
    rmath_fun< decltype(Lgof12) > ftest12(Lgof12);
    ROOT::Math::GoFTest* goftest12 = new ROOT::Math::GoFTest(
-         mkk12.size(),mkk12.data(),ftest12,ROOT::Math::GoFTest::kPDF,dL,dU);
+         mkk12.size(),mkk12.data(),ftest12,
+         ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS12 = goftest12 -> KolmogorovSmirnovTest();
    cout << " pvalueKS12= " << pvalueKS12 << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr09 = [n09,Fpar,sl09](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
       return bW*n09 * IntfrBWARGN( x[0],pp, int(p[0]) );
    };
    TF1* ff09 = new TF1("ff09", Ldr09, dL, dU, 1);
    ff09 -> SetNpx(500);
 
    auto Ldr12 = [n12,Fpar,sl12](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
       return bW*n12 * IntfrBWARGN( x[0],pp, int(p[0]) );
    };
    TF1* ff12 = new TF1("ff12", Ldr12, dL, dU, 1);
@@ -2415,7 +2696,8 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    } else {
       ff09 -> SetParameter(0, 1); // BW
       int mb09 = h09 -> GetMaximumBin();
-      double hmax09 = h09 -> GetBinContent(mb09) + h09 -> GetBinError(mb09);
+      double hmax09 = h09 -> GetBinContent(mb09) +
+         h09 -> GetBinError(mb09);
       double fmax09 = ff09 -> GetMaximum( 1.01, 1.03, 1e-6);
       hmax09 = floor(1.1 * max( hmax09, fmax09 ));
       if ( hmax09 > 0 ) {
@@ -2431,7 +2713,8 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
 
       ff12 -> SetParameter(0, 1); // BW
       int mb12 = h12 -> GetMaximumBin();
-      double hmax12 = h12 -> GetBinContent(mb12) + h12 -> GetBinError(mb12);
+      double hmax12 = h12 -> GetBinContent(mb12) +
+         h12 -> GetBinError(mb12);
       double fmax12 = ff12 -> GetMaximum( 1.01, 1.03, 1e-6);
       hmax12 = floor(1.1 * max( hmax12, fmax12 ));
       if ( hmax12 > 0 ) {
@@ -2446,7 +2729,7 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
       }
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Draw results
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
    c1 -> Divide(1,2);
@@ -2455,14 +2738,16 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    gPad -> SetGrid();
 
    SetHstFace(h09);
-   h09 -> GetYaxis() -> SetTitleOffset(1.);
-   h09->SetLineWidth(2);
-   h09->SetLineColor(kBlack);
-   h09->SetMarkerStyle(20);
+   h09 -> GetXaxis() -> SetTitleOffset(1.1);
+   h09 -> GetYaxis() -> SetTitleOffset(1.0);
+   h09 -> SetLineWidth(2);
+   h09 -> SetLineColor(kBlack);
+   h09 -> SetMarkerStyle(20);
 
-   h09->Draw("EP");
+   h09 -> Draw("EP");
 
    TLegend* leg = new TLegend(0.51,0.45,0.89,0.89);
+//    leg -> SetTextSize(0.04);
    leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
    leg -> AddEntry( h09,"Data","LEP" );
 
@@ -2477,7 +2762,6 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    ff09 -> SetLineStyle(kDashed);
    ff09 -> SetLineColor(kGreen+3);
    ff09 -> DrawCopy("SAME");
-//    leg -> AddEntry( ff09 -> Clone(), "Breit-Wigner", "L");
    leg -> AddEntry( ff09 -> Clone(), "Breit-Wigner #phi#eta", "L");
 
    ff09 -> SetParameter(0, 2); // Argus
@@ -2498,7 +2782,8 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    c1 -> cd(2);
    gPad -> SetGrid();
    SetHstFace(h12);
-   h12 -> GetYaxis() -> SetTitleOffset(1.);
+   h12 -> GetXaxis() -> SetTitleOffset(1.1);
+   h12 -> GetYaxis() -> SetTitleOffset(1.0);
    h12 -> SetLineWidth(2);
    h12 -> SetLineColor(kBlack);
    h12 -> SetMarkerStyle(20);
@@ -2531,8 +2816,9 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    pt09 -> SetTextFont(42);
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}", pvalueKS09) );
    pt09 -> AddText( Form("N_{#phi}(2009) = %.1f #pm %.1f",
-                    Nphi09,err_Nphi09) );
-   pt09 -> AddText( Form("#sigma(2009)= %s MeV", PE.Eform(5,".2f",1e3)) );
+            Nphi09,err_Nphi09) );
+   pt09 -> AddText( Form("#sigma(2009) = %s MeV",
+            PE.Eform(5,".2f",1e3)) );
    pt09 -> Draw();
 
    TPaveText* pt12 = new TPaveText(0.51,0.65,0.89,0.82,"NDC");
@@ -2540,8 +2826,9 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
    pt12 -> AddText( Form("N_{#phi}(2012) = %.1f #pm %.1f",
-                    Nphi12,err_Nphi12) );
-   pt12 -> AddText( Form("#sigma(2012)= %s MeV", PE.Eform(6,".2f",1e3)) );
+            Nphi12,err_Nphi12) );
+   pt12 -> AddText( Form("#sigma(2012) = %s MeV",
+            PE.Eform(6,".2f",1e3)) );
    pt12 -> Draw();
 
    TPaveText* pt = new TPaveText(0.51,0.35,0.89,0.65,"NDC");
@@ -2549,10 +2836,11 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    pt -> SetTextFont(42);
 //    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("a= %s",PE.Eform(2,".2f")) );
-   pt -> AddText( Form("F= %s",PE.Eform(3,".2f")) );
-   pt -> AddText( Form("#vartheta= %s",PE.Eform(4,".2f")) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
+   pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
+   pt -> AddText( Form("#vartheta = %s",PE.Eform(4,".2f")) );
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -2563,13 +2851,13 @@ void combine_Intfr(string fname09, string fname12, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // Get un-binned data
    TH1D* hist[2];
-   vector<double> mkk09 = get_mkk_hist( fname09, "mkk_09_cp", &hist[0] );
-   vector<double> mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[1] );
+   vector<double> mkk09 = get_mkk_hist(fname09,"mkk_09_cp",&hist[0]);
+   vector<double> mkk12 = get_mkk_hist(fname12,"mkk_12_cp",&hist[1]);
    TH1D* h09 = hist[0];
    TH1D* h12 = hist[1];
 
@@ -2584,7 +2872,7 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
       Dat.Add(mkk12[i]);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    // efficiency parameters
    double sl09 = -1.78;
@@ -2600,8 +2888,8 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
          return (1-p[8])*IntfrBWARGN( m,pp,0 ) + p[8]/(dU-dL);
       }
    };
-   vector<string> par_name { "M#phi", "G#phi", "A", "F", "#vartheta",
-                             "#sigma{09}", "#sigma{12}", "Bg09", "Bg12" };
+   vector<string> par_name {"M#phi", "G#phi", "A", "F", "#vartheta",
+                            "#sigma{09}","#sigma{12}","Bg09","Bg12"};
 
    vector<double> par_ini { Mphi, Gphi, 0., 1.0, 0.8,
                             1.5e-3,1.2e-3, 1e-3,1e-3 };         // neg
@@ -2617,9 +2905,9 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFit( *Ffit );
-   fitter.SetFunction( WFit, false); // false == no parameter derivatives
+   fitter.SetFunction(WFit,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -2643,7 +2931,7 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
 //    fitter.Config().ParSettings(8).Fix();
 
    // == Fit
-   fitter.LikelihoodFit( Dat, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Dat,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -2676,33 +2964,38 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    double Nphi09 = Nos[2].val, err_Nphi09 = Nos[2].err;
    double Nphi12 = Nos[3].val, err_Nphi12 = Nos[3].err;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof09 = [Fpar,sl09](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
       return (1-Fpar[7])*IntfrBWARGN( x,pp,0 ) + Fpar[7]/(dU-dL);
    };
    rmath_fun< decltype(Lgof09) > ftest09(Lgof09);
    ROOT::Math::GoFTest* goftest09 = new ROOT::Math::GoFTest(
-         mkk09.size(),mkk09.data(),ftest09,ROOT::Math::GoFTest::kPDF,dL,dU);
+         mkk09.size(),mkk09.data(),ftest09,
+         ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS09 = goftest09 -> KolmogorovSmirnovTest();
    cout << " pvalueKS09= " << pvalueKS09 << endl;
 
    auto Lgof12 = [Fpar,sl12](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
       return (1-Fpar[8])*IntfrBWARGN( x,pp,0 ) + Fpar[8]/(dU-dL);
    };
    rmath_fun< decltype(Lgof12) > ftest12(Lgof12);
    ROOT::Math::GoFTest* goftest12 = new ROOT::Math::GoFTest(
-         mkk12.size(),mkk12.data(),ftest12,ROOT::Math::GoFTest::kPDF,dL,dU);
+         mkk12.size(),mkk12.data(),ftest12,
+         ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS12 = goftest12 -> KolmogorovSmirnovTest();
    cout << " pvalueKS12= " << pvalueKS12 << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr09 = [n09,Fpar,sl09](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
       return bW*n09 * (1-Fpar[7])*IntfrBWARGN( x[0],pp, int(p[0]) );
    };
    TF1* f09 = new TF1("f09", Ldr09, dL, dU, 1);
@@ -2715,7 +3008,8 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    cout << " N(f09_bg)= " << f09_bg -> Integral(dL,dU,1e-2)/bW << endl;
 
    auto Ldr12 = [n12,Fpar,sl12](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
       return bW*n12 * (1-Fpar[8])*IntfrBWARGN( x[0],pp, int(p[0]) );
    };
    TF1* f12 = new TF1("f12", Ldr12, dL, dU, 1);
@@ -2725,12 +3019,14 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
       return bW*n12 * Fpar[8]/(dU-dL);
    };
    TF1* f12_bg = new TF1("f12_bg", Ldr12_bg, bL, dU, 0);
-   cout << " N(f12_bg)= " << f12_bg -> Integral(dL,dU,1e-2)/bW << endl;
+   cout << " N(f12_bg)= " << f12_bg -> Integral(dL,dU,1e-2)/bW
+        << endl;
 
    // find max/min to draw
    f09 -> SetParameter(0, 1); // BW
    int mb09 = h09 -> GetMaximumBin();
-   double hmax09 = h09 -> GetBinContent(mb09) + h09 -> GetBinError(mb09);
+   double hmax09 = h09 -> GetBinContent(mb09) +
+      h09 -> GetBinError(mb09);
    double fmax09 = f09 -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax09 = floor(1.1 * max( hmax09, fmax09 ));
    if ( hmax09 > 0 ) {
@@ -2746,7 +3042,8 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
 
    f12 -> SetParameter(0, 1); // BW
    int mb12 = h12 -> GetMaximumBin();
-   double hmax12 = h12 -> GetBinContent(mb12) + h12 -> GetBinError(mb12);
+   double hmax12 = h12 -> GetBinContent(mb12) +
+      h12 -> GetBinError(mb12);
    double fmax12 = f12 -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax12 = floor(1.1 * max( hmax12, fmax12 ));
    if ( hmax12 > 0 ) {
@@ -2760,7 +3057,7 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
       h12 -> SetMinimum(hmin12);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Draw results
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
    c1 -> Divide(1,2);
@@ -2774,7 +3071,7 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    h09 -> SetLineColor(kBlack);
    h09 -> SetMarkerStyle(20);
 
-   h09->Draw("EP");
+   h09 -> Draw("EP");
 
    TLegend* leg = new TLegend(0.51,0.45,0.89,0.89);
    leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
@@ -2849,8 +3146,9 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    pt09 -> SetTextFont(42);
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}", pvalueKS09) );
    pt09 -> AddText( Form("N_{#phi}(2009) = %.1f #pm %.1f",
-                    Nphi09,err_Nphi09) );
-   pt09 -> AddText( Form("#sigma(2009)= %s MeV", PE.Eform(5,".2f",1e3)) );
+            Nphi09,err_Nphi09) );
+   pt09 -> AddText( Form("#sigma(2009)= %s MeV",
+            PE.Eform(5,".2f",1e3)) );
    pt09 -> AddText( Form("Bkg(2009)= %s", PE.Eform(7,".4f")) );
    pt09 -> Draw();
 
@@ -2859,8 +3157,9 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
    pt12 -> AddText( Form("N_{#phi}(2012) = %.1f #pm %.1f",
-                    Nphi12,err_Nphi12) );
-   pt12 -> AddText( Form("#sigma(2012)= %s MeV", PE.Eform(6,".2f",1e3)) );
+            Nphi12,err_Nphi12) );
+   pt12 -> AddText( Form("#sigma(2012)= %s MeV",
+            PE.Eform(6,".2f",1e3)) );
    pt12 -> AddText( Form("Bkg(2012)= %s", PE.Eform(8,".4f")) );
    pt12 -> Draw();
 
@@ -2868,7 +3167,8 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
    pt -> AddText( Form("a= %s",PE.Eform(2,".2f")) );
    pt -> AddText( Form("F= %s",PE.Eform(3,".2f")) );
    pt -> AddText( Form("#vartheta= %s",PE.Eform(4,".2f")) );
@@ -2882,12 +3182,12 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
    }
 }
 
-// combined plus side-band condition
-//----------------------------------------------------------------------
-struct myFCNsb {
+// combineSB_Intfr(): combined plus side-band
+//--------------------------------------------------------------------
+struct myFCN_comb {
    // efficiency parameters
-   double sl09 = -1.78;
-   double sl12 = -1.87;
+   double sl09 = -1.8;
+   double sl12 = -1.8;
    // data central part
    vector<double> mkk09;
    vector<double> mkk12;
@@ -2899,9 +3199,9 @@ struct myFCNsb {
    // the signature of this operator() MUST be exactly this:
    // THE EXTENDED MAXIMUM LIKELIHOOD ESTIMATOR
    // Kai-Feng Chen "FittingMinuitRooFit" p.35
-   //------------------------------------------------------------------
+   //-----------------------------------------------------------------
    double operator() (const double* p) {
-   //------------------------------------------------------------------
+   //-----------------------------------------------------------------
       double Nkk09 = p[7];
       double Nsb09 = p[8];
       double res = 2*(Nkk09+Nsb09);
@@ -2910,7 +3210,8 @@ struct myFCNsb {
       int n_mkk09 = mkk09.size();
       for ( int i = 0; i < n_mkk09; ++i ) {
          double m = mkk09[i];
-         double L = Nkk09*IntfrBWARGN( m,p09,0 ) + Nsb09/(dU-dL);
+         double L = Nkk09 * IntfrBWARGN( m,p09,0 ) +
+                    Nsb09/(dU-bL); // bL !
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -2918,8 +3219,9 @@ struct myFCNsb {
          }
       }
 
+      // fit SB by constant
       int n_sb09 = sb09.size();
-      res += 2*Nsb09 - n_sb09*2*log(Nsb09/(dU-dL)); // fit SB by constant
+      res += 2*Nsb09 - n_sb09*2*log(Nsb09/(dU-bL));
 
       double Nkk12 = p[9];
       double Nsb12 = p[10];
@@ -2929,7 +3231,8 @@ struct myFCNsb {
       int n_mkk12 = mkk12.size();
       for ( int i = 0; i < n_mkk12; ++i ) {
          double m = mkk12[i];
-         double L = Nkk12*IntfrBWARGN( m,p12,0 ) + Nsb12/(dU-dL);
+         double L = Nkk12 * IntfrBWARGN( m,p12,0 ) +
+                    Nsb12/(dU-bL);
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -2937,67 +3240,196 @@ struct myFCNsb {
          }
       }
 
+      // fit SB by constant
       int n_sb12 = sb12.size();
-      res += 2*Nsb12 - n_sb12*2*log(Nsb12/(dU-dL)); // fit SB by constant
+      res += 2*Nsb12 - n_sb12*2*log(Nsb12/(dU-bL));
 
       return res;
    }
 };
-//----------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
-void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+vector<ValErr> CombIntErSB( const ROOT::Fit::FitResult& res,
+      double sl09, double sl12, unsigned int idx,
+      bool noerrors="false") {
+//--------------------------------------------------------------------
+// Numerical calculation of integrals and their errors
+   // desired errors:
+   constexpr double eps_abs = 1.e-6;
+   constexpr double eps_rel = 1.e-6;
+   constexpr double epsilon = 1.e-3; // max numerical error
 
-   myFCNsb my_fcn; // class for 'FitFCN'
+   // get parameters and covariation matrix of error
+   int Npar = res.NPar();
+   vector<double> Fp = res.Parameters();
 
-   // efficiency parameters
-   double sl09 = -1.78;
-   double sl12 = -1.87;
+   if ( Npar != 11 ) {
+      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
+           << endl;
+      exit(1);
+   }
+//    Npar = 7; // remove NKK and Nbg parameters
+   int npar = 6; // 2009 and 2012 are considered separately
+
+   vector<double> Fpar[2];
+   Fpar[0] = { Fp[0],Fp[1],Fp[5],Fp[2],Fp[3],Fp[4],sl09 };
+   Fpar[1] = { Fp[0],Fp[1],Fp[6],Fp[2],Fp[3],Fp[4],sl12 };
+
+   int covMatrStatus = res.CovMatrixStatus();
+   if ( covMatrStatus != 3 ) {
+      cout << " WARNING: " << __func__ << " covariance matrix"
+         " status code is " << covMatrStatus << endl;
+   }
+   vector<double> cov_m[2];
+   cov_m[0].resize(npar*npar,0);
+   cov_m[1].resize(npar*npar,0);
+   vector<int> I09 {0,1,3,4,5, 2,-1};
+   vector<int> I12 {0,1,3,4,5,-1, 2};
+   for ( int i = 0; i < npar+1; ++i ) {
+      int i09 = I09[i];
+      int i12 = I12[i];
+      for ( int j = 0; j < npar+1; ++j ) {
+         int j09 = I09[j];
+         if ( i09 != -1 && j09 != -1 ) {
+            cov_m[0][i09*npar+j09] = res.CovMatrix(i,j);
+         }
+         int j12 = I12[j];
+         if ( i12 != -1 && j12 != -1 ) {
+            cov_m[1][i12*npar+j12] = res.CovMatrix(i,j);
+         }
+      }
+   }
+
+   // 1) calculate integrals of normalized component
+   auto Lfc = [idx,npar](const double* x,const double* p) -> double {
+      double m = x[0];
+      double sl = p[npar]; // slope!
+      double q[] { p[0],p[1],p[2],p[3],p[4],p[5],sl };
+      double normI = IntfrBWARGN( m,q,100 );
+      q[6] = 0; // set slope to zero
+      double intfr = IntfrBWARG( m,q,idx ) / normI;
+      return intfr;
+   };
+   TF1 FC = TF1("FC", Lfc, dL, dU, npar+1); // add sl in parameters
+
+   double Integ[2] {0.,0.}, err_Int[2] {0.,0.};
+   for ( int idat = 0; idat < 2; ++idat ) {
+      const char* sdat = (idat==0) ? "09" : "12";
+      FC.SetParameters( Fpar[idat].data() );
+      double err_num = 0;
+      Integ[idat] = FC.IntegralOneDim(dL,dU,eps_rel,eps_abs,err_num);
+//       printf(" Integ%s[%d] = %.6g; err_num= %.2g\n",
+//             sdat,idx,Integ[idat],err_num);
+      if ( err_num > epsilon ) {
+         printf(" WARNING: %s numerical error of integration of "
+               "FC%s[%d] is too big: %.2g\n",
+               __func__,sdat,idx,err_num);
+      }
+
+      if ( noerrors ) {
+         continue; // skip error calculation
+      }
+
+      // 2) calculate error of this integral
+      TMatrixDSym covMatrix(npar);
+      covMatrix.Use(npar,cov_m[idat].data());
+//       printf("\ncovMatrix_%s : ",sdat);
+//       covMatrix.Print();
+
+      TVectorD IntGrad(npar);
+      double err_num2 = 0;
+      for ( int i = 0; i < npar; ++i ) {
+         // skip parameters with zero error
+         if ( covMatrix(i,i) == 0 ) {
+            continue;
+         }
+
+         auto LdF =[FC,i](const double* x, const double* p) -> double{
+            TF1 tmp(FC); // may modify 'tmp' but not FC
+            return tmp.GradientPar(i,x);
+         };
+         TF1 dF("dF",LdF,dL,dU,0);
+         double err_num = 0;
+         IntGrad[i]=dF.IntegralOneDim(dL,dU,eps_rel,eps_abs,err_num);
+         err_num = covMatrix(i,i) * IntGrad[i] * err_num;
+         err_num2 += SQ(err_num);
+//          printf(" IntGrad(dF%s[%d]/d_%d)= %.4g; err_num= %.4g\n",
+//                sdat,idx,i, IntGrad[i], err_num);
+      }
+
+      err_Int[idat] = sqrt( covMatrix.Similarity(IntGrad) );
+//       printf(" --> Integral_%s[idx=%d] = %.6g +/- %.6g\n",
+//             sdat,idx,Integ[idat],err_Int[idat]);
+
+      err_num2 = sqrt( err_num2 / err_Int[idat] ); // abs error
+      if ( err_num2 > epsilon ) {
+         printf(" WARNING: %s numerical error of integration of "
+               "dF_%s[%d] is too big: %.2g\n",
+               __func__,sdat,idx,err_num2);
+      }
+   }
+
+   vector<ValErr> ret { ValErr {Integ[0], err_Int[0]},
+                        ValErr {Integ[1], err_Int[1]}  };
+   return ret;
+}
+
+//--------------------------------------------------------------------
+void combineSB_Intfr(string fname09, string fname12, string pdf="") {
+//--------------------------------------------------------------------
+
+   myFCN_comb my_fcn;   // class for 'FitFCN'
+   double sl09 = -1.8;  // efficiency parameters
+   double sl12 = -1.8;  // -1.83
    my_fcn.sl09 = sl09;
    my_fcn.sl12 = sl12;
 
    // Get un-binned data
    TH1D* hist[4];
    my_fcn.mkk09 = get_mkk_hist( fname09, "mkk_09_cp", &hist[0] );
-   const vector<double>& mkk09 = my_fcn.mkk09;
    TH1D* h09 = hist[0];
+   const vector<double>& mkk09 = my_fcn.mkk09;
    int n09 = mkk09.size();
 
-   my_fcn.mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[1] );
-   const vector<double>& mkk12 = my_fcn.mkk12;
-   TH1D* h12 = hist[1];
-   int n12 = mkk12.size();
-
-   my_fcn.sb09 = get_mkk_hist( fname09, "mkk_sb09", &hist[2], 1 );
+   my_fcn.sb09 = get_mkk_hist( fname09, "mkk_sb09", &hist[1], 1 );
+   TH1D* hsb09 = hist[1];
    const vector<double>& sb09 = my_fcn.sb09;
-   TH1D* hsb09 = hist[2];
    int nsb09 = sb09.size();
 
+   my_fcn.mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[2] );
+   TH1D* h12 = hist[2];
+   const vector<double>& mkk12 = my_fcn.mkk12;
+   int n12 = mkk12.size();
+
    my_fcn.sb12 = get_mkk_hist( fname12, "mkk_sb12", &hist[3], 1 );
-   const vector<double>& sb12 = my_fcn.sb12;
    TH1D* hsb12 = hist[3];
+   const vector<double>& sb12 = my_fcn.sb12;
    int nsb12 = sb12.size();
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "M#phi", "G#phi", "A", "F", "#vartheta",
-        "#sigma{09}", "#sigma{12}", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
+   vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
+      "sigma09", "sigma12", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
 
-   vector<double> par_ini { Mphi, Gphi, 0., 1.0, 0.8, 1.5e-3,1.2e-3,
-                            double(n09-nsb09),double(nsb09),
-                            double(n12-nsb12),double(nsb12) };     // neg
-//    vector<double> par_ini { Mphi, Gphi, 0., 1.0, -0.8,
-//                             1.5e-3,1.2e-3, 3.e-3,1e-4 };        // pos
+   vector<double> par_ini { Mphi,Gphi,0., 0.7, 0.05, 1.5e-3, 1.2e-3,
+                            909., 15., 2755., 34. };  // sft6 zero
+//    vector<double> par_ini { Mphi,Gphi,0., 0.7, 0.05, 1.5e-3, 1.2e-3,
+//                             909., 15., 2753., 36. };  // sft7 zero
+//    vector<double> par_ini { Mphi,Gphi,0., 0.7, 0.05, 1.5e-3, 1.2e-3,
+//                             912., 10., 2757., 32. };  // sft8 zero
+//    vector<double> par_ini { Mphi,Gphi,0., 0.8, 0.3, 1.5e-3, 1.2e-3,
+//                             913., 9., 2758., 31. };  // sft9 neg
+//    vector<double> par_ini { Mphi,Gphi,0., 0.8, 0.5, 1.5e-3, 1.2e-3,
+//                             915., 8., 2764., 23. };  // sft10 neg
 
-   bool neg_pos = par_ini[4] > 0; // true for negative interference
+//    bool neg_pos = par_ini[4] > 0; // true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -3008,16 +3440,17 @@ void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
    fitter.Config().ParSettings(0).Fix();                    // Mphi
    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();                    // Gphi
-   fitter.Config().ParSettings(2).Fix();                    // A
+   fitter.Config().ParSettings(2).Fix();                    // Ar
    fitter.Config().ParSettings(3).SetLimits(0.01, 10.);     // F
-   fitter.Config().ParSettings(4).SetLimits(-M_PI, M_PI);   // vartheta
-   fitter.Config().ParSettings(5).SetLimits(0.2e-3, 2.e-3); // sigma09
-   fitter.Config().ParSettings(6).SetLimits(0.2e-3, 2.e-3); // sigma12
+   fitter.Config().ParSettings(4).SetLimits(-M_PI, M_PI);   // angle
+   fitter.Config().ParSettings(5).SetLimits(0.2e-3, 5.e-3); // sigma09
+   fitter.Config().ParSettings(6).SetLimits(0.2e-3, 5.e-3); // sigma12
 
    // == Fit
-   int Ndat = n09+nsb09+n12+nsb12;
-   fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false == likelihood fit
-//    fitter.CalculateMinosErrors();
+   int Ndat = n09 + nsb09 + n12 + nsb12;
+   fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateMinosErrors();
+   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    ROOT::Fit::FitResult res = fitter.Result();
    res.Print(cout);
@@ -3027,100 +3460,132 @@ void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
    ParAndErr PE(res);
    vector<double>& Fpar = PE.Fpar;
 
-   cout << " n09= " << n09 << "  n12= " << n12;
-   cout << " nsb09= " << nsb09 << "  nsb12= " << nsb12 << endl;
-//    vector<string> names { "N(KK)", "Nphi", "Nnonphi", "Nifr"  };
-//    vector<ValErr> Nos;
-//    vector<double> norm { double(n09), double(n12) };
-//    Nos.reserve(8);
-//    for ( int idx = 0; idx <= 3; ++idx ) {
-//       vector<ValErr> Vinteg = CombIntEr( res,sl09,sl12,idx );
-//       for ( int j = 0; j < 2 ; ++j ) {
-//          const auto& Integ = Vinteg[j];
-//          printf("Int[%i,%i] = %s\n",idx,j,Integ.prt(".4f")); // DEBUG
-//          double Num = norm[j] * Integ.val;
-//          double Err = fabs(Num) *
-//             sqrt( 1./norm[j] + SQ(Integ.err/Integ.val) );
-//          Nos.push_back( ValErr {Num,Err} );
-//       }
-//       printf("%s09 = %s %s12 = %s\n",
-//             names[idx].c_str(),Nos[2*idx].prt(".1f"),
-//             names[idx].c_str(),Nos[2*idx+1].prt(".1f") );
-//    }
-//    double Nphi09 = Nos[2].val, err_Nphi09 = Nos[2].err;
-//    double Nphi12 = Nos[3].val, err_Nphi12 = Nos[3].err;
+   double Nfit09 = Fpar[7];
+   double Nfit09_err = max({PE.Perr[7],PE.Uerr[7],PE.Lerr[7]});
+   double Nfit12 = Fpar[9];
+   double Nfit12_err = max({PE.Perr[9],PE.Uerr[9],PE.Lerr[9]});
+   printf( " no slope corrections: NKK09_fit= %.1f +/- %.1f"
+         "  NKK12_fit= %.1f +/- %.1f\n",
+         Nfit09, Nfit09_err, Nfit12, Nfit12_err);
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
-   // User input PDF:
+   vector<string> names { "NKK", "Nphi", "Nnonphi", "Nifr" };
+   vector<ValErr> Nos(8);
+   for ( int idx = 0; idx <= 3; ++idx ) {
+      vector<ValErr> Vinteg = CombIntErSB( res,sl09,sl12,idx );
+      const auto& Int09 = Vinteg[0];
+//       printf("Int09[%i] = %s\n",idx,Int09.prt(".6f")); // debug
+      double Num = Nfit09 * Int09.val;
+      double Err = fabs(Num) *
+         sqrt( SQ(Int09.err/Int09.val) + SQ(Nfit09_err/Nfit09) );
+      Nos[2*idx] = {Num,Err};
+
+      const auto& Int12 = Vinteg[1];
+//       printf("Int12[%i] = %s\n",idx,Int12.prt(".6f")); // debug
+      Num = Nfit12 * Int12.val;
+      Err = fabs(Num) *
+         sqrt( SQ(Int12.err/Int12.val) + SQ(Nfit12_err/Nfit12) );
+      Nos[2*idx+1] = {Num,Err};
+
+      printf("%s09 = %s %s12 = %s\n",
+            names[idx].c_str(),Nos[2*idx].prt(".1f"),
+            names[idx].c_str(),Nos[2*idx+1].prt(".1f") );
+   }
+   double Nkk09 = Nos[0].val, err_Nkk09 = Nos[0].err;
+   double Nkk12 = Nos[1].val, err_Nkk12 = Nos[1].err;
+   double Nphi09 = Nos[2].val, err_Nphi09 = Nos[2].err;
+   double Nphi12 = Nos[3].val, err_Nphi12 = Nos[3].err;
+
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    auto Lcr09 = [Fpar,sl09](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
-      return Fpar[7]*IntfrBWARGN( x,pp,0 ) + Fpar[8]/(dU-dL);
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
+      return Fpar[7]*IntfrBWARGN( x,pp,0 ) +
+             Fpar[8]/(dU-bL);
    };
    rmath_fun< decltype(Lcr09) > fcr09(Lcr09);
-   ROOT::Math::GoFTest* goftest09 = new ROOT::Math::GoFTest(
-         mkk09.size(),mkk09.data(),fcr09,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS09 = goftest09 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS09= " << pvalueKS09 << endl;
+   ROOT::Math::GoFTest* gofcr09 =
+      new ROOT::Math::GoFTest( mkk09.size(),mkk09.data(),fcr09,
+            ROOT::Math::GoFTest::kPDF, bL,dU );
+   double pvalueKS09 = gofcr09 -> KolmogorovSmirnovTest();
+   cout << " pvalueKS09(cr)= " << pvalueKS09 << endl;
 
    auto Lsb09 = [Fpar](double x) -> double {
-      return Fpar[8]/(dU-dL);
+      return Fpar[8]/(dU-bL);
    };
    rmath_fun< decltype(Lsb09) > fsb09(Lsb09);
-   ROOT::Math::GoFTest* goftest09sb = new ROOT::Math::GoFTest(
-         sb09.size(),sb09.data(),fsb09,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS09sb = goftest09sb -> KolmogorovSmirnovTest();
-   cout << " pvalueKS09sb= " << pvalueKS09sb << endl;
+   ROOT::Math::GoFTest* gofsb09 =
+      new ROOT::Math::GoFTest( sb09.size(),sb09.data(),fsb09,
+            ROOT::Math::GoFTest::kPDF, bL,dU);
+   double pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
+   cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
+   double pvalueAD09sb = gofsb09 -> AndersonDarlingTest();
+   cout << " pvalueAD09(sb)= " << pvalueAD09sb << endl;
 
    auto Lcr12 = [Fpar,sl12](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
-      return Fpar[9]*IntfrBWARGN( x,pp,0 ) + Fpar[10]/(dU-dL);
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
+      return Fpar[9]*IntfrBWARGN( x,pp,0 ) +
+             Fpar[10]/(dU-bL);
    };
    rmath_fun< decltype(Lcr12) > fcr12(Lcr12);
-   ROOT::Math::GoFTest* goftest12 = new ROOT::Math::GoFTest(
-         mkk12.size(),mkk12.data(),fcr12,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS12 = goftest12 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS12= " << pvalueKS12 << endl;
+   ROOT::Math::GoFTest* gofcr12 =
+      new ROOT::Math::GoFTest( mkk12.size(),mkk12.data(),fcr12,
+            ROOT::Math::GoFTest::kPDF, bL,dU);
+   double pvalueKS12 = gofcr12 -> KolmogorovSmirnovTest();
+   cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
 
    auto Lsb12 = [Fpar](double x) -> double {
-      return Fpar[10]/(dU-dL);
+      return Fpar[10]/(dU-bL);
    };
    rmath_fun< decltype(Lsb12) > fsb12(Lsb12);
-   ROOT::Math::GoFTest* goftest12sb = new ROOT::Math::GoFTest(
-         sb12.size(),sb12.data(),fsb12,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS12sb = goftest12sb -> KolmogorovSmirnovTest();
-   cout << " pvalueKS12sb= " << pvalueKS12sb << endl;
+   ROOT::Math::GoFTest* gofsb12 =
+      new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb12,
+            ROOT::Math::GoFTest::kPDF, bL,dU );
+   double pvalueKS12sb = gofsb12 -> KolmogorovSmirnovTest();
+   cout << " pvalueKS12(sb)= " << pvalueKS12sb << endl;
+   double pvalueAD12sb = gofsb12 -> AndersonDarlingTest();
+   cout << " pvalueAD12(sb)= " << pvalueAD12sb << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr09 = [Fpar,sl09](double* x,double* p) -> double {
-      double pp[] {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
-      return bW * Fpar[7]*IntfrBWARGN( x[0],pp,int(p[0]) );
+      int isw = int(p[0]+0.5);
+
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double BWARG = Fpar[7] * IntfrBWARGN(x[0],pp,isw);
+      if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
+
+      double Bg = Fpar[8]/(dU-bL);
+      if ( isw == 4 ) { return bW * Bg; }
+
+      return bW * (BWARG + Bg);
    };
-   TF1* f09 = new TF1("f09", Ldr09, dL, dU, 1);
+   TF1* f09 = new TF1("f09", Ldr09, bL, dU, 1);
    f09 -> SetNpx(500);
 
-   auto Ldr09_bg = [Fpar](double* x,double* p) -> double {
-      return bW * Fpar[8]/(dU-dL);
-   };
-   TF1* f09_bg = new TF1("f09_bg", Ldr09_bg, dL, dU, 0);
-
    auto Ldr12 = [Fpar,sl12](double* x,double* p) -> double {
-      double pp[] {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
-      return bW * Fpar[9]*IntfrBWARGN( x[0],pp,int(p[0]) );
+      int isw = int(p[0]+0.5);
+
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double BWARG = Fpar[9] * IntfrBWARGN(x[0],pp,isw);
+      if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
+
+      double Bg = Fpar[10]/(dU-bL);
+      if ( isw == 4 ) { return bW * Bg; }
+
+      return bW * (BWARG + Bg);
    };
    TF1* f12 = new TF1("f12", Ldr12, dL, dU, 1);
    f12 -> SetNpx(500);
 
-   auto Ldr12_bg = [Fpar](double* x,double* p) -> double {
-      return bW * Fpar[10]/(dU-dL);
-   };
-   TF1* f12_bg = new TF1("f12_bg", Ldr12_bg, bL, dU, 0);
-
    // find max/min to draw
    f09 -> SetParameter(0, 1); // BW
    int mb09 = h09 -> GetMaximumBin();
-   double hmax09 = h09 -> GetBinContent(mb09) + h09 -> GetBinError(mb09);
+   double hmax09 = h09 -> GetBinContent(mb09) +
+      h09 -> GetBinError(mb09);
    double fmax09 = f09 -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax09 = floor(1.1 * max( hmax09, fmax09 ));
    if ( hmax09 > 0 ) {
@@ -3129,14 +3594,15 @@ void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
 
    f09 -> SetParameter(0, 3); // interference
    double hmin09 = f09 -> GetMinimum( 1.01, 1.03, 1e-6);
-   hmin09 = floor(1.15 * min( 0., hmin09 ));
+   hmin09 = floor(1.2 * min( 0., hmin09 ));
    if ( hmin09 < 0 ) {
       h09 -> SetMinimum(hmin09);
    }
 
    f12 -> SetParameter(0, 1); // BW
    int mb12 = h12 -> GetMaximumBin();
-   double hmax12 = h12 -> GetBinContent(mb12) + h12 -> GetBinError(mb12);
+   double hmax12 = h12 -> GetBinContent(mb12) +
+      h12 -> GetBinError(mb12);
    double fmax12 = f12 -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax12 = floor(1.1 * max( hmax12, fmax12 ));
    if ( hmax12 > 0 ) {
@@ -3145,12 +3611,12 @@ void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
 
    f12 -> SetParameter(0, 3); // interference
    double hmin12 = f12 -> GetMinimum( 1.01, 1.03, 1e-6);
-   hmin12 = floor(1.15 * min( 0., hmin12 ));
+   hmin12 = floor(1.2 * min( 0., hmin12 ));
    if ( hmin12 < 0 ) {
       h12 -> SetMinimum(hmin12);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Draw results
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
    c1 -> Divide(1,2);
@@ -3159,51 +3625,65 @@ void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
    gPad -> SetGrid();
 
    SetHstFace(h09);
+   h09 -> GetXaxis() -> SetTitleOffset(1.1);
    h09 -> GetYaxis() -> SetTitleOffset(1.);
    h09 -> SetLineWidth(2);
    h09 -> SetLineColor(kBlack);
    h09 -> SetMarkerStyle(20);
 
-   h09->Draw("EP");
+   h09 -> Draw("EP");
 
-   TLegend* leg = new TLegend(0.51,0.45,0.89,0.89);
+   TLegend* leg = new TLegend(0.55,0.69,0.89,0.99);
+   leg -> SetTextSize(0.045);
    leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
    leg -> AddEntry( h09,"Data","LEP" );
 
    f09 -> SetParameter(0, 0); // Sum
    f09 -> SetLineWidth(2);
+   f09 -> SetLineStyle(kSolid);
    f09 -> SetLineColor(kRed+1);
    f09 -> DrawCopy("SAME");
    leg -> AddEntry( f09 -> Clone(), "Combined fit", "L" );
 
    f09 -> SetParameter(0, 1); // BW
-   f09 -> SetLineWidth(1);
+   f09 -> SetLineWidth(2);
    f09 -> SetLineStyle(kDashed);
    f09 -> SetLineColor(kGreen+2);
    f09 -> DrawCopy("SAME");
    leg -> AddEntry( f09 -> Clone(), "Breit-Wigner #phi#eta", "L");
 
    f09 -> SetParameter(0, 2); // Argus
+   f09 -> SetLineWidth(2);
+   f09 -> SetLineStyle(kDashed);
    f09 -> SetLineColor(kBlue);
    f09 -> DrawCopy("SAME");
    leg -> AddEntry( f09 -> Clone(), "Non-#phi KK#eta", "L");
 
    f09 -> SetParameter(0, 3); // interference
+   f09 -> SetLineWidth(2);
+   f09 -> SetLineStyle(kDashed);
    f09 -> SetLineColor(kMagenta+1);
    f09 -> DrawCopy("SAME");
    leg -> AddEntry( f09 -> Clone(), "Interference", "L");
-
-//    f09_bg -> SetLineWidth(2);
-//    f09_bg -> SetLineColor(kBlue+2);
-//    f09_bg -> DrawCopy("SAME");
-//    leg -> AddEntry( f09_bg, "Background", "L" );
-
    leg -> Draw();
+
+   TPaveText* pt = new TPaveText(0.55,0.435,0.89,0.685,"NDC");
+   pt -> SetTextAlign(12);
+   pt -> SetTextFont(42);
+   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+           PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
+   pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
+   pt -> AddText( Form("#vartheta = %s",PE.Eform(4,".2f")) );
+   pt -> Draw();
+
    gPad -> RedrawAxis();
 
    c1 -> cd(2);
    gPad -> SetGrid();
    SetHstFace(h12);
+   h12 -> GetXaxis() -> SetTitleOffset(1.1);
    h12 -> GetYaxis() -> SetTitleOffset(1.);
    h12 -> SetLineWidth(2);
    h12 -> SetLineColor(kBlack);
@@ -3217,73 +3697,389 @@ void combine_Intfr_sb(string fname09, string fname12, string pdf="") {
    f12 -> DrawCopy("SAME");
 
    f12 -> SetParameter(0, 1); // BW
-   f12 -> SetLineWidth(1);
+   f12 -> SetLineWidth(2);
    f12 -> SetLineStyle(kDashed);
    f12 -> SetLineColor(kGreen+2);
    f12 -> DrawCopy("SAME");
 
    f12 -> SetParameter(0, 2); // Argus
+   f12 -> SetLineWidth(2);
+   f12 -> SetLineStyle(kDashed);
    f12 -> SetLineColor(kBlue);
    f12 -> DrawCopy("SAME");
 
    f12 -> SetParameter(0, 3); // interference
+   f12 -> SetLineWidth(2);
+   f12 -> SetLineStyle(kDashed);
    f12 -> SetLineColor(kMagenta+1);
    f12 -> DrawCopy("SAME");
 
-//    f12_bg -> SetLineWidth(2);
-//    f12_bg -> SetLineColor(kBlue+2);
-//    f12_bg -> DrawCopy("SAME");
-
-   TPaveText* pt09 = new TPaveText(0.51,0.79,0.89,0.99,"NDC");
+//    TPaveText* pt09 = new TPaveText(0.55,0.79,0.89,0.99,"NDC");
+   TPaveText* pt09 = new TPaveText(0.55,0.75,0.89,0.99,"NDC");
    pt09 -> SetTextAlign(12);
    pt09 -> SetTextFont(42);
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}", pvalueKS09) );
-   pt09 -> AddText( Form("#it{p-v(sb2009) = %.3f}", pvalueKS09sb) );
-//    pt09 -> AddText( Form("N_{#phi}(2009) = %.1f #pm %.1f",
-//                     Nphi09,err_Nphi09) );
-   pt09 -> AddText( Form("#sigma(2009)= %s MeV", PE.Eform(5,".2f",1e3)) );
-   pt09 -> AddText( Form("NKK(2009)= %s", PE.Eform(7,".1f")) );
+   pt09 -> AddText( Form("#sigma(2009)= %s MeV",
+            PE.Eform(5,".2f",1e3)) );
+   pt09 -> AddText( Form("NKK09(fit)= %s", PE.Eform(7,".1f")) );
    pt09 -> AddText( Form("Nbg(2009)= %s", PE.Eform(8,".1f")) );
    pt09 -> Draw();
 
-   TPaveText* pt12 = new TPaveText(0.51,0.59,0.89,0.79,"NDC");
+//    TPaveText* pt12 = new TPaveText(0.55,0.59,0.89,0.79,"NDC");
+   TPaveText* pt12 = new TPaveText(0.55,0.51,0.89,0.75,"NDC");
    pt12 -> SetTextAlign(12);
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
-   pt12 -> AddText( Form("#it{p-v(sb2012) = %.3f}", pvalueKS12sb) );
-//    pt12 -> AddText( Form("N_{#phi}(2012) = %.1f #pm %.1f",
-//                     Nphi12,err_Nphi12) );
-   pt12 -> AddText( Form("#sigma(2012)= %s MeV", PE.Eform(6,".2f",1e3)) );
-   pt12 -> AddText( Form("NKK(2012)= %s", PE.Eform(9,".1f")) );
+   pt12 -> AddText( Form("#sigma(2012)= %s MeV",
+            PE.Eform(6,".2f",1e3)) );
+   pt12 -> AddText( Form("NKK12(fit)= %s", PE.Eform(9,".1f")) );
    pt12 -> AddText( Form("Nbg(2012)= %s", PE.Eform(10,".1f")) );
    pt12 -> Draw();
 
-   TPaveText* pt = new TPaveText(0.51,0.34,0.89,0.59,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("a= %s",PE.Eform(2,".2f")) );
-   pt -> AddText( Form("F= %s",PE.Eform(3,".2f")) );
-   pt -> AddText( Form("#vartheta= %s",PE.Eform(4,".2f")) );
-   pt -> Draw();
-
+//    TPaveText* ptres = new TPaveText(0.55,0.39,0.89,0.59,"NDC");
+   TPaveText* ptres = new TPaveText(0.55,0.27,0.89,0.51,"NDC");
+   ptres -> SetTextAlign(12);
+   ptres -> SetTextFont(42);
+   ptres -> AddText( Form("N_{KK}(2009)= %.1f #pm %.1f",
+            Nkk09,err_Nkk09) );
+   ptres -> AddText( Form("N_{#phi }(2009)= %.1f #pm %.1f",
+            Nphi09,err_Nphi09) );
+   ptres -> AddText( Form("N_{KK}(2012)= %.1f #pm %.1f",
+            Nkk12,err_Nkk12) );
+   ptres -> AddText( Form("N_{#phi }(2012)= %.1f #pm %.1f",
+            Nphi12,err_Nphi12) );
+   ptres -> Draw();
    gPad -> RedrawAxis();
+
    c1 -> Update();
    if ( !pdf.empty() ) {
-      pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
+//       pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
       c1 -> Print(pdf.c_str());
    }
 }
 
-// {{{1 Interference + incoherent sum
-//-------------------------------------------------------------------------
-// Interference + incoherent sum
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void combineSB_Intfr_scan( string fname09, string fname12,
+      string pdf="") {
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+   myFCN_comb my_fcn;   // class for 'FitFCN'
+   double sl09 = -1.8;  // efficiency parameters
+   double sl12 = -1.8;  // -1.83
+   my_fcn.sl09 = sl09;
+   my_fcn.sl12 = sl12;
+
+   // Get un-binned data
+   TH1D* hist[4];
+   my_fcn.mkk09 = get_mkk_hist( fname09, "mkk_09_cp", &hist[0] );
+   TH1D* h09 = hist[0];
+   const vector<double>& mkk09 = my_fcn.mkk09;
+   int n09 = mkk09.size();
+
+   my_fcn.sb09 = get_mkk_hist( fname09, "mkk_sb09", &hist[1], 1 );
+   TH1D* hsb09 = hist[1];
+   const vector<double>& sb09 = my_fcn.sb09;
+   int nsb09 = sb09.size();
+
+   my_fcn.mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[2] );
+   TH1D* h12 = hist[2];
+   const vector<double>& mkk12 = my_fcn.mkk12;
+   int n12 = mkk12.size();
+
+   my_fcn.sb12 = get_mkk_hist( fname12, "mkk_sb12", &hist[3], 1 );
+   TH1D* hsb12 = hist[3];
+   const vector<double>& sb12 = my_fcn.sb12;
+   int nsb12 = sb12.size();
+
+   int Ndat = n09 + nsb09 + n12 + nsb12;
+   //-----------------------------------------------------------------
+   // Fit data
+   ROOT::Fit::Fitter fitter;
+//    fitter.Config().MinimizerOptions().SetPrintLevel(3);
+
+   vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
+      "sigma09", "sigma12", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
+
+//    vector<double> par_ini { Mphi,Gphi,0., 1.3, 0., 1.4e-3, 1.1e-3,
+//                             910., 14., 2758., 34. };  // -75deg
+   vector<double> par_ini { Mphi,Gphi,0., 1.0, 0., 1.5e-3, 1.1e-3,
+                            910., 14., 2756., 34. };  // -50deg
+
+   const unsigned int Npar = par_name.size(); // number of parameters
+
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
+   for( unsigned int i = 0; i < Npar; ++i ) {
+      fitter.Config().ParSettings(i).SetName(par_name[i]);
+   }
+
+   // fix/limit/step for parameters
+   fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
+   fitter.Config().ParSettings(0).SetValue(1.01953); // like MC-sig
+   fitter.Config().ParSettings(0).Fix();                    // Mphi
+   fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
+   fitter.Config().ParSettings(1).Fix();                    // Gphi
+   fitter.Config().ParSettings(2).Fix();                    // Ar
+   fitter.Config().ParSettings(3).SetLimits(0.01, 10.);     // F
+//    fitter.Config().ParSettings(4).SetLimits(-M_PI, M_PI);   // angle
+   fitter.Config().ParSettings(5).SetLimits(0.2e-3, 5.e-3); // sigma09
+   fitter.Config().ParSettings(6).SetLimits(0.2e-3, 5.e-3); // sigma12
+
+   //-----------------------------------------------------------------
+   // Functions to draw
+   vector<double> Fpar;
+   auto Ldr09 = [&Fpar,sl09](double* x,double* p) -> double {
+      int isw = int(p[0]+0.5);
+
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double BWARG = Fpar[7] * IntfrBWARGN(x[0],pp,isw);
+      if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
+
+      double Bg = Fpar[8]/(dU-bL);
+      if ( isw == 4 ) { return bW * Bg; }
+
+      return bW * (BWARG + Bg);
+   };
+   TF1* f09 = new TF1("f09", Ldr09, bL, dU, 1);
+   f09 -> SetNpx(500);
+
+   auto Ldr12 = [&Fpar,sl12](double* x,double* p) -> double {
+      int isw = int(p[0]+0.5);
+
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double BWARG = Fpar[9] * IntfrBWARGN(x[0],pp,isw);
+      if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
+
+      double Bg = Fpar[10]/(dU-bL);
+      if ( isw == 4 ) { return bW * Bg; }
+
+      return bW * (BWARG + Bg);
+   };
+   TF1* f12 = new TF1("f12", Ldr12, dL, dU, 1);
+   f12 -> SetNpx(500);
+
+   //-----------------------------------------------------------------
+   // loop for angles (degrees)
+//    int angmin = -75, angmax = 75, angstep = 5;
+   int angmin = -50, angmax = 50, angstep = 5;
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
+   c1 -> Divide(1,2);
+   c1 -> cd();
+   c1 -> Print((pdf+"[").c_str()); // open pdf-file
+
+   SetHstFace(h09);
+   h09 -> GetYaxis() -> SetTitleOffset(1.1);
+   h09 -> GetYaxis() -> SetTitleOffset(1.);
+   h09 -> SetLineWidth(2);
+   h09 -> SetLineColor(kBlack);
+   h09 -> SetMarkerStyle(20);
+   h09 -> SetMinimum(-15.);
+
+   SetHstFace(h12);
+   h12 -> GetYaxis() -> SetTitleOffset(1.1);
+   h12 -> GetYaxis() -> SetTitleOffset(1.);
+   h12 -> SetLineWidth(2);
+   h12 -> SetLineColor(kBlack);
+   h12 -> SetMarkerStyle(20);
+   h12 -> SetMinimum(-35.);
+
+   vector<double> angl, Lmin;
+   vector<double> nphi09, nphi12;
+   for( int ang = angmin; ang <= angmax; ang+=angstep ) {
+
+      fitter.Config().ParSettings(4).SetValue(M_PI*ang/180.); // angle
+      fitter.Config().ParSettings(4).Fix();
+
+      // == Fit
+      fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false);//false=likelihood
+//       fitter.CalculateMinosErrors();
+//       fitter.CalculateHessErrors(); //in case of new minimum
+
+
+      ROOT::Fit::FitResult res = fitter.Result();
+//       res.Print(cout);
+//       res.PrintCovMatrix(cout); // print error matrix and correlations
+      ParAndErr PE(res);
+      Fpar = PE.Fpar;
+
+      double lmin = res.MinFcnValue();
+      printf(" ang= %i degree =>  Lmin= %.6f\n", ang,lmin );
+      angl.push_back(ang);
+      Lmin.push_back(lmin);
+
+      // calculate Nphi
+      double Nfit09 = Fpar[7];
+      double Nfit12 = Fpar[9];
+      vector<ValErr> Vinteg = CombIntErSB( res,sl09,sl12,1,true ); // Nphi
+      const auto& Int09 = Vinteg[0];
+      double Nphi09 = Nfit09 * Int09.val;
+      const auto& Int12 = Vinteg[1];
+      double Nphi12 = Nfit12 * Int12.val;
+      nphi09.push_back(Nphi09);
+      nphi12.push_back(Nphi12);
+
+      //--------------------------------------------------------------
+      // Draw results
+
+      c1 -> cd(1);
+      gPad -> SetGrid();
+      h09 -> Draw("EP");
+
+      TLegend* leg = new TLegend(0.51,0.69,0.89,0.99);
+      leg -> SetTextSize(0.045);
+      leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
+      leg -> AddEntry( h09,"Data","LEP" );
+
+      f09 -> SetParameter(0, 0); // Sum
+      f09 -> SetLineWidth(2);
+      f09 -> SetLineStyle(kSolid);
+      f09 -> SetLineColor(kRed+1);
+      f09 -> DrawCopy("SAME");
+      leg -> AddEntry( f09 -> Clone(), "Combined fit", "L" );
+
+      f09 -> SetParameter(0, 1); // BW
+      f09 -> SetLineWidth(1);
+      f09 -> SetLineStyle(kDashed);
+      f09 -> SetLineColor(kGreen+2);
+      f09 -> DrawCopy("SAME");
+      leg -> AddEntry( f09 -> Clone(), "Breit-Wigner #phi#eta", "L");
+
+      f09 -> SetParameter(0, 2); // Argus
+      f09 -> SetLineWidth(1);
+      f09 -> SetLineStyle(kDashed);
+      f09 -> SetLineColor(kBlue);
+      f09 -> DrawCopy("SAME");
+      leg -> AddEntry( f09 -> Clone(), "Non-#phi KK#eta", "L");
+
+      f09 -> SetParameter(0, 3); // interference
+      f09 -> SetLineWidth(1);
+      f09 -> SetLineStyle(kDashed);
+      f09 -> SetLineColor(kMagenta+1);
+      f09 -> DrawCopy("SAME");
+      leg -> AddEntry( f09 -> Clone(), "Interference", "L");
+      leg -> Draw();
+
+      TPaveText* pt = new TPaveText(0.51,0.38,0.89,0.68,"NDC");
+      pt -> SetTextAlign(12);
+      pt -> SetTextFont(42);
+      pt -> AddText( Form("#vartheta= %s deg",
+               PE.Eform(4,".0f",180./M_PI)) );
+      pt -> AddText( Form("#it{L_{min}} = %.1f",lmin) );
+      pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+      pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+              PE.Eform(1,".3f",1e3)) );
+      pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
+      pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
+      pt -> Draw();
+      gPad -> RedrawAxis();
+
+      c1 -> cd(2);
+      gPad -> SetGrid();
+      h12 -> Draw("EP");
+
+      f12 -> SetParameter(0, 0); // Sum
+      f12 -> SetLineWidth(2);
+      f12 -> SetLineStyle(kSolid);
+      f12 -> SetLineColor(kRed+1);
+      f12 -> DrawCopy("SAME");
+
+      f12 -> SetParameter(0, 1); // BW
+      f12 -> SetLineWidth(1);
+      f12 -> SetLineStyle(kDashed);
+      f12 -> SetLineColor(kGreen+2);
+      f12 -> DrawCopy("SAME");
+
+      f12 -> SetParameter(0, 2); // Argus
+      f12 -> SetLineWidth(1);
+      f12 -> SetLineStyle(kDashed);
+      f12 -> SetLineColor(kBlue);
+      f12 -> DrawCopy("SAME");
+
+      f12 -> SetParameter(0, 3); // interference
+      f12 -> SetLineWidth(1);
+      f12 -> SetLineStyle(kDashed);
+      f12 -> SetLineColor(kMagenta+1);
+      f12 -> DrawCopy("SAME");
+
+      TPaveText* pt2 = new TPaveText(0.51,0.44,0.89,0.99,"NDC");
+      pt2 -> SetTextAlign(12);
+      pt2 -> SetTextFont(42);
+      pt2 -> AddText( Form("#sigma(2009)= %s MeV",
+               PE.Eform(5,".2f",1e3)) );
+      pt2 -> AddText( Form("NKK09(fit)= %s", PE.Eform(7,".1f")) );
+      pt2 -> AddText( Form("Nbg(2009)= %s", PE.Eform(8,".1f")) );
+      pt2 -> AddText( Form("N_{#phi}(2009)= %.1f",Nphi09) );
+
+      pt2 -> AddText( Form("#sigma(2012)= %s MeV",
+               PE.Eform(6,".2f",1e3)) );
+      pt2 -> AddText( Form("NKK12(fit)= %s", PE.Eform(9,".1f")) );
+      pt2 -> AddText( Form("Nbg(2012)= %s", PE.Eform(10,".1f")) );
+      pt2 -> AddText( Form("N_{#phi}(2012)= %.1f",Nphi12) );
+      pt2 -> Draw();
+
+      gPad -> RedrawAxis();
+      c1 -> Update();
+      c1 -> Print(pdf.c_str()); // add to pdf-file
+   }
+   //-----------------------------------------------------------------
+   // final draw
+   int nch = angl.size();
+
+   // 1 -Nphi
+   c1 -> cd(1);
+   auto gr09 = new TGraph( nch, angl.data(), nphi09.data() );
+   gr09 -> SetTitle("2009;#vartheta, degrees;N_{#phi}");
+   gr09 -> SetMarkerColor(kBlue);
+   gr09 -> SetMarkerStyle(20);
+   gr09 -> SetLineWidth(2);
+   gr09 -> GetYaxis() -> SetTitleOffset(1.);
+   gr09 -> Draw("APL");
+
+   c1 -> cd(2);
+   auto gr12 = new TGraph( nch, angl.data(), nphi12.data() );
+   gr12 -> SetTitle("2012;#vartheta, degrees;N_{#phi}");
+   gr12 -> SetMarkerColor(kBlue);
+   gr12 -> SetMarkerStyle(20);
+   gr12 -> SetLineWidth(2);
+   gr09 -> GetYaxis() -> SetTitleOffset(1.);
+   gr12 -> Draw("APL");
+
+   c1 -> Update();
+   c1 -> Print(pdf.c_str()); // add to pdf-file
+
+   // 2 -Lmin
+   c1 -> cd();
+   c1 -> Clear();
+   c1 -> SetCanvasSize(800,800); // resize
+   c1 -> cd();
+   gPad -> SetGrid();
+
+   double minL = *(min_element(Lmin.begin(),Lmin.end()));
+   for( auto &l : Lmin ) {
+      l -= minL;
+   }
+   auto gr = new TGraph( nch, angl.data(), Lmin.data() );
+   gr -> SetTitle(";#vartheta, degrees;#it{-2log(L/L_{max})}");
+   gr -> GetYaxis() -> SetMaxDigits(3);
+   gr -> GetYaxis() -> SetTitleOffset(1.);
+   gr -> SetMarkerColor(kBlue);
+   gr -> SetMarkerStyle(21);
+   gr -> SetLineWidth(2);
+
+   gr -> Draw("APL");
+
+   gPad -> RedrawAxis();
+   c1 -> Update();
+   c1 -> Print(pdf.c_str()); // add to pdf-file
+   c1 -> Print((pdf+"]").c_str()); // close pdf-file
+}
+
+// {{{1 Interference + incoherent sum
+//--------------------------------------------------------------------
 void data_Intfr_Ar(string fname, string title, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
    // Get un-binned data
@@ -3298,7 +4094,7 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
       Dat.Add(mkk[i]);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    // efficiency parameters
    double sl = -1.87;
@@ -3329,7 +4125,7 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFit( *Ffit );
-   fitter.SetFunction( WFit, false); // false == no parameter derivatives
+   fitter.SetFunction(WFit,false); // false=no parameter derivatives
 
    fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
    for( unsigned int i = 0; i < Npar; ++i ) {
@@ -3373,19 +4169,19 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
    }
    double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof = [Lfit,Fpar](double x) -> double {
       return Lfit( &x,Fpar.data() );
    };
-   rmath_fun< decltype(Lgof) > ftest(Lgof); // adapter lambda -> Root1Dfunc
+   rmath_fun< decltype(Lgof) > ftest(Lgof);
    ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
          mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS = goftest -> KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr = [n,Fpar,sl](double* x,double* p) -> double {
       const double pp[]
@@ -3403,7 +4199,8 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
    // find max/min to draw
    ffit -> SetParameter(0, 1); // BW
    int maxbin = hst -> GetMaximumBin();
-   double hmax = hst -> GetBinContent(maxbin) + hst -> GetBinError(maxbin);
+   double hmax = hst -> GetBinContent(maxbin) +
+      hst -> GetBinError(maxbin);
    double fmax = ffit -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax = floor(1.1 * max( hmax, fmax ));
    if ( hmax > 0 ) {
@@ -3417,7 +4214,7 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
       hst -> SetMinimum(hmin);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
@@ -3473,7 +4270,8 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
    pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
    pt -> AddText( Form("N_{#phi} = %.1f #pm %.1f",Nphi,err_Nphi) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
    pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
 //    pt -> AddText( Form("a= %s",PE.Eform(3,".1f")) );
    pt -> AddText( Form("F= %s",PE.Eform(4,".2f")) );
@@ -3489,10 +4287,10 @@ void data_Intfr_Ar(string fname, string title, string pdf="") {
    }
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 vector<ValErr> CombIntErAr( const ROOT::Fit::FitResult& res,
-                          double sl09, double sl12, unsigned int idx ) {
-//----------------------------------------------------------------------
+      double sl09, double sl12, unsigned int idx ) {
+//--------------------------------------------------------------------
 // Numerical calculation of integrals and their errors
    // desired errors:
    constexpr double eps_abs = 1.e-6;
@@ -3507,7 +4305,8 @@ vector<ValErr> CombIntErAr( const ROOT::Fit::FitResult& res,
 
 //    if ( Npar != 7 && Npar != 8 ) {
    if ( Npar != 8 ) { // only for combine_Intfr_Ar
-      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar << endl;
+      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
+           << endl;
       exit(1);
    }
 
@@ -3599,7 +4398,8 @@ vector<ValErr> CombIntErAr( const ROOT::Fit::FitResult& res,
             continue;
          }
 
-         auto L_dF = [FC,i](const double* x, const double* p) -> double {
+         auto L_dF = [FC,i](const double* x, const double* p) ->
+            double {
             TF1 tmp(FC); // may modify 'tmp' but not FC
             return tmp.GradientPar(i,x);
          };
@@ -3608,13 +4408,14 @@ vector<ValErr> CombIntErAr( const ROOT::Fit::FitResult& res,
          IntGrad[i] =
             dF.IntegralOneDim(dL,Mkk_max,eps_rel,eps_abs, err_num);
          err_num = covMatrix(i,i) * IntGrad[i] * err_num;
-//          cout << " abs err_num(dF_" << i << ") = " << err_num << endl;
          err_num2 += SQ(err_num);
-//          cout << " IntGrad-"<<idat<<"[" << i << "] = "<<IntGrad[i]<<endl;
+//          cout << " abs err_num(dF_" << i << ") = " << err_num << endl;
+//          cout << " IntGrad-" << idat << "[" << i << "] = "
+//               << IntGrad[i] << endl;
       }
 
       err_Int[idat] = sqrt( covMatrix.Similarity(IntGrad) );
-      err_num2 = sqrt( err_num2 / err_Int[idat] ); // abs numerical error
+      err_num2 = sqrt( err_num2 / err_Int[idat] ); // abs error
 //       cout << " err_num(dBW-" << idat << ") = " << err_num2 << endl;
       if ( err_num2 > epsilon ) {
          cout << " WARNING: " << __func__ << " numerical error"
@@ -3628,13 +4429,13 @@ vector<ValErr> CombIntErAr( const ROOT::Fit::FitResult& res,
    return ret;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // Get un-binned data
    TH1D* hist[2];
-   vector<double> mkk09 = get_mkk_hist( fname09, "mkk_09_cp", &hist[0] );
-   vector<double> mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[1] );
+   vector<double> mkk09 = get_mkk_hist(fname09,"mkk_09_cp",&hist[0]);
+   vector<double> mkk12 = get_mkk_hist(fname12,"mkk_12_cp",&hist[1]);
    TH1D* h09 = hist[0];
    TH1D* h12 = hist[1];
 
@@ -3649,7 +4450,7 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
       Dat.Add(mkk12[i]);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    double sl09 = -1.78;
    double sl12 = -1.87;
@@ -3686,9 +4487,9 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFit( *Ffit );
-   fitter.SetFunction( WFit, false); // false == no parameter derivatives
+   fitter.SetFunction(WFit,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -3710,7 +4511,7 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
 //    fitter.Config().ParSettings(4).Fix();
 
    // == Fit
-   fitter.LikelihoodFit( Dat, false ); // true == extended likelihood fit
+   fitter.LikelihoodFit(Dat,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
@@ -3744,23 +4545,26 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    double Nphi09 = Nos[2].val, err_Nphi09 = Nos[2].err;
    double Nphi12 = Nos[3].val, err_Nphi12 = Nos[3].err;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
+   //-----------------------------------------------------------------
+   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
    // User input PDF:
    auto Lgof09 = [Fpar,sl09](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
       double intfr = IntfrBWARGN(x,pp,0);
       double bg = RevArgusN(x,0.,sl09);
       return (1-Fpar[7])*intfr + Fpar[7]*bg;
    };
    rmath_fun< decltype(Lgof09) > ftest09(Lgof09);
    ROOT::Math::GoFTest* goftest09 = new ROOT::Math::GoFTest(
-         mkk09.size(),mkk09.data(),ftest09,ROOT::Math::GoFTest::kPDF,dL,dU);
+         mkk09.size(),mkk09.data(),ftest09,
+         ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS09 = goftest09 -> KolmogorovSmirnovTest();
    cout << " pvalueKS09= " << pvalueKS09 << endl;
 
    auto Lgof12 = [Fpar,sl12](double x) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
       double intfr = IntfrBWARGN(x,pp,0);
       double bg = RevArgusN(x,0.,sl12);
       return (1-Fpar[7])*intfr + Fpar[7]*bg;
@@ -3768,14 +4572,16 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    };
    rmath_fun< decltype(Lgof12) > ftest12(Lgof12);
    ROOT::Math::GoFTest* goftest12 = new ROOT::Math::GoFTest(
-         mkk12.size(),mkk12.data(),ftest12,ROOT::Math::GoFTest::kPDF,dL,dU);
+         mkk12.size(),mkk12.data(),ftest12,
+         ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS12 = goftest12 -> KolmogorovSmirnovTest();
    cout << " pvalueKS12= " << pvalueKS12 << endl;
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    auto Ldr09 = [n09,Fpar,sl09](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
       return bW*n09 * (1-Fpar[7])*IntfrBWARGN( x[0],pp,int(p[0]) );
    };
    TF1* f09 = new TF1("f09", Ldr09, dL, dU, 1);
@@ -3787,7 +4593,8 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    TF1* f09_bg = new TF1("f09_bg", Ldr09_bg, dL, dU, 0);
 
    auto Ldr12 = [n12,Fpar,sl12](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
       return bW*n12 * (1-Fpar[7])*IntfrBWARGN( x[0],pp,int(p[0]) );
    };
    TF1* f12 = new TF1("f12", Ldr12, dL, dU, 1);
@@ -3801,7 +4608,8 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    // find max/min to draw
    f09 -> SetParameter(0, 1); // BW
    int mb09 = h09 -> GetMaximumBin();
-   double hmax09 = h09 -> GetBinContent(mb09) + h09 -> GetBinError(mb09);
+   double hmax09 = h09 -> GetBinContent(mb09) +
+      h09 -> GetBinError(mb09);
    double fmax09 = f09 -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax09 = floor(1.1 * max( hmax09, fmax09 ));
    if ( hmax09 > 0 ) {
@@ -3813,12 +4621,13 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    hmin09 = floor(1.15 * min( 0., hmin09 ));
    if ( hmin09 < 0 ) {
       h09 -> SetMinimum(hmin09);
-//       h09->SetMinimum(-15.);
+//       h09 -> SetMinimum(-15.);
    }
 
    f12 -> SetParameter(0, 1); // BW
    int mb12 = h12 -> GetMaximumBin();
-   double hmax12 = h12 -> GetBinContent(mb12) + h12 -> GetBinError(mb12);
+   double hmax12 = h12 -> GetBinContent(mb12) +
+      h12 -> GetBinError(mb12);
    double fmax12 = f12 -> GetMaximum( 1.01, 1.03, 1e-6);
    hmax12 = floor(1.1 * max( hmax12, fmax12 ));
    if ( hmax12 > 0 ) {
@@ -3833,7 +4642,7 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
 //       h12 -> SetMinimum(-35.);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Draw results
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
    c1 -> Divide(1,2);
@@ -3847,7 +4656,7 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    h09 -> SetLineColor(kBlack);
    h09 -> SetMarkerStyle(20);
 
-   h09->Draw("EP");
+   h09 -> Draw("EP");
 
    TLegend* leg = new TLegend(0.51,0.45,0.89,0.89);
    leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
@@ -3922,8 +4731,9 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    pt09 -> SetTextFont(42);
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}", pvalueKS09) );
    pt09 -> AddText( Form("N_{#phi}(2009) = %.1f #pm %.1f",
-                    Nphi09,err_Nphi09) );
-   pt09 -> AddText( Form("#sigma(2009)= %s MeV", PE.Eform(5,".2f",1e3)) );
+            Nphi09,err_Nphi09) );
+   pt09 -> AddText( Form("#sigma(2009)= %s MeV",
+            PE.Eform(5,".2f",1e3)) );
    pt09 -> Draw();
 
    TPaveText* pt12 = new TPaveText(0.51,0.65,0.89,0.82,"NDC");
@@ -3931,15 +4741,17 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
    pt12 -> AddText( Form("N_{#phi}(2012) = %.1f #pm %.1f",
-                    Nphi12,err_Nphi12) );
-   pt12 -> AddText( Form("#sigma(2012)= %s MeV", PE.Eform(6,".2f",1e3)) );
+            Nphi12,err_Nphi12) );
+   pt12 -> AddText( Form("#sigma(2012)= %s MeV",
+            PE.Eform(6,".2f",1e3)) );
    pt12 -> Draw();
 
    TPaveText* pt = new TPaveText(0.51,0.33,0.89,0.65,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
    pt -> AddText( Form("a= %s",PE.Eform(2,".2f")) );
    pt -> AddText( Form("F= %s",PE.Eform(3,".2f")) );
    pt -> AddText( Form("#vartheta= %s",PE.Eform(4,".2f")) );
@@ -3954,13 +4766,14 @@ void combine_Intfr_Ar(string fname09, string fname12, string pdf="") {
    }
 }
 
-//-------------------------------------------------------------------------
-void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void combine_Intfr_Ar_scan(string fname09, string fname12,
+      string pdf="") {
+//--------------------------------------------------------------------
    // Get un-binned data
    TH1D* hist[2];
-   vector<double> mkk09 = get_mkk_hist( fname09, "mkk_09_cp", &hist[0] );
-   vector<double> mkk12 = get_mkk_hist( fname12, "mkk_12_cp", &hist[1] );
+   vector<double> mkk09 = get_mkk_hist(fname09,"mkk_09_cp",&hist[0]);
+   vector<double> mkk12 = get_mkk_hist(fname12,"mkk_12_cp",&hist[1]);
    TH1D* h09 = hist[0];
    TH1D* h12 = hist[1];
 
@@ -3975,7 +4788,7 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
       Dat.Add(mkk12[i]);
    }
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Fit data
    double sl09 = -1.78;
    double sl12 = -1.87;
@@ -4008,9 +4821,9 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
 //    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 WFit( *Ffit );
-   fitter.SetFunction( WFit, false); // false == no parameter derivatives
+   fitter.SetFunction(WFit,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
@@ -4028,11 +4841,12 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
    fitter.Config().ParSettings(6).SetLimits(0.2e-3, 2.e-3); // sigma12
    fitter.Config().ParSettings(7).SetLimits(0., 1.);        // Abg
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // Functions to draw
    vector<double> Fpar;
    auto Ldr09 = [n09,&Fpar,sl09](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
       return bW*n09 * (1-Fpar[7])*IntfrBWARGN( x[0],pp,int(p[0]) );
    };
    TF1* f09 = new TF1("f09", Ldr09, dL, dU, 1);
@@ -4044,7 +4858,8 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
    TF1* f09_bg = new TF1("f09_bg", Ldr09_bg, dL, dU, 0);
 
    auto Ldr12 = [n12,&Fpar,sl12](double* x,double* p) -> double {
-      double pp[] = {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
       return bW*n12 * (1-Fpar[7])*IntfrBWARGN( x[0],pp,int(p[0]) );
    };
    TF1* f12 = new TF1("f12", Ldr12, dL, dU, 1);
@@ -4055,7 +4870,7 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
    };
    TF1* f12_bg = new TF1("f12_bg", Ldr12_bg, bL, dU, 0);
 
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // loop for angles (degrees)
    int angmin = -75, angmax = 75, angstep = 5;
 //    int angmin = 30, angmax = 95, angstep = 5;
@@ -4087,7 +4902,7 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
       fitter.Config().ParSettings(4).Fix();
 
       // == Fit
-      fitter.LikelihoodFit( Dat, false ); // true == extended likelihood fit
+      fitter.LikelihoodFit(Dat,false); // true=extended likelihood fit
 //       fitter.CalculateMinosErrors();
 
       ROOT::Fit::FitResult res = fitter.Result();
@@ -4101,12 +4916,12 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
       angl.push_back(ang);
       Lmin.push_back(lmin);
 
-      //--------------------------------------------------------------------
+      //--------------------------------------------------------------
       // Draw results
 
       c1 -> cd(1);
       gPad -> SetGrid();
-      h09->Draw("EP");
+      h09 -> Draw("EP");
 
       TLegend* leg = new TLegend(0.51,0.45,0.89,0.89);
       leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
@@ -4140,7 +4955,7 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
       f09_bg -> SetLineStyle(kSolid);
       f09_bg -> SetLineColor(kBlue+2);
       f09_bg -> DrawCopy("SAME");
-      leg -> AddEntry( f09_bg, "Non-interfering non-#phi KK#eta", "L" );
+      leg -> AddEntry(f09_bg, "Non-interfering non-#phi KK#eta","L");
 
       leg -> Draw();
       gPad -> RedrawAxis();
@@ -4177,22 +4992,26 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
       TPaveText* pt = new TPaveText(0.51,0.34,0.89,0.99,"NDC");
       pt -> SetTextAlign(12);
       pt -> SetTextFont(42);
-      pt -> AddText( Form("#vartheta= %s deg",PE.Eform(4,".0f",180./M_PI)) );
+      pt -> AddText( Form("#vartheta= %s deg",
+               PE.Eform(4,".0f",180./M_PI)) );
       pt -> AddText( Form("#it{L_{min}} = %.1f",lmin) );
       pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-      pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+      pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+               PE.Eform(1,".3f",1e3)) );
       pt -> AddText( Form("a= %s",PE.Eform(2,".2f")) );
       pt -> AddText( Form("F= %s",PE.Eform(3,".2f")) );
       pt -> AddText( Form("f_{s} = %s", PE.Eform(7,".4f")) );
-      pt -> AddText( Form("#sigma(2009)= %s MeV", PE.Eform(5,".2f",1e3)) );
-      pt -> AddText( Form("#sigma(2012)= %s MeV", PE.Eform(6,".2f",1e3)) );
+      pt -> AddText( Form("#sigma(2009)= %s MeV",
+               PE.Eform(5,".2f",1e3)) );
+      pt -> AddText( Form("#sigma(2012)= %s MeV",
+               PE.Eform(6,".2f",1e3)) );
       pt -> Draw();
 
       gPad -> RedrawAxis();
       c1 -> Update();
       c1 -> Print(pdf.c_str()); // add to pdf-file
    }
-   //-----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // final draw
 
    c1 -> cd();
@@ -4209,7 +5028,7 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
    auto gr = new TGraph( nch, angl.data(), Lmin.data() );
    gr -> SetTitle(";#vartheta, degrees;#it{-2log(L/L_{max})}");
    gr -> GetYaxis() -> SetMaxDigits(3);
-   gr -> GetYaxis()->SetTitleOffset(1.2);
+   gr -> GetYaxis() -> SetTitleOffset(1.2);
    gr -> SetMarkerColor(kBlue);
    gr -> SetMarkerStyle(21);
    gr -> SetLineWidth(2);
@@ -4220,26 +5039,25 @@ void combine_Intfr_Ar_scan(string fname09, string fname12, string pdf="") {
    c1 -> Update();
    c1 -> Print(pdf.c_str()); // add to pdf-file
    c1 -> Print((pdf+"]").c_str()); // close pdf-file
-
 }
 
 // {{{1 MAIN:
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void mass_kk_fit() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    gROOT -> Reset();
    gStyle -> SetOptStat(0);
-   gStyle -> SetStatFont(62);
+   gStyle -> SetStatFont(42);
    gStyle -> SetLegendFont(42);
 
    if ( DEBUG ) {
       // BOOK HISTOGRAMMS
       htt[0] = new TH1D("eBWG","log10(BWG conv. error)",100,-6.,-1.);
-      htt[1] = new TH1D("nBW","BreitWigner() norm",1000,0.,2.);
+      htt[1] = new TH1D("nBW","BreitWigner norm",1000,0.,2.);
       htt[2] = new TH1D("eBW","log10(BW norm. error)",100,-6.,-1.);
-      htt[3] = new TH1D("nAr","RevArgus() norm",1000,0.,10.);
-      htt[4] = new TH1D("eAr","log10(RevArgus norm. error)",100,-6.,-1.);
-      htt[5] = new TH1D("eInG","log10(Intfr. conv. error)",100,-6.,-1.);
+      htt[3] = new TH1D("nAr","RevArg norm",1000,0.,10.);
+      htt[4] = new TH1D("eAr","log10(RevArg norm.err.)",100,-6.,-1.);
+      htt[5] = new TH1D("eInG","log10(Intfr.conv.err.)",100,-6.,-1.);
    }
 
    vector<string> fnames = {
@@ -4264,9 +5082,11 @@ void mass_kk_fit() {
       "MC non-#phi KK#eta 2009",
       "MC non-#phi KK#eta 2012"
    };
+//--------------------------------------------------------------------
    // Numbers of items for date:
    int id = 0, ii = 3, is = 5, ib = 7; // 2009
 //    int id = 1, ii = 5, is = 6, ib = 8; // 2012
+//--------------------------------------------------------------------
 
    // = define GSL error handler which does nothing =
    gsl_set_error_handler_off();
@@ -4276,21 +5096,25 @@ void mass_kk_fit() {
 
    // set integrator: ROOT::Math::GSLIntegrator adaptive method (QAG)
    ROOT::Math::IntegratorOneDimOptions::SetDefaultIntegrator("Adaptive");
+   ROOT::Math::IntegratorOneDimOptions::SetDefaultRelTolerance(1e-9);
 
-// ------------- signal ---------------
+// ------------- signal sec.6.1 --------------------------------------
 //    test_BreitWigner();
+
+//    sig_fit_mc("prod-11/mcsig_kkmc_09.root","mcmkk09_sig.pdf");
+//    sig_fit_mc("prod-11/mcsig_kkmc_12.root","mcmkk12_sig.pdf");
+
+      // fit phi-eta by BW x Gauss
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_sig_log.pdf";
-//    sig_fit(fnames.at(is),titles.at(is),pdf); // fit phi-eta by BW x Gauss
+//    sig_fit(fnames.at(is),titles.at(is),pdf);
 
-//    sig_fit_mc("prod-10/mcsig_kkmc_09.root","mcmkk09_sig.pdf");
-//    sig_fit_mc("prod-10/mcsig_kkmc_12.root","mcmkk12_sig.pdf");
-
-// ------------- background ---------------
+// ------------- background sec.6.2 ----------------------------------
 //    test_Agrus();
 //    test_RevAgrus();
 
+     // fit kketa by Argus
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_fitbg.pdf";
-//    bkg_fit(fnames.at(ib),titles.at(ib),pdf); // fit kketa by Argus
+//    bkg_fit(fnames.at(ib),titles.at(ib),pdf);
 
 //    bkg_fit("mcrhoeta_kkmc_12.root","MC #rho#eta 2012",
 //            "mkk_rhoeta12_argus.pdf");
@@ -4299,33 +5123,44 @@ void mass_kk_fit() {
 //    string pdf = string("mkk_sum_fitbg.pdf");
 //    bkg_fit2(fnames[7],fnames[8],pdf); // fit kketa by Argus
 
-// ------------- data: no interference ---------------
-//    int Mphix = 1; // 1 - mphi is fixed at the PDG
+// ------------- data: no interference sec.6.3.1 ---------------------
+   int Mphix = 1; // 1 - mphi is fixed at the PDG
 //    string pdf = string("mkk") + ((id==0) ? "09" : "12") + "_fit"
 //       + to_string(Mphix) + ".pdf";
 //    data_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
 
-// ------------- data: interference ---------------
+   // combined with Side-Band
+//    string pdf = string("mkk") + ((id==0) ? "09" : "12") +
+//       "_fitSB_" + to_string(Mphix) + ".pdf";
+//    dataSB_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
+
+// ------------- data: interference sec 6.3.2 ------------------------
 //    test_Intfr();
+//
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifr";
 //    data_Intfr_fit(fnames.at(id),titles.at(id),pdf);
 
-   // combined with sb
-   string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifr_SB";
-   data_Intfr_sb(fnames.at(id),titles.at(id),pdf);
+   // combined with Side-Band
+//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB";
+//    dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
 
-// ------------- data: common fit ---------------
+// ------------- data: common fit ------------------------------------
 //    combine_Intfr(fnames[0],fnames[1],"mkk_cf_std");
 //    combine_Intfr_bg(fnames[0],fnames[1],"mkk_cf_bkg");
-//    combine_Intfr_sb(fnames[0],fnames[1],"mkk_cf_SB");
 
-// ------------- data: interference + incoherent sum ---------------
+   // combined with Side-Band
+//    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_sft6.pdf");
+
+   combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan.pdf");
+
+// ------------- data: interference + incoherent sum -----------------
 //  DO NOT USE IT ---> see memo_intfr_plus.tex
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrbg";
 //    data_Intfr_Ar(fnames.at(id),titles.at(id),pdf);
 
 //    combine_Intfr_Ar(fnames[0],fnames[1],"mkk_cf_Abg");
-//    combine_Intfr_Ar_scan(fnames[0],fnames[1],"mkk_cf_Abg_scan.pdf");
+//    combine_Intfr_Ar_scan(fnames[0],fnames[1],
+//          "mkk_cf_Abg_scan.pdf");
 
-// -----------------------------------------------
+//--------------------------------------------------------------------
 }
