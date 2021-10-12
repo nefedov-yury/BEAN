@@ -1,6 +1,12 @@
 // study the tail in M(K+K-) distribution
 // 0) plot Mkk for data
 // plot data vs MC for 1.1 < Mkk < 2.0 GeV/c^2
+// or 1.08 < Mkk < 1.3 GeV/c^2 in J/Psi rest frame
+// 1) Mgg
+// 2) cos(Theta(Eta))
+// 3) cos(Theta(K+/-))
+// 4) P(K+/-)
+// 5) cos(K+,K-)
 
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
@@ -269,7 +275,7 @@ TH1D* get_hist10(string fname, string hname, string var, bool mcsig) {
    } else if ( isCkpkm ) {
 //       Nbins = 50; Vmin = -1; Vmax = 1;
       Nbins = 50; Vmin = 0; Vmax = 1;
-      title = string("angle #alpha between K^{+} and K^{-} in J/#psi RF: ") 
+      title = string("angle #alpha between K^{+} and K^{-} in J/#psi RF: ")
             + title;
       title += ";cos #alpha(K^{+}K^{-})";
 //       title += ";Events/0.04";
