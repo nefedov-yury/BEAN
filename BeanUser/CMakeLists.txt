@@ -13,7 +13,7 @@ SET( CXX_FILES
    Rhopi.cxx
    Bhabha.cxx
    RadBhabha.cxx
-   EntryList
+   EntryList.cxx
    TestEventTag.cxx
    Etaetagamma.cxx
 #
