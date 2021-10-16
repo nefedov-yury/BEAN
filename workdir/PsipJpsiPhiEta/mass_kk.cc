@@ -114,7 +114,7 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
 
    TCanvas* c1 = nullptr;
    if ( PR ) {
-      c1 = new TCanvas("c1","...",0,0,1000,500); // Pr
+      c1 = new TCanvas("c1","...",0,0,1200,500); // Pr
       c1 -> Divide(2,1);
    } else {
       c1 = new TCanvas("c1","...",0,0,500,900); // memo
@@ -192,7 +192,7 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
 
    TLegend* leg = nullptr;
    if ( PR ) {
-      leg = new TLegend(0.45,0.45,0.89,0.89);
+      leg = new TLegend(0.48,0.55,0.89,0.89);
    } else {
       leg = new TLegend(0.49,0.53,0.89,0.89); // memo
       leg -> SetTextSize(0.05);
@@ -248,10 +248,6 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    pt -> SetTextFont(42);
    pt -> SetTextSize(0.05);
    pt -> AddText("Side-Band");
-//    pt -> AddText("0.048<"
-//          "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}|"
-//          "<0.072"
-//          );
    pt -> AddText(
          Form( "%.3f<"
          "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}|"
