@@ -206,6 +206,7 @@ void plot_mass_eta_PR() {
    for (int i = 0; i < 3; i++) {
       string hn = string("mgg_")+to_string(i);
       mgg[i] = get_mass_hist(fnames[i],hn);
+
       SetHstFace(mgg[i]);
       mgg[i] -> GetYaxis() -> SetMaxDigits(3);
       mgg[i] -> GetYaxis() -> SetTitleOffset(1.2);
@@ -216,10 +217,6 @@ void plot_mass_eta_PR() {
       }
    }
 
-   TLatex* t1 = new TLatex;
-   t1 -> SetTextSize(0.08);
-   t1 -> SetTextColor(kMagenta+3);
-
    TLine* lR = new TLine;
    lR -> SetLineColor(kRed+1);
    lR -> SetLineWidth(2);
@@ -229,9 +226,6 @@ void plot_mass_eta_PR() {
    lB -> SetLineWidth(2);
    lB -> SetLineStyle(7);
 
-//    TCanvas* c1 = new TCanvas("c1","PR",0,0,900,650);
-//    int nx = 2;
-//    int ny = 2;
    TCanvas* c1 = new TCanvas("c1","PR",0,0,1300,400);
    int nx = 3;
    int ny = 1;
@@ -264,10 +258,6 @@ void plot_mass_eta_PR() {
          lB -> DrawLine(Meta-shft, 0,Meta-shft, ymax);
          lB -> DrawLine(Meta+shft, 0,Meta+shft, ymax);
          lB -> DrawLine(Meta+shftw,0,Meta+shftw,ymax);
-
-//          double yy=0.9*mgg[i] -> GetMaximum();
-//          t1 -> DrawLatex(0.5+seta-shft_eta,yy,date[0].c_str());
-//          t1 -> DrawLatex(0.5+seta-shft_eta,0.8*yy,titles[i].c_str());
 
          pt[i] = new TPaveText(0.11,0.79,0.4,0.89,"NDC");
          pt[i] -> SetTextAlign(22);
