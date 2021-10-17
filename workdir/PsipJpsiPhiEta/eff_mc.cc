@@ -115,10 +115,12 @@ void get_eff(string fname, string pdf="") {
    };
 
    // Meta: side-band
-   double shft_eta = 6*seta - weta;
-   auto c_sbgg = [weta,shft_eta](double Mgg) -> bool{
-      return (fabs(Mgg-Meta) > weta+shft_eta) &&
-             (fabs(Mgg-Meta) < 2*weta+shft_eta);
+   // 'shift_eta' is the start of the side-band
+//    double shift_eta = 6*seta; // old
+   double shift_eta = 7*seta; // it is better for 2012; prod-11
+   auto c_sbgg = [weta,shift_eta](double Mgg) -> bool{
+      return (fabs(Mgg-Meta) > shift_eta) &&
+             (fabs(Mgg-Meta) < shift_eta+weta);
    };
 
    double Ncp = 0, eNcp = 0;
@@ -170,7 +172,7 @@ void get_eff(string fname, string pdf="") {
    //----------------------------------------------------------------------
    // Draw results + fit
    //----------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
    c1 -> cd();
    gPad -> SetGrid();
 
@@ -240,10 +242,9 @@ void get_eff(string fname, string pdf="") {
    }
    tit += to_string(date);
    pt -> AddText( tit.c_str() );
-//    pt -> AddText( "#varepsilon = e (1 + k (M-1.02))" );
-   pt -> AddText( "eff = e (1 + k (M-1.02))" );
+//    pt -> AddText( "eff = eff(#phi) (1 + k (M-1.02))" );
    pt -> AddText( Form("#chi^{2}/ndf = %.1f / %d",chi2,ndf) );
-   pt -> AddText( Form("e = %.4f #pm %.4f",a,ea) );
+   pt -> AddText( Form("eff(#phi) = %.4f #pm %.4f",a,ea) );
    pt -> AddText( Form("k = %.2f #pm %.2f",b,eb) );
    pt -> Draw();
 
