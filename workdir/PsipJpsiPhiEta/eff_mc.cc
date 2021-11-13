@@ -96,7 +96,7 @@ void get_eff(string fname, string pdf="") {
    };
 
    auto c_chi2 = [](double ch2) -> bool{
-      return ch2 < 80; // std: 80; uncertainties study: 60, 100
+      return ch2 < 60; // std: 60; uncertainties study: 40, 80
    };
 
    // Mphi cut: [dL, dU]
@@ -206,13 +206,13 @@ void get_eff(string fname, string pdf="") {
       ff2 -> SetLineColor(kBlue);
       ff2 -> SetLineWidth(2);
       ff2 -> SetLineStyle(kDashed);
-      if ( is2009 ) {
-   //       ff2 -> FixParameter(1, -1.78);
-         ff2 -> FixParameter(1, -1.8); // helix corr
-      } else {
-   //       ff2 -> FixParameter(1, -1.87);
-         ff2 -> FixParameter(1, -1.8); // helix corr
-      }
+
+//       if ( is2009 ) {
+//          ff2 -> FixParameter(1, -1.8); // helix corr
+//       } else {
+//          ff2 -> FixParameter(1, -1.8); // helix corr
+//       }
+      ff2 -> FixParameter(1, -1.8); // -1.8 +/- 0.2
    }
 
    double bin_width = heff -> GetBinWidth(1);
@@ -257,7 +257,8 @@ void get_eff(string fname, string pdf="") {
       double b0 = ff2 -> GetParameter(1);
       double eb0 = ff2 -> GetParError(1);
       if ( fabs(eb0) < 1.e-4 ) {
-         printf(" e= %.4f +/- %.4f; k= %.2f (fixed)\n\n",a0,ea0,b0);
+         printf(" %i) e= %.4f +/- %.4f; k= %.2f (fixed)\n\n",
+               date, a0, ea0, b0);
       }
    }
 
@@ -283,4 +284,8 @@ void eff_mc() {
    // Systematic study => no pictures, fit with k-fixed
    get_eff("mcsig_kkmc_09.root");
 //    get_eff("mcsig_kkmc_12.root");
+
+   // KKeta phase space MC ???
+//    get_eff("mckketa_kkmc_09.root");
+//    get_eff("mckketa_kkmc_12.root");
 }
