@@ -86,6 +86,11 @@ TH1D* fill_mrec(string fname,string hname,int type=0,double shift=0.){
 
    froot->cd("PsipJpsiPhiEta");
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
+   if ( !nt1 ) {
+      cerr << "ERROR in "<< __func__
+           << " can not find nt1" << endl;
+      exit(0);
+   }
 
    //Declaration of leaves types
    Float_t         Mrs;
@@ -145,6 +150,50 @@ TH1D* fill_mrec(string fname,string hname,int type=0,double shift=0.){
    // to_string() converts only 6 digits after the point,
    // check output!
    cout << " fill_mrec::INFO dr= " << dr << endl;
+
+   nt1->Draw(dr.c_str(),cut,"goff");
+
+   return hst;
+}
+
+// fill recoil masses of MC-true pi+pi- pairs without helix corrections
+//-------------------------------------------------------------------------
+TH1D* fill_mrec_nohc(string fname, string hname, double shift=0.) {
+//-------------------------------------------------------------------------
+   fname = string("archive/prod-9/") + fname;
+   cout << " file: " << fname << endl;
+   TFile* froot = TFile::Open(fname.c_str(),"READ");
+   if ( froot == 0 ) {
+      cerr << "ERROR in "<< __func__
+           << ": can not open " << fname << endl;
+      exit(0);
+   }
+
+   froot->cd("PsipJpsiPhiEta");
+   TTree* nt1 = (TTree*)gDirectory->Get("nt1");
+   if ( !nt1 ) {
+      cerr << "ERROR in "<< __func__
+           << " can not find nt1" << endl;
+      exit(0);
+   }
+
+   // copy 'hst' from fill_mrec()
+   TH1D* hst = new TH1D(hname.c_str(),
+         ";M^{rec}_{#pi^{#plus}#pi^{#minus }}, GeV/c^{2}"
+         ";Entries/0.0001 GeV/c^{2}",
+         2000,3.0,3.2 // 1bin = 0.1MeV
+         );
+   hst->Sumw2(true);
+
+   string dr = string("Mrs>>") + hname;
+   TCut cut("MrsW*(dec==64)");
+   // only for MC: small energy shift
+   if ( fabs(shift) > 1e-5 ) {
+      dr = to_string(shift) + string("+") + dr;
+   }
+   // to_string() converts only 6 digits after the point,
+   // check output!
+   cout << __func__ << "::INFO dr= " << dr << endl;
 
    nt1->Draw(dr.c_str(),cut,"goff");
 
@@ -261,6 +310,125 @@ void fill_hist2012(TH1D* hst[]) {
    hst[3]->Scale(Ito12);
 
    hst[4]=fill_mrec("mcinc_12psip_all.root",hname[4],3,shift);
+   hst[4]->Scale(Ito12);
+
+   // save histos in cache file
+   if ( use_cache ) {
+      TFile* froot = TFile::Open(cachef.c_str(),"NEW");
+      for ( unsigned int i = 0; i < hname.size(); ++i ) {
+         hst[i]->Write();
+      }
+      froot->Close();
+   }
+}
+
+// fill MC-true shape from prod-10 (no helix corrections)
+//--------------------------------------------------------------------
+void fill_hist2009_nohc(TH1D* hst[]) {
+//--------------------------------------------------------------------
+#include "norm.h"
+
+   // optimization of Mrec shift(data-MC)
+   const double shift = 0.000222; //  MeV   chi^2
+                                  // 0.220   3717.3
+                                  // 0.221   3709.4
+                                  // 0.222   3705.6 *
+                                  // 0.223   3705.7
+                                  // 0.224   3709.2
+
+   vector<string> hname {
+      "data09", "data3650_09",
+      "mc09sig", "mc09bg1", "mc09bg2",
+      "mc09sig10"
+   };
+
+   // check cache file
+   string cachef = dir + string("MrecFit_2009_nohc");
+   const bool use_cache = true;
+   if ( use_cache ) {
+      cachef += (shift<0) ? "_m" : "_";
+      cachef += to_string(int(fabs(shift*1e6))) + ".root";
+      cout << " INFO: cachef= " << cachef << endl;
+      TFile* froot = TFile::Open(cachef.c_str(),"READ");
+      if ( froot != 0 ) {
+         for ( unsigned int i = 0; i < hname.size(); ++i ) {
+            hst[i]=(TH1D*)froot->Get(hname[i].c_str());
+         }
+         return;
+      }
+   }
+
+   hst[0]=fill_mrec("data_09psip_all.root", hname[0]);
+
+   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
+   hst[1]->Scale(Cto09);
+
+   hst[2]=fill_mrec_nohc("mcinc_09psip_all.root",hname[2],shift);
+   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
+   hst[2]->Scale(Ito09);
+
+   hst[3]=fill_mrec("mcinc_09psip_all.root",hname[3],2);
+   hst[3]->Scale(Ito09);
+
+   hst[4]=fill_mrec("mcinc_09psip_all.root",hname[4],3);
+   hst[4]->Scale(Ito09);
+
+   // save histos in cache file
+   if ( use_cache ) {
+      TFile* froot = TFile::Open(cachef.c_str(),"NEW");
+      for ( unsigned int i = 0; i < hname.size(); ++i ) {
+         hst[i]->Write();
+      }
+      froot->Close();
+   }
+}
+
+//--------------------------------------------------------------------
+void fill_hist2012_nohc(TH1D* hst[]) {
+//--------------------------------------------------------------------
+#include "norm.h"
+
+   // optimization of Mrec shift(data-MC)
+   const double shift = 0.000379; //  MeV   chi^2
+                                  // 0.380  7208.3
+                                  // 0.379  7202.4 *
+                                  // 0.378  7205.3
+
+   vector<string> hname {
+      "data12", "data3650_12",
+      "mc12sig", "mc12bg1", "mc12bg2",
+      "mc12sig10"
+   };
+
+   // check cache file
+   string cachef =  dir + string("MrecFit_2012_nohc");
+   const bool use_cache = true;
+   if ( use_cache ) {
+      cachef += (shift<0) ? "_m" : "_";
+      cachef += to_string(int(fabs(shift*1e6))) + ".root";
+      cout << " INFO: cachef= " << cachef << endl;
+      TFile* froot = TFile::Open(cachef.c_str(),"READ");
+      if ( froot != 0 ) {
+         for ( unsigned int i = 0; i < hname.size(); ++i ) {
+            hst[i]=(TH1D*)froot->Get(hname[i].c_str());
+         }
+         return;
+      }
+   }
+
+   hst[0]=fill_mrec("data_12psip_all.root", hname[0]);
+
+   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
+   hst[1]->Scale(Cto12);
+
+   hst[2]=fill_mrec_nohc("mcinc_12psip_all.root",hname[2],shift);
+   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
+   hst[2]->Scale(Ito12);
+
+   hst[3]=fill_mrec("mcinc_12psip_all.root",hname[3],2);
+   hst[3]->Scale(Ito12);
+
+   hst[4]=fill_mrec("mcinc_12psip_all.root",hname[4],3);
    hst[4]->Scale(Ito12);
 
    // save histos in cache file
@@ -457,9 +625,10 @@ vector<double> dCDFnorm2(double wbin,double s1,double s2,double f) {
 // convolution
 //--------------------------------------------------------------------
 bool conv_vec( vector<double>& vec, vector<double>& er2,
-               double wbin, double sig) {
+               double wbin, double s1, double s2, double f ) {
 //--------------------------------------------------------------------
-   vector<double> res = dCDFnorm(wbin, sig);
+//    vector<double> res = dCDFnorm(wbin, s1); // 1-gauss
+   vector<double> res = dCDFnorm2(wbin, s1,s2,f);
    if ( res.empty() ) {
       return false;
    }
@@ -603,7 +772,9 @@ bool decon_vec2( vector<double>& vec, vector<double>& er2,
 bool cor_sig( vector<double>& vec, vector<double>& er2, double wbin,
               int model, double s1, double s2, double f ) {
 //--------------------------------------------------------------------
-   if ( model == 1 ) {
+   if ( model == 0 ) {
+      return conv_vec(vec,er2,wbin,s1,s2,f);
+   } else if ( model == 1 ) {
       return decon_vec(vec,er2,wbin,s1);
    } else if ( model == 2 ) {
       return deconG_vec(vec,er2,wbin,s1,s2); // s2 = kappa
@@ -619,8 +790,8 @@ class myChi2 {
    public:
       // ctor:
       //--------------------------------------------------------------
-      myChi2(TH1D* hst[],double EMin,double EMax) :
-         Emin(EMin),Emax(EMax) {
+      myChi2(TH1D* hst[],double EMin,double EMax,bool use_nohc) :
+         Emin(EMin),Emax(EMax),use_nohc_signal_mc(use_nohc) {
       //--------------------------------------------------------------
          // ExMin/Max -> region to fit signal
 
@@ -693,11 +864,15 @@ class myChi2 {
          double Sc = p[0];   // scale constant for signal
          double Sc2 = SQ(Sc);
          // correction of the MC-signal shape
-         double Gsig1 = p[1]; // sigma1 for deconvolution
+         double Gsig1 = p[1]; // sigma1 for deconvolution/convolution
          double Gsig2 = p[2]; // kappa/sigma2
          double frac =  p[3]; // fraction of the sigma2
          vector<double> sig_n(sig), er_sig_n(er_sig);
-         if (!cor_sig(sig_n,er_sig_n,wbin, model, Gsig1,Gsig2,frac)) {
+         int imod = (use_nohc_signal_mc) ? 0 : model;
+         if (!cor_sig(sig_n,er_sig_n,wbin, imod, Gsig1,Gsig2,frac)) {
+            cerr << "ERROR:: cor_sig failed: imod=" << imod
+               << " Gsig1=" << Gsig1 << " Gsig2=" << Gsig2
+               << " frac=" << frac << endl;
             return maxResValue;
          }
 
@@ -731,7 +906,8 @@ class myChi2 {
             if ( resval < maxResValue ) {
                chi2 += resval;
             } else {
-               return maxResValue;
+               chi2 += maxResValue;
+//                return maxResValue;
             }
          } // end of for()
 
@@ -750,6 +926,9 @@ class myChi2 {
       vector<double> bg, er_bg;
       vector<double> bgn, er_bgn;
 
+      // models
+      bool use_nohc_signal_mc = false;
+
       int model = 1;
 
       int npol = 3;
@@ -759,7 +938,7 @@ class myChi2 {
 
 // {{{1 Corrections for histograms and print final numbers
 //--------------------------------------------------------------------
-TH1D* cor_sig_hst(const TH1D* hst, int model, const double* p) {
+TH1D* cor_sig_hst(const TH1D* hst, int imod, const double* p) {
 //--------------------------------------------------------------------
    // ignore over and underflow bins
 
@@ -780,7 +959,7 @@ TH1D* cor_sig_hst(const TH1D* hst, int model, const double* p) {
    double Gsig1 = p[1]; // sigma1 for deconvolution
    double Gsig2 = p[2]; // sigma2
    double frac =  p[3]; // fraction of the sigma2
-   if ( !cor_sig(sig,er2,wbin, model, Gsig1,Gsig2,frac) ) {
+   if ( !cor_sig(sig,er2,wbin, imod, Gsig1,Gsig2,frac) ) {
       return hst_n;
    }
 
@@ -871,7 +1050,7 @@ void print_Numbers(TH1D* hst[], double Emin, double Emax) {
 }
 
 //--------------------------------------------------------------------
-void print_eff(int date, int Model, TH1D* hst[],
+void print_eff(int date, int imod, TH1D* hst[],
       const ROOT::Fit::FitResult& res, double Emin, double Emax) {
 //--------------------------------------------------------------------
 // calculate efficiency of the Psi' -> pi+ pi- J/Psi selection
@@ -905,7 +1084,8 @@ void print_eff(int date, int Model, TH1D* hst[],
    // on one sigma:
    const vector<double> par = res.Parameters();
    const vector<double> er_par = res.Errors();
-   const int niter = 1 + 2*Model; // first is nominal parameters
+//    const int niter = 1 + 2*Model; // first is nominal parameters
+   const int niter = (imod==0) ? 7 : 1 + 2*imod;
    vector<double> eff(niter,0.), err(niter,0);
    double sys_err = 0;
    for (int it = 0; it < niter; ++it ) {
@@ -926,7 +1106,7 @@ void print_eff(int date, int Model, TH1D* hst[],
       }
 
 //       TH1D* hMC = hst[5]; // debug
-      TH1D* hMC = cor_sig_hst(hst[5],Model,par1.data());
+      TH1D* hMC = cor_sig_hst(hst[5],imod,par1.data());
       double Nmc = 0.;
       double er_Nmc = 0.;
 
@@ -976,13 +1156,22 @@ void print_eff(int date, int Model, TH1D* hst[],
 //--------------------------------------------------------------------
 void DoFit(int date) {
 //--------------------------------------------------------------------
+   bool USE_NOHC_SIGNAL_MC = true;
    TH1D* hst[20];
    if ( date==2009 ) {
-      fill_hist2009(hst);
+      if ( USE_NOHC_SIGNAL_MC ) {
+         fill_hist2009_nohc(hst);
+      } else {
+         fill_hist2009(hst);
+      }
       hst[0]->SetMaximum(7.e5);
       hst[0]->SetMinimum(0.99e4);
    } else if(date==2012) {
-      fill_hist2012(hst);
+      if ( USE_NOHC_SIGNAL_MC ) {
+         fill_hist2012_nohc(hst);
+      } else {
+         fill_hist2012(hst);
+      }
       hst[0]->SetMaximum(2.e6);
       hst[0]->SetMinimum(3.e4);
    }
@@ -990,7 +1179,7 @@ void DoFit(int date) {
    // fit signal in region (ExMin; ExMax)
    double ExMin = 3.01;
    double ExMax = 3.19;
-   myChi2 chi2_fit(hst,ExMin,ExMax);
+   myChi2 chi2_fit(hst,ExMin,ExMax,USE_NOHC_SIGNAL_MC);
 
    // ========================= Fit with ROOT ========================
    // == fit configuration
@@ -1004,8 +1193,10 @@ void DoFit(int date) {
 
    // type of correction and the number of correction parameters
    // in the function cor_sig()
-   const unsigned int Model = (date == 2009) ? 3 : 1;
-//    const unsigned int Model = 3;
+   unsigned int Model = 3;
+   if ( !USE_NOHC_SIGNAL_MC ) {
+      Model = (date == 2009) ? 3 : 1;
+   }
    chi2_fit.SetModel(Model);
 
    // order of polynomial for background correction
@@ -1029,33 +1220,39 @@ void DoFit(int date) {
    }
 
    vector<double> par_ini;
-   if ( date == 2009 ) {
-      if ( Model == 1 ) {
-//          par_ini = { 0.9788,0.868e-3,
-//                      1.0343,0.0069,0.0083,0.0011 };
-         par_ini = { 0.9823,0.862e-3,
-                     1.0343,0.0069,0.0083,0.0011 }; // fix-bg
-      } else if ( Model == 2 ) {
-         par_ini = { 0.9786,0.873e-3,-0.0015,
-                     1.0343,0.0069,0.0083,0.0011 };
-      } else if ( Model == 3 ) {
-         par_ini = { 0.9756, 1.24e-3, 0.44e-3, 0.48,
-                     1.0340,0.0047,-0.0092,-0.0005 }; // final
-//          par_ini = { 0.9800, 1.18e-3, 0.42e-3, 0.44,
-//                      1.0343,0.0069,0.0083,0.0011 }; // fix bg
+   if ( !USE_NOHC_SIGNAL_MC ) {
+      if ( date == 2009 ) {
+         if ( Model == 1 ) {
+            par_ini = { 0.9823,0.862e-3,
+               1.0343,0.0069,0.0083,0.0011 }; // fix-bg
+         } else if ( Model == 2 ) {
+            par_ini = { 0.9786,0.873e-3,-0.0015,
+               1.0343,0.0069,0.0083,0.0011 };
+         } else if ( Model == 3 ) {
+            par_ini = { 0.9756, 1.24e-3, 0.44e-3, 0.48,
+               1.0340,0.0047,-0.0092,-0.0005 }; // final
+         }
+      } else if ( date == 2012 ) {
+         if ( Model == 1 ) {
+            par_ini = { 0.9824,0.627e-3,
+               1.0482,0.0015,-0.0135,-0.0030 }; // final
+         } else if ( Model == 2 ) {
+            par_ini = { 0.9874,0.610e-3,-0.0646,       // 40272.8 ???
+               1.0478,0.0044,0.0076,0.0008 }; // fix-bg
+         } else if ( Model == 3 ) {
+            par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
+               1.0478,0.0044,0.0076,0.0008 }; // == M1
+         }
       }
-   } else if ( date == 2012 ) {
-      if ( Model == 1 ) {
-         par_ini = { 0.9824,0.627e-3,
-                     1.0482,0.0015,-0.0135,-0.0030 }; // final
-//          par_ini = { 0.9875,0.611e-3,
-//                      1.0478,0.0044,0.0076,0.0008 }; // fix-bg
-      } else if ( Model == 2 ) {
-         par_ini = { 0.9874,0.610e-3,-0.0646,       // 40272.8 ???
-                     1.0478,0.0044,0.0076,0.0008 }; // fix-bg
-      } else if ( Model == 3 ) {
-         par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
-                     1.0478,0.0044,0.0076,0.0008 }; // == M1
+   } else {
+      if ( date == 2009 ) {
+         par_ini = { 0.9828,6.47e-4,3.25e-3,0.132,
+            1.0342,0.0048,-0.0037,-0.0009 }; // 0.222MeV
+//             1.0343,0.0069,0.0083,0.0011 }; // fix-bg
+      } else if ( date == 2012 ) {
+         par_ini = { 0.9965,7.31e-4,3.47e-3,0.144,
+            1.0478,0.0007,-0.0031,-0.0040 }; // 0.379 MeV
+//             1.0478,0.0044,0.0076,0.0008 }; // fix-bg
       }
    }
 
@@ -1100,8 +1297,8 @@ void DoFit(int date) {
    fitter.FitFCN(Npar, chi2_fit, nullptr, chi2_fit.Size(), true);
 
    // to obtain reliable errors:
-//   fitter.CalculateHessErrors();
   fitter.CalculateMinosErrors();
+  fitter.CalculateHessErrors();
 
    // == Fit result
    ROOT::Fit::FitResult res = fitter.Result();
@@ -1112,7 +1309,8 @@ void DoFit(int date) {
    const vector<double> er_par = res.Errors();
 
    // corrections for MC signal
-   hst[12] = cor_sig_hst(hst[2], Model, par.data());
+   int imod = (USE_NOHC_SIGNAL_MC) ? 0 : Model;
+   hst[12] = cor_sig_hst(hst[2], imod, par.data());
 
    // corrections for background
    int ish = 1 + Model;
@@ -1197,32 +1395,36 @@ void DoFit(int date) {
 
    c1->Update();
 
-   string pdf = string("Mrec")+to_string(date)+string("_fitM")
-      +to_string(Model)+((fixbg) ? "_fixbg" : "")+string(".pdf");
+   string pdf = string("Mrec") + to_string(date) + "_fit" +
+      ( (USE_NOHC_SIGNAL_MC) ? "NOHC" :
+        (string("M") + to_string(Model)) ) +
+      ( (fixbg) ? "_fixbg" : "" ) + string(".pdf");
    c1->Print(pdf.c_str());
 
    // diff data-MC_sum
-   hst[17] = (TH1D*)hst[0] -> Clone("Diff");
-   hst[17] -> Add(hst[8],-1.);
-   hst[17] -> SetAxisRange(3.08,3.12,"X");
-   hst[17] -> GetYaxis() -> SetTitle("#delta(data-MC)");
-   hst[17] -> GetYaxis() -> SetMaxDigits(3);
-   TCanvas* c2 = new TCanvas("c2","...",900,0,800,800);
-   c2 -> cd();
-   hst[17] -> Draw("E");
-   gPad -> RedrawAxis();
-   c2 -> Update();
-   string pdf2 = string("diff")+to_string(date)+string("_m")
-      +to_string(Model)+((fixbg) ? "_fixbg" : "")+string(".pdf");
-   c2 -> Print(pdf2.c_str());
+   if ( !USE_NOHC_SIGNAL_MC ) {
+      hst[17] = (TH1D*)hst[0] -> Clone("Diff");
+      hst[17] -> Add(hst[8],-1.);
+      hst[17] -> SetAxisRange(3.08,3.12,"X");
+      hst[17] -> GetYaxis() -> SetTitle("#delta(data-MC)");
+      hst[17] -> GetYaxis() -> SetMaxDigits(3);
+      TCanvas* c2 = new TCanvas("c2","...",900,0,800,800);
+      c2 -> cd();
+      hst[17] -> Draw("E");
+      gPad -> RedrawAxis();
+      c2 -> Update();
+      string pdf2 = string("diff")+to_string(date)+string("_m")
+         +to_string(Model)+((fixbg) ? "_fixbg" : "")+string(".pdf");
+      c2 -> Print(pdf2.c_str());
+   }
 
 
    // numbers for E in [Emin,Emax]
    print_Numbers(hst,3.092,3.102);// see cuts.h !
    print_Numbers(hst,3.055,3.145);// BAM-42
 
-   print_eff(date,Model,hst,res,3.092,3.102);
-   print_eff(date,Model,hst,res,3.055,3.145);
+   print_eff(date,imod,hst,res,3.092,3.102);
+   print_eff(date,imod,hst,res,3.055,3.145);
 }
 
 // {{{1 Main
