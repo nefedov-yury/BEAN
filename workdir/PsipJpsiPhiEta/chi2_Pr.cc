@@ -115,7 +115,7 @@ void chi2_Plot(int date) {
    chi2_mcS->DrawCopy("SAME HIST");
 //    chi2_mcB->DrawCopy("SAME HIST");
 
-   double xx = 80.; // ----> draw chi2_cut
+   double xx = 60.; // ----> draw chi2_cut
    double yy = 0.25*maxh;
    TLine* l1 = new TLine(xx,0.,xx,yy);
    TLatex* t1 = new TLatex(xx+5,0.9*yy,
@@ -176,7 +176,7 @@ void chi2_SB(int date) {
    chi2cp -> SetMaximum(ymax);
 
    // box to show rejected region
-   double ch2_cut = 80.;
+   double ch2_cut = 60.;
    double ch2_max = 200.;
    TBox* box = new TBox;
    box -> SetFillStyle(3001);
@@ -223,8 +223,8 @@ void chi2_Pr()
 //    gStyle->SetLegendTextSize(0.04);
 
 // 1) data vs signal MC in the window for M(K+K-) and M(gg) .. fig.11
-   chi2_SB(2009);
-//    chi2_SB(2012);
+//    chi2_SB(2009);
+   chi2_SB(2012);
 
 // 2) data vs inclusive MC
 //    chi2_Plot(2009);

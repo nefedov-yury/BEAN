@@ -160,7 +160,7 @@ TH1D* fill_mrec(string fname,string hname,int type=0,double shift=0.){
 //-------------------------------------------------------------------------
 TH1D* fill_mrec_nohc(string fname, string hname, double shift=0.) {
 //-------------------------------------------------------------------------
-   fname = string("archive/prod-9/") + fname;
+   fname = string("prod-9/") + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {

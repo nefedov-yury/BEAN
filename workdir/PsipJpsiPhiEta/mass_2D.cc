@@ -7,6 +7,8 @@
 //      type = 2 M^2(K+K-) vs M^2(K+eta)
 //    -> Dalitz_xxx.pdf
 
+#include "masses.h"
+
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -82,7 +84,7 @@ void plot_2D(string fname, string title, string pdf="") {
 
    double width = 0.02*title.size();
    TLegend* leg = new TLegend(0.89-width,0.79,0.89,0.89);
-   leg -> SetTextSize(0.05);
+   leg -> SetTextSize(0.04);
    leg -> SetHeader(title.c_str(), "C");
    leg -> Draw();
 
@@ -288,7 +290,7 @@ void mass_2D() {
 //    string dir = string("prod-10/");
    string dir = string("prod-11/");
 
-   bool Mass2D = false;
+   bool Mass2D = true;          // <--- Mass2D/Dalitz
    vector<int> list {0,1,3,4};
    if ( !Mass2D ) {
       list = {0,1,6,8};

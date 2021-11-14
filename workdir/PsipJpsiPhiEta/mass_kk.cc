@@ -234,7 +234,7 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    }
 
    hst[10+is] -> Draw("HIST SAME");
-   cout << " Integral signal= " << hst[10+is] -> Integral(30,50) << endl;
+   cout << " Integral signal= " << hst[10+is] -> Integral() << endl;
    hst[10+ib] -> Draw("SAME HIST");
 //    hst[19]    -> Draw("SAME HIST");
    hst[10+id] -> Draw("E,SAME");
