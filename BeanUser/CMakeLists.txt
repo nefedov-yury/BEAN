@@ -20,23 +20,10 @@ SET( CXX_FILES
 #   Semileptonic.cxx
 #   DoubleDTag.cxx
 #
-#   see ~/study/bes3/ARCHIVE/BeanUser/
-#   Select3pi.cxx
-#   SelectK3pi.cxx
-#   SelectK3pi_2VF.cxx
-#   SelectKsKpi.cxx
-#   SelectPhiEta958.cxx
-#   SelectOmegaEta958.cxx
-#   SelectKKpi0.cxx
-#
-#     SelectOmegapi0.cxx
-#     SelectOmegaEta.cxx
    SelectKKgg.cxx
-
    PsipJpsiPhiEta.cxx
    PsipPiPiKK.cxx
    PsipJpsiGammaEta.cxx
-#     PsipMuMuGamma.cxx
 #
    Eta_TwoPi.cxx
    PipPimPi0Eta.cxx
