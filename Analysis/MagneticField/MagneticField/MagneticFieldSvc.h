@@ -58,7 +58,7 @@ public:
   virtual StatusCode initialize();
 
   void init_params();
-
+  void init_params(std::vector<double> current, std::vector<double> beamEnergy, int runNo);
   /// Finalise the service.
   virtual StatusCode finalize();
 
@@ -96,28 +96,34 @@ public:
   void SetPaths(std::string new_path, std::string new_DBFilePath)
       {this->SetPath(new_path); m_connect_run->SetDBFilePath(new_DBFilePath);}
 
-  void SetScale( double scale = 1.0 )           {m_scale = scale;}
-  void TurnOffField(bool turnOffField = false)  {m_turnOffField=turnOffField;}
-  void UniField( bool uniField = false )        {m_uniField = uniField;} 
+  // function replacement for declareProperty()
+  void TurnOffField (bool turnOffField = false) {m_turnOffField=turnOffField;}
+  void GridDistance (int gridDistance = 5) {m_gridDistance = gridDistance;}
+  void RunMode (int runmode = 2) {m_runmode = runmode;}
+  void IfRealField (bool ifRealField = true) {m_ifRealField = ifRealField;}
+  void OutLevel (int outlevel = 1) {m_outlevel = outlevel;}
+  void SetScale (double scale = 1.0) {m_scale = scale;}
+  void UniField (bool uniField = false) {m_uniField = uniField;}
 
-  void GridDistance( int gridDistance = 5)      {m_gridDistance = gridDistance;}
-  void RunMode( int runmode = 2)                {m_runmode = runmode;}
-  void IfRealField( bool ifRealField = true)    {m_ifRealField = ifRealField;}
-  void OutLevel( int outlevel = 1)              {m_outlevel = outlevel;}
+  void Cur_SCQ1_55 (double Cur_SCQ1_55 = 349.4) {m_Cur_SCQ1_55 = Cur_SCQ1_55;}
+  void Cur_SCQ1_89 (double Cur_SCQ1_89 = 426.2) {m_Cur_SCQ1_89 = Cur_SCQ1_89;}
+  void Cur_SCQ2_10 (double Cur_SCQ2_10 = 474.2) {m_Cur_SCQ2_10 = Cur_SCQ2_10;}
 
-  void Cur_SCQ1_55( double Cur_SCQ1_55 = 349.4) {m_Cur_SCQ1_55 = Cur_SCQ1_55;}
-  void Cur_SCQ1_89( double Cur_SCQ1_89 = 426.2) {m_Cur_SCQ1_89 = Cur_SCQ1_89;}
-  void Cur_SCQ2_10( double Cur_SCQ2_10 = 474.2) {m_Cur_SCQ2_10 = Cur_SCQ2_10;}
+  void UseDBFlag (bool useDB = true) {m_useDB = useDB;}
+//   void ReadOneTime (bool readOneTime = false) {m_readOneTime = readOneTime;}
+  void RunFrom (int runFrom = 8093) {m_runFrom = runFrom;}
+  void RunTo (int runTo = 9025) {m_runTo = runTo;}
 
-  void UseDBFlag( bool useDB = true)            {m_useDB = useDB;}
-
-  /// Initialise
+  /// Initialize
   bool init_mucMagneticField();
   virtual StatusCode initialize();
-  void init_params(int run);
+  void init_params(int runNo);
 
   // handler for new run
   void handle(int new_run);
+
+  // get beam-energy vector
+  const std::vector<double>& GetBeamEnergy() const {return beamEnergy;}
 #endif
 
   /** IMagneticFieldSvc interface.
@@ -155,6 +161,10 @@ private:
 
   std::string m_filename;        ///< Magnetic field file name
   std::string m_filename_TE;        ///< Magnetic field file name
+  //Not open map files for every run
+  std::string former_m_filename_TE;//("First Run");
+  std::string former_m_filename;//="First Run";
+
   int m_runmode;                 ///< Run mode
   int m_gridDistance;            ///< grid distance of field map
   int m_outlevel;
@@ -193,13 +203,21 @@ private:
 
   bool m_turnOffField;
   bool m_uniField;
+public:
+  bool m_readOneTime;
+  int           m_runFrom;
+  int           m_runTo;
+  int runNo;
 
 #ifndef BEAN
   IDataProviderSvc* m_eventSvc;
 #endif
-
   //database
   FieldDBUtil::ConnectionDB* m_connect_run;
+  std::map<int, std::vector<double> > m_mapMagnetInfo;
+  std::map<int, std::vector<double> > m_mapBeamEnergy;
+  std::vector<double> beamEnergy;
+  std::vector<double> current;
 };
 
 #endif  // MAGNETICFIELDSVC_H

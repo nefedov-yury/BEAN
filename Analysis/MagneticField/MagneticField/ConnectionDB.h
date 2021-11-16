@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 #ifndef BEAN
 #include "DatabaseSvc/IDatabaseSvc.h"
@@ -18,7 +19,6 @@ namespace FieldDBUtil {
     ConnectionDB();
 #else
     ConnectionDB() {}
-
     void SetDBFilePath(std::string new_DBFilePath);
 #endif
 
@@ -44,6 +44,8 @@ namespace FieldDBUtil {
 
     ConnectionDB::eRet getReadSC_MagnetInfo(std::vector<double>& current, int runNo);
     ConnectionDB::eRet getBeamEnergy( std::vector<double>& beamE, int runNo);
+    bool getReadSC_MagnetInfo(std::map<int, std::vector<double> >& m_mapMagnetInfo, int runFrom, int runTo);
+    bool getBeamEnergy( std::map<int, std::vector<double> >& m_mapBeamEnergy, int runFrom, int runTo);
 
 #ifndef BEAN
   private:

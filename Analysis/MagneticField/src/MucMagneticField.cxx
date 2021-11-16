@@ -171,7 +171,7 @@ void MucMagneticField::readPar()
   filename = path +
                  std::string( "/dat/barIronpar.txt");
   ifstream infile1(filename.c_str(),ios_base::in);
-  if(infile1) cout<<"*** Read field map: "<<filename<<endl;
+  if(infile1) cout<<"*** Read field map_Iron: "<<filename<<endl;
   for(int i=0; i<18; i++)
   {
     infile1>>bipx0[i]>>bipy0[i]>>bipz0[i]>>bipx1[i]>>bipy1[i]>>bipz1[i]
@@ -185,7 +185,7 @@ void MucMagneticField::readPar()
                  std::string( "/dat/barAirpar.txt");
 
   ifstream infile2(filename.c_str(),ios_base::in);
-  if(infile2) cout<<"*** Read field map: "<<filename<<endl;
+  if(infile2) cout<<"*** Read field map_Air: "<<filename<<endl;
   for(int j=0; j<18; j++)
   {
     infile2>>bapx0[j]>>bapy0[j]>>bapz0[j]>>bapx1[j]>>bapy1[j]>>bapz1[j]
@@ -198,7 +198,7 @@ void MucMagneticField::readPar()
                  std::string( "/dat/endIronpar.txt");
 
   ifstream infile3(filename.c_str(),ios_base::in);
-  if(infile3) cout<<"*** Read field map: "<<filename<<endl;
+  if(infile3) cout<<"*** Read field map_end: "<<filename<<endl;
   for(int i=0; i<17; i++)
   {
     infile3>>aipx0[i]>>aipy0[i]>>aipz0[i]>>aipx1[i]>>aipy1[i]>>aipz1[i]
@@ -212,7 +212,7 @@ void MucMagneticField::readPar()
                  std::string( "/dat/endAirpar.txt");
 
   ifstream infile4(filename.c_str(),ios_base::in);
-  if(infile4) cout<<"*** Read field map: "<<filename<<endl;
+  if(infile4) cout<<"*** Read field map_end_air: "<<filename<<endl;
   for(int j=0; j<17; j++)
   {
     infile4>>aapx0[j]>>aapy0[j]>>aapz0[j]>>aapx1[j]>>aapy1[j]>>aapz1[j]

@@ -25,6 +25,7 @@ SET( CXX_FILES
    PsipPiPiKK.cxx
    PsipJpsiGammaEta.cxx
 #
+# local files
    Eta_TwoPi.cxx
    PipPimPi0Eta.cxx
 #     SelectJpsiX.cxx

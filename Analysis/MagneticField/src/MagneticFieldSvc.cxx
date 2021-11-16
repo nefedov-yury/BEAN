@@ -44,12 +44,12 @@ using namespace CLHEP;
 //=============================================================================
 // Standard constructor, initializes variables
 //=============================================================================
-MagneticFieldSvc::MagneticFieldSvc( const std::string& name, 
+MagneticFieldSvc::MagneticFieldSvc( const std::string& name,
             ISvcLocator* svc ) : Service( name, svc )
 {
   declareProperty( "TurnOffField", m_turnOffField = false);
   declareProperty( "FieldMapFile", m_filename );
-  declareProperty( "GridDistance", m_gridDistance = 5); 
+  declareProperty( "GridDistance", m_gridDistance = 5);
   declareProperty( "RunMode", m_runmode = 2);
   declareProperty( "IfRealField", m_ifRealField = true);
   declareProperty( "OutLevel", m_outlevel = 1);
@@ -61,12 +61,15 @@ MagneticFieldSvc::MagneticFieldSvc( const std::string& name,
   declareProperty( "Cur_SCQ2_10", m_Cur_SCQ2_10 = 474.2);
 
   declareProperty( "UseDBFlag", m_useDB = true);
+  declareProperty( "ReadOneTime", m_readOneTime=false);
+  declareProperty( "RunFrom", m_runFrom=8093);
+  declareProperty("RunTo",m_runTo=9025);
 
   m_Mucfield = new MucMagneticField();
   if(!m_Mucfield) cout<<"error: can not get MucMagneticField pointer"<<endl;
 
   m_zfield = -1.0*tesla;
-  
+
   if(getenv("MAGNETICFIELDROOT") != NULL) {
     path = std::string(getenv( "MAGNETICFIELDROOT" ));
   } else {
@@ -86,18 +89,21 @@ MagneticFieldSvc::MagneticFieldSvc()
 {
   // use functions instead of "declareProperty"
   m_turnOffField = false;
-  m_scale = 1.0;
-  m_uniField = false;
-  m_gridDistance = 5; 
+  m_gridDistance = 5;
   m_runmode = 2;
   m_ifRealField = true;
   m_outlevel = 1;
+  m_scale = 1.0;
+  m_uniField = false;
 
   m_Cur_SCQ1_55 = 349.4;
   m_Cur_SCQ1_89 = 426.2;
   m_Cur_SCQ2_10 = 474.2;
 
   m_useDB = true;
+  m_readOneTime = false; // BEAN use embedded sqlite database engine
+  m_runFrom = 8093;
+  m_runTo = 9025;
 
   path = "";
   m_Mucfield = 0;
@@ -125,13 +131,13 @@ bool MagneticFieldSvc::init_mucMagneticField()
     if( m_Mucfield->getPath() == path ) return true;
     delete m_Mucfield;
   }
-    
+
   m_Mucfield = new(std::nothrow) MucMagneticField(path);
   if( !m_Mucfield ) {
     cout<<"error: can not get MucMagneticField pointer"<<endl;
     return false;
   }
-  
+
   return true;
 }
 #endif
@@ -141,6 +147,9 @@ StatusCode MagneticFieldSvc::initialize()
 #ifndef BEAN
   MsgStream log(msgSvc(), name());
   StatusCode status = Service::initialize();
+  former_m_filename_TE = "First Run";
+  former_m_filename = "First Run";
+  //cout<<"former_m_filename_TE is:"<<former_m_filename_TE<<":former_m_filename is:"<<former_m_filename<<endl;
   // Get the references to the services that are needed by the ApplicationMgr itself
   IIncidentSvc* incsvc;
   status = service("IncidentSvc", incsvc);
@@ -158,7 +167,6 @@ StatusCode MagneticFieldSvc::initialize()
   if( !init_mucMagneticField() ) return false;
   StatusCode status = true;
 #endif
-
   if(m_useDB == false) {
     if(m_gridDistance == 5) {
       m_Q.reserve(201250);
@@ -172,7 +180,7 @@ StatusCode MagneticFieldSvc::initialize()
       m_Q_TE.reserve(23833);
       m_P_TE.reserve(23833);
     }
- 
+
       m_filename = path;
       m_filename_TE = path;
       if(m_gridDistance == 10) {
@@ -214,11 +222,10 @@ StatusCode MagneticFieldSvc::initialize()
         }
       }
       cout<<"*** Read field map: "<<m_filename<<endl;
-      cout<<"*** Read field map: "<<m_filename_TE<<endl;
+      cout<<"*** Read field map "<<m_filename_TE<<endl;
 
     status = parseFile();
     status = parseFile_TE();
-
 #ifndef BEAN
     if ( status.isSuccess() ) {
         log << MSG::DEBUG << "Magnetic field parsed successfully" << endreq;
@@ -250,22 +257,26 @@ StatusCode MagneticFieldSvc::initialize()
   }
   else {
     m_connect_run = new FieldDBUtil::ConnectionDB();
+    if (m_readOneTime == true){
+     bool e = m_connect_run->getReadSC_MagnetInfo(m_mapMagnetInfo,m_runFrom,m_runTo);
+     e = m_connect_run->getBeamEnergy(m_mapBeamEnergy, m_runFrom,m_runTo);
+    }
 #ifndef BEAN
     if (!m_connect_run) {
       log << MSG::ERROR << "Could not open connection to database" << endreq;
     }
 #endif
   }
-
   return status;
 }
 
+
 #ifndef BEAN
-void MagneticFieldSvc::init_params()
+void MagneticFieldSvc::init_params(std::vector<double> current, std::vector<double> beamEnergy, int runNo)
 {
-  MsgStream log(msgSvc(), name()); 
+  MsgStream log(msgSvc(), name());
 #else
-void MagneticFieldSvc::init_params(int run)
+void MagneticFieldSvc::init_params(int runNo)
 {
   if( !init_mucMagneticField() ) {
     cerr << " STOP! " << endl;
@@ -281,7 +292,7 @@ void MagneticFieldSvc::init_params(int run)
   m_P_2.clear();
   m_P_TE.clear();
   m_Q_TE.clear();
- 
+
   if(m_gridDistance == 5) {
      m_Q.reserve(201250);
      m_P.reserve(201250);
@@ -297,60 +308,50 @@ void MagneticFieldSvc::init_params(int run)
      m_P.reserve(27082);
      m_Q_1.reserve(27082);
      m_P_1.reserve(27082);
-     m_Q_2.reserve(27082); 
+     m_Q_2.reserve(27082);
      m_P_2.reserve(27082);
      m_Q_TE.reserve(23833);
      m_P_TE.reserve(23833);
    }
-   
-#ifndef BEAN
-   int runNo;
-   SmartDataPtr<Event::EventHeader> evt(m_eventSvc,"/Event/EventHeader");
-   if( evt ){
-     runNo = evt -> runNumber();
-     log << MSG::INFO <<"The runNumber of current event is  "<<runNo<<endreq;
-   }
-   else {
-     log << MSG::ERROR <<"Can not get EventHeader!"<<endreq;
-   }
-#else
-   int runNo = run;
-#endif
-
-   using FieldDBUtil::ConnectionDB;
-   std::vector<double> current(3,0.);
-   ConnectionDB::eRet e = m_connect_run->getReadSC_MagnetInfo(current,std::abs(runNo));   
 
 #ifndef BEAN
-   std::vector<double> beamEnergy;
-   beamEnergy.clear();
-   e = m_connect_run->getBeamEnergy(beamEnergy, std::abs(runNo));
    char BPR_PRB[200];
    char BER_PRB[200];
-
    sprintf(BPR_PRB,"%f ",beamEnergy[0]);
    sprintf(BER_PRB,"%f ",beamEnergy[1]);
-
    setenv("BEPCII_INFO.BPR_PRB", BPR_PRB, 1);
    setenv("BEPCII_INFO.BER_PRB", BER_PRB, 1);
+#else
+   // ATTENTION: 'current' and 'beamEnergy' are members of class
+   m_connect_run->getReadSC_MagnetInfo(current,std::abs(runNo));
+   // there is no beam information for BEAN ?
+//    beamEnergy.clear(); // must be!
+//    m_connect_run->getBeamEnergy(beamEnergy, std::abs(runNo));
 #endif
 
    int ssm_curr = int (current[0]);
    double scql_curr = current[1];
    double scqr_curr = current[2];
+//   cout<<"curent is:"<<ssm_curr<<"scql_curr is:"<<scql_curr<<"scqr_curr is:"<<scqr_currendl;
+
+
 
 #ifndef BEAN
    log << MSG::INFO << "SSM current: " << current[0] << " SCQL current: " << current[1] << " SCQR current: " << current[2] << " in Run " << runNo << endreq;
+   log << MSG::INFO << "beamEnergy is:"<< beamEnergy[0] <<" BER_PRB:"<< beamEnergy[1] << " in Run " << runNo << endreq;
 #else
-   cout << "SSM current: " << current[0] << " SCQL current: " << current[1] 
+   cout << "SSM current: " << current[0] << " SCQL current: " << current[1]
         << " SCQR current: " << current[2] << " in Run " << runNo << endl;
+   if ( !beamEnergy.empty() ) {
+      cout << "beamEnergy is:"<< beamEnergy[0] <<" BER_PRB:"<< beamEnergy[1] << " in Run " << runNo << endl;
+   }
 #endif
-   
+
    //int ssm_curr = 3369;
    //double scql_curr = 426.2;
    //double scqr_curr = 426.2;
    //for the energy less than 1.89GeV
-   if((ssm_curr >= 3367) && (ssm_curr <= 3370) && ((scql_curr+scqr_curr)/2 < m_Cur_SCQ1_89)) {
+   if(((ssm_curr >= 3367) && (ssm_curr <= 3370) && ((scql_curr+scqr_curr)/2 < m_Cur_SCQ1_89))) {
      m_zfield = -1.0*tesla;
        m_filename = path;
        m_filename += std::string( "/dat/2008-05-27BESIII-field-Mode2.dat");
@@ -360,8 +361,13 @@ void MagneticFieldSvc::init_params(int run)
      cout << "Select field map: " << m_filename << endl;
 #endif
 
+     if(((former_m_filename == "First Run") || (former_m_filename != m_filename))&&(m_readOneTime == true))
+      {
+       former_m_filename = m_filename;
+       }
+     else if(m_readOneTime == false) {
+       }
      StatusCode status = parseFile();
-
 #ifndef BEAN
      if ( !status.isSuccess() ) {
        log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
@@ -371,6 +377,7 @@ void MagneticFieldSvc::init_params(int run)
        cout << "Magnetic field parse failled" << endl;
      }
 #endif
+
      m_Q_1 = m_Q;
      m_P_1 = m_P;
 
@@ -393,17 +400,23 @@ void MagneticFieldSvc::init_params(int run)
      cout << "Select field map: " << m_filename << endl;
 #endif
 
+    if(((former_m_filename == "First Run") || (former_m_filename != m_filename))&&(m_readOneTime == true))
+      {
+       former_m_filename = m_filename;
+       }
+    else if(m_readOneTime == false){
+       }
      status = parseFile();
-
 #ifndef BEAN
      if ( !status.isSuccess() ) {
        log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
-     } 
+     }
 #else
      if ( !status ) {
        cout << "Magnetic field parse failled" << endl;
-     } 
+     }
 #endif
+
      m_Q_2 = m_Q;
      m_P_2 = m_P;
 
@@ -416,7 +429,7 @@ void MagneticFieldSvc::init_params(int run)
      if(m_gridDistance == 10) {
        m_Q.reserve(27082);
        m_P.reserve(27082);
-     } 
+     }
      //check
      if(m_Q_2.size() != m_Q_1.size()) {
 #ifndef BEAN
@@ -434,7 +447,7 @@ void MagneticFieldSvc::init_params(int run)
      }
    }
    //for the energy greater than 1.89GeV
-   if((ssm_curr >= 3367) && (ssm_curr <= 3370) && ((scql_curr+scqr_curr)/2 >= m_Cur_SCQ1_89)) {
+   if(((ssm_curr >= 3367) && (ssm_curr <= 3370) && ((scql_curr+scqr_curr)/2 >= m_Cur_SCQ1_89))){
      m_zfield = -1.0*tesla;
        m_filename = path;
        m_filename += std::string( "/dat/2008-05-27BESIII-field-Mode3.dat");
@@ -443,9 +456,13 @@ void MagneticFieldSvc::init_params(int run)
 #else
      cout << "Select field map: " << m_filename << endl;
 #endif
-
+   if(((former_m_filename == "First Run") || (former_m_filename != m_filename))&&(m_readOneTime == true))
+      {
+       former_m_filename = m_filename;
+       }
+   else if(m_readOneTime == false){
+       }
      StatusCode status = parseFile();
-
 #ifndef BEAN
      if ( !status.isSuccess() ) {
        log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
@@ -455,6 +472,7 @@ void MagneticFieldSvc::init_params(int run)
        cout << "Magnetic field parse failled" << endl;
      }
 #endif
+
      m_Q_1 = m_Q;
      m_P_1 = m_P;
 
@@ -477,19 +495,25 @@ void MagneticFieldSvc::init_params(int run)
      cout << "Select field map: " << m_filename << endl;
 #endif
 
+  if(((former_m_filename == "First Run") || (former_m_filename != m_filename))&&(m_readOneTime == true))
+      {
+       former_m_filename = m_filename;
+       }
+  else if(m_readOneTime == false){
+       }
      status = parseFile();
-
 #ifndef BEAN
      if ( !status.isSuccess() ) {
        log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
-     } 
+     }
 #else
      if ( !status ) {
        cout << "Magnetic field parse failled" << endl;
-     } 
+     }
 #endif
+
      m_Q_2 = m_Q;
-     m_P_2 = m_P;                           
+     m_P_2 = m_P;
 
      m_Q.clear();
      m_P.clear();
@@ -501,12 +525,17 @@ void MagneticFieldSvc::init_params(int run)
        m_Q.reserve(27082);
        m_P.reserve(27082);
      }
+
      //check
      if(m_Q_2.size() != m_Q_1.size()) {
 #ifndef BEAN
+
        log << MSG::FATAL << "The two field maps used in this run are wrong!!!" << endreq;
+
 #else
+
        cout << "The two field maps used in this run are wrong!!!" << endl;
+
 #endif
        exit(1);
      }
@@ -515,7 +544,7 @@ void MagneticFieldSvc::init_params(int run)
        double fieldvalue = (m_Q_1[iQ] - m_Q_2[iQ])/(m_Cur_SCQ1_89 - m_Cur_SCQ2_10)*((scql_curr+scqr_curr)/2 - m_Cur_SCQ2_10) + m_Q_2[iQ];
        m_Q.push_back(fieldvalue);
        m_P.push_back(m_P_2[iQ]);
-     } 
+     }
    }
    if((ssm_curr >= 3033) && (ssm_curr <= 3035)) {
      m_zfield = -0.9*tesla;
@@ -527,8 +556,13 @@ void MagneticFieldSvc::init_params(int run)
      cout << "Select field map: " << m_filename << endl;
 #endif
 
+  if(((former_m_filename == "First Run") || (former_m_filename != m_filename))&&(m_readOneTime == true))
+      {
+       former_m_filename = m_filename;
+       }
+   else if(m_readOneTime == false){
+       }
      StatusCode status = parseFile();
-
 #ifndef BEAN
      if ( !status.isSuccess() ) {
        log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
@@ -538,9 +572,10 @@ void MagneticFieldSvc::init_params(int run)
        cout << "Magnetic field parse failled" << endl;
      }
 #endif
+
      m_Q_1 = m_Q;
      m_P_1 = m_P;
-     
+
      m_Q.clear();
      m_P.clear();
      if(m_gridDistance == 5) {
@@ -555,13 +590,17 @@ void MagneticFieldSvc::init_params(int run)
        m_filename = path;
        m_filename += std::string( "/dat/2008-05-27BESIII-field-Mode8.dat");
 #ifndef BEAN
-     log << MSG::INFO << "Select field map: " << m_filename << endreq; 
+     log << MSG::INFO << "Select field map: " << m_filename << endreq;
 #else
-     cout << "Select field map: " << m_filename << endl; 
+     cout << "Select field map: " << m_filename << endl;
 #endif
 
+   if(((former_m_filename == "First Run") || (former_m_filename != m_filename))&&(m_readOneTime == true)){
+       former_m_filename = m_filename;
+       }
+   else if(m_readOneTime == false){
+       }
      status = parseFile();
-
 #ifndef BEAN
      if ( !status.isSuccess() ) {
        log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
@@ -571,6 +610,7 @@ void MagneticFieldSvc::init_params(int run)
        cout << "Magnetic field parse failled" << endl;
      }
 #endif
+
      m_Q_2 = m_Q;
      m_P_2 = m_P;
 
@@ -600,30 +640,29 @@ void MagneticFieldSvc::init_params(int run)
        m_P.push_back(m_P_2[iQ]);
      }
    }
-
    if((!((ssm_curr >= 3367) && (ssm_curr <= 3370)) && !((ssm_curr >= 3033) && (ssm_curr <= 3035))) || scql_curr == 0 || scqr_curr == 0) {
 #ifndef BEAN
      log << MSG::FATAL << "The current of run " << runNo << " is abnormal in database, please check it! " << endreq;
      log << MSG::FATAL << "The current of SSM is " << ssm_curr << ", SCQR is " << scqr_curr << ", SCQL is " << scql_curr << endreq;
 #else
-     cout << "The current of run " << runNo 
+     cout << "The current of run " << runNo
           << " is abnormal in database, please check it! " << endl;
-     cout << "The current of SSM is " << ssm_curr 
+     cout << "The current of SSM is " << ssm_curr
           << ", SCQR is " << scqr_curr << ", SCQL is " << scql_curr << endl;
 #endif
      exit(1);
-   } 
 
+   }
    if(m_Q.size() == 0) {
 #ifndef BEAN
      log << MSG::FATAL << "This size of field map vector is ZERO, please check the current of run " << runNo << " in database!" << endreq;
 #else
      cout << "This size of field map vector is ZERO,"
-          << " please check the current of run " << runNo 
+          << " please check the current of run " << runNo
           << " in database!" << endl;
 #endif
-     exit(1); 
-   } 
+     exit(1);
+   }
 
    m_filename_TE = path;
    if(m_gridDistance == 10)  m_filename_TE += std::string( "/dat/TEMap10cm.dat");
@@ -633,9 +672,13 @@ void MagneticFieldSvc::init_params(int run)
 #else
    cout << "Select field map: " << m_filename_TE << endl;
 #endif
-
+   if(((former_m_filename_TE == "First Run") || (former_m_filename_TE != m_filename_TE))&&(m_readOneTime == true))
+      {
+       former_m_filename_TE = m_filename_TE;
+       }
+   else if (m_readOneTime == false)
+     {}
    StatusCode status = parseFile_TE();
-
 #ifndef BEAN
    if ( !status.isSuccess() ) {
      log << MSG::DEBUG << "Magnetic field parse failled" << endreq;
@@ -669,7 +712,7 @@ StatusCode MagneticFieldSvc::finalize()
   MsgStream log( msgSvc(), name() );
   //if(m_connect_run) delete m_connect_run;
   StatusCode status = Service::finalize();
-  
+
   if ( status.isSuccess() )
     log << MSG::INFO << "Service finalized successfully" << endreq;
   return status;
@@ -678,20 +721,20 @@ StatusCode MagneticFieldSvc::finalize()
 //=============================================================================
 // QueryInterface
 //=============================================================================
-StatusCode MagneticFieldSvc::queryInterface( const InterfaceID& riid, 
-                                             void** ppvInterface      ) 
+StatusCode MagneticFieldSvc::queryInterface( const InterfaceID& riid,
+                                             void** ppvInterface      )
 {
   StatusCode sc = StatusCode::FAILURE;
   if ( ppvInterface ) {
     *ppvInterface = 0;
-    
+
     if ( riid == IID_IMagneticFieldSvc ) {
       *ppvInterface = static_cast<IMagneticFieldSvc*>(this);
       sc = StatusCode::SUCCESS;
       addRef();
     }
     else
-      sc = Service::queryInterface( riid, ppvInterface );    
+      sc = Service::queryInterface( riid, ppvInterface );
   }
   return sc;
 }
@@ -702,9 +745,41 @@ void MagneticFieldSvc::handle(const Incident& inc) {
   if ( inc.type() != "NewRun" ){
     return;
   }
-  log << MSG::DEBUG << "Begin New Run" << endreq;
-  if(m_useDB == true) {
-    init_params();
+  log << MSG::DEBUG << "Begin New Runcc" << endreq;
+
+  SmartDataPtr<Event::EventHeader> eventHeader(m_eventSvc,"/Event/EventHeader");
+        int  new_run = eventHeader->runNumber();
+        if(new_run<0) new_run=-new_run;
+
+
+  if((m_useDB == true)&&(m_readOneTime == false)) {
+    using FieldDBUtil::ConnectionDB;
+    ConnectionDB::eRet e = m_connect_run->getReadSC_MagnetInfo(current,std::abs(new_run));
+    e = m_connect_run->getBeamEnergy(beamEnergy, std::abs(new_run));
+    init_params(current,beamEnergy,new_run);
+   }
+   else if ((m_useDB == true)&&(m_readOneTime == true))
+   {
+    std::vector<double> beamEnergy;
+    std::vector<double> current(3,0.);
+    //if (m_mapBeamEnergy == NULL ||m_mapBeamEnergy.size() == 0))
+    if (m_mapBeamEnergy.size() == 0)
+    {
+      cout<<"Run:"<<new_run<<" BeamEnergy is NULL, please check!!"<<endl;
+      exit(1);
+    }
+    beamEnergy.push_back((m_mapBeamEnergy[new_run])[0]);
+    beamEnergy.push_back((m_mapBeamEnergy[new_run])[1]);
+    //if (m_mapMagnetInfo.size()<1||m_mapMagnetInfo.isEmpty())
+    if(m_mapMagnetInfo.size() == 0)
+    {
+      cout<<"Run:"<<new_run<<" MagnetInfo is NULL, please check!!"<<endl;
+      exit(1);
+    }
+    current[0]=(m_mapMagnetInfo[new_run])[0];
+    current[1]=(m_mapMagnetInfo[new_run])[1];
+    current[2]=(m_mapMagnetInfo[new_run])[2];
+    init_params(current,beamEnergy,new_run);
   }
 }
 
@@ -728,33 +803,32 @@ void MagneticFieldSvc::handle(int new_run) {
 StatusCode MagneticFieldSvc::parseFile() {
 #ifndef BEAN
   StatusCode sc = StatusCode::FAILURE;
-  
+
   MsgStream log( msgSvc(), name() );
 #else
   StatusCode sc = false;
 #endif
- 
+
   char line[ 255 ];
   std::ifstream infile( m_filename.c_str() );
-  
   if ( infile ) {
 #ifndef BEAN
-	  sc = StatusCode::SUCCESS;
+     sc = StatusCode::SUCCESS;
 #else
-	  sc = true;
+     sc = true;
 #endif
-    
+
     // Skip the header till PARAMETER
     do{
-	    infile.getline( line, 255 );
-	  } while( line[0] != 'P' );
-    
+        infile.getline( line, 255 );
+      } while( line[0] != 'P' );
+
     // Get the PARAMETER
     std::string sPar[2];
     char* token = strtok( line, " " );
     int ip = 0;
     do{
-      if ( token ) { sPar[ip] = token; token = strtok( NULL, " " );} 
+      if ( token ) { sPar[ip] = token; token = strtok( NULL, " " );}
       else continue;
       ip++;
     } while ( token != NULL );
@@ -762,23 +836,23 @@ StatusCode MagneticFieldSvc::parseFile() {
 
     // Skip the header till GEOMETRY
     do{
-	    infile.getline( line, 255 );
-	  } while( line[0] != 'G' );
-    
-    // Skip any comment before GEOMETRY 
+        infile.getline( line, 255 );
+      } while( line[0] != 'G' );
+
+    // Skip any comment before GEOMETRY
     do{
-	    infile.getline( line, 255 );
-	  } while( line[0] != '#' );
-    
+        infile.getline( line, 255 );
+      } while( line[0] != '#' );
+
     // Get the GEOMETRY
     infile.getline( line, 255 );
     std::string sGeom[7];
     token = strtok( line, " " );
     int ig = 0;
     do{
-      if ( token ) { sGeom[ig] = token; token = strtok( NULL, " " );} 
-      else continue; 
-      ig++; 
+      if ( token ) { sGeom[ig] = token; token = strtok( NULL, " " );}
+      else continue;
+      ig++;
     } while (token != NULL);
 
     // Grid dimensions are given in cm in CDF file. Convert to CLHEP units
@@ -791,20 +865,20 @@ StatusCode MagneticFieldSvc::parseFile() {
     m_zOffSet = atof( sGeom[6].c_str() ) * cm;
     // Number of lines with data to be read
     long int nlines = ( npar - 7 ) / 3;
-    
+
     // Check number of lines with data read in the loop
     long int ncheck = 0;
-    
+
     // Skip comments and fill a vector of magnetic components for the
     // x, y and z positions given in GEOMETRY
-    
-   	while( infile ) {
-      // parse each line of the file, 
+
+       while( infile ) {
+      // parse each line of the file,
       // comment lines begin with '#' in the cdf file
-	    infile.getline( line, 255 );
-	    if ( line[0] == '#' ) continue;
-	    std::string gridx, gridy, gridz, sFx, sFy, sFz; 
-	    char* token = strtok( line, " " );
+        infile.getline( line, 255 );
+        if ( line[0] == '#' ) continue;
+        std::string gridx, gridy, gridz, sFx, sFy, sFz;
+        char* token = strtok( line, " " );
       if ( token ) { gridx = token; token = strtok( NULL, " " );} else continue;
       if ( token ) { gridy = token; token = strtok( NULL, " " );} else continue;
       if ( token ) { gridz = token; token = strtok( NULL, " " );} else continue;
@@ -834,22 +908,22 @@ StatusCode MagneticFieldSvc::parseFile() {
       m_P.push_back( gx );
       m_P.push_back( gy );
       m_P.push_back( gz );
-      // Add the magnetic field components of each point to 
-      // sequentialy in a vector 
+      // Add the magnetic field components of each point to
+      // sequentialy in a vector
       m_Q.push_back( fx );
       m_Q.push_back( fy );
       m_Q.push_back( fz );
       // counts after reading and filling to match the number of lines
-      ncheck++; 
-	  }
+      ncheck++;
+      }
     infile.close();
     if ( nlines != ncheck) {
 #ifndef BEAN
-      log << MSG::ERROR << "nline is " << nlines << "; ncheck is " << ncheck << " Number of points in field map does not match!" 
+      log << MSG::ERROR << "nline is " << nlines << "; ncheck is " << ncheck << " Number of points in field map does not match!"
           << endreq;
       return StatusCode::FAILURE;
 #else
-      cout << "nline is " << nlines << "; ncheck is " << ncheck << " Number of points in field map does not match!" 
+      cout << "nline is " << nlines << "; ncheck is " << ncheck << " Number of points in field map does not match!"
           << endl;
       return false;
 #endif
@@ -857,14 +931,14 @@ StatusCode MagneticFieldSvc::parseFile() {
   }
   else {
 #ifndef BEAN
-  	log << MSG::ERROR << "Unable to open magnetic field file : " 
+      log << MSG::ERROR << "Unable to open magnetic field file : "
         << m_filename << endreq;
 #else
-  	cout << "Unable to open magnetic field file : " 
+      cout << "Unable to open magnetic field file : "
         << m_filename << endl;
 #endif
   }
-  
+
   return sc;
 }
 
@@ -876,44 +950,44 @@ StatusCode MagneticFieldSvc::parseFile() {
 StatusCode MagneticFieldSvc::parseFile_TE() {
 #ifndef BEAN
   StatusCode sc = StatusCode::FAILURE;
-    
+
   MsgStream log( msgSvc(), name() );
 #else
   StatusCode sc = false;
 #endif
-    
+
   char line[ 255 ];
   std::ifstream infile( m_filename_TE.c_str() );
-    
+
   if ( infile ) {
 #ifndef BEAN
           sc = StatusCode::SUCCESS;
 #else
           sc = true;
 #endif
-    
+
     // Skip the header till PARAMETER
     do{
             infile.getline( line, 255 );
           } while( line[0] != 'P' );
-    
+
     // Get the PARAMETER
     std::string sPar[2];
     char* token = strtok( line, " " );
     int ip = 0;
-    do{ 
+    do{
       if ( token ) { sPar[ip] = token; token = strtok( NULL, " " );}
       else continue;
-      ip++; 
+      ip++;
     } while ( token != NULL );
-    long int npar = atoi( sPar[1].c_str() ); 
-            
+    long int npar = atoi( sPar[1].c_str() );
+
     // Skip the header till GEOMETRY
     do{
             infile.getline( line, 255 );
           } while( line[0] != 'G' );
-      
-    // Skip any comment before GEOMETRY 
+
+    // Skip any comment before GEOMETRY
     do{
             infile.getline( line, 255 );
           } while( line[0] != '#' );
@@ -947,7 +1021,7 @@ StatusCode MagneticFieldSvc::parseFile_TE() {
     // x, y and z positions given in GEOMETRY
 
         while( infile ) {
-      // parse each line of the file, 
+      // parse each line of the file,
       // comment lines begin with '#' in the cdf file
             infile.getline( line, 255 );
             if ( line[0] == '#' ) continue;
@@ -982,8 +1056,8 @@ StatusCode MagneticFieldSvc::parseFile_TE() {
       m_P_TE.push_back( gx );
       m_P_TE.push_back( gy );
       m_P_TE.push_back( gz );
-      // Add the magnetic field components of each point to 
-      // sequentialy in a vector 
+      // Add the magnetic field components of each point to
+      // sequentialy in a vector
       m_Q_TE.push_back( fx );
       m_Q_TE.push_back( fy );
       m_Q_TE.push_back( fz );
@@ -1018,7 +1092,7 @@ StatusCode MagneticFieldSvc::parseFile_TE() {
 //=============================================================================
 // FieldVector: find the magnetic field value at a given point in space
 //=============================================================================
-StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr, 
+StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
                                          HepVector3D& newb) const
 {
 
@@ -1035,11 +1109,11 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
 
  // wll added 2012-08-27
  if(m_uniField) {
-	 uniFieldVector(newr,newb);
+     uniFieldVector(newr,newb);
 #ifndef BEAN
-	 return StatusCode::SUCCESS;
+     return StatusCode::SUCCESS;
 #else
-	 return true;
+     return true;
 #endif
  }
 
@@ -1077,7 +1151,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
     if(r.x()!=0.){
       theta = atan2(fabs(r.y()),fabs(r.x()));
       if(0<=theta&&theta<pi/8) {
-        mr[0] = fabs(r.x()); mr[1] = -fabs(r.y()); mr[2] = fabs(r.z()); 
+        mr[0] = fabs(r.x()); mr[1] = -fabs(r.y()); mr[2] = fabs(r.z());
         if(mr[2]<=1970*mm&&1740*mm<=mr[0]&&mr[0]<=2620*mm){
           part = 1;
           if(1740*mm<=mr[0]&&mr[0]<1770*mm) { layer = 0; mat = 0; }
@@ -1099,7 +1173,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           if(2470*mm<=mr[0]&&mr[0]<=2620*mm) { layer = 8; mat = 0; }
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0];
-          b[1] = -tb[1]; 
+          b[1] = -tb[1];
           b[2] = tb[2];
           ifbar = true;
         }
@@ -1107,7 +1181,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           part = 0; layer = 0; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0];
-          b[1] = -tb[1]; 
+          b[1] = -tb[1];
           b[2] = tb[2];
           ifend = true;
         }
@@ -1157,7 +1231,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0];
           b[1] = -tb[1];
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2310*mm<=mr[2]&&mr[2]<2350*mm&&1167*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 3; mat = 1;
@@ -1173,7 +1247,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0];
           b[1] = -tb[1];
           b[2] = tb[2];
-          ifend = true;  
+          ifend = true;
         }
         if(2380*mm<=mr[2]&&mr[2]<2420*mm&&1203*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 4; mat = 1;
@@ -1205,7 +1279,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0];
           b[1] = -tb[1];
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2590*mm<=mr[2]&&mr[2]<2630*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 6; mat = 1;
@@ -1216,7 +1290,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2630*mm<=mr[2]&&mr[2]<2710*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 7; mat = 0; 
+          part = 0; layer = 7; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0];
           b[1] = -tb[1];
@@ -1232,7 +1306,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2750*mm<=mr[2]&&mr[2]<=2800*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 8; mat = 0; 
+          part = 0; layer = 8; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0];
           b[1] = -tb[1];
@@ -1241,8 +1315,8 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
         }
       }
       if(pi/8<=theta&&theta<pi/4) {
-        mr[0] = fabs(r.x())*cos(pi/4)+fabs(r.y())*sin(pi/4); 
-        mr[1] = -fabs(r.x())*sin(pi/4)+fabs(r.y())*cos(pi/4); 
+        mr[0] = fabs(r.x())*cos(pi/4)+fabs(r.y())*sin(pi/4);
+        mr[1] = -fabs(r.x())*sin(pi/4)+fabs(r.y())*cos(pi/4);
         mr[2] = fabs(r.z());
         if(mr[2]<=1970*mm&&1740*mm<=mr[0]&&mr[0]<=2620*mm) {
           part = 1;
@@ -1291,7 +1365,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0]*cos(pi/4)-tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)+tb[1]*cos(pi/4);
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2170*mm<=mr[2]&&mr[2]<2210*mm&&1100*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 1; mat = 1;
@@ -1323,7 +1397,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0]*cos(pi/4)-tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)+tb[1]*cos(pi/4);
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2310*mm<=mr[2]&&mr[2]<2350*mm&&1167*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 3; mat = 1;
@@ -1331,7 +1405,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0]*cos(pi/4)-tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)+tb[1]*cos(pi/4);
           b[2] = tb[2];
-          ifend = true;  
+          ifend = true;
         }
         if(2350*mm<=mr[2]&&mr[2]<2380*mm&&1167*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 4; mat = 0;
@@ -1382,7 +1456,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2630*mm<=mr[2]&&mr[2]<2710*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 7; mat = 0; 
+          part = 0; layer = 7; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0]*cos(pi/4)-tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)+tb[1]*cos(pi/4);
@@ -1398,7 +1472,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2750*mm<=mr[2]&&mr[2]<=2800*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 8; mat = 0; 
+          part = 0; layer = 8; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0]*cos(pi/4)-tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)+tb[1]*cos(pi/4);
@@ -1473,7 +1547,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0]*cos(pi/4)+tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)-tb[1]*cos(pi/4);
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2240*mm<=mr[2]&&mr[2]<2280*mm&&1133*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 2; mat = 1;
@@ -1505,7 +1579,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = tb[0]*cos(pi/4)+tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)-tb[1]*cos(pi/4);
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2380*mm<=mr[2]&&mr[2]<2420*mm&&1203*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 4; mat = 1;
@@ -1548,7 +1622,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2630*mm<=mr[2]&&mr[2]<2710*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 7; mat = 0; 
+          part = 0; layer = 7; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0]*cos(pi/4)+tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)-tb[1]*cos(pi/4);
@@ -1564,7 +1638,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2750*mm<=mr[2]&&mr[2]<=2800*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 8; mat = 0; 
+          part = 0; layer = 8; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = tb[0]*cos(pi/4)+tb[1]*sin(pi/4);
           b[1] = tb[0]*sin(pi/4)-tb[1]*cos(pi/4);
@@ -1603,7 +1677,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           part = 0; layer = 0; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
-          b[1] = tb[0]; 
+          b[1] = tb[0];
           b[2] = tb[2];
           ifend = true;
         }
@@ -1629,7 +1703,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = -tb[1];
           b[1] = tb[0];
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2210*mm<=mr[2]&&mr[2]<2240*mm&&1100*mm<mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 2; mat = 0;
@@ -1668,7 +1742,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
           b[1] = tb[0];
-          b[2] = tb[2]; 
+          b[2] = tb[2];
           ifend = true;
         }
         if(2380*mm<=mr[2]&&mr[2]<2420*mm&&1203*mm<=mr[0]&&mr[0]<=2500*mm) {
@@ -1693,7 +1767,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = -tb[1];
           b[1] = tb[0];
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2510*mm<=mr[2]&&mr[2]<2590*mm&&1241*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 6; mat = 0;
@@ -1712,7 +1786,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2630*mm<=mr[2]&&mr[2]<2710*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 7; mat = 0; 
+          part = 0; layer = 7; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
           b[1] = tb[0];
@@ -1728,7 +1802,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2750*mm<=mr[2]&&mr[2]<=2800*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 8; mat = 0; 
+          part = 0; layer = 8; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
           b[1] = tb[0];
@@ -1768,7 +1842,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           part = 0; layer = 0; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
-          b[1] = tb[0]; 
+          b[1] = tb[0];
           b[2] = tb[2];
           ifend = true;
         }
@@ -1826,7 +1900,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = -tb[1];
           b[1] = tb[0];
           b[2] = tb[2];
-          ifend = true;  
+          ifend = true;
         }
         if(2350*mm<=mr[2]&&mr[2]<2380*mm&&1167*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 4; mat = 0;
@@ -1842,7 +1916,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = -tb[1];
           b[1] = tb[0];
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2420*mm<=mr[2]&&mr[2]<2470*mm&&1203*mm<=mr[0]&&mr[0]<=2500*mm) {
           part = 0; layer = 5; mat = 0;
@@ -1877,7 +1951,7 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           ifend = true;
         }
         if(2630*mm<=mr[2]&&mr[2]<2710*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 7; mat = 0; 
+          part = 0; layer = 7; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
           b[1] = tb[0];
@@ -1890,10 +1964,10 @@ StatusCode MagneticFieldSvc::fieldVector(const HepPoint3D& newr,
           b[0] = -tb[1];
           b[1] = tb[0];
           b[2] = tb[2];
-          ifend = true; 
+          ifend = true;
         }
         if(2750*mm<=mr[2]&&mr[2]<=2800*mm&&1302*mm<=mr[0]&&mr[0]<=2500*mm) {
-          part = 0; layer = 8; mat = 0; 
+          part = 0; layer = 8; mat = 0;
           m_Mucfield->getMucField(part,layer,mat,mr,tb);
           b[0] = -tb[1];
           b[1] = tb[0];
@@ -1963,7 +2037,7 @@ StatusCode MagneticFieldSvc::uniFieldVector(const HepPoint3D& r,
       b[1]=0.0;
       b[2]=-0.9*tesla;
     }
-    else 
+    else
     {
       b[0]=0.0;
       b[1]=0.0;
@@ -1990,7 +2064,7 @@ StatusCode MagneticFieldSvc::uniFieldVector(const HepPoint3D& r,
    b[1] = 0.;
    b[2] = 0.;
  }
- //yzhang add 2012-04-25 
+ //yzhang add 2012-04-25
  b[0] *= m_scale;
  b[1] *= m_scale;
  b[2] *= m_scale;
@@ -2014,16 +2088,16 @@ double MagneticFieldSvc::getReferField()
   return m_zfield * m_scale;
 }
 
-bool  MagneticFieldSvc::ifRealField() const { 
-  return m_ifRealField; 
+bool  MagneticFieldSvc::ifRealField() const {
+  return m_ifRealField;
 }
 
 //=============================================================================
 // routine to fill the field vector
 //=============================================================================
-void MagneticFieldSvc::fieldGrid (const HepPoint3D& r, 
+void MagneticFieldSvc::fieldGrid (const HepPoint3D& r,
                                    HepVector3D& bf ) const {
-    
+
   bf[0] = 0.0;
   bf[1] = 0.0;
   bf[2] = 0.0;
@@ -2031,14 +2105,14 @@ void MagneticFieldSvc::fieldGrid (const HepPoint3D& r,
   ///  Linear interpolated field
   double z =  r.z() - m_zOffSet;
   if( z < m_min_FL[2] || z > m_max_FL[2] )  return;
-  double x =  r.x();  
+  double x =  r.x();
   if( x < m_min_FL[0] || x > m_max_FL[0] )  return;
   double y =  r.y();
   if( y < m_min_FL[1] || y > m_max_FL[1] )  return;
   int i = int( (x-m_min_FL[0])/m_Dxyz[0]);
   int j = int( (y-m_min_FL[1])/m_Dxyz[1] );
   int k = int( (z-m_min_FL[2])/m_Dxyz[2] );
-  
+
   int ijk000 = 3*( m_Nxyz[0]*( m_Nxyz[1]*k     + j )     + i );
   int ijk001 = 3*( m_Nxyz[0]*( m_Nxyz[1]*(k+1) + j )     + i );
   int ijk010 = 3*( m_Nxyz[0]*( m_Nxyz[1]*k     + j + 1 ) + i );
@@ -2059,13 +2133,13 @@ void MagneticFieldSvc::fieldGrid (const HepPoint3D& r,
   std::cout<<"point6(x,y,z): "<<m_P[ijk101]<<","<<m_P[ijk101+1]<<","<<m_P[ijk101+2]<<std::endl;
   std::cout<<"point7(x,y,z): "<<m_P[ijk110]<<","<<m_P[ijk110+1]<<","<<m_P[ijk110+2]<<std::endl;
   std::cout<<"point8(x,y,z): "<<m_P[ijk111]<<","<<m_P[ijk111+1]<<","<<m_P[ijk111+2]<<std::endl;
-  
-  if(std::fabs(m_P[ijk000]-x)>m_Dxyz[0]||std::fabs(m_P[ijk001]-x)>m_Dxyz[0]||std::fabs(m_P[ijk010]-x)>m_Dxyz[0]||std::fabs(m_P[ijk011]-x)>m_Dxyz[0]||std::fabs(m_P[ijk100]-x)>m_Dxyz[0]||std::fabs(m_P[ijk101]-x)>m_Dxyz[0]||std::fabs(m_P[ijk110]-x)>m_Dxyz[0]||std::fabs(m_P[ijk111]-x)>m_Dxyz[0]) 
-	  std::cout<<"FATALERRORX****************************"<<std::endl;
+
+  if(std::fabs(m_P[ijk000]-x)>m_Dxyz[0]||std::fabs(m_P[ijk001]-x)>m_Dxyz[0]||std::fabs(m_P[ijk010]-x)>m_Dxyz[0]||std::fabs(m_P[ijk011]-x)>m_Dxyz[0]||std::fabs(m_P[ijk100]-x)>m_Dxyz[0]||std::fabs(m_P[ijk101]-x)>m_Dxyz[0]||std::fabs(m_P[ijk110]-x)>m_Dxyz[0]||std::fabs(m_P[ijk111]-x)>m_Dxyz[0])
+      std::cout<<"FATALERRORX****************************"<<std::endl;
   if(std::fabs(m_P[ijk000+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk001+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk010+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk011+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk100+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk101+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk110+1]-y)>m_Dxyz[1]||std::fabs(m_P[ijk111+1]-y)>m_Dxyz[1])
-	            std::cout<<"FATALERRORY***************************"<<std::endl;
+                std::cout<<"FATALERRORY***************************"<<std::endl;
   if(std::fabs(m_P[ijk000+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk001+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk010+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk011+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk100+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk101+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk110+2]-z)>m_Dxyz[2]||std::fabs(m_P[ijk111+2]-z)>m_Dxyz[2])
-	                      std::cout<<"FATALERRORZ****************************"<<std::endl; */
+                          std::cout<<"FATALERRORZ****************************"<<std::endl; */
   double cx000 = m_Q[ ijk000 ];
   double cx001 = m_Q[ ijk001 ];
   double cx010 = m_Q[ ijk010 ];
@@ -2099,33 +2173,33 @@ void MagneticFieldSvc::fieldGrid (const HepPoint3D& r,
   double h000 = hx0*hy0*hz0;
   if( fabs(h000) > 0.0 &&
       cx000 > 9.0e5 && cy000 > 9.0e5 && cz000 > 9.0e5) return;
- 
+
   double h001 = hx0*hy0*hz1;
-  if( fabs(h001) > 0.0 && 
+  if( fabs(h001) > 0.0 &&
       cx001 > 9.0e5 && cy001 > 9.0e5 && cz001 > 9.0e5) return;
 
   double h010 = hx0*hy1*hz0;
-  if( fabs(h010) > 0.0 && 
+  if( fabs(h010) > 0.0 &&
       cx010 > 9.0e5 && cy010 > 9.0e5 && cz010 > 9.0e5) return;
 
   double h011 = hx0*hy1*hz1;
-  if( fabs(h011) > 0.0 && 
+  if( fabs(h011) > 0.0 &&
       cx011 > 9.0e5 && cy011 > 9.0e5 && cz011 > 9.0e5) return;
 
   double h100 = hx1*hy0*hz0;
-  if( fabs(h100) > 0.0 && 
+  if( fabs(h100) > 0.0 &&
       cx100 > 9.0e5 && cy100 > 9.0e5 && cz100 > 9.0e5) return;
- 
+
   double h101 = hx1*hy0*hz1;
-  if( fabs(h101) > 0.0 && 
+  if( fabs(h101) > 0.0 &&
       cx101 > 9.0e5 && cy101 > 9.0e5 && cz101 > 9.0e5) return;
- 
+
   double h110 = hx1*hy1*hz0;
-  if( fabs(h110) > 0.0 && 
+  if( fabs(h110) > 0.0 &&
       cx110 > 9.0e5 && cy110 > 9.0e5 && cz110 > 9.0e5) return;
 
   double h111 = hx1*hy1*hz1;
-  if( fabs(h111) > 0.0 && 
+  if( fabs(h111) > 0.0 &&
       cx111 > 9.0e5 && cy111 > 9.0e5 && cz111 > 9.0e5) return;
 
   bf(0) = ( cx000*h000 + cx001*h001 + cx010*h010 + cx011*h011 +
@@ -2134,7 +2208,7 @@ void MagneticFieldSvc::fieldGrid (const HepPoint3D& r,
             cy100*h100 + cy101*h101 + cy110*h110 + cy111*h111 );
   bf(2) = ( cz000*h000 + cz001*h001 + cz010*h010 + cz011*h011 +
             cz100*h100 + cz101*h101 + cz110*h110 + cz111*h111 );
-  return;      
+  return;
 }
 
 //=============================================================================
@@ -2248,7 +2322,7 @@ void MagneticFieldSvc::fieldGrid_TE (const HepPoint3D& r,
   bf(2) = ( cz000*h000 + cz001*h001 + cz010*h010 + cz011*h011 +
             cz100*h100 + cz101*h101 + cz110*h110 + cz111*h111 );
 
-            
+
   if( r.x() < 0. && r.y() >= 0. && r.z() > 0. ){
     bf(0) = -bf(0);
   }
