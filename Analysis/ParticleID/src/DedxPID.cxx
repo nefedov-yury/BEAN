@@ -64,9 +64,20 @@ int DedxPID::particleIDCalculation() {
    if(!(recTrk->isMdcDedxValid())) return irc;
    RecMdcDedx* dedxTrk = recTrk->mdcDedx();
 
-   if((dedxTrk->normPH()>30)||(dedxTrk->normPH()<0)) return irc;
+#ifndef BEAN
+   //if((dedxTrk->normPH()>30)||(dedxTrk->normPH()<0)) return irc;
    m_goodHits = dedxTrk->numGoodHits();
+   //if(dedxTrk->numGoodHits()<nhitcutdedx) return irc;
+#else
+// This is BEAN part:
+#if ( BOSS_VER <= 705 )
+   if((dedxTrk->normPH()>30)||(dedxTrk->normPH()<0)) return irc;
+#endif
+   m_goodHits = dedxTrk->numGoodHits();
+#if ( BOSS_VER <= 705 )
    if(dedxTrk->numGoodHits()<nhitcutdedx) return irc;
+#endif
+#endif
    m_normPH = dedxTrk->normPH();
    m_probPH = dedxTrk->probPH();
    // calculate chi and min chi

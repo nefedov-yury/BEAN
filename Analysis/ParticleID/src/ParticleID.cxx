@@ -63,7 +63,7 @@ void ParticleID::init() {
    // chi cut
    setChiMinCut( 4.0 );
    setChiMaxCut( 6.0 );
-   for(int i = 0; i < 4; i++) {
+   for(int i = 0; i < 5; i++) {
       m_chisq[i] = 9999.;
       m_prob[i] = -1.0;
    }

@@ -1,4 +1,15 @@
 author hekl,qing,huangb
+2020-03-22 sunss@ihep.ac.cn
+	* A bug is fixed in ParticleID.cxx, changed a loop from 4 to 5
+	* Remove low momentum proton correction based on 09 Jpsi data in previous version
+2019-10-21 lujd@ihep.ac.cn
+	* normPH and GoodHits cut in Dedx is canceled.
+	* chi value of low momentum in Dedx is corrected.
+	* some proton offset was set to -999 in txt file, which cause very big chi in PID, it is
+	set to 0 now.
+2019-08-06 sunss@ihep.ac.cn
+        * A warning sentence is commented since it is not suitable for MRPC
+	end cap TOF anymore.
 2018-11-14 sunss@ihep.ac.cn
 	* based on the validation of jpsi->ppbarpipi, the sigma of proton *1.5
 2018-11-09 sunss@ihep.ac.cn
