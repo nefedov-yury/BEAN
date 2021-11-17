@@ -126,7 +126,7 @@ void VertexDbSvc::handle(const Incident& inc){
      } else {
         SmartDataPtr<Event::EventHeader> eventHeader(m_eventSvc,"/Event/EventHeader");
         int  run = eventHeader->runNumber();
-        cout << endl << "New Run: " << run << " VertexDB vertex= ";
+        //cout << endl << "New Run: " << run << " VertexDB vertex= ";
         if(run<0) run=-run;
         if((m_mapPrimaryVertex[run]).size()>0) {
            m_isRunNumberValid = true;
