@@ -37,7 +37,7 @@
    // Meta: side-band
    // 'shift_eta' is the start of the side-band
    double shift_eta = 7*seta; // new for prod-11
-//    double shift_eta = 6*seta; // old (prod-10)
+//    double shift_eta = 6*seta; // old (prod<=10)
    string str_c_sbgg( Form("abs(Mgg-%.6f)>%.6f&&abs(Mgg-%.6f)<%.6f",
             Meta,shift_eta,Meta,shift_eta+weta) );
    TCut c_sbgg(str_c_sbgg.c_str());

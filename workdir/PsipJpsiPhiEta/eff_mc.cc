@@ -23,7 +23,7 @@ void get_eff(string fname, string pdf="") {
    int date = (is2009) ? 2009 : 2012;
 
    // MC signal MUST contain nt1
-//    string prod("prod-10/");
+//    string prod("prod-9/"); // no helix corrections
    string prod("prod-11/");
    fname = prod + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -114,10 +114,10 @@ void get_eff(string fname, string pdf="") {
       return fabs(Mgg-Meta) < weta;
    };
 
-   // Meta: side-band
+   // Meta: side-band DOES NOT CHANGE EFFICENCY
    // 'shift_eta' is the start of the side-band
-//    double shift_eta = 6*seta; // old
-   double shift_eta = 7*seta; // it is better for 2012; prod-11
+//    double shift_eta = 6*seta; // old (prod<=10)
+   double shift_eta = 7*seta; // new for prod-11
    auto c_sbgg = [weta,shift_eta](double Mgg) -> bool{
       return (fabs(Mgg-Meta) > shift_eta) &&
              (fabs(Mgg-Meta) < shift_eta+weta);
