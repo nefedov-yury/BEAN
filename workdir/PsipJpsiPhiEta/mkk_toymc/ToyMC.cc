@@ -725,125 +725,171 @@ void test_Intfr() {
 
 // {{{1 Monte Carlo
 //-------------------------------------------------------------------------
-struct GPar{
+struct Gpar{
+   // signal
    double mphi;
    double gphi;
    double sigma_mkk;
    double a;
-   double fb;
+   double F;
    double ang;
-   double bg_rate; // flat background ???
+   int NetaKK;
+
+   // background
+   double ar_bg;
+   int Nbg;
+
+   // boundaries
+   double Lphi;
+   double Uphi;
+   double TwoMk;
+
+   Gpar() {
+      constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
+      constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
+      constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
+
+      // 2012 with bg: fig.23-24
+      mphi = Mphi;
+      gphi = Gphi;
+      sigma_mkk = 1.1e-3;
+      a = 0.;
+      F = 0.75;
+      ang = 0;
+      NetaKK = 2715;
+
+      ar_bg = 0;
+      Nbg = 35;
+
+      Lphi = 0.98;
+      Uphi = 1.08;
+      TwoMk = 2*Mk;
+   };
 };
 //-------------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
-double IntegNphi_1( const GPar* gp ) {
-//-------------------------------------------------------------------------
-   constexpr double Lphi = 0.98, Uphi = 1.08; // boundaries
-   constexpr double eps_abs = 1.e-6;
-   constexpr double eps_rel = 1.e-6;
-   auto Lfc = [](const double* x,const double* p) -> double {
-      return IntfrBWARGN(x[0],p,1); // 1 == BW
-   };
-   TF1 FC("FC", Lfc, Lphi, Uphi, 6);
-   FC.SetParameters( gp -> mphi, gp -> gphi, gp -> sigma_mkk,
-                     gp -> a, gp -> fb, gp -> ang );
-
-   double err_num = 0;
-   double Integ = FC.IntegralOneDim(Lphi,Uphi,eps_rel,eps_abs, err_num);
-   if ( err_num > 1e-3 ) {
-      cout << " WARNING: " << __func__
-         << " numerical error of integration is too big "
-         << err_num << endl;
-   }
-   return Integ;
-}
-
-//-------------------------------------------------------------------------
-double IntegNphi( const GPar* gp ) {
-//-------------------------------------------------------------------------
 // Numerical integration to calculate B-W part
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-   constexpr double dL = 2*Mk; // the left cutoff = 0.987354
-   constexpr double dU = 1.08; // upper limit
-
+//-------------------------------------------------------------------------
+double IntegNphi( const Gpar* gp ) {
+//-------------------------------------------------------------------------
    auto Lall = [](double x, void* pp) -> double {
       const double* p = static_cast<const double*>(pp);
       vector<double> ret = IntfrBWAR(x, p[0],p[1],p[2],p[3],p[4]);
       return ret[0];
    };
    const double p[] { gp -> mphi, gp -> gphi,
-                      gp -> a, gp -> fb, gp -> ang };
+                      gp -> a, gp -> F, gp -> ang };
    // desired errors:                abs    rel
-   ROOT::Math::GSLIntegrator gsl_int(1.e-6, 1.e-6, 1000);
-   double norm = gsl_int.Integral(Lall,(void *)p,dL,dU);
+   ROOT::Math::GSLIntegrator gsl_int(1.e-7, 1.e-7, 1000);
+   double norm =
+      gsl_int.Integral(Lall,(void *)p,gp -> TwoMk,gp -> Uphi);
 
    auto Lbw = [](double x, void* pp) -> double {
       const double* p = static_cast<const double*>(pp);
       vector<double> ret = IntfrBWAR(x, p[0],p[1],p[2],p[3],p[4]);
       return ret[1];
    };
-   double BW = gsl_int.Integral(Lbw,(void *)p,dL,dU);
+   double BW =
+      gsl_int.Integral(Lbw,(void *)p,gp -> TwoMk,gp -> Uphi);
 
    return BW/norm;
 }
 
+// interference BW with Argus
 //-------------------------------------------------------------------------
-vector<double> get_ToyMC(int Nevents, const GPar* gp) {
+vector<double> signal_ToyMC(const Gpar* gp) {
 //-------------------------------------------------------------------------
-   constexpr double Lphi = 0.98, Uphi = 1.08; // boundaries
-
    // ---------------------------------------------------------------------
    // set UNU.RAN ( http://statistik.wu-wien.ac.at/unuran/ )
+   // ---------------------------------------------------------------------
    int logLevel = 2;
-   TUnuran unr(gRandom,logLevel);
+   static TUnuran* unr = nullptr;
 
-   // create Unuran 1D distribution object
-   auto Lgen = [](const double* x,const double* p) -> double {
-      vector<double> res = IntfrBWAR( x[0], p[0],p[1],p[2],p[3],p[4] );
-      return res[0];
-   };
-   TF1* fgen = new TF1("fgen", Lgen, Lphi,Uphi, 5);
-   fgen -> SetParameters( gp -> mphi, gp -> gphi,
-                          gp -> a, gp -> fb, gp -> ang );
+   if ( !unr ) {
+      unr = new TUnuran(gRandom,logLevel);
+      // create Unuran 1D distribution object
+      auto Lgen = [](const double* x,const double* p) -> double {
+         vector<double> res = IntfrBWAR( x[0],p[0],p[1],p[2],p[3],p[4] );
+         return res[0];
+      };
+      TF1* fgen = new TF1("fgen", Lgen, gp -> Lphi, gp -> Uphi, 5);
+      fgen -> SetParameters( gp -> mphi, gp -> gphi,
+                             gp -> a, gp -> F, gp -> ang );
 
-   double Xmax = fgen -> GetMaximumX(gp->mphi-0.4e-3,gp->mphi+0.4e-3);
+      double Xmax = fgen ->
+         GetMaximumX( gp -> mphi - 0.4e-3, gp -> mphi + 0.4e-3 );
 //    printf(" Xmax= %.7f (delta= %.1e)\n",Xmax,Xmax-mphi);
 
-   TUnuranContDist dist(fgen);
-   dist.SetDomain(Lphi,Uphi);
-   dist.SetMode(Xmax);
+      TUnuranContDist dist(fgen);
+      dist.SetDomain( gp -> Lphi, gp -> Uphi );
+      dist.SetMode(Xmax);
 
-   // select unuran method for generating the random numbers
-   string method = "method=nrou";
-   cout << " start Unuran initializing with method: " << method << endl;
-   if ( !unr.Init(dist,method) ) {
-      cout << "Error initializing unuran" << endl;
-      exit(0);
+      // select unuran method for generating the random numbers
+      string method = "method=nrou";
+      cout << "start unuran initializing with method: " << method
+           << endl;
+      if ( !unr -> Init(dist,method) ) {
+         cout << "Error initializing unr" << endl;
+         exit(0);
+      }
    }
 
    // ---------------------------------------------------------------------
    // generate
+   unsigned int n_etaKK = gRandom -> Poisson(gp -> NetaKK);
    vector<double> Vm;
-   Vm.reserve( Nevents );
-
-   for(int i = 0; i < Nevents; i++) {
-      // 1) flat background
-//       if ( random -> Uniform() < bg_rate ) {
-//          double mphi = random -> Uniform(Lphi,Uphi);
-//          Vmphi.push_back(mphi);
-//          hst[0] -> Fill(mphi);
-//          continue;
-//       }
-
-      // 2) interference + Gauss
-      double mphi = unr.Sample();
+   Vm.reserve( n_etaKK + 100 ); // additional place for background
+   for( ; Vm.size() < n_etaKK; ) {
+      double mphi = unr -> Sample();
       double mkk = gRandom -> Gaus(mphi,gp -> sigma_mkk);
-      if ( mkk >= Lphi && mkk < Uphi ) {
+      if ( mkk >= gp -> Lphi && mkk < gp -> Uphi ) {
          Vm.push_back(mkk);
       }
    }
+   return Vm;
+}
 
+// Argus for background
+//-------------------------------------------------------------------------
+vector<double> bg_ToyMC(const Gpar* gp) {
+//-------------------------------------------------------------------------
+   // ---------------------------------------------------------------------
+   // set UNU.RAN ( http://statistik.wu-wien.ac.at/unuran/ )
+   // ---------------------------------------------------------------------
+   int logLevel = 2;
+   static TUnuran* unrA = nullptr;
+
+   if ( !unrA ) {
+      unrA = new TUnuran(gRandom,logLevel);
+      // create Unuran 1D distribution object
+      auto LgenA = [](const double* x,const double* p) -> double {
+         return RevArgus( x[0], p[0] );
+      };
+      TF1* fgenA = new TF1("fgenA", LgenA, gp -> Lphi, gp -> Uphi, 1);
+      fgenA -> SetParameter( 0, gp -> ar_bg );
+
+      TUnuranContDist distA(fgenA);
+      distA.SetDomain( gp -> Lphi, gp -> Uphi );
+
+      // select unuran method for generating the random numbers
+      string method = "tdr";
+      cout << "start unuran initializing with method: " << method
+           << endl;
+      if ( !unrA -> Init(distA,method) ) {
+         cout << "Error initializing unrA" << endl;
+         exit(0);
+      }
+   }
+
+   // ---------------------------------------------------------------------
+   // generate
+   unsigned int n_bg = gRandom -> Poisson(gp -> Nbg);
+   vector<double> Vm;
+   Vm.reserve( n_bg );
+   for( ; Vm.size() < n_bg; ) {
+      double m = unrA -> Sample();
+      Vm.push_back(m);
+   }
    return Vm;
 }
 
@@ -851,7 +897,7 @@ vector<double> get_ToyMC(int Nevents, const GPar* gp) {
 TH1D* get_hst( const vector<double>& mkk, string hname) {
 //-------------------------------------------------------------------------
    constexpr double Lphi = 0.98, Uphi = 1.08; // boundaries
-   string title(";M^{ inv}_{ K^{+}K^{-}} , GeV/c^{2}");
+   string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
    title += string(";Entries / 1 MeV/c^{2}");
    TH1D* hst = new TH1D(hname.c_str(), title.c_str(), 100,Lphi,Uphi);
    for ( auto m : mkk ) {
@@ -860,292 +906,62 @@ TH1D* get_hst( const vector<double>& mkk, string hname) {
    return hst;
 }
 
-// {{{1 Fit
 //----------------------------------------------------------------------
-ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
-                  unsigned int idx, double dL, double dU ) {
+void ToyMC_fit(string pdf) {
 //----------------------------------------------------------------------
-// Numerical calculation of integrals and their errors
-   // desired errors:
-   constexpr double eps_abs = 1.e-6;
-   constexpr double eps_rel = 1.e-6;
-   constexpr double epsilon  = 1.e-3; // max numerical error
 
-   // get parameters and covariation matrix of error
-   int Npar = res.NPar();
-   vector<double> Fpar = res.Parameters();
+   Gpar* gp = new Gpar();
+   int NphiMC = gp -> NetaKK * IntegNphi( gp );
 
-   int covMatrStatus = res.CovMatrixStatus();
-   if ( covMatrStatus != 3 ) {
-      cout << " WARNING: " << __func__ << " covariance matrix"
-         " status code is " << covMatrStatus << endl;
-   }
-   vector<double> cov_m(Npar*Npar,0);
-   for ( int i = 0; i < Npar; ++i ) {
-      for ( int j = 0; j < Npar; ++j ) {
-         cov_m[i*Npar+j] = res.CovMatrix(i,j);
-      }
-   }
+   cout << " -------- Toy MC parameters --------- " << endl;
+   cout << " Mphi = " << gp -> mphi << endl;
+   cout << " Gphi = " << gp -> gphi << endl;
+   cout << " sigma_mkk = " << gp -> sigma_mkk << endl;
+   cout << " a (Argus) = " << gp -> a << endl;
+   cout << " F = " << gp -> F << endl;
+   cout << " ang = " << gp -> ang << endl;
+   cout << " NetaKK  = " << gp -> NetaKK << endl;
+   cout << " Nbg     = " << gp -> Nbg << endl;
+   cout << " a (Bgr Argus) = " << gp -> ar_bg << endl;
+   cout << " NphiMC  = " << NphiMC << endl;
+   cout << " -------- Toy MC parameters --------- " << endl << endl;
 
-   // 1) calculate integral of normalized component
-   auto Lfc = [idx](const double* x,const double* p) -> double {
-      return IntfrBWARGN(x[0],p,idx);
-   };
-   TF1 FC("FC", Lfc, dL, dU, Npar);
-   FC.SetParameters(Fpar.data());
+   vector<double> mkk = signal_ToyMC( gp );
+   vector<double> mkk_bg = bg_ToyMC( gp );
+   mkk.insert( mkk.end(), mkk_bg.begin(),mkk_bg.end() );
+   TH1D* hst1 = get_hst( mkk, "toy_sig" );
 
-   double err_num = 0;
-   double Integ = FC.IntegralOneDim(dL,dU,eps_rel,eps_abs, err_num);
-//    cout << " err_num(" << idx << ") = " << err_num << endl;
-   if ( err_num > epsilon ) {
-      cout << " WARNING: " << __func__ << " numerical error of"
-         " integration of F_C(" << idx << ") is too big "
-         << err_num << endl;
-   }
+   vector<double> mkk_sb = bg_ToyMC( gp ); // sideband
+   TH1D* hst2 = get_hst( mkk_sb, "toy_sb" );
 
-   // 2) calculate error of this integral
-   TMatrixDSym covMatrix(Npar);
-   covMatrix.Use(Npar,cov_m.data());
-//    printf("\ncovMatrix-%d : ",idat);
-//    covMatrix.Print();
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1200,500); // Pr
+   c1 -> Divide(2,1);
 
-   TVectorD IntGrad(Npar);
-   double err_num2 = 0;
-   for ( int i = 0; i < Npar; ++i ) {
-      // skip parameters with zero error
-      if ( covMatrix(i,i) == 0 ) {
-         continue;
-      }
-
-      auto LdF = [FC,i](const double* x, const double* p) -> double {
-         TF1 tmp(FC); // may modify 'tmp' but not FC
-         return tmp.GradientPar(i,x);
-      };
-      TF1 dF("dF",LdF,dL,dU,0);
-      double err_num = 0;
-      IntGrad[i] = dF.IntegralOneDim(dL,dU,eps_rel,eps_abs, err_num);
-      err_num = covMatrix(i,i) * IntGrad[i] * err_num;
-//       cout << " abs err_num(" << i << ") = " << err_num << endl;
-      err_num2 += SQ(err_num);
-//       cout << " IntGrad[" << i << "] = " << IntGrad[i] << endl;
-   }
-
-   double err_Int = sqrt( covMatrix.Similarity(IntGrad) );
-   err_num2 = sqrt( err_num2 / err_Int ); // abs numerical error
-//    cout << " err_num(" << idx << ") = " << err_num2 << endl;
-   if ( err_num2 > epsilon ) {
-      cout << " WARNING: " << __func__ << " numerical error "
-         "of integration of dF is too big " << err_num2 << endl;
-   }
-
-   return (ValErr {Integ,err_Int});
-}
-
-//----------------------------------------------------------------------
-void do_fit(const GPar* gp, const vector<double>& mkk,
-            TH1D* hst, double NphiMC, int np, string pdf) {
-//----------------------------------------------------------------------
-   constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
-   constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
-   constexpr double Lphi = 0.98, Uphi = 1.08; // boundaries
-
-   // prepare data
-   double norm = hst -> Integral();
-   int Nb = hst -> GetNbinsX();
-   double bW = (Uphi-Lphi)/Nb; // bin width
-
-   int n = mkk.size();
-   ROOT::Fit::DataRange dr(Lphi,Uphi);
-   ROOT::Fit::UnBinData Dat(dr, n);
-   for ( int i = 0; i < n; ++i ) {
-      Dat.Add(mkk[i]);
-   }
-   cout << " norm= " << norm << " n= " << n << endl;
-//    return;
-
-   //--------------------------------------------------------------------
-   // function MUST be normalized to 1 on the fit range
-   auto Lintfr = [](const double* x,const double* p) -> double {
-      const double pp[] { p[0],p[1],p[2],p[3],p[4],p[5] };
-      return IntfrBWARGN( x[0], pp, 0 );
-   };
-
-   vector<string> par_name { "M#phi", "G#phi", "#sigma", "A",
-                             "F", "#vartheta" };
-   vector<double> par_ini {Mphi,Gphi,1.2e-3, 0.,1.0,0.8};
-   if ( np > 0 ) {
-      par_ini.back() *= -1;
-   }
-
-   const unsigned int Npar = par_name.size(); // number of parameters
-   TF1* fintfr = new TF1("fintfr", Lintfr, Lphi, Uphi, Npar);
-
-   ROOT::Fit::Fitter fitter;
-   fitter.Config().MinimizerOptions().SetPrintLevel(3);
-
-   ROOT::Math::WrappedTF1 WFun( *fintfr );
-   fitter.SetFunction( WFun,false); // false == no parameter derivatives
-
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
-   for( unsigned int i = 0; i < Npar; ++i ) {
-      fitter.Config().ParSettings(i).SetName(par_name[i]);
-   }
-
-   // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
-   fitter.Config().ParSettings(0).SetValue(1.01953);        // like MC
-   fitter.Config().ParSettings(0).Fix();                    // Mphi
-   fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
-   fitter.Config().ParSettings(1).Fix();                    // Gphi
-   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sigma
-   fitter.Config().ParSettings(3).Fix();                    // A
-   fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
-   fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // vartheta
-
-   fitter.LikelihoodFit( Dat, false ); // true == extended likelihood fit
-   fitter.CalculateMinosErrors();
-
-   const ROOT::Fit::FitResult& res = fitter.Result();
-   res.Print(cout);
-//    res.PrintCovMatrix(cout); // print error matrix and correlations
-   double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
-   vector<double>& Fpar = PE.Fpar;
-
-   vector<string> names { "N(KK)", "Nphi", "Nnonphi", "Nifr"  };
-   vector<ValErr> Nos;
-   Nos.reserve(4);
-   for ( int idx = 0; idx <= 3; ++idx ) {
-      ValErr Integ = CalcIntEr( res, idx, Lphi, Uphi );
-      double Num = norm * Integ.val;
-      double Err = fabs(Num) * sqrt( 1./norm + SQ(Integ.err/Integ.val) );
-      Nos.push_back( ValErr {Num,Err} );
-      printf("%s = %s\n",names[idx].c_str(),Nos[idx].prt(".1f"));
-   }
-   double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
-
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto Lgof = [Lintfr,Fpar](double x) -> double {
-      return Lintfr(&x,Fpar.data());
-   };
-   rmath_fun< decltype(Lgof) > ftest(Lgof);
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,Lphi,Uphi);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
-
-   //-----------------------------------------------------------------------
-   // Functions to draw
-   double Wn = bW*norm;
-   auto Lfit = [Wn,Fpar](double* x,double* p) -> double {
-      const double pp[]
-         { Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5] };
-      return Wn*IntfrBWARGN( x[0], pp, int(p[0]) );
-   };
-   TF1* ffit = new TF1("ffit", Lfit, Lphi, Uphi, 1);
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kRed);
-   ffit -> SetNpx(500);
-
-   //--------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd(1);
    gPad -> SetGrid();
 
-   SetHstFace(hst);
-   hst -> SetMinimum(-50.);
-   hst -> SetMaximum(400. ); // the same scale!
-//    if ( np < 0 ) {
-//       hst -> SetMinimum(-40.);
-//       hst -> SetMaximum( 380. ); // TODO ??
-//    } else {
-//       hst -> SetMinimum(-10.);
-//    }
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   SetHstFace(hst1);
+   hst1 -> GetXaxis() -> SetTitleOffset(1.1);
+   hst1 -> GetYaxis() -> SetTitleOffset(1.3);
+   hst1 -> Draw("E");
 
-   hst -> Draw("EP");
+   c1 -> cd(2);
+   gPad -> SetGrid();
 
-   TLegend* leg = new TLegend(0.52,0.72,0.89,0.89);
-   leg -> AddEntry(hst,"Toy MC","LEP");
-//    leg -> AddEntry( (TObject*)0, "M_{#phi}, #Gamma_{#phi} - PDG", "");
-//    leg -> AddEntry( (TObject*)0,
-//          Form("#sigma= %.1f MeV",gp -> sigma_mkk*1e3), "");
-//    leg -> AddEntry( (TObject*)0,
-//          Form("a= %.1f, F= %.1f, #vartheta= %.1f",gp->a,gp->fb,gp->ang),"");
-//    leg -> AddEntry( (TObject*)0, Form("N_{#phi}= %.1f",NphiMC), "");
+   SetHstFace(hst2);
+   hst2 -> GetXaxis() -> SetTitleOffset(1.1);
 
-   ffit -> SetParameter(0, 0); // SUM
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kRed);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Result of fit", "L");
+   TF1* pl0 = (TF1*)gROOT -> GetFunction("pol0") -> Clone();
+   pl0 -> SetLineColor(kRed);
+   pl0 -> SetLineWidth(2);
+   pl0 -> SetLineStyle(kDashed);
+   hst2 -> Fit(pl0,"L","E");
 
-   // draw components
-   ffit -> SetLineWidth(1);
-   ffit -> SetLineStyle(kDashed);
-
-   ffit -> SetParameter(0, 1); // BW
-   ffit -> SetLineColor(kGreen+2);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Breit-Wigner #phi#eta", "L");
-
-   ffit -> SetParameter(0, 2); // Argus
-   ffit -> SetLineColor(kBlue);
-   ffit -> DrawCopy("SAME");
-//    leg -> AddEntry( ffit -> Clone(), "Argus", "L");
-   leg -> AddEntry( ffit -> Clone(), "Non-#phi KK#eta", "L");
-
-   ffit -> SetParameter(0, 3); // interference
-   ffit -> SetLineColor(kMagenta+1);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Interference", "L");
-
-   leg -> Draw();
-
-   TPaveText* pt = new TPaveText(0.52,0.38,0.89,0.71,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("N_{#phi} = %.1f #pm %.1f",Nphi,err_Nphi) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("a= %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("F= %s",PE.Eform(4,".2f")) );
-   pt -> AddText( Form("#vartheta= %s",PE.Eform(5,".2f")) );
-   pt -> Draw();
-
-   gPad -> RedrawAxis();
    c1 -> Update();
-   if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
-   }
-}
+   pdf += ".pdf";
+   c1 -> Print( pdf.c_str() );
 
-//----------------------------------------------------------------------
-void ToyMC_fit(int np, string pdf) { // np = // +/- 1 pos/neg solutions
-//----------------------------------------------------------------------
-   constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
-   constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
-   constexpr double Lphi = 0.98, Uphi = 1.08; // boundaries
-
-   GPar gp1 {Mphi,Gphi,1.2e-3, 0.,1.,0.8}; // ~ 2012
-   int Nevents = 2810;
-//    int NphiMC_1 = Nevents * IntegNphi_1(&gp1);
-//    cout << " NphiMC_1= " << NphiMC_1 << endl;
-   int NphiMC = Nevents * IntegNphi(&gp1);
-   cout << " NphiMC= " << NphiMC << endl;
-
-   vector<double> mkk = get_ToyMC(Nevents, &gp1);
-   TH1D* hst = get_hst( mkk, "toy_gp1" );
-
-   do_fit(&gp1, mkk,hst,NphiMC, np, pdf);
+//    do_fit(&gp1, mkk,hst,NphiMC, np, pdf);
 }
 
 // {{{1 MAIN:
@@ -1153,8 +969,7 @@ void ToyMC_fit(int np, string pdf) { // np = // +/- 1 pos/neg solutions
 void ToyMC() {
 //----------------------------------------------------------------------
    gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetStatFont(62);
+//    gStyle -> SetOptStat(0);
    gStyle -> SetLegendFont(42);
 
    // = define GSL error handler which does nothing =
@@ -1164,10 +979,10 @@ void ToyMC() {
    ROOT::Math::IntegratorOneDimOptions::SetDefaultIntegrator("Adaptive");
 
    // set random number generator: TRandom3 by default?
-//    gRandom -> SetSeed(0); // seed is set to a random value
+   gRandom -> SetSeed(0); // seed is set to a random value
 
-   ULong_t Iseed = 10;
-   gRandom -> SetSeed(Iseed);
+//    ULong_t Iseed = 10;
+//    gRandom -> SetSeed(Iseed);
 
    // ------------- tests ---------------
 //    test_BreitWigner();
@@ -1175,9 +990,6 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   int np = +1; // +/- 1 => pos/neg solutions
-   string pdf("toyMC_");
-   pdf = pdf + to_string(Iseed) + ((np<0) ? "_n" : "_p") + ".pdf";
-
-   ToyMC_fit(np,pdf);
+   string pdf("toyMC");
+   ToyMC_fit(pdf);
 }
