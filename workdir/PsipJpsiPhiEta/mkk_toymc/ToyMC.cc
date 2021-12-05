@@ -1,8 +1,36 @@
 // toy MC for J/Psi -> K+ K- gamma gamma
-// This is ROOT version
 //
+
+#include <iostream>
+#include <cmath>
+#include <vector>
+#include <getopt.h>
 #include <time.h>
+
 #include "gsl/gsl_errno.h"   // GSL error handler
+
+#include <Fit/Fitter.h>
+#include <Math/MinimizerOptions.h>
+#include <Math/GSLIntegrator.h>
+#include <Math/WrappedTF1.h>
+#include <Math/GoFTest.h>
+
+#include <TFile.h>
+#include <TH1.h>
+#include <TF1.h>
+#include <TNtupleD.h>
+#include <TRandom.h>
+#include <TUnuran.h>
+#include <TUnuranContDist.h>
+#include <TStopwatch.h>
+
+#include <TCanvas.h>
+#include <TLegend.h>
+#include <TPaveText.h>
+#include <TStyle.h>
+#include <TROOT.h>
+
+using namespace std;
 
 // {{{1 helper functions
 //----------------------------------------------------------------------
@@ -411,7 +439,7 @@ void test_RevAgrus() {
    TUnuranContDist dist(far);
    dist.SetDomain(dL,dU);
    // to use a different random number engine do:
-   TRandom2* random = new TRandom2();
+   TRandom* random = new TRandom();
    int logLevel = 2;
    TUnuran unr(random,logLevel);
    // select unuran method for generating the random numbers
@@ -653,7 +681,7 @@ void test_Intfr() {
    dist.SetDomain(dL,dU);
    dist.SetMode(Xmax);
    // to use a different random number engine do:
-   TRandom2* random = new TRandom2();
+   TRandom* random = new TRandom();
    int logLevel = 2;
    TUnuran unr(random,logLevel);
    // select unuran method for generating the random numbers
@@ -1092,10 +1120,12 @@ struct myFCN_toy {
       }
 
       // debug print
+#ifndef BATCH
       if ( Dis < 0 || Ff < 0 ) {
          printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
                " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
       }
+#endif      
       return make_tuple(Ff,penalty);
    }
 
@@ -1115,7 +1145,7 @@ struct myFCN_toy {
 
       double Brkk = p[0];
       double Brphi = p[1];
-      double Nkk = Brkk * Br2Nkk;
+      [[maybe_unused]] double Nkk = Brkk * Br2Nkk;
       double Nphi = Brphi * Br2Nphi;
 
       double ang = p[2];
@@ -1176,25 +1206,28 @@ struct myFCN_toy {
 };
 
 //--------------------------------------------------------------------
-void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
+vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
+      string pdf="" ) {
 //--------------------------------------------------------------------
    TH1D* hst = hist[0];
    const vector<double>& mkk = my_fcn.mkk;
    int n = mkk.size();
 
-   TH1D* hsb = hist[1];
+   [[maybe_unused]] TH1D* hsb = hist[1];
    const vector<double>& sb = my_fcn.sb;
    int nsb = sb.size();
 
    const double& dL = my_fcn.dL;
    const double& dU = my_fcn.dU;
-   double bW = hst -> GetBinWidth(1); // bin width
-   double bL = hst -> GetBinLowEdge(1); // left boundary of hst
+
+   bool isPrt =  !pdf.empty();
 
    //-----------------------------------------------------------------
    // Fit data
    ROOT::Fit::Fitter fitter;
-   fitter.Config().MinimizerOptions().SetPrintLevel(3);
+   if ( isPrt ) {
+      fitter.Config().MinimizerOptions().SetPrintLevel(3);
+   }
 
    vector<string> par_name { "Brkk", "Brphi", "angle", "sigma", "Nbg" };
 
@@ -1219,14 +1252,25 @@ void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
    fitter.CalculateMinosErrors();
-   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
+//    fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    const ROOT::Fit::FitResult& res = fitter.Result();
-   res.Print(cout);
+   if ( isPrt ) {
+      res.Print(cout);
+   }
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
    vector<double>& Fpar = PE.Fpar;
+
+   vector<double> F_ret;  // vector to return
+   F_ret.reserve(3*PE.Fpar.size()+10);
+   F_ret.insert(F_ret.end(),PE.Fpar.begin(),PE.Fpar.end()); // values
+   F_ret.insert(F_ret.end(),PE.Uerr.begin(),PE.Uerr.end()); // upper err
+   F_ret.insert(F_ret.end(),PE.Lerr.begin(),PE.Lerr.end()); // lower err
+   F_ret.push_back(Lmin);
+   double st = ((res.IsValid()) ? 1. : 0.); // status of minimization
+   F_ret.push_back(st);
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
@@ -1276,15 +1320,17 @@ void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
 
       // check normalization
       // desired errors:                abs    rel
-      ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
-      double norm = gsl_int.Integral( fcr, dL,dU );
-      cout << " norm(fcr) = " << norm << endl;
+//       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
+//       double norm = gsl_int.Integral( fcr, dL,dU );
+//       cout << " norm(fcr) = " << norm << endl;
 
       ROOT::Math::GoFTest* gofcr =
          new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
                ROOT::Math::GoFTest::kPDF, dL,dU );
       pvalueKS = gofcr -> KolmogorovSmirnovTest();
-      cout << " pvalueKS(cr)= " << pvalueKS << endl;
+      if ( isPrt ) {
+         cout << " pvalueKS(cr)= " << pvalueKS << endl;
+      }
 
       NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
       auto Lsb = [NsbNorm,arsb](double x) -> double {
@@ -1295,11 +1341,22 @@ void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
          new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
             ROOT::Math::GoFTest::kPDF, dL,dU );
       double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-      cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+      if ( isPrt ) {
+         cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+      }
+   }
+
+   F_ret.push_back(pvalueKS);
+   F_ret.push_back(pvalueKSsb);
+   if ( !isPrt ) {
+      return F_ret;
    }
 
    //-----------------------------------------------------------------
    // Functions to draw
+   double bW = hst -> GetBinWidth(1); // bin width
+   double bL = hst -> GetBinLowEdge(1); // left boundary of hst
+
    auto Ldr = [Fpar,my_fcn,bW](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
@@ -1405,10 +1462,10 @@ void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
    gPad -> RedrawAxis();
 
    c1 -> Update();
-   if ( !pdf.empty() ) {
-      pdf += ".pdf";
-      c1 -> Print(pdf.c_str());
-   }
+   pdf += ".pdf";
+   c1 -> Print(pdf.c_str());
+
+   return F_ret;
 }
 
 // {{{1  ToyMC_fit
@@ -1455,35 +1512,76 @@ void plot_hst(TH1D* hst[], string pdf) {
    hst[1] -> Fit(pl0,"L","E");
 
    c1 -> Update();
-   pdf += ".pdf";
    c1 -> Print( pdf.c_str() );
 }
 
 //----------------------------------------------------------------------
-void ToyMC_fit(string pdf) {
+void ToyMC_fit(int Ntoys, string file_name) {
 //----------------------------------------------------------------------
+   bool isBatch = Ntoys > 1;
+
+   string pdf = ( (isBatch) ? "" : file_name );
+   TFile* c_out = nullptr;
+   TNtupleD* tuple = nullptr;
+
+   if ( isBatch ) {
+      // Histograms
+      c_out = new TFile(file_name.c_str(),"recreate");
+      if ( !c_out -> IsOpen() ) {
+         printf(" can not open %s file\n",file_name.c_str());
+         exit(1);
+      }
+      c_out -> cd();
+      tuple = new TNtupleD("tmc","Toy MC",
+            "bkk:bphi:ang:sig:nbg:"
+            "ubkk:ubphi:uang:usig:unbg:"
+            "lbkk:lbphi:lang:lsig:lnbg:"
+            "Lmin:st:pv:pvsb"
+            );
+   }
 
    double BrKKeta  = 4.5e-4;
    double Brphieta = 8.5e-4;
    Gpar* gp = new Gpar( BrKKeta, Brphieta );
    gp -> Print();
 
-   TH1D* hst[10];
-   myFCN_toy my_fcn;  // class for 'FitFCN'
-   my_fcn.mkk = gp -> signal_ToyMC();
-   vector<double> mkk_bg = gp -> bg_ToyMC();
-   my_fcn.mkk.insert( my_fcn.mkk.end(), mkk_bg.begin(),mkk_bg.end() );
-   hst[0] = get_hst( my_fcn.mkk, "toy_sig" );
+   TStopwatch t;
+   TH1D* hst[2] {nullptr, nullptr};
+   for ( int itoy = 0; itoy < Ntoys; ++itoy ) {
+      t.Start();
 
-   my_fcn.sb = gp -> bg_ToyMC(); // sideband
-   hst[1] = get_hst( my_fcn.sb, "toy_sb" );
+      myFCN_toy my_fcn;  // class for 'FitFCN'
+      my_fcn.mkk = gp -> signal_ToyMC();
+      vector<double> mkk_bg = gp -> bg_ToyMC();
+      my_fcn.mkk.insert( my_fcn.mkk.end(), mkk_bg.begin(),mkk_bg.end() );
+      delete hst[0];
+      hst[0] = get_hst( my_fcn.mkk, "toy_sig" );
 
-//    plot_hst(hst,pdf);
+      my_fcn.sb = gp -> bg_ToyMC(); // sideband
+      delete hst[1];
+      hst[1] = get_hst( my_fcn.sb, "toy_sb" );
 
-   do_fit_toy(my_fcn,hst,pdf);
+//       plot_hst(hst,pdf); // for debug
+
+      vector<double> ret = do_fit_toy(my_fcn,hst,pdf);
+
+      if ( isBatch ) {
+         tuple -> Fill( ret.data() );
+      }
+
+      t.Stop();
+      printf(" end of MCtoy# %i: ",itoy+1);
+      t.Print();
+   }
+
+   if ( isBatch ) { // save in root file
+      tuple -> Write();
+      c_out -> Close();
+   }
 }
 
-// {{{1 MAIN:
+// {{{1 MAIN for interpreter
+#ifndef BATCH
 //----------------------------------------------------------------------
 void ToyMC() {
 //----------------------------------------------------------------------
@@ -1501,7 +1599,8 @@ void ToyMC() {
 //    gRandom -> SetSeed(0); // seed is set to a random value
 
 //    ULong_t Iseed = (ULong_t)time(NULL);
-   ULong_t Iseed= 1638656110L;
+//    ULong_t Iseed= 1638656110L;
+   ULong_t Iseed= 10L;
    printf("   ULong_t Iseed= %luL;\n",Iseed);
    gRandom -> SetSeed(Iseed);
 
@@ -1511,12 +1610,85 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   TStopwatch t;
-   t.Start();
+   ToyMC_fit(1, "toyMC.pdf" ); // must be 1
 
-   string pdf("toyMC");
-   ToyMC_fit(pdf);
-
-   t.Stop();
-   t.Print();
 }
+#endif
+
+// {{{1 MAIN for batch mode:
+#ifdef BATCH
+//----------------------------------------------------------------------
+int main(int argc, char* argv[]) {
+//----------------------------------------------------------------------
+   ULong_t Iseed = 0;
+   int Ntoys = 10;
+   string hst_file("toy_mc.root");
+
+   //-------------------------------------------------------------------
+   // => getopt()
+   bool is_error = false;
+   int oc; // option
+   while( (oc = getopt(argc,argv,":n:h:s:")) != -1 ) {
+      switch( oc ) {
+
+      case 'h':  // change default file name for histograms
+         hst_file = string(optarg);
+         break;
+
+      case 's':  // change seed for random generator
+         Iseed = ULong_t(atoi(optarg));
+         break;
+
+      case 'n':  // number of toy MC generated
+         Ntoys = atoi(optarg);
+         break;
+
+      case ':':  // no argument (first character of optstring MUST be ':')
+         is_error = true;
+         printf(" option `-%c' requires an argument\n",optopt);
+         break;
+
+      case '?':  // errors
+      default:
+         is_error = true;
+         printf(" invalid option `-%c'\n",optopt);
+         break;
+      }
+   }
+
+   if( is_error ) {
+      cout << endl;
+      cout << " Usage: " << argv[0] << " -h hst_file.root "
+           << " -s SEED(rndm)" << endl;
+      exit(0);
+   }
+
+   //-------------------------------------------------------------------
+   // set random number generator: TRandom3 by default
+   if ( !Iseed ) {
+      printf(" invalid SEED `-%c'\n",optopt);
+      exit(0);
+   }
+
+   printf(" -- getopt parameters --\n");
+   printf(" Ntoys= %i\n", Ntoys);
+   printf(" Set gRrandom with ULong_t Iseed= %luL;\n",Iseed);
+   printf(" output root file: %s\n", hst_file.c_str());
+   printf(" -- end getopt parameters --\n");
+
+//    return 0; // test getopt
+
+   gRandom -> SetSeed(Iseed);
+
+   //-------------------------------------------------------------------
+   // = define GSL error handler which does nothing =
+   gsl_set_error_handler_off();
+
+   // set integrator: ROOT::Math::GSLIntegrator adaptive method (QAG)
+   ROOT::Math::IntegratorOneDimOptions::SetDefaultIntegrator("Adaptive");
+
+   //-------------------------------------------------------------------
+   ToyMC_fit(Ntoys,hst_file);
+
+}
+#endif

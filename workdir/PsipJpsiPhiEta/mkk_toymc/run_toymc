@@ -4,13 +4,11 @@ PROG="./toy_mc.exe"
 ODIR="."
 
 ######################## DATA ########################
-# SEEDS="201 202 203 204 205"
-# SEEDS="1001 2002 3003 4004 5005 6006 7007 8008"
-SEEDS="1002 2003 3004 4005 5006 6007 7008 8009"
+SEEDS="101 102 103 104 105 106 107 108"
 
 printf "${SEEDS}" | \
     xargs --delimiter=" " --max-procs=8 -I{} \
-      sh -c "${PROG} -n 1250 -s {} \
+      sh -c "${PROG} -n 500 -s {} \
             -h ${ODIR}/toymc_{}.root \
             > ${ODIR}/toymc_{}.out 2>&1"
 
