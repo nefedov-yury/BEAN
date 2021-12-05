@@ -24,26 +24,19 @@ class rmath_fun: public ROOT::Math::IBaseFunctionOneDim {
       }
 };
 
-//----------------------------------------------------------------------
-constexpr double SQ(double x) {
-//----------------------------------------------------------------------
-   return x*x;
-}
-
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // adapter class for handling parameters and errors
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct ParAndErr {
-//----------------------------------------------------------------------
    vector<double> Fpar; // parameters
    vector<double> Perr; // symmetric errors
    vector<double> Uerr; // upper minos errors
    vector<double> Lerr; // lower minos errors
 
    // ctor
-   //-------------------------------------------------------------------
-   ParAndErr(const ROOT::Fit::FitResult& res) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
+   ParAndErr(const ROOT::Fit::FitResult& res, double threshold = 0.1) {
+   //-----------------------------------------------------------------
       Fpar = res.Parameters();
       Perr = res.Errors();
 
@@ -53,11 +46,14 @@ struct ParAndErr {
 
       // if the upper and lower errors differ no more than the
       // 'threshold', the maximum of them is used as a symmetric error
-      constexpr double threshold = 0.1;
+//       constexpr double threshold = 0.1;
       for ( int np = 0; np < Npar; ++np ) {
          if ( res.HasMinosError(np) ) {
             double uerr = fabs(res.UpperError(np));
             double lerr = fabs(res.LowerError(np));
+            if ( uerr*lerr == 0 ) {// one of the errors is not defined
+               continue;
+            }
             Uerr[np] = uerr;
             Lerr[np] = lerr;
             if ( fabs(1-lerr/uerr) < threshold ) {
@@ -74,30 +70,37 @@ struct ParAndErr {
    }
 
    // pretty print parameters with errors
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
    const char* Eform (int i,string fm, double X = 1) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
       if ( Perr[i] > 0 ) {
          string fmt = "%" +fm+ " #pm %" +fm;
          return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
       } else if ( Perr[i] < 0 ) {
-         string fmt = "%" +fm +"^{%+" +fm+ "}_{%+" +fm+ "}";
-         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,-Lerr[i]*X);
+         string fmt = "%" + fm
+            + "^{#lower[0.15]{#kern[0.15]{#plus}#kern[0.05]{%"
+            + fm + "}}" + "}"
+            + "_{#lower[-0.15]{#kern[0.15]{#minus}#kern[0.05]{%"
+            + fm + "}}" + "}";
+         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,Lerr[i]*X);
       }
       string fmt = "%" +fm+ " (fixed)";
       return Form(fmt.c_str(),Fpar[i]*X);
    }
+
+   // return middle point = par(i) + 0.5(UpperError+LowerError)
+   //-----------------------------------------------------------------
+   double Middle (int i) {
+   //-----------------------------------------------------------------
+      return Fpar[i] + 0.5*(Uerr[i]-Lerr[i]);
+   }
 };
 
 //----------------------------------------------------------------------
-struct ValErr {
-   double val;
-   double err;
-   const char* prt(string fm) {
-      string fmt = "%" + fm + " +/- %" + fm;
-      return Form(fmt.c_str(),val,err);
-   }
-};
+constexpr double SQ(double x) {
+//----------------------------------------------------------------------
+   return x*x;
+}
 
 //----------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
@@ -1134,7 +1137,7 @@ struct myFCN_toy {
       double NFit = Nphi/IBW; // === Nkk/normI;
 
       // for toyMC normE == normI => NkkFit == Nkk
-      double normE = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr); 
+      double normE = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
       double NkkFit = NFit*normE;
 
       double res = 2*(NkkFit+Nsb) + penalty;
@@ -1183,8 +1186,8 @@ void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
    const vector<double>& sb = my_fcn.sb;
    int nsb = sb.size();
 
-   const double& dL = my_fcn.dL; 
-   const double& dU = my_fcn.dU; 
+   const double& dL = my_fcn.dL;
+   const double& dU = my_fcn.dU;
    double bW = hst -> GetBinWidth(1); // bin width
    double bL = hst -> GetBinLowEdge(1); // left boundary of hst
 
@@ -1215,51 +1218,85 @@ void do_fit_toy(myFCN_toy& my_fcn, TH1D* hist[], string pdf="" ) {
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-//    fitter.CalculateMinosErrors();
+   fitter.CalculateMinosErrors();
    fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    const ROOT::Fit::FitResult& res = fitter.Result();
    res.Print(cout);
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
+   ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
    vector<double>& Fpar = PE.Fpar;
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr = [Fpar,my_fcn](double x) -> double {
+   bool calc_pval = true;
+   double pvalueKS = 0, pvalueKSsb = 0;
+   if ( calc_pval ) {
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
       double NFit = Nphi/my_fcn.IBW;
       double Ff,penalty;
       tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
-
-      // {mphi,gphi,sigma,A,F,Ang,sl}
       double ang = Fpar[2];
       double sig = Fpar[3];
       const double pp[] {
          my_fcn.mphi, my_fcn.gphi, sig, my_fcn.ar, Ff, ang
       };
-      double NsbNorm = Fpar[4] / my_fcn.normArsb;
-      return NFit*IntfrBWARG( x,pp,0 ) +
-         NsbNorm * RevArgus(x,my_fcn.arsb);
-   };
-   rmath_fun< decltype(Lcr) > fcr(Lcr);
-   ROOT::Math::GoFTest* gofcr =
-      new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-            ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKS = gofcr -> KolmogorovSmirnovTest();
-   cout << " pvalueKS(cr)= " << pvalueKS << endl;
+      double Nsb = Fpar[4];
+      double NsbNorm = Nsb / my_fcn.normArsb;
+      double arsb = my_fcn.arsb;
+      // normalization on 1
+      double Nkk = Fpar[0] * my_fcn.Br2Nkk;
+      double Ntot = Nkk + Nsb;
+      NFit /= Ntot;
+      NsbNorm /= Ntot;
+      auto Lcr = [NFit,pp,NsbNorm,arsb](double x) -> double {
+         return NFit*IntfrBWARG( x,pp,0 ) + NsbNorm*RevArgus(x,arsb);
+      };
 
-   auto Lsb = [Fpar,my_fcn](double x) -> double {
-      double NsbNorm = Fpar[4] / my_fcn.normArsb;
-      return NsbNorm * RevArgus(x,my_fcn.arsb);
-   };
-   rmath_fun< decltype(Lsb) > fsb(Lsb);
-   ROOT::Math::GoFTest* gofsb =
-      new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
-         ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-   cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+      // linear extrapolation in [dL,dU] divided into  n points
+      int n = 10000;
+      vector<double> vLcr(n);
+      double dm = (dU-dL)/(n-1);
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr(m);
+      }
+      auto Lcr2 = [&vLcr,dm,dL,dU](double x) -> double {
+         if ( x < dL || x >= dU ) {
+            return 0.;
+         }
+         int i = (x-dL) / dm;
+         double mi = dL + i * dm;
+         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
+         return f;
+      };
+
+      rmath_fun< decltype(Lcr2) > fcr(Lcr2);
+
+      // check normalization
+      // desired errors:                abs    rel
+      ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
+      double norm = gsl_int.Integral( fcr, dL,dU );
+      cout << " norm(fcr) = " << norm << endl;
+
+      ROOT::Math::GoFTest* gofcr =
+         new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS = gofcr -> KolmogorovSmirnovTest();
+      cout << " pvalueKS(cr)= " << pvalueKS << endl;
+
+      NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
+      auto Lsb = [NsbNorm,arsb](double x) -> double {
+         return NsbNorm*RevArgus(x,arsb);
+      };
+      rmath_fun< decltype(Lsb) > fsb(Lsb);
+      ROOT::Math::GoFTest* gofsb =
+         new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
+            ROOT::Math::GoFTest::kPDF, dL,dU );
+      double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
+      cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+   }
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -1434,7 +1471,7 @@ void ToyMC_fit(string pdf) {
    TH1D* hst[10];
    myFCN_toy my_fcn;  // class for 'FitFCN'
    my_fcn.mkk = gp -> signal_ToyMC();
-   vector<double> mkk_bg = gp -> bg_ToyMC(); 
+   vector<double> mkk_bg = gp -> bg_ToyMC();
    my_fcn.mkk.insert( my_fcn.mkk.end(), mkk_bg.begin(),mkk_bg.end() );
    hst[0] = get_hst( my_fcn.mkk, "toy_sig" );
 
@@ -1463,8 +1500,8 @@ void ToyMC() {
    // set random number generator: TRandom3 by default?
 //    gRandom -> SetSeed(0); // seed is set to a random value
 
-   ULong_t Iseed = (ULong_t)time(NULL);
-//    ULong_t Iseed= 1638656110L;
+//    ULong_t Iseed = (ULong_t)time(NULL);
+   ULong_t Iseed= 1638656110L;
    printf("   ULong_t Iseed= %luL;\n",Iseed);
    gRandom -> SetSeed(Iseed);
 
@@ -1474,6 +1511,12 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
+   TStopwatch t;
+   t.Start();
+
    string pdf("toyMC");
    ToyMC_fit(pdf);
+
+   t.Stop();
+   t.Print();
 }
