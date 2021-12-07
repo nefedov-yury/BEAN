@@ -1627,7 +1627,7 @@ int main(int argc, char* argv[]) {
 //----------------------------------------------------------------------
    ULong_t Iseed = 0;
    int Ntoys = 10;
-   string hst_file("toy_mc.root");
+   string hst_file("ToyMC.root");
 
    //-------------------------------------------------------------------
    // => getopt()
