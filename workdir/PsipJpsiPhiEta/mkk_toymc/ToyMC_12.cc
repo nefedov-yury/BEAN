@@ -1127,7 +1127,7 @@ struct myFCN_toy {
          printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
                " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
       }
-#endif      
+#endif
       return make_tuple(Ff,penalty);
    }
 
