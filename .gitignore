@@ -1,4 +1,6 @@
 *.sw?
+*.o
+*.exe
 build*/
 Analysis/DatabaseSvc/dat/
 workdir/*

@@ -14,8 +14,8 @@ ROOTLIBS        += $(shell root-config --libs)
 GSLLIBS         := $(shell gsl-config --libs)
 #------------------------------------------------------------------------------
 CXX             := g++
-CXXFLAGS        := -g -O2 -Wall -pipe -DBATCH
-# CXXFLAGS        := -g -Wall -pipe
+CXXFLAGS        := -O2 -Wall -pipe -DBATCH
+#  CXXFLAGS        := -g -Wall -pipe -DBATCH
 #------------------------------------------------------------------------------
 # INCLUDES        := -I./
 # CXXFLAGS        += $(INCLUDES)
