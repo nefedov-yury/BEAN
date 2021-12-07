@@ -1064,8 +1064,7 @@ struct myFCN_toy {
 
       // integrand lambda function
       const double F = 1.;
-      const double ang = 0.; //0(PI/2) for cos(sin) members of Infr.
-      double pp[] { mphi,gphi,0.,ar,F,ang, 1 };
+      double pp[] { mphi,gphi,0.,ar,F,0., 1. };
 
       auto Lint = [](double x, void* pp) -> double{
          const double* p = static_cast<const double*>(pp);
@@ -1100,9 +1099,10 @@ struct myFCN_toy {
          IAr[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IAr_")+to_string(i),IAr[i],pp);
          pp[6] = 3;
+         pp[5] = 0; // ang=0 for cos
          IIc[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IIc_")+to_string(i),IIc[i],pp);
-         pp[5] = M_PI/2; // ang
+         pp[5] = M_PI/2; // ang = pi/2 for sin
          IIs[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IIs_")+to_string(i),IIs[i],pp);
 
@@ -1137,12 +1137,12 @@ struct myFCN_toy {
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
          Ff = -B/(2*A);
-         penalty += 1e6*fabs(Dis);
+         penalty += 1e5*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty += 1e3;
+         penalty += 1e2;
       }
 
       // debug print
@@ -1173,7 +1173,8 @@ struct myFCN_toy {
 #endif
 
       double Brkk = p[0];
-      double Brphi = p[1];
+     [[maybe_unused]]
+      double Brphi = p[1]; // Ff depends of it !
       double Nkk09  = Brkk  * Br2Nkk09;
 //      [[maybe_unused]]
 //       double Nphi09 = Brphi * Br2Nphi09;
@@ -1334,7 +1335,6 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
 //    fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
@@ -1865,7 +1865,7 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_cf_1.pdf" ); // must be 1
+   ToyMC_fit(1, "ToyMC_cf_10.pdf" ); // must be 1
 }
 #endif
 
