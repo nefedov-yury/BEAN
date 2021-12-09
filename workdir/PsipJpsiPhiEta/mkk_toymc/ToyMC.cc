@@ -1076,6 +1076,7 @@ struct myFCN_toy {
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
 
       // function for check results
+      [[maybe_unused]]
       auto checkInt = [](string t, double Int, double pp[]) -> void {
          if ( !isfinite(Int) ) {
             printf("%s: pp= %g,%g,%g,%g,%g,%g,%g\n", t.data(),
@@ -1094,17 +1095,25 @@ struct myFCN_toy {
 
          pp[6] = 1; // idx
          IBW[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
          checkInt(string("IBW_")+to_string(i),IBW[i],pp);
+#endif
          pp[6] = 2;
          IAr[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
          checkInt(string("IAr_")+to_string(i),IAr[i],pp);
+#endif
          pp[6] = 3;
          pp[5] = 0; // ang=0 for cos
          IIc[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
          checkInt(string("IIc_")+to_string(i),IIc[i],pp);
+#endif
          pp[5] = M_PI/2; // ang = pi/2 for sin
          IIs[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
          checkInt(string("IIs_")+to_string(i),IIs[i],pp);
+#endif
 
          // debug print
 //          printf(" %i: IBW= %.3g IAr= %.3g IIc= %.3g IIs= %.3g\n",
@@ -1162,7 +1171,6 @@ struct myFCN_toy {
    //-----------------------------------------------------------------
    double operator() (const double* p) {
    //-----------------------------------------------------------------
-#ifndef BATCH
       if ( !isfinite(p[0]) || !isfinite(p[1]) || !isfinite(p[2]) ||
            !isfinite(p[3]) || !isfinite(p[4]) || !isfinite(p[5]) ||
            !isfinite(p[6]) ) {
@@ -1170,7 +1178,6 @@ struct myFCN_toy {
                p[0],p[1],p[2],p[3],p[4],p[5],p[6]);
          return DBL_MAX;
       }
-#endif
 
       double Brkk = p[0];
      [[maybe_unused]]
@@ -1314,7 +1321,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
       "sig09", "sig12", "Nbg09", "Nbg12" };
 
    vector<double> par_ini {4.5e-4, 8.5e-4, 0.,
-      1.4e-3, 1.1e-3, 13., 35.};
+      1.4e-3, 1.1e-3, double(nsb09), double(nsb12)};
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -1335,12 +1342,24 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-//    fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
-   const ROOT::Fit::FitResult& res = fitter.Result();
+   ROOT::Fit::FitResult res = fitter.Result();
+#ifdef BATCH
+   bool do_refit = !res.IsValid();
+   if ( do_refit ) {
+      res.Print(cout);
+      printf("\n => Let's try to fit starting from different angle\n");
+      par_ini[2] = 1.;
+      fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false);
+      fitter.CalculateMinosErrors();
+      res = fitter.Result();
+   }
+#endif
    if ( !isBatch ) {
       res.Print(cout);
+      fitter.Config().SetParamsSettings(Npar,par_ini.data());
    }
 
    double Lmin = res.MinFcnValue();
@@ -1352,6 +1371,8 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    F_ret.insert(F_ret.end(),PE.Fpar.begin(),PE.Fpar.end()); // values
    F_ret.insert(F_ret.end(),PE.Uerr.begin(),PE.Uerr.end()); // upper err
    F_ret.insert(F_ret.end(),PE.Lerr.begin(),PE.Lerr.end()); // lower err
+   const vector<double> & Perr = res.Errors();
+   F_ret.insert(F_ret.end(),Perr.begin(),Perr.end()); // symmetric err
    F_ret.push_back(Lmin);
    double st = ((res.IsValid()) ? 1. : 0.); // status of minimization
    F_ret.push_back(st);
@@ -1752,9 +1773,10 @@ void ToyMC_fit(int Ntoys, string file_name) {
       }
       c_out -> cd();
       tuple = new TNtupleD("tmc","Toy MC",
-            "bkk:bphi:ang:sig09:sig12:nbg09:nbg12"
-            "ubkk:ubphi:uang:usig09:usig12:unbg09:unbg12"
-            "lbkk:lbphi:lang:lsig09:lsig12:lnbg09:lnbg12"
+            "bkk:bphi:ang:sig09:sig12:nbg09:nbg12:"
+            "ubkk:ubphi:uang:usig09:usig12:unbg09:unbg12:"
+            "lbkk:lbphi:lang:lsig09:lsig12:lnbg09:lnbg12:"
+            "pbkk:pbphi:pang:psig09:psig12:pnbg09:pnbg12:"
             "Lmin:st:pv09:pv09sb:pv12:pv12sb:"
             "nkk09g:nbg09g:nsb09g:"
             "nkk12g:nbg12g:nsb12g"
