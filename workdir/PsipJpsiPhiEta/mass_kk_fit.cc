@@ -4665,9 +4665,9 @@ struct myFCN_combsbbr {
    const double gphi = Gphi;
    const double ar = 0.; // Argus parameter
 
-   double Br2Nkk09 = 0.;   // convertion Br(J/Psi -> KK eta) -> Nkk
+   double Br2Nkk09 = 0.;   // conversion Br(J/Psi -> KK eta) -> Nkk
    double Br2Nkk12 = 0.;
-   double Br2Nphi09 = 0.;  // convertion Br(J/Psi -> phi eta) -> Nphi
+   double Br2Nphi09 = 0.;  // conversion Br(J/Psi -> phi eta) -> Nphi
    double Br2Nphi12 = 0.;
 
    // integrals 0 -> 09, 1 -> 12
@@ -4746,12 +4746,11 @@ struct myFCN_combsbbr {
    //-----------------------------------------------------------------
    void calcIntegrals(const double sig[]) { // 0 -> 09, 1 -> 12
    //-----------------------------------------------------------------
-      // cach old values
+      // cache for calculated values
       static double sig_save[2] = {0.,0.};
 
-      const double ang = 0.; //0(PI/2) for cos(sin) members of Infr
       // integrand lambda function
-      double pp[] { mphi,gphi,0.,ar,1.,ang,sl09, 1. };
+      double pp[] { mphi,gphi,0.,ar,1.,0.,sl09, 1. };
 
       auto Lint = [](double x, void* pp) -> double{
          const double* p = static_cast<const double*>(pp);
@@ -4788,12 +4787,12 @@ struct myFCN_combsbbr {
          IeAr[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IeAr_")+to_string(i),IeAr[i],pp);
          pp[7] = 3;
+         pp[5] = 0; // ang=0 for cos
          IeIc[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IeIc_")+to_string(i),IeIc[i],pp);
-         pp[5] = M_PI/2; // ang
+         pp[5] = M_PI/2; // ang = pi/2 for sin
          IeIs[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IeIs_")+to_string(i),IeIs[i],pp);
-         pp[5] = 0;
 
          pp[6] = 0; // sl = 0
          pp[7] = 1; // idx
@@ -4803,12 +4802,12 @@ struct myFCN_combsbbr {
          IAr[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IAr_")+to_string(i),IAr[i],pp);
          pp[7] = 3;
+         pp[5] = 0; // ang=0 for cos
          IIc[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IIc_")+to_string(i),IIc[i],pp);
-         pp[5] = M_PI/2; // ang
+         pp[5] = M_PI/2; // ang = pi/2 for sin
          IIs[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IIs_")+to_string(i),IIs[i],pp);
-         pp[5] = 0;
 
 //          printf(" %i: IeBW= %.3g IeAr= %.3g IeIc= %.3g IeIs= %.3g\n",
 //                i, IeBW[i], IeAr[i], IeIc[i], IeIs[i]);
@@ -4817,7 +4816,7 @@ struct myFCN_combsbbr {
       }
    }
 
-   // intergrals MUST be calculeted before calling this function
+   // integrals MUST be calculated before calling this function
    //-----------------------------------------------------------------
    tuple<double,double> calcF12(const double* p) const {
    //-----------------------------------------------------------------
@@ -5032,8 +5031,8 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 
    bool fast_minimization = false;
 //    bool fast_minimization = true;
-//    bool skip_KStest = true;
-   bool skip_KStest = fast_minimization;
+   bool skip_KStest = true;
+//    bool skip_KStest = fast_minimization;
 //    bool neg_pos = par_ini[2] > 0; // true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -5064,6 +5063,14 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    const ROOT::Fit::FitResult& res = fitter.Result();
+   {
+      const vector<double>& Fpar = res.Parameters();
+      double Ff,penalty;
+      tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
+      if ( !isfinite(penalty) || penalty > 0. ) {
+         printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
+      }
+   }
    res.Print(cout);
 //    res.PrintCovMatrix(cout); // print error matrix and correlations
 
@@ -5491,7 +5498,7 @@ void mass_kk_fit() {
 //    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan.pdf");
 
    // combined with Side-Band + fitBR
-   combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_eq18p4.pdf");
+   combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_std.pdf");
 
 //--------------------------------------------------------------------
 }
