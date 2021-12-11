@@ -1145,22 +1145,21 @@ struct myFCN_toy {
       double Dis = B*B-4*A*C;
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
-         Ff = -B/(2*A);
+         Ff = max(0.,-B/(2*A));
          penalty += 1e5*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty += 1e2;
+         penalty = -10*Ff;
+         Ff = 0.;
       }
 
       // debug print
-#ifndef BATCH
       if ( Dis < 0 || Ff < 0 ) {
          printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
                " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
       }
-#endif
       return make_tuple(Ff,penalty);
    }
 
@@ -1313,9 +1312,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    //-----------------------------------------------------------------
    // Fit data
    ROOT::Fit::Fitter fitter;
-   if ( !isBatch ) {
-      fitter.Config().MinimizerOptions().SetPrintLevel(3);
-   }
+   fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Brkk", "Brphi", "angle",
       "sig09", "sig12", "Nbg09", "Nbg12" };
@@ -1334,33 +1331,60 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    fitter.Config().ParSettings(0).SetLimits(3e-4, 6e-4);   // Brkk
    fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4);  // Brphi
    fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI);  // angle
-   fitter.Config().ParSettings(3).SetLimits(0.5e-3,2.e-3); // sig09
-   fitter.Config().ParSettings(4).SetLimits(0.5e-3,2.e-3); // sig12
-   fitter.Config().ParSettings(5).SetLimits(0.,2.*nsb09);  // Nbg09
-   fitter.Config().ParSettings(6).SetLimits(0.,2.*nsb12);  // Nbg12
+   fitter.Config().ParSettings(3).SetLimits(0.3e-3,3.e-3); // sig09
+   fitter.Config().ParSettings(4).SetLimits(0.3e-3,3.e-3); // sig12
+   double max_nbg09 = max(2.*nsb09,18.); // 12*1.5
+   fitter.Config().ParSettings(5).SetLimits(0.,max_nbg09); // Nbg09
+   double max_nbg12 = max(2.*nsb12,53.); // 35*1.5
+   fitter.Config().ParSettings(6).SetLimits(0.,max_nbg12); // Nbg12
 
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
    fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-
    ROOT::Fit::FitResult res = fitter.Result();
+
+   bool do_refit = false;
 #ifdef BATCH
-   bool do_refit = !res.IsValid();
+   double Ff,penalty;
+   {
+      const vector<double>& Fpar = res.Parameters();
+      tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
+   }
+   if ( !isfinite(penalty) || penalty > 0. ) {
+      do_refit = true;
+      printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
+   }
+   if ( !do_refit ) {  
+      // additional check upper and lower bounds after MINOS
+      for ( unsigned int ip = 0; ip < Npar; ++ip ) {
+         if ( !res.HasMinosError(ip) || 
+               res.UpperError(ip)*res.LowerError(ip) == 0 ) {
+            do_refit = true;
+            printf("\n=> INVALID RESULT: minos errors <=\n");
+            break;
+         }
+      }
+   }
    if ( do_refit ) {
       res.Print(cout);
-      printf("\n => Let's try to fit starting from different angle\n");
-      par_ini[2] = 1.;
+      par_ini = res.Parameters();
+      if ( fabs(par_ini[2]) > 0.1 ) {
+         par_ini[2] *= -1.;
+      } else {
+         par_ini[2] = copysign(0.5, par_ini[2]);
+      }
+      fitter.Config().SetParamsSettings(Npar,par_ini.data());
       fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false);
+      fitter.CalculateHessErrors();
       fitter.CalculateMinosErrors();
       res = fitter.Result();
    }
 #endif
-   if ( !isBatch ) {
-      res.Print(cout);
-      fitter.Config().SetParamsSettings(Npar,par_ini.data());
-   }
+
+   printf("\n=> FINAL RESULT <=\n");
+   res.Print(cout);
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
@@ -1374,7 +1398,20 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    const vector<double> & Perr = res.Errors();
    F_ret.insert(F_ret.end(),Perr.begin(),Perr.end()); // symmetric err
    F_ret.push_back(Lmin);
-   double st = ((res.IsValid()) ? 1. : 0.); // status of minimization
+
+   // status of minimization
+   double st = ((res.IsValid()) ? 1. : 0.);
+   if ( st == 1 && do_refit ) {
+      st = 0.5;
+   }
+   {  // something wrong with that solution
+      double Ff,penalty;
+      tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
+      if ( !isfinite(penalty) || penalty > 0. ) {
+         st = -2.;
+         printf("\n=> INVALID FINAL RESULT: penalty= %f <=\n",penalty);
+      }
+   }
    F_ret.push_back(st);
 
    //-----------------------------------------------------------------
