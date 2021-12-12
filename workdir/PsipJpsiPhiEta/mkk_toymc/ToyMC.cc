@@ -1387,7 +1387,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    res.Print(cout);
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
+   ParAndErr PE(res,0.03); // ignore 3% upper/lower errors
    vector<double>& Fpar = PE.Fpar;
 
    vector<double> F_ret;  // vector to return
@@ -1637,7 +1637,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
 
    TLegend* leg = new TLegend(0.55,0.53,0.89,0.89);
    leg -> SetTextSize(0.045);
-   leg -> SetHeader("Toy MC:2009(top),2012(bottom)","C");
+   leg -> SetHeader("Toy MC:2009(top),2012(bot)","C");
    leg -> AddEntry( h09,"Toy MC","LEP" );
 
    f09 -> SetParameter(0, 0); // Sum
@@ -1729,9 +1729,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    pt12 -> SetTextAlign(12);
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
-   pt12 -> AddText( Form("#sigma(2009) = %s MeV",
+   pt12 -> AddText( Form("#sigma(2012) = %s MeV",
             PE.Eform(4,".2f",1e3)) );
-   pt12 -> AddText( Form("#lower[-0.1]{Nbg(2009) = %s}",
+   pt12 -> AddText( Form("#lower[-0.1]{Nbg(2012) = %s}",
             PE.Eform(6,".1f")) );
    pt12 -> Draw();
 
@@ -1864,7 +1864,7 @@ void ToyMC_fit(int Ntoys, string file_name) {
       if ( !isBatch ) {
          printf(" nkk09= %zu, nbg09= %zu, nsb09= %zu\n",
            my_fcn.mkk09.size(), mkk_bg09.size(), my_fcn.sb09.size());
-         printf(" nkk12= %zu, nbg12= %zu, nsb09= %zu\n",
+         printf(" nkk12= %zu, nbg12= %zu, nsb12= %zu\n",
            my_fcn.mkk12.size(), mkk_bg12.size(), my_fcn.sb12.size());
       }
 
@@ -1913,8 +1913,10 @@ void ToyMC() {
    // set random number generator: TRandom3 by default?
 //    gRandom -> SetSeed(0); // seed is set to a random value
 
-//    ULong_t Iseed = (ULong_t)time(NULL);
-   ULong_t Iseed= 10L;
+   ULong_t Iseed = (ULong_t)time(NULL);
+//    ULong_t Iseed = 1639262678L; // T1
+//    ULong_t Iseed = 1639298122L; // T2 constructive
+//    ULong_t Iseed = 1639298790L; // T3
    printf("   ULong_t Iseed= %luL;\n",Iseed);
    gRandom -> SetSeed(Iseed);
 
@@ -1924,7 +1926,7 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_cf_10.pdf" ); // must be 1
+   ToyMC_fit(1, "ToyMC_cf_T4.pdf" ); // must be Ntoys=1
 }
 #endif
 
