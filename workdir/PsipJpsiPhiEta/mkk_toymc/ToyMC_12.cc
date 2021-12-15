@@ -762,7 +762,7 @@ void test_Intfr() {
 struct Gpar {
    Gpar(double brKKeta, double brphieta); // ctor
 
-   void Print();
+   void Print(string info);
    vector<double> signal_ToyMC() const;
    vector<double> bg_ToyMC() const;
 
@@ -828,9 +828,9 @@ Gpar::Gpar(double brKKeta, double brphieta) {
 };
 
 //-------------------------------------------------------------------------
-void Gpar::Print() {
+void Gpar::Print(string info) {
 //-------------------------------------------------------------------------
-   cout << " -------- Toy MC parameters --------- " << endl;
+   cout << " -------- Toy MC parameters: " << info << " --------- " << endl;
    cout << " Br(KKeta) = " << BrKKeta*1e4 << " *10^{-4}" << endl;
    cout << " Br(phi eta) = " << Brphieta *1e4 << " *10^{-4}" << endl;
    cout << " Mphi = " << mphi << " GeV" << endl;
@@ -1009,8 +1009,9 @@ struct myFCN_toy {
    const double mphi = 1.01953; // Mphi like in MC
    const double gphi = Gphi;
    const double ar = 0.; // Argus parameter
-   double Br2Nkk = 0.;   // convertion Br(J/Psi -> KK eta) -> Nkk
-   double Br2Nphi = 0.;  // convertion Br(J/Psi -> phi eta) -> Nphi
+
+   double Br2Nkk = 0.;   // conversion Br(J/Psi -> KK eta) -> Nkk
+   double Br2Nphi = 0.;  // conversion Br(J/Psi -> phi eta) -> Nphi
 
    // integrals
    double IBW = 0, IAr = 0, IIc = 0, IIs = 0;
@@ -1054,18 +1055,19 @@ struct myFCN_toy {
 
       // integrand lambda function
       const double F = 1.;
-      const double ang = 0.; //0(PI/2) for cos(sin) members of Infr.
-      double pp[] { mphi,gphi,sig,ar,F,ang, 1 };
+      double pp[] { mphi,gphi,sig,ar,F,0., 1. };
 
       auto Lint = [](double x, void* pp) -> double{
          const double* p = static_cast<const double*>(pp);
          int idx = int(p[6]);
          return IntfrBWARG(x,p,idx);
       };
+
       // desired errors:                abs    rel
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
 
-      // calculate integrals
+      // function for check results
+      [[maybe_unused]]
       auto checkInt = [](string t, double Int, double pp[]) -> void {
          if ( !isfinite(Int) ) {
             printf("%s: pp= %g,%g,%g,%g,%g,%g,%g\n", t.data(),
@@ -1073,27 +1075,36 @@ struct myFCN_toy {
             exit(1);
          }
       };
+
+      // calculate integrals
       pp[6] = 1; // idx
       IBW = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
       checkInt("IBW",IBW,pp);
+#endif
       pp[6] = 2;
       IAr = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
       checkInt("IAr",IAr,pp);
+#endif
       pp[6] = 3;
+      pp[5] = 0; // ang=0 for cos
       IIc = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
       checkInt("IIc",IIc,pp);
-      pp[5] = M_PI/2; // ang
+#endif
+      pp[5] = M_PI/2; // ang = pi/2 for sin
       IIs = gsl_int.Integral(Lint,(void *)pp,dL,dU);
+#ifndef BATCH
       checkInt("IIs",IIs,pp);
+#endif
 
       // debug print
-//       printf(" IeBW= %.3g IeAr= %.3g IeIc= %.3g IeIs= %.3g\n",
-//             IeBW, IeAr, IeIc, IeIs);
 //       printf(" IBW= %.3g IAr= %.3g IIc= %.3g IIs= %.3g\n",
 //             IBW, IAr, IIc, IIs);
    }
 
-   // intergrals MUST be calculeted before calling this function
+   // integrals MUST be calculated before calling this function
    //-----------------------------------------------------------------
    tuple<double,double> calcF(const double* p) const {
    //-----------------------------------------------------------------
@@ -1112,22 +1123,21 @@ struct myFCN_toy {
       double Dis = B*B-4*A*C;
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
-         Ff = -B/(2*A);
+         Ff = max(0.,-B/(2*A));
          penalty += 1e5*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty += 10.;
+         penalty = -10*Ff;
+         Ff = 0.;
       }
 
       // debug print
-#ifndef BATCH
       if ( Dis < 0 || Ff < 0 ) {
          printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
                " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
       }
-#endif
       return make_tuple(Ff,penalty);
    }
 
@@ -1147,20 +1157,18 @@ struct myFCN_toy {
 
       double Brkk = p[0];
       double Brphi = p[1];
-      [[maybe_unused]] double Nkk = Brkk * Br2Nkk;
+      [[maybe_unused]]
+      double Nkk = Brkk * Br2Nkk;
       double Nphi = Brphi * Br2Nphi;
+
+      double Nsb = p[4];
 
       double ang = p[2];
       double sigma = p[3];
-      double Nsb = p[4];
-
       calcIntegrals(sigma);
+
       double Ff = 0., penalty = 0.;
       tie(Ff,penalty) = calcF(p);
-//       if ( Ff < 0. ) {
-//          printf("F NEG: p[]= %.2g,%.2g,%.2g,%.2g,%.2g\n",
-//                p[0],p[1],p[2],p[3],p[4]);
-//       }
 
 //+ this long calculation depends only on Br(eta->2gamma)...
 //+       double normI = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
@@ -1169,8 +1177,9 @@ struct myFCN_toy {
       double NFit = Nphi/IBW; // === Nkk/normI;
 
       // for toyMC normE == normI => NkkFit == Nkk
-      double normE = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
-      double NkkFit = NFit*normE;
+//       double normE = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
+//       double NkkFit = NFit*normE;
+      double NkkFit = Nkk;
 
       double res = 2*(NkkFit+Nsb) + penalty;
 
@@ -1201,8 +1210,6 @@ struct myFCN_toy {
          }
       }
 
-//       printf("RES: p[]= %g,%g,%g,%g,%g -> %g\n",
-//               p[0],p[1],p[2],p[3],p[4],res);
       return res;
    }
 };
@@ -1215,25 +1222,24 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    const vector<double>& mkk = my_fcn.mkk;
    int n = mkk.size();
 
-   [[maybe_unused]] TH1D* hsb = hist[1];
+   [[maybe_unused]]
+   TH1D* hsb = hist[1];
    const vector<double>& sb = my_fcn.sb;
    int nsb = sb.size();
 
    const double& dL = my_fcn.dL;
    const double& dU = my_fcn.dU;
 
-   bool isPrt =  !pdf.empty();
+   bool isBatch = pdf.empty();
 
    //-----------------------------------------------------------------
    // Fit data
    ROOT::Fit::Fitter fitter;
-   if ( isPrt ) {
-      fitter.Config().MinimizerOptions().SetPrintLevel(3);
-   }
+   fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Brkk", "Brphi", "angle", "sigma", "Nbg" };
+   vector<string> par_name { "Brkk", "Brphi", "angle", "sig", "Nbg" };
 
-   vector<double> par_ini {4.5e-4, 8.5e-4, 0., 1.2e-3, 35.};
+   vector<double> par_ini {4.5e-4, 8.5e-4, 0., 1.2e-3, double(nsb)};
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -1243,35 +1249,87 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    }
 
    // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetLimits(3e-4, 6e-4);  // Brkk
-   fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4); // Brphi
-   fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI); // angle
-   fitter.Config().ParSettings(3).SetLimits(0.5e-3,2.e-3);// sigma
-//    fitter.Config().ParSettings(3).Fix();
-//    fitter.Config().ParSettings(4).SetLimits(0., 1.5*nsb); // Nbg
+   fitter.Config().ParSettings(0).SetLimits(3e-4, 6e-4);   // Brkk
+   fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4);  // Brphi
+   fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI);  // angle
+   fitter.Config().ParSettings(3).SetLimits(0.3e-3,3.e-3); // sig
+   double max_nbg = max(2.*nsb,53.); // 35*1.5
+   fitter.Config().ParSettings(4).SetLimits(0.,max_nbg);   // Nbg
 
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-//    fitter.CalculateHessErrors(); //in case of Minos find a new minimum
+   ROOT::Fit::FitResult res = fitter.Result();
 
-   const ROOT::Fit::FitResult& res = fitter.Result();
-   if ( isPrt ) {
-      res.Print(cout);
+   bool do_refit = false;
+#ifdef BATCH
+   double Ff,penalty;
+   {
+      const vector<double>& Fpar = res.Parameters();
+      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
    }
+   if ( !isfinite(penalty) || penalty > 0. ) {
+      do_refit = true;
+      printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
+   }
+   if ( !do_refit ) {
+      // additional check upper and lower bounds after MINOS
+      for ( unsigned int ip = 0; ip < Npar; ++ip ) {
+         if ( !res.HasMinosError(ip) ||
+               res.UpperError(ip)*res.LowerError(ip) == 0 ) {
+            do_refit = true;
+            printf("\n=> INVALID RESULT: minos errors <=\n");
+            break;
+         }
+      }
+   }
+   if ( do_refit ) {
+      res.Print(cout);
+      par_ini = res.Parameters();
+      if ( fabs(par_ini[2]) > 0.1 ) {
+         par_ini[2] *= -1.;
+      } else {
+         par_ini[2] = copysign(0.5, par_ini[2]);
+      }
+      fitter.Config().SetParamsSettings(Npar,par_ini.data());
+      fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false);
+      fitter.CalculateHessErrors();
+      fitter.CalculateMinosErrors();
+      res = fitter.Result();
+   }
+#endif
+
+   printf("\n=> FINAL RESULT <=\n");
+   res.Print(cout);
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
+   ParAndErr PE(res,0.03); // ignore 3% upper/lower errors
    vector<double>& Fpar = PE.Fpar;
 
    vector<double> F_ret;  // vector to return
-   F_ret.reserve(3*PE.Fpar.size()+10);
+   F_ret.reserve(3*PE.Fpar.size()+20);
    F_ret.insert(F_ret.end(),PE.Fpar.begin(),PE.Fpar.end()); // values
    F_ret.insert(F_ret.end(),PE.Uerr.begin(),PE.Uerr.end()); // upper err
    F_ret.insert(F_ret.end(),PE.Lerr.begin(),PE.Lerr.end()); // lower err
+   const vector<double> & Perr = res.Errors();
+   F_ret.insert(F_ret.end(),Perr.begin(),Perr.end()); // symmetric err
    F_ret.push_back(Lmin);
-   double st = ((res.IsValid()) ? 1. : 0.); // status of minimization
+
+   // status of minimization
+   double st = ((res.IsValid()) ? 1. : 0.);
+   if ( st == 1 && do_refit ) {
+      st = 0.5;
+   }
+   {  // something wrong with that solution
+      double Ff,penalty;
+      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
+      if ( !isfinite(penalty) || penalty > 0. ) {
+         st = -2.;
+         printf("\n=> INVALID FINAL RESULT: penalty= %f <=\n",penalty);
+      }
+   }
    F_ret.push_back(st);
 
    //-----------------------------------------------------------------
@@ -1330,7 +1388,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
          new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
                ROOT::Math::GoFTest::kPDF, dL,dU );
       pvalueKS = gofcr -> KolmogorovSmirnovTest();
-      if ( isPrt ) {
+      if ( !isBatch ) {
          cout << " pvalueKS(cr)= " << pvalueKS << endl;
       }
 
@@ -1343,14 +1401,14 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
          new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
             ROOT::Math::GoFTest::kPDF, dL,dU );
       pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-      if ( isPrt ) {
+      if ( !isBatch ) {
          cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
       }
    }
 
    F_ret.push_back(pvalueKS);
    F_ret.push_back(pvalueKSsb);
-   if ( !isPrt ) {
+   if ( isBatch ) {
       return F_ret;
    }
 
@@ -1464,7 +1522,6 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    gPad -> RedrawAxis();
 
    c1 -> Update();
-   pdf += ".pdf";
    c1 -> Print(pdf.c_str());
 
    return F_ret;
@@ -1538,6 +1595,7 @@ void ToyMC_fit(int Ntoys, string file_name) {
             "bkk:bphi:ang:sig:nbg:"
             "ubkk:ubphi:uang:usig:unbg:"
             "lbkk:lbphi:lang:lsig:lnbg:"
+            "pbkk:pbphi:pang:psig:pnbg:"
             "Lmin:st:pv:pvsb:"
             "nkkg:nbgg:ncbg"                   // generated
             );
@@ -1546,7 +1604,7 @@ void ToyMC_fit(int Ntoys, string file_name) {
    double BrKKeta  = 4.5e-4;
    double Brphieta = 8.5e-4;
    Gpar* gp = new Gpar( BrKKeta, Brphieta );
-   gp -> Print();
+   gp -> Print("ToyMC_12");
 
    TStopwatch t;
    TH1D* hst[2] {nullptr, nullptr};
@@ -1564,9 +1622,14 @@ void ToyMC_fit(int Ntoys, string file_name) {
       delete hst[1];
       hst[1] = get_hst( my_fcn.sb, "toy_sb" );
 
+      if ( !isBatch ) {
+         printf(" nkk= %zu, nbg= %zu, nsb= %zu\n",
+           my_fcn.mkk.size(), mkk_bg.size(), my_fcn.sb.size());
+      }
 //       plot_hst(hst,pdf); // for debug
 
-      vector<double> ret = do_fit_toy(my_fcn,hst,pdf);
+      vector<double> ret;
+      ret = do_fit_toy(my_fcn,hst,pdf);
 
       if ( isBatch ) {
          // add generated numbers
@@ -1590,7 +1653,7 @@ void ToyMC_fit(int Ntoys, string file_name) {
 // {{{1 MAIN for interpreter
 #ifndef BATCH
 //----------------------------------------------------------------------
-void ToyMC() {
+void ToyMC_12() {
 //----------------------------------------------------------------------
    gROOT -> Reset();
    gStyle -> SetOptStat(0);
@@ -1605,8 +1668,8 @@ void ToyMC() {
    // set random number generator: TRandom3 by default?
 //    gRandom -> SetSeed(0); // seed is set to a random value
 
-   ULong_t Iseed = (ULong_t)time(NULL);
-//    ULong_t Iseed= 1638656110L;
+//    ULong_t Iseed = (ULong_t)time(NULL);
+   ULong_t Iseed= 1639607937L; // T1
    printf("   ULong_t Iseed= %luL;\n",Iseed);
    gRandom -> SetSeed(Iseed);
 
@@ -1616,7 +1679,7 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_3.pdf" ); // must be 1
+   ToyMC_fit(1, "ToyMC_12_T1.pdf" ); // must be 1
 }
 #endif
 
@@ -1627,7 +1690,7 @@ int main(int argc, char* argv[]) {
 //----------------------------------------------------------------------
    ULong_t Iseed = 0;
    int Ntoys = 10;
-   string hst_file("ToyMC.root");
+   string hst_file("ToyMC_12.root");
 
    //-------------------------------------------------------------------
    // => getopt()

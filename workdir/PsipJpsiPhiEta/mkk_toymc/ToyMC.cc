@@ -1861,13 +1861,13 @@ void ToyMC_fit(int Ntoys, string file_name) {
       my_fcn.sb12 = gp12 -> bg_ToyMC(); // side-band 12
       delete hst[3];
       hst[3] = get_hst( my_fcn.sb12, "toy_sb12" );
+
       if ( !isBatch ) {
          printf(" nkk09= %zu, nbg09= %zu, nsb09= %zu\n",
            my_fcn.mkk09.size(), mkk_bg09.size(), my_fcn.sb09.size());
          printf(" nkk12= %zu, nbg12= %zu, nsb12= %zu\n",
            my_fcn.mkk12.size(), mkk_bg12.size(), my_fcn.sb12.size());
       }
-
 //       plot_hst(hst,pdf); // for debug
 
       vector<double> ret;
