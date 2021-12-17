@@ -2553,13 +2553,14 @@ struct myFCN_sbbr {
       double Dis = B*B-4*A*C;
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
-         Ff = -B/(2*A);
+         Ff = max(0.,-B/(2*A));
          penalty += 1e5*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty += 10.;
+         penalty = -10*Ff;
+         Ff = 0.;
       }
 
       // debug print
@@ -2596,10 +2597,6 @@ struct myFCN_sbbr {
       calcIntegrals(sigma);
       double Ff = 0., penalty = 0.;
       tie(Ff,penalty) = calcF(p);
-//       if ( Ff < 0. ) {
-//          printf("F NEG: p[]= %.2g,%.2g,%.2g,%.2g,%.2g\n",
-//                p[0],p[1],p[2],p[3],p[4]);
-//       }
 
 //+ this long calculation depends only on Br(eta->2gamma)...
 //+       double normI = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
@@ -2718,6 +2715,7 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
+   // see ToyMC_12() &&  combineSBBR_Intfr() for fast calculation
    auto Lcr = [Fpar,my_fcn](double x) -> double {
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
       double NFit = Nphi/my_fcn.IBW;
@@ -4569,7 +4567,7 @@ void combineSB_Intfr_scan( string fname09, string fname12,
    }
    TLine* lR = new TLine;
    lR -> SetLineColor(kRed+1);
-   lR -> SetLineWidth(2);
+   lR -> SetLineWidth(3);
    lR -> SetLineStyle(7);
 
    // 1 -Nphi vs angl
@@ -4595,33 +4593,35 @@ void combineSB_Intfr_scan( string fname09, string fname12,
    c1 -> Print(pdf.c_str()); // add to pdf-file
 
    // 1 -Lmin vs Nphi
-   c1 -> cd();
-   c1 -> Clear();
-   c1 -> SetCanvasSize(800,800); // resize
-   c1 -> cd();
-   gPad -> SetGrid();
+//    c1 -> cd();
+//    c1 -> Clear();
+//    c1 -> SetCanvasSize(800,800); // resize
+//    c1 -> cd();
+//    gPad -> SetGrid();
 
+   c1 -> cd(1);
    auto grL09 = new TGraph( nch, nphi09.data(), Lmin.data() );
    grL09 -> SetTitle(";N_{#phi }(2009);#it{-2log(L/L_{max})}");
    grL09 -> SetMarkerColor(kBlue);
    grL09 -> SetMarkerStyle(20);
    grL09 -> SetLineWidth(2);
-   grL09 -> GetYaxis() -> SetTitleOffset(2.);
+//    grL09 -> GetYaxis() -> SetTitleOffset(2.);
    grL09 -> Draw("APL");
    lR -> DrawLine(n09_L[0],0.,n09_L[0],1.);
    lR -> DrawLine(n09_L[0],1.,n09_L[1],1.);
    lR -> DrawLine(n09_L[1],1.,n09_L[1],0.);
    gPad -> RedrawAxis();
-   c1 -> Update();
-   c1 -> Print(pdf.c_str()); // add to pdf-file
+//    c1 -> Update();
+//    c1 -> Print(pdf.c_str()); // add to pdf-file
 
-   c1 -> cd();
+//    c1 -> cd();
+   c1 -> cd(2);
    auto grL12 = new TGraph( nch, nphi12.data(),  Lmin.data() );
    grL12 -> SetTitle(";N_{#phi }(2012);#it{-2log(L/L_{max})}");
    grL12 -> SetMarkerColor(kBlue);
    grL12 -> SetMarkerStyle(20);
    grL12 -> SetLineWidth(2);
-   grL12 -> GetYaxis() -> SetTitleOffset(2.);
+//    grL12 -> GetYaxis() -> SetTitleOffset(2.);
    grL12 -> Draw("APL");
    lR -> DrawLine(n12_L[0],0.,n12_L[0],1.);
    lR -> DrawLine(n12_L[0],1.,n12_L[1],1.);
@@ -4632,10 +4632,15 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 
    // 3 - Lmin vs angle
    c1 -> cd();
+   c1 -> Clear();
+   c1 -> SetCanvasSize(800,800); // resize
+   c1 -> cd();
+   gPad -> SetGrid();
+//    c1 -> cd();
    auto gr = new TGraph( nch, angl.data(), Lmin.data() );
    gr -> SetTitle(";#vartheta, degrees;#it{-2log(L/L_{max})}");
    gr -> GetYaxis() -> SetMaxDigits(3);
-   gr -> GetYaxis() -> SetTitleOffset(2.);
+//    gr -> GetYaxis() -> SetTitleOffset(2.);
    gr -> SetMarkerColor(kBlue);
    gr -> SetMarkerStyle(20);
    gr -> SetLineWidth(2);
@@ -4840,13 +4845,14 @@ struct myFCN_combsbbr {
       double Dis = B*B-4*A*C;
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
-         Ff = -B/(2*A);
+         Ff = max(0.,-B/(2*A));
          penalty += 1e5*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty += 10.;
+         penalty = -10*Ff;
+         Ff = 0.;
       }
 
       // debug print
@@ -4912,8 +4918,6 @@ struct myFCN_combsbbr {
          double m = mkk09[i];
          double L = NFit09 * IntfrBWARG( m,p09,0 ) +
                     NsbNorm09 * RevArgus(m,arsb)*(1+slsb*(m-1.02));
-//                     Nsb09/(dU-bL); // bL !
-
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -4923,9 +4927,6 @@ struct myFCN_combsbbr {
 
       // fit SB
       int n_sb09 = sb09.size();
-      // by constant
-//       res += 2*Nsb09 - n_sb09*2*log(Nsb09/(dU-bL));
-      // by Argus
       res += 2*Nsb09;
       for ( int i = 0; i < n_sb09; ++i ) {
          double m = sb09[i];
@@ -4960,8 +4961,6 @@ struct myFCN_combsbbr {
          double m = mkk12[i];
          double L = NFit12 * IntfrBWARG( m,p12,0 ) +
                     NsbNorm12 * RevArgus(m,arsb)*(1+slsb*(m-1.02));
-//                     Nsb12/(dU-bL); // bL !
-
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -4971,9 +4970,6 @@ struct myFCN_combsbbr {
 
       // fit SB
       int n_sb12 = sb12.size();
-      // by constant
-//       res += 2*Nsb12 - n_sb12*2*log(Nsb12/(dU-bL));
-      // by Argus
       res += 2*Nsb12;
       for ( int i = 0; i < n_sb12; ++i ) {
          double m = sb12[i];
@@ -5027,12 +5023,10 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
       "sig09", "sig12", "Nbg09", "Nbg12" };
 
    vector<double> par_ini { 4.5e-4, 8.5e-4, 0.,
-      1.5e-3, 1.2e-3, double(nsb09), double(nsb12)}; // zero
+      1.4e-3, 1.1e-3, double(nsb09), double(nsb12)}; // zero
 
    bool fast_minimization = false;
 //    bool fast_minimization = true;
-   bool skip_KStest = true;
-//    bool skip_KStest = fast_minimization;
 //    bool neg_pos = par_ini[2] > 0; // true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -5051,32 +5045,29 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 //    fitter.Config().ParSettings(3).Fix();
    fitter.Config().ParSettings(4).SetLimits(0.5e-3,2.e-3); // sig12
 //    fitter.Config().ParSettings(4).Fix();
-   fitter.Config().ParSettings(5).SetLimits(0.,1.5*nsb09); // Nbg09
-   fitter.Config().ParSettings(6).SetLimits(0.,1.5*nsb12); // Nbg12
+   fitter.Config().ParSettings(5).SetLimits(0.,2.*nsb09);  // Nbg09
+   fitter.Config().ParSettings(6).SetLimits(0.,2.*nsb12);  // Nbg12
 
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-   if ( !fast_minimization ) {
-      fitter.CalculateMinosErrors();
-   }
-   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
+   fitter.CalculateHessErrors();
+   fitter.CalculateMinosErrors();
 
-   const ROOT::Fit::FitResult& res = fitter.Result();
-   {
-      const vector<double>& Fpar = res.Parameters();
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
-      if ( !isfinite(penalty) || penalty > 0. ) {
-         printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
-      }
+   const ROOT::Fit::FitResult res = fitter.Result();
+   vector<double> Fpar = res.Parameters();
+   double Ff,penalty;
+   tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
+   if ( !isfinite(penalty) || penalty > 0. ) {
+      printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
+   } else {
+      printf("\n=> FINAL RESULT <=\n");
    }
    res.Print(cout);
 //    res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
-   vector<double>& Fpar = PE.Fpar;
 
    //-----------------------------------------------------------------
    // Print "middle points"
@@ -5087,81 +5078,112 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr09 = [Fpar,my_fcn](double x) -> double {
+   bool calc_pval = true;
+   double pvalueKS09 = 0, pvalueKS09sb = 0;
+   double pvalueKS12 = 0, pvalueKS12sb = 0;
+   if ( calc_pval ) {
+      // central part
+      double Nkk09 = Fpar[0] * my_fcn.Br2Nkk09;
       double Nphi09 = Fpar[1] * my_fcn.Br2Nphi09;
       double NFit09 = Nphi09/my_fcn.IBW[0];
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
-
-      // {mphi,gphi,sigma,A,F,Ang,sl}
-      double ang = Fpar[2];
-      double sig09 = Fpar[3];
-      const double pp[] {
-         my_fcn.mphi,my_fcn.gphi,sig09,my_fcn.ar,Ff,ang,my_fcn.sl09
-      };
-      double NsbNorm09 = Fpar[5] / my_fcn.normArsb;
-      return NFit09*IntfrBWARG( x,pp,0 ) +
-         NsbNorm09*RevArgus(x,my_fcn.arsb)*(1+my_fcn.slsb*(x-1.02));
-//              Fpar[5]/(dU-bL);
-   };
-   rmath_fun< decltype(Lcr09) > fcr09(Lcr09);
-   ROOT::Math::GoFTest* gofcr09 =
-      new ROOT::Math::GoFTest( mkk09.size(),mkk09.data(),fcr09,
-            ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKS09 = (skip_KStest) ? 0. :
-      gofcr09 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS09(cr)= " << pvalueKS09 << endl;
-
-   auto Lsb09 = [Fpar,my_fcn](double x) -> double {
-//       return Fpar[5]/(dU-bL);
-      double NsbNorm09 = Fpar[5] / my_fcn.normArsb;
-      return NsbNorm09 * RevArgus(x,my_fcn.arsb) *
-         (1+my_fcn.slsb*(x-1.02));
-   };
-   rmath_fun< decltype(Lsb09) > fsb09(Lsb09);
-   ROOT::Math::GoFTest* gofsb09 =
-      new ROOT::Math::GoFTest( sb09.size(),sb09.data(),fsb09,
-         ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
-
-   auto Lcr12 = [Fpar,my_fcn](double x) -> double {
+      double Nkk12 = Fpar[0] * my_fcn.Br2Nkk12;
       double Nphi12 = Fpar[1] * my_fcn.Br2Nphi12;
       double NFit12 = Nphi12/my_fcn.IBW[1];
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
+
+      double ang = Fpar[2];
+      double sig09 = Fpar[3];
+      double sig12 = Fpar[4];
 
       // {mphi,gphi,sigma,A,F,Ang,sl}
-      double ang = Fpar[2];
-      double sig12 = Fpar[4];
-      const double pp[] {
+      const double pp09[] {
+         my_fcn.mphi,my_fcn.gphi,sig09,my_fcn.ar,Ff,ang,my_fcn.sl09
+      };
+      const double pp12[] {
          my_fcn.mphi,my_fcn.gphi,sig12,my_fcn.ar,Ff,ang,my_fcn.sl12
       };
-      double NsbNorm12 = Fpar[6] / my_fcn.normArsb;
-      return NFit12*IntfrBWARG( x,pp,0 ) +
-         NsbNorm12*RevArgus(x,my_fcn.arsb)*(1+my_fcn.slsb*(x-1.02));
-//              Fpar[6]/(dU-bL);
-   };
-   rmath_fun< decltype(Lcr12) > fcr12(Lcr12);
-   ROOT::Math::GoFTest* gofcr12 =
-      new ROOT::Math::GoFTest( mkk12.size(),mkk12.data(),fcr12,
-            ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKS12 = (skip_KStest) ? 0. :
-      gofcr12 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
 
-   auto Lsb12 = [Fpar,my_fcn](double x) -> double {
-//       return Fpar[6]/(dU-bL);
-      double NsbNorm12 = Fpar[6] / my_fcn.normArsb;
-      return NsbNorm12 * RevArgus(x,my_fcn.arsb) *
-         (1+my_fcn.slsb*(x-1.02));
-   };
-   rmath_fun< decltype(Lsb12) > fsb12(Lsb12);
-   ROOT::Math::GoFTest* gofsb12 =
-      new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb12,
-         ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKS12sb = gofsb12 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS12(sb)= " << pvalueKS12sb << endl;
+      double Nsb09 = Fpar[5];
+      double NsbNorm09 = Nsb09 / my_fcn.normArsb;
+      double Nsb12 = Fpar[6];
+      double NsbNorm12 = Nsb12 / my_fcn.normArsb;
+
+      // normalization on 1
+      double Ntot09 = Nkk09 + Nsb09;
+      NFit09 /= Ntot09;
+      NsbNorm09 /= Ntot09;
+      double Ntot12 = Nkk12 + Nsb12;
+      NFit12 /= Ntot12;
+      NsbNorm12 /= Ntot12;
+
+      double arsb = my_fcn.arsb;
+      double slsb = my_fcn.slsb;
+
+      auto Lcr09 =
+         [NFit09,pp09,NsbNorm09,arsb,slsb](double x) -> double {
+         return NFit09 * IntfrBWARG( x,pp09,0 ) +
+                NsbNorm09 * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+      };
+      auto Lcr12 =
+         [NFit12,pp12,NsbNorm12,arsb,slsb](double x) -> double {
+         return NFit12 * IntfrBWARG( x,pp12,0 ) +
+                NsbNorm12 * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+      };
+
+      // linear extrapolation in [dL,dU] divided into  n points
+      int n = 10000;
+      vector<double> vLcr(n);
+      double dm = (dU-dL)/(n-1);
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr09(m);
+      }
+
+      auto Lcr = [&vLcr,dm](double x) -> double {
+         if ( x < dL || x >= dU ) {
+            return 0.;
+         }
+         int i = (x-dL) / dm;
+         double mi = dL + i * dm;
+         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
+         return f;
+      };
+      rmath_fun< decltype(Lcr) > fcr(Lcr);
+
+      ROOT::Math::GoFTest* gofcr09 =
+         new ROOT::Math::GoFTest( mkk09.size(),mkk09.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS09 = gofcr09 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS09(cr)= " << pvalueKS09 << endl;
+
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr12(m);
+      }
+      ROOT::Math::GoFTest* gofcr12 =
+         new ROOT::Math::GoFTest( mkk12.size(),mkk12.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS12 = gofcr12 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
+
+      // side-band
+      double NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
+      auto Lsb = [NsbNorm,arsb,slsb](double x) -> double {
+         return NsbNorm * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+      };
+      rmath_fun< decltype(Lsb) > fsb(Lsb);
+
+      ROOT::Math::GoFTest* gofsb09 =
+         new ROOT::Math::GoFTest( sb09.size(),sb09.data(),fsb,
+            ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
+
+      ROOT::Math::GoFTest* gofsb12 =
+         new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb,
+            ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS12sb = gofsb12 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS12(sb)= " << pvalueKS12sb << endl;
+   }
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -5495,7 +5517,7 @@ void mass_kk_fit() {
    // combined with Side-Band
 //    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_std2.pdf");
 
-//    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan.pdf");
+//    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan_all.pdf");
 
    // combined with Side-Band + fitBR
    combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_std.pdf");
