@@ -760,7 +760,7 @@ void test_Intfr() {
 // {{{1 Monte Carlo
 //-------------------------------------------------------------------------
 struct Gpar {
-   Gpar(double brKKeta, double brphieta); // ctor
+   Gpar(double brKKeta, double brphieta, double nj, double nbg); // ctor
 
    void Print(string info);
    vector<double> signal_ToyMC() const;
@@ -791,16 +791,15 @@ struct Gpar {
    double CalcF();
 };
 
+// nj = N(Jpsi)*eff*Breta
 //-------------------------------------------------------------------------
-Gpar::Gpar(double brKKeta, double brphieta) {
+Gpar::Gpar(double brKKeta, double brphieta, double nj, double nbg) {
 //-------------------------------------------------------------------------
    constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
    constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
    constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
 
-   // 2012 with bg: fig.23-24
 //    constexpr double Breta = 0.3941; // Br(eta->2gamma) = 39.41%
-   constexpr double Nini = 6.04e6; // ~ N(Jpsi)*eff*Breta
 
    // save branchings
    BrKKeta = brKKeta;
@@ -819,12 +818,12 @@ Gpar::Gpar(double brKKeta, double brphieta) {
    F = 0.;
    ang = 0;
 
-   NetaKK = int(Nini * BrKKeta);  // ~ 2718
+   NetaKK = int(nj * BrKKeta);
    F = this->CalcF();
 
    // background
    ar_bg = 0;
-   Nbg = 35;
+   Nbg = nbg;
 };
 
 //-------------------------------------------------------------------------
@@ -1019,17 +1018,17 @@ struct myFCN_toy {
    // Argus for side-band:
    const double arsb = 0.; // Argus parameter for SB
    double normArsb = 0;    // normalization for Argus
+   double nbg_max = 0;
 
    //-----------------------------------------------------------------
-   myFCN_toy() { // set parameters
+   myFCN_toy(double Nj, double max_nbg) { // set parameters
    //-----------------------------------------------------------------
       // Br(eta->2gamma) = 39.41%
 //       const double breta = 0.3941;
       // Br(phi->K+K-) = 49.2%
       const double brphi = 0.492;
 
-      constexpr double Nini = 6.04e6; // ~ N(Jpsi)*eff*Breta
-      Br2Nkk = Nini;
+      Br2Nkk = Nj;
       Br2Nphi = Br2Nkk * brphi;
 
       // normalization for Argus SB
@@ -1041,6 +1040,8 @@ struct myFCN_toy {
       // desired errors:                abs    rel
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
       normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+
+      nbg_max = max_nbg;
    }
 
    //-----------------------------------------------------------------
@@ -1124,12 +1125,12 @@ struct myFCN_toy {
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
          Ff = max(0.,-B/(2*A));
-         penalty += 1e5*fabs(Dis);
+         penalty += 1e10*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty = -10*Ff;
+         penalty = -1e5*Ff;
          Ff = 0.;
       }
 
@@ -1253,7 +1254,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4);  // Brphi
    fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI);  // angle
    fitter.Config().ParSettings(3).SetLimits(0.3e-3,3.e-3); // sig
-   double max_nbg = max(2.*nsb,53.); // 35*1.5
+   double max_nbg = max(2.*nsb,my_fcn.nbg_max);
    fitter.Config().ParSettings(4).SetLimits(0.,max_nbg);   // Nbg
 
    // == Fit
@@ -1603,7 +1604,21 @@ void ToyMC_fit(int Ntoys, string file_name) {
 
    double BrKKeta  = 4.5e-4;
    double Brphieta = 8.5e-4;
-   Gpar* gp = new Gpar( BrKKeta, Brphieta );
+
+   // Nj = N(Jpsi)*eff*Breta:
+   // 2012 with bg: fig.23-24
+//    double Nj = 6.04e6; // NetaKK = 2718
+//    double Nbg = 35;
+
+   // TEST (D) statistic ~ 2.5 times 2012 with bg level 1.3%
+//    double Nj = 15.e6; // NetaKK = 6750
+//    double Nbg = 88;
+
+   // TEST (C) stat = 2012 with bg  level 0.7%
+   double Nj = 6.04e6; // NetaKK = 2718
+   double Nbg = 18;
+
+   Gpar* gp = new Gpar( BrKKeta, Brphieta, Nj, Nbg );
    gp -> Print("ToyMC_12");
 
    TStopwatch t;
@@ -1611,7 +1626,8 @@ void ToyMC_fit(int Ntoys, string file_name) {
    for ( int itoy = 0; itoy < Ntoys; ++itoy ) {
       t.Start();
 
-      myFCN_toy my_fcn;  // class for 'FitFCN'
+      myFCN_toy my_fcn(Nj, 1.5*Nbg);  // class for 'FitFCN'
+
       my_fcn.mkk = gp -> signal_ToyMC();
       vector<double> mkk_bg = gp -> bg_ToyMC();
       my_fcn.mkk.insert( my_fcn.mkk.end(), mkk_bg.begin(),mkk_bg.end() );
@@ -1668,8 +1684,13 @@ void ToyMC_12() {
    // set random number generator: TRandom3 by default?
 //    gRandom -> SetSeed(0); // seed is set to a random value
 
-//    ULong_t Iseed = (ULong_t)time(NULL);
-   ULong_t Iseed= 1639607937L; // T1
+   // check old version (see out_12)
+//    ULong_t Iseed= 1638656110L; // out_12/ToyMC_1
+//    ULong_t Iseed= 1638824469L; // out_12/ToyMC_2
+
+//    ULong_t Iseed= 1639607937L; // DT1
+
+   ULong_t Iseed = (ULong_t)time(NULL);
    printf("   ULong_t Iseed= %luL;\n",Iseed);
    gRandom -> SetSeed(Iseed);
 
@@ -1679,7 +1700,7 @@ void ToyMC_12() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_12_T1.pdf" ); // must be 1
+   ToyMC_fit(1, "ToyMC_12_CT1.pdf" ); // must be 1
 }
 #endif
 
