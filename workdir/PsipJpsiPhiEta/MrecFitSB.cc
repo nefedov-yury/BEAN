@@ -10,12 +10,13 @@
 //                MrecDraw() -> Mrec_YEAR.pdf
 //                DoFitSB()  -> Mrec_YEAR_fsb.pdf
 
-#include "ReWeightTrkPid_11.h"
+// for prod-12 it should be commented
+// #include "ReWeightTrkPid_11.h"
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
-static const string dir("prod-11/");
+static const string dir("prod-12/");  // must be the same as prod-11
 
 //--------------------------------------------------------------------
 constexpr double SQ(double x) {
@@ -116,9 +117,10 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
    string dr = string("Mrec>>") + hname;
    TCut cut;
    if ( type == 1 ) {
-//       dr = string("Mrs>>") + hname;
-//       cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
+      dr = string("Mrs>>") + hname;
+      cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
 
+      /* prod-11
       bool is2009 = (fname.find("_09") != string::npos);
       int date = (is2009) ? 2009 : 2012;
 
@@ -136,6 +138,7 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
          hst -> Fill(Mrs,W);
       }
       return hst;
+      */
    } else if ( type == 2 ) {
       cut = TCut("dec==64");
    } else if ( type == 3 ) {
