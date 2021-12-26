@@ -180,7 +180,6 @@ static DecayTable PsipTbl;  // narrow window [3.092, 3.102]
 static DecayTable PsipTbl2; // wide window [3.055, 3.145]
 static DecayTable PsipTbl4C;// side-band for 4C KF
 static DecayTable JpsiTbl;  // final phi-eta selection
-static DecayTable JpsiTbl2; // phi-eta: Mrec in [3.055, 3.145]
 static DecayTable JpsiTblE; // for effitiency selection
 
 // container for warnings
@@ -234,7 +233,7 @@ static bool SelectPM(double cosPM, double invPM) {
 
 // copy ReWeightTrkPid_11.h
 //----------------------------------------------------------------------
-double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
+static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
 //----------------------------------------------------------------------
 // The corrections are based on production-11(helix corrections for MC).
 // They do not dependent of the sign of the particle and cos(Theta) of
@@ -608,7 +607,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    //                                   eta -> 2gamma
    m_tuple[1] = new TNtupleD("a4c","after 4C kinematic fit",
                 "Mrec:"              // recoil mass as in 'nt1'
-                "ch2:"               // chi^2 of 5C fit
+                "ch2:chsq3g:"        // chi^2 of 5C fit, chi^2 of 3gammas
                 "Ppip:Cpip:phipip:"  // P,cos(Theta),phi of pi+
                 "Ppim:Cpim:phipim:"  // P,cos(Theta),phi of pi-
                 "Pkp:Ckp:phikp:"     // P,cos(Theta),phi of K+
@@ -1862,7 +1861,7 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    }
 
    // ++ check that one more gamma does not give better fit ++
-   bool f3good = false;
+   double chisq_3g = 9999.;
    for(int i = 0; i < ng; i++ ) {
       auto gt = Slct.gtrk[i];
       if( gt == Slct.g4f[0] || gt == Slct.g4f[1] ) {
@@ -1889,17 +1888,20 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       }
       bool oksq = kmfit->Fit();
       if ( oksq ) {
-         hst[62]->Fill(chisq - kmfit->chisq());
+         double chi2 = kmfit->chisq();
+         if ( chi2 < chisq_3g && chi2 > 0. ) {
+            chisq_3g = chi2;
+         }
       }
-      if ( !oksq || kmfit->chisq() > chisq ) {
-         continue;
-      }
-      f3good = true;
-      hst[63]->Fill(kmfit->chisq());
-      hst[64]->Fill( chisq );
    } // end for( additional gamma )
-   if ( f3good ) {
-      return false;
+
+   if ( chisq_3g < 200. ) {
+      hst[62]->Fill( chisq - chisq_3g );
+      if ( chisq_3g < chisq ) {
+         hst[63]->Fill( chisq_3g );
+         hst[64]->Fill( chisq );
+//          return false; // do not reject just save !
+      }
    }
 
    hst[1]->Fill(7); // "cuts"
@@ -2031,7 +2033,7 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
    Double_t xfill[] = {
       Slct.Mrec_best,
-      chisq,
+      chisq,chisq_3g,
       Ppip.rho(), Ppip.cosTheta(), Ppip.phi(),
       Ppim.rho(), Ppim.cosTheta(), Ppim.phi(),
       Pkp.rho(), Pkp.cosTheta(), Pkp.phi(),
@@ -2058,16 +2060,12 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       static const double seta = 0.008;
 
       // fill decay table of Jpsi
-      JpsiTbl2.vecdec = JpsiTbl.vecdec; // propagate for second table
-      if ( chisq < 80
+      if ( chisq < 60
             && Mkk > 2*mk && Mkk < 1.08
             && fabs(Mgg-meta) < 3*seta
          ) {
          if ( fabs(Slct.Mrec_best - 3.097) < 0.005 ) { // [3.092, 3.102]
             JpsiTbl.Add();
-         }
-         if ( fabs(Slct.Mrec_best - 3.1) < 0.045 ) { // [3.055, 3.145]
-            JpsiTbl2.Add();
          }
       }
 
@@ -2568,24 +2566,16 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
       // FIXME: how to save cuts automatically?
       string my_cuts(
          " List of cuts for J/Psi -> phi eta:\n "
-         "      chisq<80 && 2*mk<Mkk<1.08 && abs(Mgg-meta)<3*seta"
+         "      chisq<60 && 2*mk<Mkk<1.08 && abs(Mgg-meta)<3*seta"
       );
       cout << my_cuts << endl << endl;
 
       cout << string(65,'#') << endl;
-      cout << "Decays of J/psi 1" << endl
+      cout << "Decays of J/psi Main" << endl
            << "       Mrec in [3.092, 3.102] "
            << JpsiTbl.ntot << " decays" << endl
            << "       size of table is " << JpsiTbl.Size() << endl;
       JpsiTbl.Print(0.1);
-      cout << "Enddecay" << endl << endl;
-
-      cout << string(65,'#') << endl;
-      cout << "Decays of J/psi 2" << endl
-           << "       Mrec in [3.055, 3.145] "
-           << JpsiTbl2.ntot << " decays" << endl
-           << "       size of table is " << JpsiTbl2.Size() << endl;
-      JpsiTbl2.Print(0.1);
       cout << "Enddecay" << endl << endl;
 
       cout << string(65,'#') << endl;
