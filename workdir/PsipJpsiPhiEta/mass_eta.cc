@@ -36,8 +36,7 @@ TH1D* get_mass_hist(string fname, string hname) {
 #include "cuts.h"
 
    // name of folder with root files
-//    static string dir("prod-9/");
-   static string dir("prod-11/");
+   static string dir("prod-12/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -285,5 +284,5 @@ void mass_eta() {
 //    gStyle -> SetStatY(0.89);
 
    plot_mass_eta(); // memo
-//    plot_mass_eta_PR(); // presentation OLD
+//    plot_mass_eta_PR(); // presentation
 }

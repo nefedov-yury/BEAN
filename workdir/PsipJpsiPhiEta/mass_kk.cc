@@ -36,8 +36,7 @@ TH1D* get_Mkk(string fname, string hname, int type=0) {
 #include "cuts.h"
 
    // name of folder with root files
-//    static string dir("prod-9/");
-   static string dir("prod-11/");
+   static string dir("prod-12/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {

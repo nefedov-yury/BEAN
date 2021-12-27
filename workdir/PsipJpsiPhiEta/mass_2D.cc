@@ -286,9 +286,7 @@ void mass_2D() {
       "MC non-#phi KK#eta 2012"
    };
 
-//    string dir = string("prod-9m/");
-//    string dir = string("prod-10/");
-   string dir = string("prod-11/");
+   string dir = string("prod-12/");
 
    bool Mass2D = true;          // <--- Mass2D/Dalitz
    vector<int> list {0,1,3,4};

@@ -37,8 +37,7 @@ TH1D* get_chi2(string fname, string hname, int icut=0) {
 #include "cuts.h"
 
    // name of folder with root files
-//    static string dir("prod-9/");
-   static string dir("prod-11/");
+   static string dir("prod-12/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -223,8 +222,8 @@ void chi2_Pr()
 //    gStyle->SetLegendTextSize(0.04);
 
 // 1) data vs signal MC in the window for M(K+K-) and M(gg) .. fig.11
-//    chi2_SB(2009);
-   chi2_SB(2012);
+   chi2_SB(2009);
+//    chi2_SB(2012);
 
 // 2) data vs inclusive MC
 //    chi2_Plot(2009);
