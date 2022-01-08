@@ -23,8 +23,7 @@ void get_eff(string fname, string pdf="") {
    int date = (is2009) ? 2009 : 2012;
 
    // MC signal MUST contain nt1
-//    string prod("prod-9/"); // no helix corrections
-   string prod("prod-11/");
+   string prod("prod-12/");
    fname = prod + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
