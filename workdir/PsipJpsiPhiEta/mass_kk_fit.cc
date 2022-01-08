@@ -8,6 +8,7 @@
 //    -> mkkYY_fit??.pdf
 //    -> mkk_cf_???.pdf (combined fit)
 
+// #include <functional>        // for std::function
 #include "gsl/gsl_errno.h"   // GSL error handler
 
 #include "masses.h"
@@ -82,16 +83,15 @@ struct ParAndErr {
 
       // if the upper and lower errors differ no more than the
       // 'threshold', the maximum of them is used as a symmetric error
-//       constexpr double threshold = 0.1;
       for ( int np = 0; np < Npar; ++np ) {
          if ( res.HasMinosError(np) ) {
             double uerr = fabs(res.UpperError(np));
             double lerr = fabs(res.LowerError(np));
+            Uerr[np] = uerr;
+            Lerr[np] = lerr;
             if ( uerr*lerr == 0 ) {// one of the errors is not defined
                continue;
             }
-            Uerr[np] = uerr;
-            Lerr[np] = lerr;
             if ( fabs(1-lerr/uerr) < threshold ) {
                Perr[np] = max(lerr,uerr);
             } else {
@@ -183,9 +183,7 @@ vector<double> get_mkk_hist( string fname, string hname,
    bool isMC = (fname.find("mcsig") != string::npos);
 
    // name of folder with root files
-//    static string dir("prod-9/");
-//    static string dir("prod-10/");
-   static string dir("prod-11/");
+   static string dir("prod-12/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -197,6 +195,7 @@ vector<double> get_mkk_hist( string fname, string hname,
    TTree* a4c = (TTree*)gDirectory -> Get("a4c");
 
    TCut c_here = c_Mrec+c_chi2;
+//    c_here += TCut("chsq3g>ch2"); // the same cut <F2>as in prod-11
    c_here += TCut(Form("%f<=Mkk&&Mkk<%f",bL,dU));
    if ( type == 0 ) {        // central part
       c_here += c_cpgg;
@@ -504,7 +503,7 @@ void sig_fit(string fname, string title, string pdf="") {
       return BreitWignerGaussN(x[0],p[0],p[1],p[2],slope);
    };
    vector<string> par_name { "M#phi", "G#phi", "#sigma" };
-   vector<double> par_ini  {   Mphi,   Gphi,    1.e-3   };
+   vector<double> par_ini  {   Mphi,   Gphi,    1.1e-3  };
 
    const unsigned int Npar = par_name.size(); // number of parameters
    TF1* bwg = new TF1("bwg", Lbwg, dL, dU, Npar);
@@ -529,7 +528,8 @@ void sig_fit(string fname, string title, string pdf="") {
    fitter.Config().ParSettings(2).SetLimits(0.2e-3, 2.e-3);       // sigma
 
    fitter.LikelihoodFit(Sig,false); // true=extended likelihood fit
-   fitter.CalculateMinosErrors();
+   fitter.CalculateHessErrors(); // without MINOS here
+//    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
    res.Print(cout);
@@ -539,23 +539,41 @@ void sig_fit(string fname, string title, string pdf="") {
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto Lgof = [Lbwg,Fpar](double x) -> double {
-      return Lbwg(&x,Fpar.data());
-   };
-   rmath_fun< decltype(Lgof) > ftest(Lgof); // lambda -> Root1Dfunc
-   // we use statistics five times larger than the data
-//    size_t max_mkk = 14000; // 5*2800
-   size_t max_mkk = 10000;
-   if ( is2009 ) {
-      max_mkk = 4700;
-//       max_mkk = 1000;
+   bool calc_pval = true;
+   double pvalueKS = 0;
+   if ( calc_pval ) {
+      // linear extrapolation in [dL,dU] divided into  n points
+      int n = 10000;
+      vector<double> vLcr(n);
+      double dm = (dU-dL)/(n-1);
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lbwg(&m,Fpar.data());
+      }
+      auto Lcr = [&vLcr,dm](double x) -> double {
+         if ( x < dL || x >= dU ) {
+            return 0.;
+         }
+         int i = (x-dL) / dm;
+         double mi = dL + i * dm;
+         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
+         return f;
+      };
+      rmath_fun< decltype(Lcr) > fcr(Lcr);
+
+      // we use statistics X times larger than the data
+      size_t max_mkk = 9000;
+      if ( is2009 ) {
+         max_mkk = 5000;
+      }
+//       mkk.resize(max_mkk);
+
+      ROOT::Math::GoFTest* goftest =
+         new ROOT::Math::GoFTest( max_mkk, mkk.data(), fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS = goftest -> KolmogorovSmirnovTest();
+      cout << " pvalueKS= " << pvalueKS << endl;
    }
-   mkk.resize(max_mkk);
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -1993,6 +2011,9 @@ struct myFCN_inter {
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
 
+   // Function for side-band:
+   int funType = 1; // 0 - constant, 1 -Argus
+
    // minimization function
    // the signature of this operator() MUST be exactly this:
    // THE EXTENDED MAXIMUM LIKELIHOOD ESTIMATOR
@@ -2008,9 +2029,12 @@ struct myFCN_inter {
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
-         double L = Nkk * IntfrBWARGN( m,pp,0 ) +
-                    Nsb * RevArgusN(m,0.,sl);
-//                     Nsb/(dU-bL);
+         double L = Nkk * IntfrBWARGN( m,pp,0 );
+         if ( funType == 0 ) {
+            L += Nsb/(dU-dL);
+         } else if ( funType == 1 ) {
+            L += Nsb * RevArgusN(m,0.,sl);
+         }
 
          if (L > 0.) {
             res -= 2*log(L);
@@ -2021,17 +2045,20 @@ struct myFCN_inter {
 
       // fit SB
       int n_sb = sb.size();
-      // by constant
-//       res += 2*Nsb - n_sb*2*log(Nsb/(dU-bL));
-      // by Argus
       res += 2*Nsb;
-      for ( int i = 0; i < n_sb; ++i ) {
-         double m = sb[i];
-         double L = Nsb * RevArgusN(m,0.,sl);
-         if (L > 0.) {
-            res -= 2*log(L);
-         } else {
-            res += FLT_MAX; // ~3e38
+      if ( funType == 0 ) {
+         // by constant (mkk >= dL=2Mk)
+         res += -n_sb * 2*log(Nsb/(dU-dL));
+      } else if ( funType == 1 ) {
+         // by Argus
+         for ( int i = 0; i < n_sb; ++i ) {
+            double m = sb[i];
+            double L = Nsb * RevArgusN(m,0.,sl);
+            if (L > 0.) {
+               res -= 2*log(L);
+            } else {
+               res += FLT_MAX; // ~3e38
+            }
          }
       }
 
@@ -2137,6 +2164,10 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    bool is2009 = (fname.find("_09") != string::npos);
 
    myFCN_inter my_fcn;  // class for 'FitFCN'
+
+   int FunType = 0;     // Function for SB: 0 - constant, 1 -Argus
+   my_fcn.funType = FunType;
+
    double sl = -1.8;    // efficiency parameters
    my_fcn.sl = sl;
 
@@ -2160,11 +2191,16 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    vector<string> par_name { "Mphi", "Gphi", "sigma", "Ar",
                              "F", "angle", "NKK", "Nbg" };
 
-   vector<double> par_ini {Mphi,Gphi,1.4e-3,0.,0.7,0.7, 886.,13.};//09neg
-//    vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,0.7,-0.7, 886.,13.};//09pos
-//    vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.8,0.01, 2700.,34.};//12zero
+   // SB const
+//    vector<double> par_ini {Mphi,Gphi,1.4e-3,0.,0.9,0.9, 901.,16.};//09neg
+//    vector<double> par_ini {Mphi,Gphi,1.4e-3,0.,0.9,-1.0, 901.,16.};//09pos
+   vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.7,0.01, 2745.,52.};//12z
 
-//       double(n-nsb),double(nsb)};  // ini for Nkk & Nbg
+   // prod-12: SB argus
+//    vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.8,-0.4, 2740.,54.};//12pos
+
+   // old: prod-11
+//    vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.8,0.01, 2700.,34.};//12-11
 
    bool neg_pos = par_ini[5] > 0; // true for negative interference
 
@@ -2194,16 +2230,32 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
+//    fitter.CalculateHessErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
+   vector<double> Fpar = res.Parameters();
+   if ( res.IsValid() ) {
+      printf("\n=> FINAL RESULT <=\n");
+   } else {
+      printf("\n=> INVALID RESULT <=\n");
+   }
    res.Print(cout);
 //    res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
-   vector<double>& Fpar = PE.Fpar;
+   ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
+//    if ( is2009 && neg_pos == false ) { // 2009 positive
+      // put error by hand from "negative" solution
+//       PE.Perr[5] = -1;
+//       PE.Uerr[5] = 1.18 - PE.Fpar[5];
+//    }
+   if ( is2009 && neg_pos == true ) { // 2009 negative (lin SB)
+      // put error by hand from "positive" solution
+      PE.Perr[5] = -1;
+      PE.Lerr[5] = -1.27 - PE.Fpar[5];
+   }
 
    double Nfit = Fpar[6];
    double Nfit_err = max({PE.Perr[6],PE.Uerr[6],PE.Lerr[6]});
@@ -2225,45 +2277,85 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr = [Fpar,sl](double x) -> double {
-      double pp[]
-      {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
-      return Fpar[6] * IntfrBWARGN( x,pp,0 ) +
-             Fpar[7] * RevArgusN( x,0.,sl );
-//              Fpar[7]/(dU-bL);
-   };
-   rmath_fun< decltype(Lcr) > fcr(Lcr);
-   ROOT::Math::GoFTest* gofcr =
-      new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-            ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKS = gofcr -> KolmogorovSmirnovTest();
-   cout << " pvalueKS(cr)= " << pvalueKS << endl;
+   bool calc_pval = true;
+   double pvalueKS = 0, pvalueKSsb = 0;
+   if ( calc_pval ) {
+      // central part
+      auto Lcr = [Fpar,sl,FunType](double x) -> double {
+         double pp[]
+            {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
+         // normalization on 1
+         double Ntot = Fpar[6] + Fpar[7];
+         double ret = Fpar[6]/Ntot * IntfrBWARGN( x,pp,0 );
+         if ( FunType == 0 ) {
+            ret += (Fpar[7]/Ntot)/(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret += Fpar[7]/Ntot * RevArgusN( x,0.,sl );
+         }
+         return ret;
+      };
 
-   auto Lsb = [Fpar,sl](double x) -> double {
-      return Fpar[7] * RevArgusN( x,0.,sl );
-//       return Fpar[7]/(dU-bL);
-   };
-   rmath_fun< decltype(Lsb) > fsb(Lsb);
-   ROOT::Math::GoFTest* gofsb =
-      new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
-         ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-   cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-//    double pvalueADsb = gofsb -> AndersonDarlingTest();
-//    cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+      // linear extrapolation in [dL,dU] divided into  n points
+      int n = 10000;
+      vector<double> vLcr(n);
+      double dm = (dU-dL)/(n-1);
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr(m);
+      }
+
+      auto LcrE = [&vLcr,dm](double x) -> double {
+         if ( x < dL || x >= dU ) {
+            return 0.;
+         }
+         int i = (x-dL) / dm;
+         double mi = dL + i * dm;
+         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
+         return f;
+      };
+      rmath_fun< decltype(LcrE) > fcr(LcrE);
+
+      ROOT::Math::GoFTest* gofcr =
+         new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, bL,dU );
+      pvalueKS = gofcr -> KolmogorovSmirnovTest();
+      cout << " pvalueKS(cr)= " << pvalueKS << endl;
+
+      // side-band
+      auto Lsb = [sl,FunType](double x) -> double {
+         double ret = 0;
+         if ( FunType == 0 ) {
+            ret = 1./(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret = RevArgusN( x,0.,sl );
+         }
+         return ret;
+      };
+      rmath_fun< decltype(Lsb) > fsb(Lsb);
+
+      ROOT::Math::GoFTest* gofsb =
+         new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
+            ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
+      cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+   }
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Fpar,sl](double* x,double* p) -> double {
+   auto Ldr = [Fpar,sl,FunType](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double pp[]
-      {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
+         {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
       double BWARG = Fpar[6] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
-      double Bg = Fpar[7] * RevArgusN( x[0],0.,sl );
-//          Fpar[7]/(dU-bL);
+      double Bg = 0;
+      if ( FunType == 0 ) {
+         double Bg = Fpar[7]/(dU-dL);
+      } else if ( FunType == 1 ) {
+         Bg = Fpar[7] * RevArgusN( x[0],0.,sl );
+      }
       if ( isw == 4 ) { return bW * Bg; }
 
       return bW * (BWARG + Bg);
@@ -2430,14 +2522,18 @@ struct myFCN_sbbr {
    double IeBW = 0, IeAr = 0, IeIc = 0, IeIs = 0;
    double IBW = 0, IAr = 0, IIc = 0, IIs = 0;
 
-   // Argus for side-band:
+   // Side-band:
+   int funType = 1; // 0 - constant, 1 -Argus
+   // Argus for side-band (if funType = 1)
    double slsb = 0.;       // efficiency slope for SB
    const double arsb = 0.; // Argus parameter for SB
-   double normArsb = 0;    // normalization for Argus
+   double normArsb = 1;    // normalization for Argus
 
    //-----------------------------------------------------------------
-   myFCN_sbbr(int date) { // set parameters for 2009 or 2012
+   myFCN_sbbr(int date, int FunType) { // set parameters for 2009/2012
    //-----------------------------------------------------------------
+      funType = FunType;
+
       // Br(eta->2gamma) = 39.41%
       const double breta = 0.3941;
       // Br(phi->K+K-) = 49.2%
@@ -2457,15 +2553,17 @@ struct myFCN_sbbr {
       }
 
       // normalization for Argus SB
-      slsb = sl;
-      double par[] = {arsb,slsb};
-      auto Lintar = [](double x, void* pp) -> double{
-         double* p = static_cast<double*>(pp);
-         return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
-      };
-      // desired errors:                abs    rel
-      ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
-      normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+      if ( funType == 1 ) {
+         slsb = sl;
+         double par[] = {arsb,slsb};
+         auto Lintar = [](double x, void* pp) -> double{
+            double* p = static_cast<double*>(pp);
+            return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
+         };
+         // desired errors:                abs    rel
+         ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
+         normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+      }
    }
 
    //-----------------------------------------------------------------
@@ -2614,31 +2712,36 @@ struct myFCN_sbbr {
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
-         double L = NFit * IntfrBWARG( m,pp,0 ) +
-                    NsbNorm * RevArgus(m,arsb)*(1+slsb*(m-1.02));
-//                     Nsb/(dU-bL); // bL !
+         double L = NFit * IntfrBWARG( m,pp,0 );
+         if ( funType == 0 ) {
+            L += Nsb/(dU-dL);
+         } else if ( funType == 1 ) {
+            L += NsbNorm * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+         }
 
          if (L > 0.) {
             res -= 2*log(L);
          } else {
             res += FLT_MAX; // ~3e38
-//             return DBL_MAX;
          }
       }
 
       // fit SB
       int n_sb = sb.size();
-      // by constant
-//       res += 2*Nsb - n_sb*2*log(Nsb/(dU-bL));
-      // by Argus
       res += 2*Nsb;
-      for ( int i = 0; i < n_sb; ++i ) {
-         double m = sb[i];
-         double L = NsbNorm * RevArgus(m,arsb)*(1+slsb*(m-1.02));
-         if (L > 0.) {
-            res -= 2*log(L);
-         } else {
-            res += FLT_MAX; // ~3e38
+      if ( funType == 0 ) {
+         // by constant (mkk >= dL=2Mk)
+         res += -n_sb * 2*log(Nsb/(dU-dL));
+      } else if ( funType == 1 ) {
+         // by Argus
+         for ( int i = 0; i < n_sb; ++i ) {
+            double m = sb[i];
+            double L = NsbNorm * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+            if (L > 0.) {
+               res -= 2*log(L);
+            } else {
+               res += FLT_MAX; // ~3e38
+            }
          }
       }
 
@@ -2654,7 +2757,8 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    bool is2009 = (fname.find("_09") != string::npos);
 
    int date = (is2009) ? 2009 : 2012;
-   myFCN_sbbr my_fcn(date);  // class for 'FitFCN'
+   const int FunType = 1;            // 0 - constant, 1 -Argus
+   myFCN_sbbr my_fcn(date,FunType);  // class for 'FitFCN'
 
    double sl = -1.8;    // efficiency parameters
    my_fcn.sl = sl;
@@ -2702,68 +2806,122 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    const ROOT::Fit::FitResult& res = fitter.Result();
+   vector<double> Fpar = res.Parameters();
+   double Ff,penalty;
+   tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
+   if ( !isfinite(penalty) || penalty > 0. ) {
+      printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
+   } else {
+      printf("\n=> FINAL RESULT <=\n");
+   }
    res.Print(cout);
 //    res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
-   vector<double>& Fpar = PE.Fpar;
+   ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // see ToyMC_12() &&  combineSBBR_Intfr() for fast calculation
-   auto Lcr = [Fpar,my_fcn](double x) -> double {
+   bool calc_pval = true;
+   double pvalueKS = 0, pvalueKSsb = 0;
+   if ( calc_pval ) {
+      // central part
+      double Nkk = Fpar[0] * my_fcn.Br2Nkk;
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
       double NFit = Nphi/my_fcn.IBW;
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
 
-      // {mphi,gphi,sigma,A,F,Ang,sl}
       double ang = Fpar[2];
       double sig = Fpar[3];
+
+      // {mphi,gphi,sigma,A,F,Ang,sl}
       const double pp[] {
          my_fcn.mphi, my_fcn.gphi, sig, my_fcn.ar, Ff, ang, my_fcn.sl
       };
-      double NsbNorm = Fpar[4] / my_fcn.normArsb;
-      return NFit*IntfrBWARG( x,pp,0 ) +
-         NsbNorm * RevArgus(x,my_fcn.arsb)*(1+my_fcn.slsb*(x-1.02));
-//              Fpar[4]/(dU-bL);
-   };
-   rmath_fun< decltype(Lcr) > fcr(Lcr);
-   ROOT::Math::GoFTest* gofcr =
-      new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-            ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKS = gofcr -> KolmogorovSmirnovTest();
-   cout << " pvalueKS(cr)= " << pvalueKS << endl;
 
-   auto Lsb = [Fpar,my_fcn](double x) -> double {
-//       return Fpar[4]/(dU-bL);
-      double NsbNorm = Fpar[4] / my_fcn.normArsb;
-      return NsbNorm * RevArgus(x,my_fcn.arsb) *
-         (1+my_fcn.slsb*(x-1.02));
-   };
-   rmath_fun< decltype(Lsb) > fsb(Lsb);
-   ROOT::Math::GoFTest* gofsb =
-      new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
-         ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-   cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-//    double pvalueADsb = gofsb -> AndersonDarlingTest();
-//    cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+      double Nsb = Fpar[4];
+
+      // normalization on 1
+      double Ntot = Nkk + Nsb;
+      NFit /= Ntot;
+
+      double arsb = my_fcn.arsb;
+      double slsb = my_fcn.slsb;
+      double NsbNorm = Nsb/Ntot;
+      if ( FunType == 1 ) {
+         NsbNorm /= my_fcn.normArsb;
+      }
+
+      auto Lcr =
+         [NFit,pp,FunType,NsbNorm,arsb,slsb](double x) -> double {
+         double ret = NFit*IntfrBWARG( x,pp,0 );
+         if ( FunType == 0 ) {
+            ret += NsbNorm/(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret += NsbNorm * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         }
+         return ret;
+      };
+
+      // linear extrapolation in [dL,dU] divided into  n points
+      int n = 10000;
+      vector<double> vLcr(n);
+      double dm = (dU-dL)/(n-1);
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr(m);
+      }
+
+      auto LcrE = [&vLcr,dm](double x) -> double {
+         if ( x < dL || x >= dU ) {
+            return 0.;
+         }
+         int i = (x-dL) / dm;
+         double mi = dL + i * dm;
+         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
+         return f;
+      };
+      rmath_fun< decltype(LcrE) > fcr(LcrE);
+
+      ROOT::Math::GoFTest* gofcr =
+         new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS = gofcr -> KolmogorovSmirnovTest();
+      cout << " pvalueKS(cr)= " << pvalueKS << endl;
+
+      // side-band
+//       function<double(double)> Lsb;
+      NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
+      auto Lsb = [FunType,NsbNorm,arsb,slsb](double x) -> double {
+         double ret = 0;
+         if ( FunType == 0 ) {
+            ret = 1./(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret = NsbNorm * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         }
+         return ret;
+      };
+      rmath_fun< decltype(Lsb) > fsb(Lsb);
+
+      ROOT::Math::GoFTest* gofsb =
+         new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
+            ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
+      cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
+//       double pvalueADsb = gofsb -> AndersonDarlingTest();
+//       cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+   }
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Fpar,my_fcn](double* x,double* p) -> double {
+   auto Ldr = [Fpar,my_fcn,Ff,FunType](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
       double NFit = Nphi/my_fcn.IBW;
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
       double ang = Fpar[2];
       double sig = Fpar[3];
       const double pp[] {
@@ -2773,10 +2931,14 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
       double BWARG = NFit * IntfrBWARG( x[0],pp,isw );
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
-//       double Bg = Fpar[4]/(dU-bL);
-      double NsbNorm = Fpar[4] / my_fcn.normArsb;
-      double Bg = NsbNorm * RevArgus(x[0],my_fcn.arsb) *
-         (1+my_fcn.slsb*(x[0]-1.02));
+      double Bg = 0;
+      if ( FunType == 0 ) {
+         Bg = Fpar[4]/(dU-dL);
+      } else if ( FunType == 1 ) {
+         double NsbNorm = Fpar[4] / my_fcn.normArsb;
+         Bg = NsbNorm * RevArgus(x[0],my_fcn.arsb) *
+            (1+my_fcn.slsb*(x[0]-1.02));
+      }
       if ( isw == 4 ) { return bW * Bg; }
 
       return bW * (BWARG + Bg);
@@ -3677,6 +3839,9 @@ struct myFCN_comb {
    vector<double> sb09;
    vector<double> sb12;
 
+   // Function for side-band:
+   int funType = 1; // 0 - constant, 1 -Argus
+
    // minimization function
    // the signature of this operator() MUST be exactly this:
    // THE EXTENDED MAXIMUM LIKELIHOOD ESTIMATOR
@@ -3700,9 +3865,12 @@ struct myFCN_comb {
       int n_mkk09 = mkk09.size();
       for ( int i = 0; i < n_mkk09; ++i ) {
          double m = mkk09[i];
-         double L = Nkk09 * IntfrBWARGN( m,p09,0 ) +
-                    Nsb09 * RevArgusN(m,0.,sl09);
-//                     Nsb09/(dU-bL); // bL !
+         double L = Nkk09 * IntfrBWARGN( m,p09,0 );
+         if ( funType == 0 ) {
+            L += Nsb09/(dU-dL);
+         } else if ( funType == 1 ) {
+            L += Nsb09 * RevArgusN(m,0.,sl09);
+         }
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -3712,17 +3880,20 @@ struct myFCN_comb {
 
       // fit SB
       int n_sb09 = sb09.size();
-      // by constant
-//       res += 2*Nsb09 - n_sb09*2*log(Nsb09/(dU-bL));
-      // by Argus
       res += 2*Nsb09;
-      for ( int i = 0; i < n_sb09; ++i ) {
-         double m = sb09[i];
-         double L = Nsb09 * RevArgusN(m,0.,sl09);
-         if (L > 0.) {
-            res -= 2*log(L);
-         } else {
-            res += FLT_MAX; // ~3e38
+      if ( funType == 0 ) {
+         // by constant (mkk >= dL=2Mk)
+         res += -n_sb09 * 2*log(Nsb09/(dU-dL));
+      } else if ( funType == 1 ) {
+         // by Argus
+         for ( int i = 0; i < n_sb09; ++i ) {
+            double m = sb09[i];
+            double L = Nsb09 * RevArgusN(m,0.,sl09);
+            if (L > 0.) {
+               res -= 2*log(L);
+            } else {
+               res += FLT_MAX; // ~3e38
+            }
          }
       }
 
@@ -3734,9 +3905,12 @@ struct myFCN_comb {
       int n_mkk12 = mkk12.size();
       for ( int i = 0; i < n_mkk12; ++i ) {
          double m = mkk12[i];
-         double L = Nkk12 * IntfrBWARGN( m,p12,0 ) +
-                    Nsb12 * RevArgusN(m,0.,sl12);
-//                     Nsb12/(dU-bL);
+         double L = Nkk12 * IntfrBWARGN( m,p12,0 );
+         if ( funType == 0 ) {
+            L += Nsb12/(dU-dL);
+         } else if ( funType == 1 ) {
+            L += Nsb12 * RevArgusN(m,0.,sl12);
+         }
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -3746,17 +3920,20 @@ struct myFCN_comb {
 
       // fit SB
       int n_sb12 = sb12.size();
-      // by constant
-//       res += 2*Nsb12 - n_sb12*2*log(Nsb12/(dU-bL));
-      // by Argus
       res += 2*Nsb12;
-      for ( int i = 0; i < n_sb12; ++i ) {
-         double m = sb12[i];
-         double L = Nsb12 * RevArgusN(m,0.,sl12);
-         if (L > 0.) {
-            res -= 2*log(L);
-         } else {
-            res += FLT_MAX; // ~3e38
+      if ( funType == 0 ) {
+         // by constant (mkk >= dL=2Mk)
+         res += -n_sb12 * 2*log(Nsb12/(dU-dL));
+      } else if ( funType == 1 ) {
+         // by Argus
+         for ( int i = 0; i < n_sb12; ++i ) {
+            double m = sb12[i];
+            double L = Nsb12 * RevArgusN(m,0.,sl12);
+            if (L > 0.) {
+               res -= 2*log(L);
+            } else {
+               res += FLT_MAX; // ~3e38
+            }
          }
       }
 
@@ -3895,6 +4072,10 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 //--------------------------------------------------------------------
 
    myFCN_comb my_fcn;   // class for 'FitFCN'
+
+   int FunType = 0;     // Function for SB: 0 - constant, 1 -Argus
+   my_fcn.funType = FunType;
+
    double sl09 = -1.8;  // efficiency parameters
    double sl12 = -1.8;  // -1.83
    my_fcn.sl09 = sl09;
@@ -3930,9 +4111,9 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
       "sig09", "sig12", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
 
-   vector<double> par_ini { Mphi,Gphi,0., 0.7, 0.0, 1.4e-3, 1.1e-3,
-      890.,13., 2700.,34. };
-//    double(n09-nsb09), double(nsb09), double(n12-nsb12), double(nsb12) };
+//    vector<double> par_ini { Mphi,Gphi,0., 0.7, 0.2, 1.4e-3, 1.1e-3,
+   vector<double> par_ini { Mphi,Gphi,0., 0.7, -0.2, 1.4e-3, 1.1e-3,
+   double(n09-nsb09), double(nsb09), double(n12-nsb12), double(nsb12) };
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -3962,15 +4143,20 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
    fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
+   fitter.CalculateHessErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
+   vector<double> Fpar = res.Parameters();
+   if ( res.IsValid() ) {
+      printf("\n=> FINAL RESULT <=\n");
+   } else {
+      printf("\n=> INVALID RESULT <=\n");
+   }
    res.Print(cout);
 //    res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
-   vector<double>& Fpar = PE.Fpar;
 
    double Nfit09 = Fpar[7];
    double Nfit09_err = max({PE.Perr[7],PE.Uerr[7],PE.Lerr[7]});
@@ -4009,72 +4195,117 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr09 = [Fpar,sl09](double x) -> double {
-      double pp[]
-      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
-      return Fpar[7]*IntfrBWARGN( x,pp,0 ) +
-             Fpar[8] * RevArgusN( x,0.,sl09 );
-//              Fpar[8]/(dU-bL);
-   };
-   rmath_fun< decltype(Lcr09) > fcr09(Lcr09);
-   ROOT::Math::GoFTest* gofcr09 =
-      new ROOT::Math::GoFTest( mkk09.size(),mkk09.data(),fcr09,
+   bool calc_pval = true;
+   double pvalueKS09 = 0, pvalueKS09sb = 0;
+   double pvalueKS12 = 0, pvalueKS12sb = 0;
+   if ( calc_pval ) {
+      // central part
+      auto Lcr09 = [Fpar,sl09,FunType](double x) -> double {
+         double pp[]
+            {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
+         // normalization on 1
+         double Ntot = Fpar[7] + Fpar[8];
+         double ret = Fpar[7]/Ntot * IntfrBWARGN( x,pp,0 );
+         if ( FunType == 0 ) {
+            ret += (Fpar[8]/Ntot)/(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret += Fpar[8]/Ntot * RevArgusN( x,0.,sl09 );
+         }
+         return ret;
+      };
+      auto Lcr12 = [Fpar,sl12,FunType](double x) -> double {
+         double pp[]
+            {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
+         // normalization on 1
+         double Ntot = Fpar[9] + Fpar[10];
+         double ret = Fpar[9]/Ntot * IntfrBWARGN( x,pp,0 );
+         if ( FunType == 0 ) {
+            ret += (Fpar[10]/Ntot)/(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret += Fpar[10]/Ntot * RevArgusN( x,0.,sl12 );
+         }
+         return ret;
+      };
+
+      // linear extrapolation in [dL,dU] divided into  n points
+      int n = 10000;
+      vector<double> vLcr(n);
+      double dm = (dU-dL)/(n-1);
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr09(m);
+      }
+
+      auto Lcr = [&vLcr,dm](double x) -> double {
+         if ( x < dL || x >= dU ) {
+            return 0.;
+         }
+         int i = (x-dL) / dm;
+         double mi = dL + i * dm;
+         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
+         return f;
+      };
+      rmath_fun< decltype(Lcr) > fcr(Lcr);
+
+      ROOT::Math::GoFTest* gofcr09 =
+         new ROOT::Math::GoFTest( mkk09.size(),mkk09.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS09 = gofcr09 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS09(cr)= " << pvalueKS09 << endl;
+
+      for ( int i = 0; i < n; ++i ) {
+         double m = dL + i * dm;
+         vLcr[i] = Lcr12(m);
+      }
+      ROOT::Math::GoFTest* gofcr12 =
+         new ROOT::Math::GoFTest( mkk12.size(),mkk12.data(),fcr,
+               ROOT::Math::GoFTest::kPDF, dL,dU );
+      pvalueKS12 = gofcr12 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
+
+      // side-band
+      double sl = sl09;
+      auto Lsb = [&sl,FunType](double x) -> double {
+         double ret = 0;
+         if ( FunType == 0 ) {
+            ret = 1./(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret = RevArgusN( x,0.,sl );
+         }
+         return ret;
+      };
+      rmath_fun< decltype(Lsb) > fsb(Lsb);
+
+      ROOT::Math::GoFTest* gofsb09 =
+         new ROOT::Math::GoFTest( sb09.size(),sb09.data(),fsb,
             ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKS09 = gofcr09 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS09(cr)= " << pvalueKS09 << endl;
+      pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
 
-   auto Lsb09 = [Fpar,sl09](double x) -> double {
-      return Fpar[8] * RevArgusN( x,0.,sl09 );
-//       return Fpar[8]/(dU-bL);
-   };
-   rmath_fun< decltype(Lsb09) > fsb09(Lsb09);
-   ROOT::Math::GoFTest* gofsb09 =
-      new ROOT::Math::GoFTest( sb09.size(),sb09.data(),fsb09,
-            ROOT::Math::GoFTest::kPDF, dL,dU);
-   double pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
-//    double pvalueAD09sb = gofsb09 -> AndersonDarlingTest();
-//    cout << " pvalueAD09(sb)= " << pvalueAD09sb << endl;
-
-   auto Lcr12 = [Fpar,sl12](double x) -> double {
-      double pp[]
-      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
-      return Fpar[9]*IntfrBWARGN( x,pp,0 ) +
-             Fpar[10] * RevArgusN( x,0.,sl12 );
-//              Fpar[10]/(dU-bL);
-   };
-   rmath_fun< decltype(Lcr12) > fcr12(Lcr12);
-   ROOT::Math::GoFTest* gofcr12 =
-      new ROOT::Math::GoFTest( mkk12.size(),mkk12.data(),fcr12,
-            ROOT::Math::GoFTest::kPDF, dL,dU);
-   double pvalueKS12 = gofcr12 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
-
-   auto Lsb12 = [Fpar,sl12](double x) -> double {
-      return Fpar[10] * RevArgusN( x,0.,sl12 );
-//       return Fpar[10]/(dU-bL);
-   };
-   rmath_fun< decltype(Lsb12) > fsb12(Lsb12);
-   ROOT::Math::GoFTest* gofsb12 =
-      new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb12,
+      sl = sl12;
+      ROOT::Math::GoFTest* gofsb12 =
+         new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb,
             ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKS12sb = gofsb12 -> KolmogorovSmirnovTest();
-   cout << " pvalueKS12(sb)= " << pvalueKS12sb << endl;
-//    double pvalueAD12sb = gofsb12 -> AndersonDarlingTest();
-//    cout << " pvalueAD12(sb)= " << pvalueAD12sb << endl;
+      pvalueKS12sb = gofsb12 -> KolmogorovSmirnovTest();
+      cout << " pvalueKS12(sb)= " << pvalueKS12sb << endl;
+   }
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr09 = [Fpar,sl09](double* x,double* p) -> double {
+   auto Ldr09 = [Fpar,sl09,FunType](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double pp[]
-      {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+         {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
       double BWARG = Fpar[7] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
-      double Bg = Fpar[8] * RevArgusN( x[0],0.,sl09 );
-//       double Bg = Fpar[8]/(dU-bL);
+      double Bg = 0;
+      if ( FunType == 0 ) {
+         double Bg = Fpar[8]/(dU-dL);
+      } else if ( FunType == 1 ) {
+         Bg = Fpar[8] * RevArgusN( x[0],0.,sl09 );
+      }
       if ( isw == 4 ) { return bW * Bg; }
 
       return bW * (BWARG + Bg);
@@ -4082,16 +4313,20 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    TF1* f09 = new TF1("f09", Ldr09, bL, dU, 1);
    f09 -> SetNpx(500);
 
-   auto Ldr12 = [Fpar,sl12](double* x,double* p) -> double {
+   auto Ldr12 = [Fpar,sl12,FunType](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double pp[]
-      {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+         {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
       double BWARG = Fpar[9] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
-      double Bg = Fpar[10] * RevArgusN( x[0],0.,sl12 );
-//       double Bg = Fpar[10]/(dU-bL);
+      double Bg = 0;
+      if ( FunType == 0 ) {
+         double Bg = Fpar[10]/(dU-dL);
+      } else if ( FunType == 1 ) {
+         Bg = Fpar[10] * RevArgusN( x[0],0.,sl12 );
+      }
       if ( isw == 4 ) { return bW * Bg; }
 
       return bW * (BWARG + Bg);
@@ -4318,8 +4553,11 @@ void combineSB_Intfr_scan( string fname09, string fname12,
    vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
       "sigma09", "sigma12", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
 
-   vector<double> par_ini { Mphi,Gphi,0., 0.9, 0., 1.4e-3, 1.1e-3,
-                            890., 12., 2700., 34. };  // -50deg
+//    vector<double> par_ini { Mphi,Gphi,0., 0.9, 0., 1.4e-3, 1.1e-3,
+//                             890., 12., 2700., 34. };  // -50deg
+
+   vector<double> par_ini { Mphi,Gphi,0., 0., 0., 1.4e-3, 1.2e-3,
+                            870., 22., 2640., 65. };  // -180deg
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -4377,8 +4615,8 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 
    //-----------------------------------------------------------------
    // loop for angles (degrees)
-//    int angmin = -50, angmax = 50, angstep = 5;
-   int angmin = -45, angmax = 43, angstep = 3;
+//    int angmin = -45, angmax = 43, angstep = 3; // memo
+   int angmin = -180, angmax = 180, angstep = 5;
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
    c1 -> Divide(1,2);
@@ -5445,8 +5683,8 @@ void mass_kk_fit() {
    };
 //--------------------------------------------------------------------
    // Numbers of items for date:
-   int id = 0, ii = 3, is = 5, ib = 7; // 2009
-//    int id = 1, ii = 5, is = 6, ib = 8; // 2012
+//    int id = 0, ii = 3, is = 5, ib = 7; // 2009
+   int id = 1, ii = 5, is = 6, ib = 8; // 2012
 //--------------------------------------------------------------------
 
    // = define GSL error handler which does nothing =
@@ -5462,10 +5700,10 @@ void mass_kk_fit() {
 // ------------- signal sec.6.1 --------------------------------------
 //    test_BreitWigner();
 
-//    sig_fit_mc("prod-11/mcsig_kkmc_09.root","mcmkk09_sig.pdf");
-//    sig_fit_mc("prod-11/mcsig_kkmc_12.root","mcmkk12_sig.pdf");
+//    sig_fit_mc("prod-12/mcsig_kkmc_09.root","mcmkk09_sig.pdf");
+//    sig_fit_mc("prod-12/mcsig_kkmc_12.root","mcmkk12_sig.pdf");
 
-      // fit phi-eta by BW x Gauss
+   // fit phi-eta by BW x Gauss
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_sig_log.pdf";
 //    sig_fit(fnames.at(is),titles.at(is),pdf);
 
@@ -5473,7 +5711,7 @@ void mass_kk_fit() {
 //    test_Agrus();
 //    test_RevAgrus();
 
-     // fit kketa by Argus
+   // fit kketa by Argus
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_fitbg.pdf";
 //    bkg_fit(fnames.at(ib),titles.at(ib),pdf);
 
@@ -5485,7 +5723,7 @@ void mass_kk_fit() {
 //    bkg_fit2(fnames[7],fnames[8],pdf); // fit kketa by Argus
 
 // ------------- data: no interference sec.6.3.1 ---------------------
-   int Mphix = 1; // 1 - mphi is fixed at the PDG
+//    int Mphix = 0; // 1 - mphi is fixed at the PDG
 //    string pdf = string("mkk") + ((id==0) ? "09" : "12") + "_fit"
 //       + to_string(Mphix) + ".pdf";
 //    data_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
@@ -5503,11 +5741,11 @@ void mass_kk_fit() {
 //    data_Intfr_fit(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB";
+//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB_l";
 //    dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band + fitBR
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR";
+//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR_t";
 //    dataSBBR_Intfr(fnames.at(id),titles.at(id),pdf);
 
 // ------------- data: common fit ------------------------------------
@@ -5515,12 +5753,12 @@ void mass_kk_fit() {
 //    combine_Intfr_bg(fnames[0],fnames[1],"mkk_cf_bkg");
 
    // combined with Side-Band
-//    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_std2.pdf");
+   combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_l_p.pdf");
 
 //    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan_all.pdf");
 
    // combined with Side-Band + fitBR
-   combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_std.pdf");
+//    combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_std.pdf");
 
 //--------------------------------------------------------------------
 }
