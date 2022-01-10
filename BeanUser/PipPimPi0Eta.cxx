@@ -127,13 +127,13 @@ static bool isMC = false;
 extern "C" {
 #endif
 
-inline void Warning(const char* msg) {
+static inline void Warning(const char* msg) {
    warning_msg[string(msg)] += 1;
 }
 
-inline Double_t RtoD(Double_t ang) {return ang*180/M_PI;}
+static inline Double_t RtoD(Double_t ang) {return ang*180/M_PI;}
 
-inline double SQ(double x) {
+static inline double SQ(double x) {
    return x*x;
 }
 

@@ -190,6 +190,7 @@ static int DataPeriod = 0;
 
 // helix corrections for MC
 static TrackCorrection* helix_cor = nullptr;
+static const bool make_hc = true;
 
 static bool isMC = false;
 
@@ -201,19 +202,19 @@ extern "C" {
 #endif
 
 //-------------------------------------------------------------------------
-inline void Warning(const string& msg) {
+static inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
 }
 //-------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------
-inline double RtoD(double ang) {
+static inline double RtoD(double ang) {
    return ang*180/M_PI;
 }
 //-------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------
-inline double SQ(double x) {
+static inline double SQ(double x) {
    return x*x;
 }
 //-------------------------------------------------------------------------
@@ -2496,11 +2497,22 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
    }
 
    // set helix_cor
-   if ( isMC && !helix_cor && DataPeriod > 0 ) {
-      if ( DataPeriod == 2009 ) {
-         helix_cor = new TrackCorrection(0);
-      } else if ( DataPeriod == 2012 ) {
-         helix_cor = new TrackCorrection(1);
+   if ( isMC ) {
+      if ( make_hc && !helix_cor && DataPeriod > 0 ) {
+         if ( DataPeriod == 2009 ) {
+            helix_cor = new TrackCorrection(0);
+         } else if ( DataPeriod == 2012 ) {
+            helix_cor = new TrackCorrection(1);
+         }
+      }
+      if ( !helix_cor ) {
+         static int nprt = 0;
+         if ( nprt < 1 ) {
+            cout << " WARNING: No helix corrections are made for MC"
+                 << endl;
+            nprt++;
+         }
+         Warning("No helix corrections are made for MC");
       }
    }
 
