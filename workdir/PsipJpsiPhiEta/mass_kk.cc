@@ -4,6 +4,7 @@
 
 #include "masses.h"
 
+// {{{1 helper functions
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -30,6 +31,7 @@ void SetHstFace(TH1* hst) {
    }
 }
 
+// {{{1 data processing
 //--------------------------------------------------------------------
 TH1D* get_Mkk(string fname, string hname, int type=0) {
 //--------------------------------------------------------------------
@@ -68,6 +70,163 @@ TH1D* get_Mkk(string fname, string hname, int type=0) {
    return mkk;
 }
 
+// {{{1 Argus functions
+//--------------------------------------------------------------------
+double Argus(double x, double a) {
+//--------------------------------------------------------------------
+// ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
+// This is a regular ARGUS distribution with one parameter 'a'.
+
+   if ( x < 0 || x > 1 ) {
+      return 0;           // by definition
+   }
+
+   if ( fabs(a)<1e-5 ) {
+      return 3*x*sqrt(1-x*x);
+   }
+
+   // normalization constant
+   constexpr double one_over_sqrt2pi = 0.5*M_2_SQRTPI*M_SQRT1_2;
+   double a2 = a*a;
+   double Psi = 0.5*(1+erf(a*M_SQRT1_2))
+      - a*one_over_sqrt2pi*exp(-0.5*a2)
+      -0.5;
+   double norm = a2*a*one_over_sqrt2pi/Psi;
+
+   // regular Argus distribution:
+   double u = 1 - x*x;
+   double Ar = norm * x * sqrt(u) * exp(-0.5*a2*u);
+   return Ar;
+}
+
+//--------------------------------------------------------------------
+double RevArgus(double m, double A) {
+//--------------------------------------------------------------------
+// Argus function with left cutoff (L)
+//      U is the upper limit of fitting
+//      L,U - must be const for fit
+
+   static const double L = 2*Mk;
+   static const double U = Mjpsi - Meta;
+
+   double x = (U-m)/(U-L); // transformation: (L,U) -> (1,0)
+   return Argus(x,A)/(U-L);
+}
+
+//--------------------------------------------------------------------
+double RevArgusN(double m, double A, double slope) {
+//--------------------------------------------------------------------
+// Numeric normalisation on one for range [dL,dU]
+// * multiply Argus by function of efficiency(m) (parameter slope)
+
+   static const double dL = 2*Mk; // the left cutoff = 0.987354
+   static const double dU = 1.08; // MUST BE < 1.0835 !!!
+
+   double norm = 0;
+   // cash parameters
+   static double cacheN = 0;
+   static double cacheA = 0;
+   static double cacheS = 0;
+   if ( cacheN > 0 && A == cacheA && slope == cacheS ) {
+      norm = cacheN;
+   } else {
+      // integrand lambda function
+      double p[] = {A,slope};
+      auto Lint = [](double x, void* pp) -> double{
+         double* p = static_cast<double*>(pp);
+         return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
+      };
+
+      // desired errors:                abs    rel
+      ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-8, 1000);
+      norm = gsl_int.Integral(Lint,p,dL,dU);
+      cacheN = norm;
+      cacheA = A;
+      cacheS = slope;
+   }
+
+   return RevArgus(m,A) * (1+slope*(m-1.02)) / norm;
+}
+
+//--------------------------------------------------------------------
+void test_RevAgrus() {
+//--------------------------------------------------------------------
+   static const double dL = 2*Mk; // the left cutoff = 0.987354
+   static const double dU = 1.08; // MUST BE < 1.0835 !!!
+
+   auto Lrargus = [](const double* x,const double* p) -> double {
+      return p[0]*RevArgusN(x[0],p[1],p[2]);
+   };
+
+   TF1* fbkg = new TF1("RevArgus", Lrargus, 0.98, dU, 3);
+   fbkg -> SetParNames("N","A","Sl");
+   fbkg -> SetParameters(1., 9., -1.8);
+   fbkg -> SetLineWidth(2);
+   fbkg -> SetLineColor(kBlue);
+
+   TLegend* leg = new TLegend(0.49,0.69,0.89,0.89);
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+
+   c1 -> cd();
+   gPad -> SetGrid();
+   fbkg -> DrawCopy();
+   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+
+   // test normalization:
+   printf(" RevArgusN norm= %.15f\n",fbkg -> Integral( dL,dU ) );
+
+   fbkg -> SetParameter(1, 6.0 );  // A
+   fbkg -> SetLineColor(kRed);
+   fbkg -> SetLineStyle(kDashed);
+   fbkg -> DrawCopy("SAME");
+   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+   printf(" RevArgusN norm2= %.15f\n",fbkg -> Integral( dL,dU ) );
+
+   fbkg -> SetParameter(1, 0.0 );  // A
+   fbkg -> SetLineColor(kGreen+4);
+   fbkg -> DrawCopy("SAME");
+   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+
+   leg -> Draw();
+}
+
+// {{{1 Fit Side-Band
+//-------------------------------------------------------------------------
+TF1* Fit_Sb( TH1D* hst, int type = 1 ) {
+//-------------------------------------------------------------------------
+   static const double dL = 2*Mk; // the left cutoff = 0.987354
+   static const double dU = 1.08; // MUST BE < 1.0835 !!!
+   TF1* fret = nullptr;
+   if ( type == 1 ) { // fit side-band by constant
+      fret = (TF1*)gROOT -> GetFunction("pol0")->Clone();
+   }
+
+   if ( type == 2 ) { // Reverse Argus
+      double bW = hst -> GetBinWidth(1); // bin width
+      double norm = hst -> Integral();
+      auto Lan = [bW](const double* x,const double* p) -> double {
+         return bW*p[0]*RevArgusN(x[0],p[1],p[2]);
+      };
+      fret = new TF1("fret", Lan, 0.98, dU, 3);
+      fret -> SetParNames("N","a","Sl");
+      fret -> SetParameters(norm, 5., -1.8);
+      fret -> FixParameter(2, -1.8); // slope
+   }
+
+   if ( fret ) {
+      fret -> SetLineColor(kRed);
+      fret -> SetLineWidth(2);
+      fret -> SetLineStyle(kDashed);
+      hst -> Fit(fret,"LE","E",dL,dU);
+   }
+   return fret;
+}
+
+// {{{1 plot_mass_kk()
 //--------------------------------------------------------------------
 void plot_mass_kk(int date, bool PR=false) { // defalt is memo
 //--------------------------------------------------------------------
@@ -168,13 +327,13 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    double ymax = max( hst[id]->GetMaximum(), hst[is]->GetMaximum() );
    hst[id] -> SetMaximum(1.2*ymax);
 
-   hst[9] = (TH1D*)hst[is] -> Clone("mc_sig_clone");
-   hst[9] -> Add(hst[ib]); // MC(sig) + MC(bg)
-   hst[9] -> SetLineColor(kRed+1);
+//    hst[9] = (TH1D*)hst[is] -> Clone("mc_sig_clone");
+//    hst[9] -> Add(hst[ib]); // MC(sig) + MC(bg)
+//    hst[9] -> SetLineColor(kRed+1);
 
-   hst[19] = (TH1D*)hst[10+is] -> Clone("mc_sig_sb_clone");
-   hst[19] -> Add(hst[10+ib]); // MC(sig) + MC(bg)
-   hst[19] -> SetLineColor(kRed+1);
+//    hst[19] = (TH1D*)hst[10+is] -> Clone("mc_sig_sb_clone");
+//    hst[19] -> Add(hst[10+ib]); // MC(sig) + MC(bg)
+//    hst[19] -> SetLineColor(kRed+1);
 
    c1 -> cd(1);
    gPad -> SetGrid();
@@ -213,36 +372,31 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    if ( date == 2009 ) {
       hst[10+id] -> SetMaximum(4);
    } else {
-      hst[10+id] -> SetMaximum(5);
+      hst[10+id] -> SetMaximum(6);
    }
 
    SetHstFace(hst[10+id]);
    hst[10+id] -> GetXaxis() -> SetTitleOffset(1.1);
 
-   TF1* pl0 = nullptr;
-   // fit side-band by constant
-   gStyle -> SetOptFit(0);
-   pl0 = (TF1*)gROOT -> GetFunction("pol0")->Clone();
-   pl0 -> SetLineColor(kRed);
-   pl0 -> SetLineWidth(2);
-   pl0 -> SetLineStyle(kDashed);
-   hst[10+id] -> Fit(pl0,"L","E");
-
-   if ( !pl0 ) {
+   int type = 2;
+   TF1* fit = Fit_Sb(hst[10+id],type);
+   if ( !fit ) {
       hst[10+id] -> Draw("E");
    }
 
    hst[10+is] -> Draw("HIST SAME");
    cout << " Integral signal= " << hst[10+is] -> Integral() << endl;
    hst[10+ib] -> Draw("SAME HIST");
-//    hst[19]    -> Draw("SAME HIST");
    hst[10+id] -> Draw("E,SAME");
 
-   TPaveText* pt = new TPaveText(0.45,0.69,0.89,0.89,"NDC");
-   if ( !pl0 ) {
-      delete pt;
-      pt = new TPaveText(0.45,0.73,0.89,0.89,"NDC");
-   }
+   TPaveText* pt = new TPaveText(0.45,0.73,0.89,0.89,"NDC");
+//    if ( type == 1 ) {
+//       pt = new TPaveText(0.45,0.69,0.89,0.89,"NDC");
+//    } else if ( type == 2 ) {
+//       pt = new TPaveText(0.45,0.65,0.89,0.89,"NDC");
+//    } else {
+//       pt = new TPaveText(0.45,0.73,0.89,0.89,"NDC");
+//    }
    pt -> SetTextAlign(22);
    pt -> SetTextFont(42);
    pt -> SetTextSize(0.05);
@@ -253,11 +407,19 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
          "<%.3f", shift_eta,shift_eta+weta)
          );
 
-   if ( pl0 ) {
-      double p0  = pl0 -> GetParameter(0);
-      double ep0 = pl0 -> GetParError(0);
-      pt -> AddText( Form("p0 = %.2f #pm %.2f",p0,ep0) );
-   }
+//    if ( type == 1 ) {
+//       double p0  = fit -> GetParameter(0);
+//       double ep0 = fit -> GetParError(0);
+//       pt -> AddText( Form("p0 = %.2f #pm %.2f",p0,ep0) );
+//    } else if ( type == 2 ) {
+//       double n  = fit -> GetParameter(0);
+//       double ar  = fit -> GetParameter(1);
+//       double ern = fit -> GetParError(0);
+//       double erar = fit -> GetParError(1);
+//       pt -> AddText( Form("#color[%i]{Argus fit:} N= %.1f #pm %.1f",
+//                kRed,n,ern) );
+//       pt -> AddText( Form("a= %.1f #pm %.1f",ar,erar) );
+//    }
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -269,14 +431,22 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    c1 -> Print(pdf.c_str());
 }
 
+// {{{1 MAIN:
 //--------------------------------------------------------------------
 void mass_kk() {
 //--------------------------------------------------------------------
    gROOT -> Reset();
    gStyle -> SetOptStat(0);
    gStyle -> SetLegendFont(42);
-
 //    gStyle -> SetOptFit(0);
+   gStyle -> SetOptFit(111); // do not print fixed params
+   gStyle -> SetFitFormat(".1f");
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.72);
+
+
+   // just test
+//    test_RevAgrus();
 
    // presentation
 //    plot_mass_kk(2009,true);
