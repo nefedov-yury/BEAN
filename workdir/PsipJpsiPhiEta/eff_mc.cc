@@ -24,6 +24,7 @@ void get_eff(string fname, string pdf="") {
 
    // MC signal MUST contain nt1
    string prod("prod-12/");
+//    string prod("prod-12/NoHC/"); // systematic: no helix corr.
    fname = prod + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
