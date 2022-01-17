@@ -195,8 +195,8 @@ vector<double> get_mkk_hist( string fname, string hname,
    TTree* a4c = (TTree*)gDirectory -> Get("a4c");
 
    TCut c_here = c_Mrec+c_chi2;
-//    c_here += TCut("chsq3g>ch2"); // the same cut <F2>as in prod-11
-   c_here += TCut(Form("%f<=Mkk&&Mkk<%f",bL,dU));
+//    c_here += TCut("chsq3g>ch2"); // the same cut as in prod-11
+   c_here += TCut(Form("%f<=Mkk&&Mkk<%f",dL,dU));
    if ( type == 0 ) {        // central part
       c_here += c_cpgg;
    } else if ( type == 1 ) { // side-band
@@ -872,13 +872,14 @@ void test_RevAgrus() {
 }
 
 //--------------------------------------------------------------------
-void bkg_fit(string fname, string title, string pdf="") {
+void bkg_fit(string fname, string title, string pdf="",int type=0) {
 //--------------------------------------------------------------------
+// type=1 for side-band events
    bool is2009 = (fname.find("_09") != string::npos);
 
    // Get un-binned data
    TH1D* hist[1];
-   vector<double> mkk = get_mkk_hist( fname, "mkk_kketa", hist );
+   vector<double> mkk = get_mkk_hist( fname, "mkk", hist, type );
    TH1D* hst = hist[0];
    double norm = hst -> Integral();
 
@@ -918,7 +919,8 @@ void bkg_fit(string fname, string title, string pdf="") {
    }
 
    // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetLimits(-2.5, 2.5);
+//    fitter.Config().ParSettings(0).SetLimits(-2.5, 2.5);
+   fitter.Config().ParSettings(0).SetLimits(-0.0001, 10.);
 
    fitter.LikelihoodFit(Bkg,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
@@ -961,7 +963,12 @@ void bkg_fit(string fname, string title, string pdf="") {
    gPad -> SetGrid();
 
    SetHstFace(hst);
-   hst -> SetMaximum( 1.3*hst->GetMaximum() );
+   double hst_max = hst->GetMaximum();
+   if ( hst_max < 10 ) {
+      hst -> SetMaximum( hst_max+2);
+   } else {
+      hst -> SetMaximum( 1.3*hst_max );
+   }
    hst -> GetYaxis() -> SetMaxDigits(3);
    hst -> GetXaxis() -> SetTitleOffset(1.1);
    hst -> GetYaxis() -> SetTitleOffset(1.25);
@@ -982,133 +989,11 @@ void bkg_fit(string fname, string title, string pdf="") {
    pt -> SetTextFont(42);
 //    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
    pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("a = %s",PE.Eform(0,".2f")) );
-   pt -> Draw();
-
-   gPad -> RedrawAxis();
-   c1 -> Update();
-   if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+   if ( type == 1 ) { // low statistic
+      pt -> AddText( Form("a = %s",PE.Eform(0,".1f")) );
+   } else {
+      pt -> AddText( Form("a = %s",PE.Eform(0,".2f")) );
    }
-}
-
-//--------------------------------------------------------------------
-void bkg_fit2(string fname09, string fname12, string pdf="") {
-//--------------------------------------------------------------------
-   double norm09 = 107.0/1.2;
-   double norm12 = 341.1/3.6;
-
-   // Get un-binned data
-   TH1D* hist[2];
-   vector<double> mkk09= get_mkk_hist(fname09,"mkk_kketa09",&hist[0]);
-   vector<double> mkk12= get_mkk_hist(fname12,"mkk_kketa12",&hist[1]);
-
-   TH1D* hst = hist[0];
-   hst -> Add(hist[0], hist[1], norm09, norm12);
-   double norm = hst -> Integral();
-
-   int n09 = mkk09.size();
-   int n12 = mkk12.size();
-   ROOT::Fit::DataRange dr(dL, dU);
-   ROOT::Fit::UnBinData Bkg(dr, n09+n12, 1, true); // weighted !
-   for ( int i = 0; i < n09; ++i ) {
-      Bkg.Add(mkk09[i], norm09);
-   }
-   for ( int i = 0; i < n12; ++i ) {
-      Bkg.Add(mkk12[i], norm12);
-   }
-
-   //-----------------------------------------------------------------
-   // Fit KKeta background by reversed Argus function
-   // function MUST be normalized to 1 on the fit range
-   auto Lan = [](const double* x,const double* p) -> double {
-      double slope = -1.9;
-      return RevArgusN(x[0],p[0],slope);
-   };
-   vector<string> par_name { "A" };
-   vector<double> par_ini  {  0. };
-
-   const unsigned int Npar = par_name.size(); // number of parameters
-   TF1* bkg = new TF1("bkg", Lan, dL, dU, Npar);
-
-   ROOT::Fit::Fitter fitter;
-   fitter.Config().MinimizerOptions().SetPrintLevel(3);
-
-   ROOT::Math::WrappedTF1 fbkg( *bkg );
-   fitter.SetFunction(fbkg,false); // false=no parameter derivatives
-
-   fitter.Config().SetParamsSettings(Npar,par_ini.data());
-   for( unsigned int i = 0; i < Npar; ++i ) {
-      fitter.Config().ParSettings(i).SetName(par_name[i]);
-   }
-
-   // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetLimits(-2.5, 2.5);
-
-   fitter.LikelihoodFit(Bkg,false); // true=extended likelihood fit
-   fitter.CalculateMinosErrors();
-
-   ROOT::Fit::FitResult res = fitter.Result();
-   res.Print(cout);
-   double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
-   vector<double>& Fpar = PE.Fpar;
-
-   //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto Lgof = [Lan,Fpar](double x) -> double {
-      return Lan(&x,Fpar.data());
-   };
-   rmath_fun< decltype(Lgof) > ftest(Lgof); // lambda -> Root1Dfunc
-   vector<double> mkk;
-   mkk.reserve(n09+n12);
-   mkk.insert( mkk.end(), mkk09.begin(), mkk09.end() );
-   mkk.insert( mkk.end(), mkk12.begin(), mkk12.end() );
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
-
-   //-----------------------------------------------------------------
-   // Functions to draw
-   double Wn = bW*norm;
-   auto Lfit = [Wn,Lan,Fpar](double* x,double* p) -> double {
-      return Wn * Lan(x,Fpar.data());
-   };
-   TF1* ffit = new TF1("ffit", Lfit, dL-1e-2, dU, 0);
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kBlue);
-   ffit -> SetNpx(200);
-
-   //-----------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
-
-   SetHstFace(hst);
-   hst -> SetMaximum( 1.3*hst->GetMaximum() );
-   hst -> GetYaxis() -> SetMaxDigits(3);
-   hst -> GetYaxis() -> SetTitleOffset(1.2);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
-
-   hst -> Draw("EP");
-   ffit -> Draw("SAME");
-
-   TLegend* leg = new TLegend(0.11,0.71,0.47,0.89);
-   leg -> SetHeader("2009 & 2012", "C");
-   leg -> AddEntry(hst,"MC KK#eta","LEP");
-   leg -> AddEntry(ffit,"Argus function","L");
-   leg -> Draw();
-
-   TPaveText* pt = new TPaveText(0.53,0.77,0.89,0.89,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("a= %s", PE.Eform(0,".2f")) );
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -5783,16 +5668,18 @@ void mass_kk_fit() {
 //    test_Agrus();
 //    test_RevAgrus();
 
-   // fit kketa by Argus
+   // fit kk-eta by Argus
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_fitbg.pdf";
 //    bkg_fit(fnames.at(ib),titles.at(ib),pdf);
 
+   // fit rho-eta by Argus
 //    bkg_fit("mcrhoeta_kkmc_12.root","MC #rho#eta 2012",
 //            "mkk_rhoeta12_argus.pdf");
 
-   // sum 09+12
-//    string pdf = string("mkk_sum_fitbg.pdf");
-//    bkg_fit2(fnames[7],fnames[8],pdf); // fit kketa by Argus
+   // fit side-band by Argus
+   string tit = titles.at(id)+string("(side-band)");
+   string pdf = string("mkk_sb")+((id==0) ? "09" : "12")+"_fitar.pdf";
+   bkg_fit(fnames.at(id),tit,pdf,1); // type=1 for sideband
 
 // ------------- data: no interference sec.6.3.1 ---------------------
 //    int Mphix = 0; // 1 - mphi is fixed at the PDG
@@ -5830,7 +5717,7 @@ void mass_kk_fit() {
 //    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan_l2.pdf");
 
    // combined with Side-Band + fitBR
-   combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_ln.pdf");
+//    combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_ln.pdf");
 
 //--------------------------------------------------------------------
 }
