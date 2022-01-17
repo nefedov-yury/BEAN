@@ -2073,7 +2073,7 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       if ( !do5C ) { // side-band for 4C
          if (     (Slct.Mrec_best>3.0 && Slct.Mrec_best < 3.05)
                || (Slct.Mrec_best>3.144 && Slct.Mrec_best < 3.194) ) {
-            if ( chisq < 80
+            if ( chisq < 60
                && fabs(Mgg-meta) < 3*seta
                && Mkk > 2*mk && Mkk < 1.08      ) {
 
