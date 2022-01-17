@@ -1161,6 +1161,9 @@ struct myFCN_nointer_sb {
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
 
+   // Function for side-band:
+   int funType = 1; // 0 - constant, 1 -Argus
+
    // minimization function
    // the signature of this operator() MUST be exactly this:
    // THE EXTENDED MAXIMUM LIKELIHOOD ESTIMATOR
@@ -1172,13 +1175,20 @@ struct myFCN_nointer_sb {
       double Nnphi = p[5];
       double Nsb   = p[6];
 
+      double a  = fabs(p[3]);
+      double a_sb  = fabs(p[7]);
+
       double res = 2*(Nphi+Nnphi+Nsb);
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
          double L = Nphi  * BreitWignerGaussN(m,p[0],p[1],p[2],sl) +
-                    Nnphi * RevArgusN(m,fabs(p[3]),sl) +
-                    Nsb/(dU-bL); // bL !
+                    Nnphi * RevArgusN(m,a,sl);
+         if ( funType == 0 ) {
+            L += Nsb/(dU-dL);
+         } else if ( funType == 1 ) {
+            L += Nsb * RevArgusN(m,a_sb,sl);
+         }
          if (L > 0.) {
             res -= 2*log(L);
          } else {
@@ -1188,7 +1198,22 @@ struct myFCN_nointer_sb {
 
       // fit SB by constant
       int n_sb = sb.size();
-      res += 2*Nsb - n_sb * 2*log(Nsb/(dU-bL));
+      res += 2*Nsb;
+      if ( funType == 0 ) {
+         // by constant (mkk >= dL=2Mk)
+         res += -n_sb * 2*log(Nsb/(dU-dL));
+      } else if ( funType == 1 ) {
+         // by Argus
+         for ( int i = 0; i < n_sb; ++i ) {
+            double m = sb[i];
+            double L = Nsb * RevArgusN(m,a_sb,sl);
+            if (L > 0.) {
+               res -= 2*log(L);
+            } else {
+               res += FLT_MAX; // ~3e38
+            }
+         }
+      }
 
       return res;
    }
@@ -1201,6 +1226,8 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    bool is2009 = (fname.find("_09") != string::npos);
 
    myFCN_nointer_sb my_fcn; // class for 'FitFCN'
+   int FunType = 1;         // Function for SB: 0 - constant, 1-Argus
+   my_fcn.funType = FunType;
    double sl = -1.8;        // efficiency parameters
    my_fcn.sl = sl;
 
@@ -1221,13 +1248,13 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Mphi", "Gphi", "sigma", "Ar",
-                             "Nphi", "Nnonphi", "Nbkg"          };
+   vector<string> par_name { "Mphi", "Gphi", "sig", "a",
+                             "Nphi", "Nnonphi", "Nbkg", "a_sb" };
 
    vector<double> par_ini  { Mphi, Gphi, 1.2e-3, 0.,
-                             0.94*n, 0.05*n, double(nsb) };
+                             0.94*n, 0.05*n, double(nsb), 5. };
    if ( is2009 ) {
-      par_ini[2] = 1.4; // sigma09
+      par_ini[2] = 1.4; // sig09
    }
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -1245,45 +1272,66 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
       fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    }
    fitter.Config().ParSettings(1).Fix(); // Gphi
-   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sigma
-   fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // Argus
-   fitter.Config().ParSettings(3).Fix();                    // Ar
-//    fitter.Config().ParSettings(4).SetLimits(0.,1.5*norm);   // Nphi
-//    fitter.Config().ParSettings(5).SetLimits(0.,norm);       // Nnonphi
-//    fitter.Config().ParSettings(6).SetLimits(0.,norm);       // Nbkg
+   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
+   fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // a
+   fitter.Config().ParSettings(3).Fix();
+//    fitter.Config().ParSettings(4).SetLimits(1.,1.5*norm);   // Nphi
+//    fitter.Config().ParSettings(5).SetLimits(1.,norm);       // Nnonphi
+//    fitter.Config().ParSettings(6).SetLimits(1.,2.*nsb);       // Nbkg
+   fitter.Config().ParSettings(7).SetLimits(0.,10.);        // a_sb
 
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
+   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
+   vector<double> Fpar = res.Parameters();
+   if ( res.IsValid() ) {
+      printf("\n=> FINAL RESULT <=\n");
+   } else {
+      printf("\n=> INVALID RESULT <=\n");
+   }
    res.Print(cout);
 //    res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
-   vector<double>& Fpar = PE.Fpar;
+   ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr = [Fpar,sl](double x) -> double {
-      return
-      Fpar[4] * BreitWignerGaussN(x,Fpar[0],Fpar[1],Fpar[2],sl) +
-      Fpar[5] * RevArgusN(x,fabs(Fpar[3]),sl) +
-      Fpar[6]/(dU-bL);
+   auto Lcr = [Fpar,sl,FunType](double x) -> double {
+      double ret = Fpar[4] *
+         BreitWignerGaussN(x,Fpar[0],Fpar[1],Fpar[2],sl) +
+         Fpar[5] * RevArgusN(x,fabs(Fpar[3]),sl);
+      if ( FunType == 0 ) {
+         ret += Fpar[6]/(dU-dL);
+      } else if ( FunType == 1 ) {
+         ret += Fpar[6] * RevArgusN( x,fabs(Fpar[7]),sl );
+      }
+      // normalization on 1
+      double Ntot = Fpar[4] + Fpar[5] + Fpar[6];
+      return ret/Ntot;
    };
    rmath_fun< decltype(Lcr) > fcr(Lcr);
    ROOT::Math::GoFTest* gofcr =
       new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-            ROOT::Math::GoFTest::kPDF, bL,dU );
+            ROOT::Math::GoFTest::kPDF, dL,dU );
    double pvalueKS = gofcr -> KolmogorovSmirnovTest();
    cout << " pvalueKS(cr)= " << pvalueKS << endl;
 //    double pvalueAD = gofcr -> AndersonDarlingTest();
 //    cout << " pvalueAD= " << pvalueAD << endl;
 
-   auto Lsb = [Fpar](double x) -> double {
-      return Fpar[6]/(dU-bL);
+   // side-band
+   auto Lsb = [Fpar,sl,FunType](double x) -> double {
+      double ret = 0;
+      if ( FunType == 0 ) {
+         ret = 1./(dU-dL);
+      } else if ( FunType == 1 ) {
+         ret = RevArgusN( x,fabs(Fpar[7]),sl );
+      }
+      return ret;
    };
    rmath_fun< decltype(Lsb) > fsb(Lsb);
    ROOT::Math::GoFTest* gofsb =
@@ -1291,20 +1339,27 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
          ROOT::Math::GoFTest::kPDF, bL,dU );
    double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
    cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-   double pvalueADsb = gofsb -> AndersonDarlingTest();
-   cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+//    double pvalueADsb = gofsb -> AndersonDarlingTest();
+//    cout << " pvalueAD(sb)= " << pvalueADsb << endl;
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Fpar,sl](double* x,double* p) -> double {
+   auto Ldr = [Fpar,sl,FunType](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
       double m = x[0];
       double BW =
          Fpar[4] * BreitWignerGaussN(m,Fpar[0],Fpar[1],Fpar[2],sl);
       if ( isw == 1 ) { return bW * BW; }
+
       double Ar = Fpar[5] * RevArgusN(m,fabs(Fpar[3]),sl);
       if ( isw == 2 ) { return bW * Ar; }
-      double Bg = Fpar[6]/(dU-bL);
+
+      double Bg = 0;
+      if ( FunType == 0 ) {
+         double Bg = Fpar[6]/(dU-dL);
+      } else if ( FunType == 1 ) {
+         Bg = Fpar[6] * RevArgusN( m,Fpar[7],sl );
+      }
       if ( isw == 3 ) { return bW * Bg; }
 
       return bW * (BW + Ar + Bg);
@@ -1358,10 +1413,10 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
 
    leg -> Draw();
 
-   TPaveText* pt = new TPaveText(0.55,0.45,0.89,0.74,"NDC");
+   TPaveText* pt = new TPaveText(0.55,0.46,0.89,0.74,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
-   pt -> AddText( Form("#it{p-value(KS)= %.3f}",pvalueKS) );
+   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
    pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
@@ -1371,13 +1426,13 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
    pt -> Draw();
 
-   TPaveText* ptsb = new TPaveText(0.55,0.36,0.89,0.45,"NDC");
+   TPaveText* ptsb = new TPaveText(0.55,0.35,0.89,0.46,"NDC");
    ptsb -> SetTextAlign(12);
    ptsb -> SetTextFont(42);
-   ptsb -> AddText( Form("#it{p-val.(sideband)= %.3f}",
+   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
             pvalueKSsb) );
-   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
-            PE.Eform(6,".1f")) );
+   ptsb -> AddText( Form("Nbg = %s", PE.Eform(6,".1f")) );
+   ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",PE.Eform(7,".1f")) );
    ptsb -> Draw();
 
    gPad -> RedrawAxis();
@@ -2169,15 +2224,15 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       auto Lcr = [Fpar,sl,FunType](double x) -> double {
          double pp[]
             {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
+         double ret = Fpar[6] * IntfrBWARGN( x,pp,0 );
+         if ( FunType == 0 ) {
+            ret += Fpar[7]/(dU-dL);
+         } else if ( FunType == 1 ) {
+            ret += Fpar[7] * RevArgusN( x,0.,sl );
+         }
          // normalization on 1
          double Ntot = Fpar[6] + Fpar[7];
-         double ret = Fpar[6]/Ntot * IntfrBWARGN( x,pp,0 );
-         if ( FunType == 0 ) {
-            ret += (Fpar[7]/Ntot)/(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret += Fpar[7]/Ntot * RevArgusN( x,0.,sl );
-         }
-         return ret;
+         return ret/Ntot;
       };
 
       // linear extrapolation in [dL,dU] divided into  n points
@@ -5640,8 +5695,8 @@ void mass_kk_fit() {
    };
 //--------------------------------------------------------------------
    // Numbers of items for date:
-   int id = 0, ii = 3, is = 5, ib = 7; // 2009
-//    int id = 1, ii = 5, is = 6, ib = 8; // 2012
+//    int id = 0, ii = 3, is = 5, ib = 7; // 2009
+   int id = 1, ii = 5, is = 6, ib = 8; // 2012
 //--------------------------------------------------------------------
 
    // = define GSL error handler which does nothing =
@@ -5677,9 +5732,9 @@ void mass_kk_fit() {
 //            "mkk_rhoeta12_argus.pdf");
 
    // fit side-band by Argus
-   string tit = titles.at(id)+string("(side-band)");
-   string pdf = string("mkk_sb")+((id==0) ? "09" : "12")+"_fitar.pdf";
-   bkg_fit(fnames.at(id),tit,pdf,1); // type=1 for sideband
+//    string tit = titles.at(id)+string("(side-band)");
+//    string pdf = string("mkk_sb")+((id==0) ? "09" : "12")+"_fitar.pdf";
+//    bkg_fit(fnames.at(id),tit,pdf,1); // type=1 for sideband
 
 // ------------- data: no interference sec.6.3.1 ---------------------
 //    int Mphix = 0; // 1 - mphi is fixed at the PDG
@@ -5687,8 +5742,7 @@ void mass_kk_fit() {
 //       + to_string(Mphix) + ".pdf";
 //    data_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
 
-   // combined with Side-Band
-   // here SB is flat, if SB=Ar see previews fit
+   // combined with Side-Band (constant or Argus SB)
 //    string pdf = string("mkk") + ((id==0) ? "09" : "12") +
 //       "_fitSB_" + to_string(Mphix) + ".pdf";
 //    dataSB_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
@@ -5701,7 +5755,7 @@ void mass_kk_fit() {
 
    // combined with Side-Band
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB_l";
-//    dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
+   dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band + fitBR
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR_l";
