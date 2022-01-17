@@ -4,14 +4,14 @@ Scripts for Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
 0) Common headers
 //--------------------------------------------------------------------
-cuts.h     -> List of cuts for
-              1) Psi' -> J/Psi pi+ pi-
-              2) J/Psi -> phi eta
+masses.h   -> masses of particles (GeV) from PDG 2021
 
 norm.h     -> normalization constants for inclusive MC and for
               non-resonance data.
 
-masses.h   -> masses of particles (GeV) from PDG 2021
+cuts.h     -> List of cuts for
+              1) Psi' -> J/Psi pi+ pi-
+              2) J/Psi -> phi eta
 
 p10a4c.h   -> declaration of variables in prod-10 a4c ntuple
 p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
