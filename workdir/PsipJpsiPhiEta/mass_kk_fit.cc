@@ -1963,6 +1963,7 @@ struct myFCN_inter {
    //-----------------------------------------------------------------
       double Nkk = p[6];
       double Nsb = p[7];
+      double asb = p[8];
       double res = 2*(Nkk+Nsb);
 
       const double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl };
@@ -1973,7 +1974,7 @@ struct myFCN_inter {
          if ( funType == 0 ) {
             L += Nsb/(dU-dL);
          } else if ( funType == 1 ) {
-            L += Nsb * RevArgusN(m,0.,sl);
+            L += Nsb * RevArgusN(m,asb,sl);
          }
 
          if (L > 0.) {
@@ -1993,7 +1994,7 @@ struct myFCN_inter {
          // by Argus
          for ( int i = 0; i < n_sb; ++i ) {
             double m = sb[i];
-            double L = Nsb * RevArgusN(m,0.,sl);
+            double L = Nsb * RevArgusN(m,asb,sl);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -2020,12 +2021,12 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
    int Npar = res.NPar();
    vector<double> Fpar = res.Parameters();
 
-   if ( Npar != 8 ) {
+   if ( Npar != 9 ) {
       cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
            << endl;
       exit(1);
    }
-   Npar = 6; // remove NKK and Nbg parameters!
+   Npar = 6; // remove NKK, Nbg and a_sb parameters!
 
    int covMatrStatus = res.CovMatrixStatus();
    if ( covMatrStatus != 3 ) {
@@ -2105,7 +2106,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 
    myFCN_inter my_fcn;  // class for 'FitFCN'
 
-   int FunType = 0;     // Function for SB: 0 - constant, 1 -Argus
+   int FunType = 1;     // Function for SB: 0 - constant, 1 -Argus
    my_fcn.funType = FunType;
 
    double sl = -1.8;    // efficiency parameters
@@ -2128,19 +2129,15 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Mphi", "Gphi", "sigma", "Ar",
-                             "F", "angle", "NKK", "Nbg" };
+   vector<string> par_name { "Mphi", "Gphi", "sig", "a",
+                             "F", "angle", "NKK", "Nbg", "a_sb" };
 
-   // SB const
-//    vector<double> par_ini {Mphi,Gphi,1.4e-3,0.,0.9,0.9, 901.,16.};//09neg
-//    vector<double> par_ini {Mphi,Gphi,1.4e-3,0.,0.9,-1.0, 901.,16.};//09pos
-   vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.7,0.01, 2745.,52.};//12z
-
-   // prod-12: SB argus
-//    vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.8,-0.4, 2740.,54.};//12pos
-
-   // old: prod-11
-//    vector<double> par_ini {Mphi,Gphi,1.1e-3,0.,0.8,0.01, 2700.,34.};//12-11
+   vector<double> par_ini {Mphi, Gphi, 1.4e-3, 0.,
+                           0.9, 0.9, 903., 15., 8. }; // 09neg
+//    vector<double> par_ini {Mphi, Gphi, 1.4e-3, 0.,
+//                            1.0,-1.0, 903., 15., 8.}; // 09pos
+//    vector<double> par_ini {Mphi, Gphi, 1.1e-3, 0.,
+//                               0.7, 0.01, 2745.,52., 5. }; // 12z
 
    bool neg_pos = par_ini[5] > 0; // true for negative interference
 
@@ -2152,27 +2149,31 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    }
 
    // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
+//    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    fitter.Config().ParSettings(0).SetValue(1.01953);        // like MC
    fitter.Config().ParSettings(0).Fix();                    // Mphi
-   fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
+//    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();                    // Gphi
-   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sigma
-   fitter.Config().ParSettings(3).Fix();                    // A
+   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
+   fitter.Config().ParSettings(3).Fix();                    // a
    fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
-   fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // vartheta
+   fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // angle
 //    fitter.Config().ParSettings(5).SetStepSize(1e-4);
 //    fitter.Config().ParSettings(5).SetValue(0.8);
 //    fitter.Config().ParSettings(5).Fix();
 //    fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
 //    fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
+   fitter.Config().ParSettings(8).SetLimits(0.,10.);           // a_sb
+   if ( FunType == 0 ) {
+      fitter.Config().ParSettings(8).SetValue(0.);
+      fitter.Config().ParSettings(8).Fix();
+   }
 
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-   fitter.CalculateHessErrors();
-   fitter.CalculateMinosErrors();
 //    fitter.CalculateHessErrors();
+   fitter.CalculateMinosErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
    vector<double> Fpar = res.Parameters();
@@ -2186,15 +2187,13 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
-//    if ( is2009 && neg_pos == false ) { // 2009 positive
-      // put error by hand from "negative" solution
-//       PE.Perr[5] = -1;
-//       PE.Uerr[5] = 1.18 - PE.Fpar[5];
-//    }
-   if ( is2009 && neg_pos == true ) { // 2009 negative (lin SB)
-      // put error by hand from "positive" solution
+   if ( is2009 ) {
       PE.Perr[5] = -1;
-      PE.Lerr[5] = -1.27 - PE.Fpar[5];
+      if ( neg_pos == true ) { // 2009 negative
+         PE.Lerr[5] = fabs(-1.23 - PE.Fpar[5]);
+      } else {
+         PE.Uerr[5] = fabs(1.14 - PE.Fpar[5]);
+      }
    }
 
    double Nfit = Fpar[6];
@@ -2228,7 +2227,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
          if ( FunType == 0 ) {
             ret += Fpar[7]/(dU-dL);
          } else if ( FunType == 1 ) {
-            ret += Fpar[7] * RevArgusN( x,0.,sl );
+            ret += Fpar[7] * RevArgusN( x,Fpar[8],sl );
          }
          // normalization on 1
          double Ntot = Fpar[6] + Fpar[7];
@@ -2262,12 +2261,12 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       cout << " pvalueKS(cr)= " << pvalueKS << endl;
 
       // side-band
-      auto Lsb = [sl,FunType](double x) -> double {
+      auto Lsb = [Fpar,sl,FunType](double x) -> double {
          double ret = 0;
          if ( FunType == 0 ) {
             ret = 1./(dU-dL);
          } else if ( FunType == 1 ) {
-            ret = RevArgusN( x,0.,sl );
+            ret = RevArgusN( x,Fpar[8],sl );
          }
          return ret;
       };
@@ -2294,7 +2293,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       if ( FunType == 0 ) {
          double Bg = Fpar[7]/(dU-dL);
       } else if ( FunType == 1 ) {
-         Bg = Fpar[7] * RevArgusN( x[0],0.,sl );
+         Bg = Fpar[7] * RevArgusN( x[0],Fpar[8],sl );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -2399,7 +2398,11 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
    pt -> AddText( Form("NKK(fit) = %s", PE.Eform(6,".1f")) );
-   pt -> AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(7,".1f")) );
+   pt -> AddText( Form("Nbg = %s",PE.Eform(7,".1f")) );
+   if ( FunType == 1 ) {
+      pt -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+               PE.Eform(8,".1f")) );
+   }
    pt -> Draw();
 
    ptres -> SetTextAlign(12);
@@ -3785,7 +3788,7 @@ struct myFCN_comb {
    vector<double> sb12;
 
    // Function for side-band:
-   int funType = 1; // 0 - constant, 1 -Argus
+   int funType = 1; // 0 - constant, 1 - Argus, 2 - common Argus
 
    // minimization function
    // the signature of this operator() MUST be exactly this:
@@ -3804,6 +3807,7 @@ struct myFCN_comb {
       }
       double Nkk09 = p[7];
       double Nsb09 = p[8];
+      double asb09 = p[9];
       double res = 2*(Nkk09+Nsb09);
 
       const double p09[] = { p[0],p[1],p[5],p[2],p[3],p[4],sl09 };
@@ -3813,8 +3817,8 @@ struct myFCN_comb {
          double L = Nkk09 * IntfrBWARGN( m,p09,0 );
          if ( funType == 0 ) {
             L += Nsb09/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += Nsb09 * RevArgusN(m,0.,sl09);
+         } else {
+            L += Nsb09 * RevArgusN(m,asb09,sl09);
          }
          if (L > 0.) {
             res -= 2*log(L);
@@ -3829,11 +3833,11 @@ struct myFCN_comb {
       if ( funType == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb09 * 2*log(Nsb09/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb09; ++i ) {
             double m = sb09[i];
-            double L = Nsb09 * RevArgusN(m,0.,sl09);
+            double L = Nsb09 * RevArgusN(m,asb09,sl09);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -3842,8 +3846,12 @@ struct myFCN_comb {
          }
       }
 
-      double Nkk12 = p[9];
-      double Nsb12 = p[10];
+      double Nkk12 = p[10];
+      double Nsb12 = p[11];
+      double asb12 = p[12];
+      if ( funType == 2 ) {
+         asb12 = asb09;
+      }
       res += 2*(Nkk12+Nsb12);
 
       const double p12[] = { p[0],p[1],p[6],p[2],p[3],p[4],sl12 };
@@ -3853,8 +3861,8 @@ struct myFCN_comb {
          double L = Nkk12 * IntfrBWARGN( m,p12,0 );
          if ( funType == 0 ) {
             L += Nsb12/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += Nsb12 * RevArgusN(m,0.,sl12);
+         } else {
+            L += Nsb12 * RevArgusN(m,asb12,sl12);
          }
          if (L > 0.) {
             res -= 2*log(L);
@@ -3869,11 +3877,11 @@ struct myFCN_comb {
       if ( funType == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb12 * 2*log(Nsb12/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb12; ++i ) {
             double m = sb12[i];
-            double L = Nsb12 * RevArgusN(m,0.,sl12);
+            double L = Nsb12 * RevArgusN(m,asb12,sl12);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -3901,12 +3909,12 @@ vector<ValErr> CombIntErSB( const ROOT::Fit::FitResult& res,
    int Npar = res.NPar();
    vector<double> Fp = res.Parameters();
 
-   if ( Npar != 11 ) {
+   if ( Npar != 13 ) {
       cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
            << endl;
       exit(1);
    }
-//    Npar = 7; // remove NKK and Nbg parameters
+//    Npar = 7; // remove NKK, Nbg and a_sb parameters
    int npar = 6; // 2009 and 2012 are considered separately
 
    vector<double> Fpar[2];
@@ -4018,7 +4026,8 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
    myFCN_comb my_fcn;   // class for 'FitFCN'
 
-   int FunType = 0;     // Function for SB: 0 - constant, 1 -Argus
+   int FunType = 2;     // Function for SB: 0 - constant, 1 - Argus,
+                        //                  2 - common Argus
    my_fcn.funType = FunType;
 
    double sl09 = -1.8;  // efficiency parameters
@@ -4054,11 +4063,20 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
-      "sig09", "sig12", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
+      "sig09", "sig12", "Nkk09", "Nbg09", "Asb09",
+      "Nkk12","Nbg12","Asb12" };
 
-//    vector<double> par_ini { Mphi,Gphi,0., 0.7, 0.2, 1.4e-3, 1.1e-3,
-   vector<double> par_ini { Mphi,Gphi,0., 0.7, -0.2, 1.4e-3, 1.1e-3,
-   double(n09-nsb09), double(nsb09), double(n12-nsb12), double(nsb12) };
+   vector<double> par_ini { Mphi,Gphi,0., 0.75, 0.25, 1.4e-3, 1.1e-3,
+        double(n09-nsb09), double(nsb09), 8.,
+        double(n12-nsb12), double(nsb12), 5. };
+   if ( FunType == 0 ) {
+      par_ini[9] = 0.;
+      par_ini[12] = 0.;
+   }
+   if ( FunType == 2 ) {
+      par_ini[9] = 6.;
+      par_ini[12] = 0.;
+   }
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -4068,10 +4086,10 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    }
 
    // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
+//    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    fitter.Config().ParSettings(0).SetValue(1.01953); // like MC-sig
    fitter.Config().ParSettings(0).Fix();                    // Mphi
-   fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
+//    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();                    // Gphi
    fitter.Config().ParSettings(2).Fix();                    // Ar
    fitter.Config().ParSettings(3).SetLimits(0.01, 10.);     // F
@@ -4080,15 +4098,25 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    fitter.Config().ParSettings(6).SetLimits(0.2e-3, 5.e-3); // sig12
 //    fitter.Config().ParSettings(7).SetLimits(0.,2.*n09);     // Nkk09
 //    fitter.Config().ParSettings(8).SetLimits(0.,1.5*nsb09);  // Nbg09
-//    fitter.Config().ParSettings(9).SetLimits(0.,2.*n12);     // Nkk12
-//    fitter.Config().ParSettings(10).SetLimits(0.,1.5*nsb12); // Nbg12
+   if ( FunType == 0 ) {                                    // asb09
+      fitter.Config().ParSettings(9).Fix();
+   } else {
+      fitter.Config().ParSettings(9).SetLimits(0.,15.);
+   }
+//    fitter.Config().ParSettings(10).SetLimits(0.,2.*n12);    // Nkk12
+//    fitter.Config().ParSettings(11).SetLimits(0.,1.5*nsb12); // Nbg12
+   if ( FunType == 1 ) {                                    // asb12
+      fitter.Config().ParSettings(12).SetLimits(0.,15.);
+   } else {
+      fitter.Config().ParSettings(12).Fix();
+   }
 
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
    fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-   fitter.CalculateHessErrors();
+   fitter.CalculateHessErrors(); // for calculation of errors of Nphi
 
    ROOT::Fit::FitResult res = fitter.Result();
    vector<double> Fpar = res.Parameters();
@@ -4105,8 +4133,8 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
    double Nfit09 = Fpar[7];
    double Nfit09_err = max({PE.Perr[7],PE.Uerr[7],PE.Lerr[7]});
-   double Nfit12 = Fpar[9];
-   double Nfit12_err = max({PE.Perr[9],PE.Uerr[9],PE.Lerr[9]});
+   double Nfit12 = Fpar[10];
+   double Nfit12_err = max({PE.Perr[10],PE.Uerr[10],PE.Lerr[10]});
    printf( " no slope corrections: NKK09_fit= %.1f +/- %.1f"
          "  NKK12_fit= %.1f +/- %.1f\n",
          Nfit09, Nfit09_err, Nfit12, Nfit12_err);
@@ -4148,28 +4176,29 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
       auto Lcr09 = [Fpar,sl09,FunType](double x) -> double {
          double pp[]
             {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
+         double ret = Fpar[7] * IntfrBWARGN( x,pp,0 );
+         if ( FunType == 0 ) {
+            ret += Fpar[8]/(dU-dL);
+         } else {
+            ret += Fpar[8] * RevArgusN( x,Fpar[9],sl09 );
+         }
          // normalization on 1
          double Ntot = Fpar[7] + Fpar[8];
-         double ret = Fpar[7]/Ntot * IntfrBWARGN( x,pp,0 );
-         if ( FunType == 0 ) {
-            ret += (Fpar[8]/Ntot)/(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret += Fpar[8]/Ntot * RevArgusN( x,0.,sl09 );
-         }
-         return ret;
+         return ret/Ntot;
       };
       auto Lcr12 = [Fpar,sl12,FunType](double x) -> double {
          double pp[]
             {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
-         // normalization on 1
-         double Ntot = Fpar[9] + Fpar[10];
-         double ret = Fpar[9]/Ntot * IntfrBWARGN( x,pp,0 );
+         double ret = Fpar[10] * IntfrBWARGN( x,pp,0 );
          if ( FunType == 0 ) {
-            ret += (Fpar[10]/Ntot)/(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret += Fpar[10]/Ntot * RevArgusN( x,0.,sl12 );
+            ret += Fpar[11]/(dU-dL);
+         } else {
+            double asb = ( FunType == 1 ) ? Fpar[12] : Fpar[9];
+            ret += Fpar[11] * RevArgusN( x,asb,sl12 );
          }
-         return ret;
+         // normalization on 1
+         double Ntot = Fpar[10] + Fpar[11];
+         return ret/Ntot;
       };
 
       // linear extrapolation in [dL,dU] divided into  n points
@@ -4210,12 +4239,13 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
       // side-band
       double sl = sl09;
-      auto Lsb = [&sl,FunType](double x) -> double {
+      double asb = Fpar[9];
+      auto Lsb = [&sl,&asb,FunType](double x) -> double {
          double ret = 0;
          if ( FunType == 0 ) {
             ret = 1./(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret = RevArgusN( x,0.,sl );
+         } else {
+            ret = RevArgusN( x,asb,sl );
          }
          return ret;
       };
@@ -4228,6 +4258,9 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
       cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
 
       sl = sl12;
+      if ( FunType == 1 ) {
+         asb = Fpar[12];
+      }
       ROOT::Math::GoFTest* gofsb12 =
          new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb,
             ROOT::Math::GoFTest::kPDF, dL,dU );
@@ -4248,8 +4281,8 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
       double Bg = 0;
       if ( FunType == 0 ) {
          double Bg = Fpar[8]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         Bg = Fpar[8] * RevArgusN( x[0],0.,sl09 );
+      } else {
+         Bg = Fpar[8] * RevArgusN( x[0],Fpar[9],sl09 );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4263,14 +4296,15 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
       double pp[]
          {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
-      double BWARG = Fpar[9] * IntfrBWARGN(x[0],pp,isw);
+      double BWARG = Fpar[10] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
       if ( FunType == 0 ) {
-         double Bg = Fpar[10]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         Bg = Fpar[10] * RevArgusN( x[0],0.,sl12 );
+         double Bg = Fpar[11]/(dU-dL);
+      } else {
+         double asb = ( FunType == 1 ) ? Fpar[12] : Fpar[9];
+         Bg = Fpar[11] * RevArgusN( x[0],asb,sl12 );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4365,7 +4399,12 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    leg -> AddEntry( f09 -> Clone(), "Interference", "L");
    leg -> Draw();
 
-   TPaveText* pt = new TPaveText(0.55,0.435,0.89,0.685,"NDC");
+   TPaveText* pt = nullptr;
+   if ( FunType == 2 ) {
+      pt = new TPaveText(0.55,0.415,0.89,0.685,"NDC");
+   } else {
+      pt = new TPaveText(0.55,0.435,0.89,0.685,"NDC");
+   }
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
@@ -4374,6 +4413,9 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
    pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(4,".2f")) );
+   if ( FunType == 2 ) {
+      pt -> AddText( Form("a(sb)= %s", PE.Eform(9,".1f")) );
+   }
    pt -> Draw();
 
    gPad -> RedrawAxis();
@@ -4412,7 +4454,6 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    f12 -> SetLineColor(kMagenta+1);
    f12 -> DrawCopy("SAME");
 
-//    TPaveText* pt09 = new TPaveText(0.55,0.79,0.89,0.99,"NDC");
    TPaveText* pt09 = new TPaveText(0.55,0.75,0.89,0.99,"NDC");
    pt09 -> SetTextAlign(12);
    pt09 -> SetTextFont(42);
@@ -4421,6 +4462,9 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
             PE.Eform(5,".2f",1e3)) );
    pt09 -> AddText( Form("NKK09(fit)= %s", PE.Eform(7,".1f")) );
    pt09 -> AddText( Form("Nbg(2009)= %s", PE.Eform(8,".1f")) );
+   if ( FunType == 1 ) {
+      pt09 -> AddText( Form("a(sb09)= %s", PE.Eform(9,".1f")) );
+   }
    pt09 -> Draw();
 
 //    TPaveText* pt12 = new TPaveText(0.55,0.59,0.89,0.79,"NDC");
@@ -4430,8 +4474,11 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
    pt12 -> AddText( Form("#sigma(2012)= %s MeV",
             PE.Eform(6,".2f",1e3)) );
-   pt12 -> AddText( Form("NKK12(fit)= %s", PE.Eform(9,".1f")) );
-   pt12 -> AddText( Form("Nbg(2012)= %s", PE.Eform(10,".1f")) );
+   pt12 -> AddText( Form("NKK12(fit)= %s", PE.Eform(10,".1f")) );
+   pt12 -> AddText( Form("Nbg(2012)= %s", PE.Eform(11,".1f")) );
+   if ( FunType == 1 ) {
+      pt12 -> AddText( Form("a(sb12)= %s", PE.Eform(12,".1f")) );
+   }
    pt12 -> Draw();
 
 //    TPaveText* ptres = new TPaveText(0.55,0.39,0.89,0.59,"NDC");
@@ -4462,7 +4509,8 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 //--------------------------------------------------------------------
 
    myFCN_comb my_fcn;   // class for 'FitFCN'
-   int FunType = 0;     // Function for SB: 0 - constant, 1 -Argus
+   int FunType = 2;     // Function for SB: 0 - constant, 1 - Argus
+                        //                  2 - common Argus
    my_fcn.funType = FunType;
    double sl09 = -1.8;  // efficiency parameters
    double sl12 = -1.8;  // -1.83
@@ -4498,13 +4546,11 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 //    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
-      "sig09", "sig12", "Nkk09", "Nbg09", "Nkk12", "Nbg12" };
+      "sig09", "sig12", "Nkk09", "Nbg09", "Asb09",
+      "Nkk12","Nbg12","Asb12" };
 
-   vector<double> par_ini { Mphi,Gphi,0., 0.9, 0., 1.4e-3, 1.1e-3,
-                            902., 16., 2749., 50. };  // -50deg
-
-//    vector<double> par_ini { Mphi,Gphi,0., 0., 0., 1.4e-3, 1.2e-3,
-//                             870., 22., 2640., 65. };  // -180deg
+   vector<double> par_ini { Mphi,Gphi,0., 1.0, 0., 1.4e-3, 1.1e-3,
+                            901., 16., 5.7, 2749., 50., 0. };  // -50deg
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -4521,6 +4567,8 @@ void combineSB_Intfr_scan( string fname09, string fname12,
    fitter.Config().ParSettings(3).SetLimits(0.01, 10.);     // F
    fitter.Config().ParSettings(5).SetLimits(0.2e-3, 5.e-3); // sig09
    fitter.Config().ParSettings(6).SetLimits(0.2e-3, 5.e-3); // sig12
+   fitter.Config().ParSettings(9).SetLimits(0.,15.);        // asb09
+   fitter.Config().ParSettings(12).Fix();                   // asb12
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -4536,8 +4584,8 @@ void combineSB_Intfr_scan( string fname09, string fname12,
       double Bg = 0;
       if ( FunType == 0 ) {
          double Bg = Fpar[8]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         Bg = Fpar[8] * RevArgusN( x[0],0.,sl09 );
+      } else {
+         Bg = Fpar[8] * RevArgusN( x[0],Fpar[9],sl09 );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4551,14 +4599,15 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 
       double pp[]
          {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
-      double BWARG = Fpar[9] * IntfrBWARGN(x[0],pp,isw);
+      double BWARG = Fpar[10] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
       if ( FunType == 0 ) {
-         double Bg = Fpar[10]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         Bg = Fpar[10] * RevArgusN( x[0],0.,sl12 );
+         double Bg = Fpar[11]/(dU-dL);
+      } else {
+         double asb = ( FunType == 1 ) ? Fpar[12] : Fpar[9];
+         Bg = Fpar[11] * RevArgusN( x[0],asb,sl12 );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4603,14 +4652,14 @@ void combineSB_Intfr_scan( string fname09, string fname12,
       // == Fit
       fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false);//false=likelihood
 //       fitter.CalculateMinosErrors();
-//       fitter.CalculateHessErrors(); //in case of new minimum
+//       fitter.CalculateHessErrors();
 
 
       ROOT::Fit::FitResult res = fitter.Result();
+      Fpar = res.Parameters();
 //       res.Print(cout);
 //       res.PrintCovMatrix(cout); // print error matrix and correlations
       ParAndErr PE(res);
-      Fpar = PE.Fpar;
 
       double lmin = res.MinFcnValue();
       angl.push_back(ang);
@@ -4618,7 +4667,7 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 
       // calculate Nphi
       double Nfit09 = Fpar[7];
-      double Nfit12 = Fpar[9];
+      double Nfit12 = Fpar[10];
       vector<ValErr> Vinteg = CombIntErSB( res,sl09,sl12,1,true );
       const auto& Int09 = Vinteg[0];
       double Nphi09 = Nfit09 * Int09.val;
@@ -4682,8 +4731,9 @@ void combineSB_Intfr_scan( string fname09, string fname12,
       pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
       pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
               PE.Eform(1,".3f",1e3)) );
-      pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
+//       pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
       pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
+      pt -> AddText( Form("a(sb)= %s", PE.Eform(9,".1f")) );
       pt -> Draw();
       gPad -> RedrawAxis();
 
@@ -4726,8 +4776,8 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 
       pt2 -> AddText( Form("#sigma(2012)= %s MeV",
                PE.Eform(6,".2f",1e3)) );
-      pt2 -> AddText( Form("NKK12(fit)= %s", PE.Eform(9,".1f")) );
-      pt2 -> AddText( Form("Nbg(2012)= %s", PE.Eform(10,".1f")) );
+      pt2 -> AddText( Form("NKK12(fit)= %s", PE.Eform(10,".1f")) );
+      pt2 -> AddText( Form("Nbg(2012)= %s", PE.Eform(11,".1f")) );
       pt2 -> AddText( Form("N_{#phi}(2012)= %.1f",Nphi12) );
       pt2 -> Draw();
 
@@ -5695,8 +5745,8 @@ void mass_kk_fit() {
    };
 //--------------------------------------------------------------------
    // Numbers of items for date:
-//    int id = 0, ii = 3, is = 5, ib = 7; // 2009
-   int id = 1, ii = 5, is = 6, ib = 8; // 2012
+   int id = 0, ii = 3, is = 5, ib = 7; // 2009
+//    int id = 1, ii = 5, is = 6, ib = 8; // 2012
 //--------------------------------------------------------------------
 
    // = define GSL error handler which does nothing =
@@ -5754,8 +5804,8 @@ void mass_kk_fit() {
 //    data_Intfr_fit(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB_l";
-   dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
+//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB";
+//    dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band + fitBR
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR_l";
@@ -5766,9 +5816,9 @@ void mass_kk_fit() {
 //    combine_Intfr_bg(fnames[0],fnames[1],"mkk_cf_bkg");
 
    // combined with Side-Band
-//    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_l_p.pdf");
+//    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_n2.pdf");
 
-//    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan_l2.pdf");
+//    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan.pdf");
 
    // combined with Side-Band + fitBR
 //    combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_ln.pdf");
