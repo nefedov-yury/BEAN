@@ -1614,9 +1614,9 @@ void ToyMC_fit(int Ntoys, string file_name) {
 //    double Nj = 15.e6; // NetaKK = 6750
 //    double Nbg = 88;
 
-   // TEST (C) stat = 2012 with bg  level 0.7%
+   // TEST (C,Q) stat = 2012 with bg  level 0.7% & 0.33%
    double Nj = 6.04e6; // NetaKK = 2718
-   double Nbg = 18;
+   double Nbg = 9;
 
    Gpar* gp = new Gpar( BrKKeta, Brphieta, Nj, Nbg );
    gp -> Print("ToyMC_12");
@@ -1700,7 +1700,7 @@ void ToyMC_12() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_12_CT1.pdf" ); // must be 1
+   ToyMC_fit(1, "ToyMC_12_QT1.pdf" ); // must be 1
 }
 #endif
 

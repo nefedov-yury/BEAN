@@ -1146,12 +1146,12 @@ struct myFCN_toy {
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
          Ff = max(0.,-B/(2*A));
-         penalty += 1e5*fabs(Dis);
+         penalty += 1e10*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty = -10*Ff;
+         penalty = -1e5*Ff;
          Ff = 0.;
       }
 
@@ -1333,9 +1333,11 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI);  // angle
    fitter.Config().ParSettings(3).SetLimits(0.3e-3,3.e-3); // sig09
    fitter.Config().ParSettings(4).SetLimits(0.3e-3,3.e-3); // sig12
-   double max_nbg09 = max(2.*nsb09,18.); // 12*1.5
+//    double max_nbg09 = max(2.*nsb09,18.); // 12*1.5
+   double max_nbg09 = 2.*nsb09;
    fitter.Config().ParSettings(5).SetLimits(0.,max_nbg09); // Nbg09
-   double max_nbg12 = max(2.*nsb12,53.); // 35*1.5
+//    double max_nbg12 = max(2.*nsb12,53.); // 35*1.5
+   double max_nbg12 = 2.*nsb12;
    fitter.Config().ParSettings(6).SetLimits(0.,max_nbg12); // Nbg12
 
    // == Fit
@@ -1356,10 +1358,10 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
       do_refit = true;
       printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
    }
-   if ( !do_refit ) {  
+   if ( !do_refit ) {
       // additional check upper and lower bounds after MINOS
       for ( unsigned int ip = 0; ip < Npar; ++ip ) {
-         if ( !res.HasMinosError(ip) || 
+         if ( !res.HasMinosError(ip) ||
                res.UpperError(ip)*res.LowerError(ip) == 0 ) {
             do_refit = true;
             printf("\n=> INVALID RESULT: minos errors <=\n");
@@ -1830,6 +1832,13 @@ void ToyMC_fit(int Ntoys, string file_name) {
    double nbg09 = 13;
    double nbg12 = 35;
 
+   // study statistic influence
+   double Ntime = 4;
+   Nj09 *= Ntime;
+   Nj12 *= Ntime;
+   nbg09 *= Ntime;
+   nbg12 *= Ntime;
+
    Gpar* gp12 = new Gpar(sig12, Nj12, nbg12);
    gp12 -> Print("2012");
    Gpar* gp09 = new Gpar(sig09, Nj09, nbg09, gp12 -> F);
@@ -1926,7 +1935,7 @@ void ToyMC() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_cf_T4.pdf" ); // must be Ntoys=1
+   ToyMC_fit(1, "ToyMC_cf_DT1.pdf" ); // must be Ntoys=1
 }
 #endif
 
