@@ -1157,12 +1157,12 @@ void data_fit(string fname,string title,int date,int Mphix,
 // dataSB_fit() no interference + side-band fit
 //--------------------------------------------------------------------
 struct myFCN_nointer_sb {
-   double sl = -1.8;    // efficiency parameters
-   vector<double> mkk;  // data central part
-   vector<double> sb;   // data side band
+   const double sl = -1.8; // efficiency parameters
+   vector<double> mkk;     // data central part
+   vector<double> sb;      // data side band
 
    // Function for side-band:
-   int funType = 1; // 0 - constant, 1 -Argus
+   const int funSB = 1; // 0 - constant, 1 - Argus
 
    // minimization function
    // the signature of this operator() MUST be exactly this:
@@ -1171,23 +1171,22 @@ struct myFCN_nointer_sb {
    //-----------------------------------------------------------------
    double operator() (const double* p) {
    //-----------------------------------------------------------------
+      double ar    = p[3];
       double Nphi  = p[4];
       double Nnphi = p[5];
       double Nsb   = p[6];
-
-      double a  = fabs(p[3]);
-      double a_sb  = fabs(p[7]);
+      double arsb  = p[7];
 
       double res = 2*(Nphi+Nnphi+Nsb);
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
          double L = Nphi  * BreitWignerGaussN(m,p[0],p[1],p[2],sl) +
-                    Nnphi * RevArgusN(m,a,sl);
-         if ( funType == 0 ) {
+                    Nnphi * RevArgusN(m,ar,sl);
+         if ( funSB == 0 ) {
             L += Nsb/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += Nsb * RevArgusN(m,a_sb,sl);
+         } else {
+            L += Nsb * RevArgusN(m,arsb,sl);
          }
          if (L > 0.) {
             res -= 2*log(L);
@@ -1199,14 +1198,14 @@ struct myFCN_nointer_sb {
       // fit SB by constant
       int n_sb = sb.size();
       res += 2*Nsb;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb * 2*log(Nsb/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb; ++i ) {
             double m = sb[i];
-            double L = Nsb * RevArgusN(m,a_sb,sl);
+            double L = Nsb * RevArgusN(m,arsb,sl);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -1225,11 +1224,9 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
 //--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
-   myFCN_nointer_sb my_fcn; // class for 'FitFCN'
-   int FunType = 1;         // Function for SB: 0 - constant, 1-Argus
-   my_fcn.funType = FunType;
-   double sl = -1.8;        // efficiency parameters
-   my_fcn.sl = sl;
+   myFCN_nointer_sb my_fcn;        // class for 'FitFCN'
+   const double sl = my_fcn.sl;    // efficiency parameters
+   const int FunSB = my_fcn.funSB; // 0 - constant, 1 - Argus
 
    // Get un-binned data
    TH1D* hist[2];
@@ -1248,14 +1245,11 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Mphi", "Gphi", "sig", "a",
-                             "Nphi", "Nnonphi", "Nbkg", "a_sb" };
+   vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
+                             "Nphi", "Nnonphi", "Nbkg", "Arsb" };
 
-   vector<double> par_ini  { Mphi, Gphi, 1.2e-3, 0.,
-                             0.94*n, 0.05*n, double(nsb), 5. };
-   if ( is2009 ) {
-      par_ini[2] = 1.4; // sig09
-   }
+   vector<double> par_ini { Mphi,Gphi,1.3e-3,0., 840,70,14,7.4 }; // 2009
+//    vector<double> par_ini { Mphi,Gphi,1.1e-3,0., 2560,190,51,4.}; // 2012
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -1273,12 +1267,12 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    }
    fitter.Config().ParSettings(1).Fix(); // Gphi
    fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
-   fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // a
+   fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // ar
    fitter.Config().ParSettings(3).Fix();
 //    fitter.Config().ParSettings(4).SetLimits(1.,1.5*norm);   // Nphi
 //    fitter.Config().ParSettings(5).SetLimits(1.,norm);       // Nnonphi
-//    fitter.Config().ParSettings(6).SetLimits(1.,2.*nsb);       // Nbkg
-   fitter.Config().ParSettings(7).SetLimits(0.,10.);        // a_sb
+//    fitter.Config().ParSettings(6).SetLimits(1.,2.*nsb);     // Nbkg
+   fitter.Config().ParSettings(7).SetLimits(0.,15.);        // Arsb
 
    // == Fit
    int Ndat = n + nsb;
@@ -1301,14 +1295,14 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr = [Fpar,sl,FunType](double x) -> double {
-      double ret = Fpar[4] *
-         BreitWignerGaussN(x,Fpar[0],Fpar[1],Fpar[2],sl) +
-         Fpar[5] * RevArgusN(x,fabs(Fpar[3]),sl);
-      if ( FunType == 0 ) {
+   auto Lcr = [Fpar,sl,FunSB](double x) -> double {
+      double ret =
+         Fpar[4] * BreitWignerGaussN(x,Fpar[0],Fpar[1],Fpar[2],sl) +
+         Fpar[5] * RevArgusN(x,Fpar[3],sl);
+      if ( FunSB == 0 ) {
          ret += Fpar[6]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         ret += Fpar[6] * RevArgusN( x,fabs(Fpar[7]),sl );
+      } else {
+         ret += Fpar[6] * RevArgusN(x,Fpar[7],sl);
       }
       // normalization on 1
       double Ntot = Fpar[4] + Fpar[5] + Fpar[6];
@@ -1324,12 +1318,12 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
 //    cout << " pvalueAD= " << pvalueAD << endl;
 
    // side-band
-   auto Lsb = [Fpar,sl,FunType](double x) -> double {
+   auto Lsb = [Fpar,sl,FunSB](double x) -> double {
       double ret = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          ret = 1./(dU-dL);
-      } else if ( FunType == 1 ) {
-         ret = RevArgusN( x,fabs(Fpar[7]),sl );
+      } else {
+         ret = RevArgusN(x,Fpar[7],sl);
       }
       return ret;
    };
@@ -1344,21 +1338,21 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Fpar,sl,FunType](double* x,double* p) -> double {
+   auto Ldr = [Fpar,sl,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
       double m = x[0];
       double BW =
          Fpar[4] * BreitWignerGaussN(m,Fpar[0],Fpar[1],Fpar[2],sl);
       if ( isw == 1 ) { return bW * BW; }
 
-      double Ar = Fpar[5] * RevArgusN(m,fabs(Fpar[3]),sl);
+      double Ar = Fpar[5] * RevArgusN(m,Fpar[3],sl);
       if ( isw == 2 ) { return bW * Ar; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
-         double Bg = Fpar[6]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         Bg = Fpar[6] * RevArgusN( m,Fpar[7],sl );
+      if ( FunSB == 0 ) {
+         Bg = Fpar[6]/(dU-dL);
+      } else {
+         Bg = Fpar[6] * RevArgusN(m,Fpar[7],sl);
       }
       if ( isw == 3 ) { return bW * Bg; }
 
@@ -1426,13 +1420,15 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
    pt -> Draw();
 
-   TPaveText* ptsb = new TPaveText(0.55,0.35,0.89,0.46,"NDC");
+   TPaveText* ptsb = new TPaveText(0.55,0.34,0.89,0.46,"NDC");
    ptsb -> SetTextAlign(12);
    ptsb -> SetTextFont(42);
    ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
             pvalueKSsb) );
-   ptsb -> AddText( Form("Nbg = %s", PE.Eform(6,".1f")) );
-   ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",PE.Eform(7,".1f")) );
+   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
+            PE.Eform(6,".1f")) );
+   ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+            PE.Eform(7,".1f")) );
    ptsb -> Draw();
 
    gPad -> RedrawAxis();
@@ -1947,12 +1943,13 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
 // dataSB_Intfr(): combined with side-band
 //--------------------------------------------------------------------
 struct myFCN_inter {
-   double sl = -1.8;    // efficiency parameter
+   // efficiency parameter:
+   const double sl = -1.8;
+   // Function for side-band:
+   const int funSB = 1; // 0 - constant, 1 - Argus
+                        //
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
-
-   // Function for side-band:
-   int funType = 1; // 0 - constant, 1 -Argus
 
    // minimization function
    // the signature of this operator() MUST be exactly this:
@@ -1963,7 +1960,8 @@ struct myFCN_inter {
    //-----------------------------------------------------------------
       double Nkk = p[6];
       double Nsb = p[7];
-      double asb = p[8];
+      double arsb = p[8];
+
       double res = 2*(Nkk+Nsb);
 
       const double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl };
@@ -1971,10 +1969,10 @@ struct myFCN_inter {
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
          double L = Nkk * IntfrBWARGN( m,pp,0 );
-         if ( funType == 0 ) {
+         if ( funSB == 0 ) {
             L += Nsb/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += Nsb * RevArgusN(m,asb,sl);
+         } else {
+            L += Nsb * RevArgusN(m,arsb,sl);
          }
 
          if (L > 0.) {
@@ -1987,14 +1985,14 @@ struct myFCN_inter {
       // fit SB
       int n_sb = sb.size();
       res += 2*Nsb;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb * 2*log(Nsb/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb; ++i ) {
             double m = sb[i];
-            double L = Nsb * RevArgusN(m,asb,sl);
+            double L = Nsb * RevArgusN(m,arsb,sl);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -2026,7 +2024,7 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
            << endl;
       exit(1);
    }
-   Npar = 6; // remove NKK, Nbg and a_sb parameters!
+   Npar = 6; // remove NKK, Nbg and arsb parameters!
 
    int covMatrStatus = res.CovMatrixStatus();
    if ( covMatrStatus != 3 ) {
@@ -2104,13 +2102,9 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 //--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
-   myFCN_inter my_fcn;  // class for 'FitFCN'
-
-   int FunType = 1;     // Function for SB: 0 - constant, 1 -Argus
-   my_fcn.funType = FunType;
-
-   double sl = -1.8;    // efficiency parameters
-   my_fcn.sl = sl;
+   myFCN_inter my_fcn;             // class for 'FitFCN'
+   const int FunSB = my_fcn.funSB; // 0 - constant, 1 - Argus
+   const double sl = my_fcn.sl;    // efficiency parameters
 
    // Get un-binned data
    TH1D* hist[2];
@@ -2129,15 +2123,15 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Mphi", "Gphi", "sig", "a",
-                             "F", "angle", "NKK", "Nbg", "a_sb" };
+   vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
+                             "F", "angle", "NKK", "Nbg", "arsb" };
 
    vector<double> par_ini {Mphi, Gphi, 1.4e-3, 0.,
                            0.9, 0.9, 903., 15., 8. }; // 09neg
 //    vector<double> par_ini {Mphi, Gphi, 1.4e-3, 0.,
-//                            1.0,-1.0, 903., 15., 8.}; // 09pos
+//                            1.0,-1.0, 903., 15., 8. }; // 09pos
 //    vector<double> par_ini {Mphi, Gphi, 1.1e-3, 0.,
-//                               0.7, 0.01, 2745.,52., 5. }; // 12z
+//                               0.8, 0.01, 2745.,52., 5. }; // 12z
 
    bool neg_pos = par_ini[5] > 0; // true for negative interference
 
@@ -2149,30 +2143,26 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    }
 
    // fix/limit/step for parameters
-//    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    fitter.Config().ParSettings(0).SetValue(1.01953);        // like MC
    fitter.Config().ParSettings(0).Fix();                    // Mphi
-//    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();                    // Gphi
    fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
-   fitter.Config().ParSettings(3).Fix();                    // a
+   fitter.Config().ParSettings(3).Fix();                    // ar
    fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
    fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // angle
-//    fitter.Config().ParSettings(5).SetStepSize(1e-4);
-//    fitter.Config().ParSettings(5).SetValue(0.8);
-//    fitter.Config().ParSettings(5).Fix();
 //    fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
 //    fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
-   fitter.Config().ParSettings(8).SetLimits(0.,10.);           // a_sb
-   if ( FunType == 0 ) {
+   if ( FunSB == 0 ) {                                      // arsb
       fitter.Config().ParSettings(8).SetValue(0.);
       fitter.Config().ParSettings(8).Fix();
+   } else {
+      fitter.Config().ParSettings(8).SetLimits(0.,15.);
    }
 
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-//    fitter.CalculateHessErrors();
+   fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
@@ -2220,13 +2210,13 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    double pvalueKS = 0, pvalueKSsb = 0;
    if ( calc_pval ) {
       // central part
-      auto Lcr = [Fpar,sl,FunType](double x) -> double {
+      auto Lcr = [Fpar,sl,FunSB](double x) -> double {
          double pp[]
             {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
          double ret = Fpar[6] * IntfrBWARGN( x,pp,0 );
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret += Fpar[7]/(dU-dL);
-         } else if ( FunType == 1 ) {
+         } else {
             ret += Fpar[7] * RevArgusN( x,Fpar[8],sl );
          }
          // normalization on 1
@@ -2261,11 +2251,11 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       cout << " pvalueKS(cr)= " << pvalueKS << endl;
 
       // side-band
-      auto Lsb = [Fpar,sl,FunType](double x) -> double {
+      auto Lsb = [Fpar,sl,FunSB](double x) -> double {
          double ret = 0;
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret = 1./(dU-dL);
-         } else if ( FunType == 1 ) {
+         } else {
             ret = RevArgusN( x,Fpar[8],sl );
          }
          return ret;
@@ -2281,7 +2271,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Fpar,sl,FunType](double* x,double* p) -> double {
+   auto Ldr = [Fpar,sl,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double pp[]
@@ -2290,9 +2280,9 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
-         double Bg = Fpar[7]/(dU-dL);
-      } else if ( FunType == 1 ) {
+      if ( FunSB == 0 ) {
+         Bg = Fpar[7]/(dU-dL);
+      } else {
          Bg = Fpar[7] * RevArgusN( x[0],Fpar[8],sl );
       }
       if ( isw == 4 ) { return bW * Bg; }
@@ -2322,37 +2312,15 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 
    //-----------------------------------------------------------------
    // Draw results
-   bool two_panels = false;
+   TLegend* leg = new TLegend(0.58,0.725,0.89,0.89);
 
-   TLegend* leg = nullptr;
-   TLegendEntry* le_bg = nullptr;
-   TPaveText* pt = nullptr;
-   TPaveText* ptres = nullptr;
-   TCanvas* c1 = nullptr;
-   if ( two_panels ) {
-      leg = new TLegend(0.51,0.58,0.89,0.99);
-//       leg -> SetHeader("side-band","C");
-      le_bg = leg->AddEntry(fdr,"Bkg (sideband)","L"); // template
-      pt = new TPaveText(0.51,0.44,0.89,0.99,"NDC");
-      ptres = new TPaveText(0.51,0.34,0.89,0.44,"NDC");
-
-      c1 = new TCanvas("c1","...",0,0,800,1000);
-      c1 -> Divide(1,2);
-      c1 -> cd(1);
-   } else {
-      leg = new TLegend(0.58,0.725,0.89,0.89);
-      pt = new TPaveText(0.58,0.41,0.89,0.72,"NDC");
-      ptres = new TPaveText(0.58,0.34,0.89,0.41,"NDC");
-      c1 = new TCanvas("c1","...",0,0,900,900);
-      c1 -> cd();
-
-      hst -> GetYaxis() -> SetTitleOffset(1.3);
-   }
-
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   c1 -> cd();
    gPad -> SetGrid();
 
    SetHstFace(hst);
    hst -> GetXaxis() -> SetTitleOffset(1.1);
+   hst -> GetYaxis() -> SetTitleOffset(1.3);
    hst -> SetLineWidth(2);
    hst -> SetLineColor(kBlack);
    hst -> SetMarkerStyle(20);
@@ -2386,7 +2354,9 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    fdr -> SetLineColor(kMagenta+1);
    fdr -> DrawCopy("SAME");
    leg -> AddEntry( fdr -> Clone(), "Interference", "L");
+   leg -> Draw();
 
+   TPaveText* pt = new TPaveText(0.58,0.48,0.89,0.72,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("#it{p-value = %.3f}",pvalueKS) );
@@ -2398,49 +2368,30 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
    pt -> AddText( Form("NKK(fit) = %s", PE.Eform(6,".1f")) );
-   pt -> AddText( Form("Nbg = %s",PE.Eform(7,".1f")) );
-   if ( FunType == 1 ) {
-      pt -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
-               PE.Eform(8,".1f")) );
-   }
    pt -> Draw();
 
+   TPaveText* ptsb = new TPaveText(0.58,0.39,0.89,0.48,"NDC");
+   ptsb -> SetTextAlign(12);
+   ptsb -> SetTextFont(42);
+   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKSsb) );
+   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
+            PE.Eform(7,".1f")) );
+   if ( FunSB != 0 ) {
+      ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+               PE.Eform(8,".1f")) );
+   }
+   ptsb -> Draw();
+
+   TPaveText* ptres = new TPaveText(0.58,0.33,0.89,0.39,"NDC");
    ptres -> SetTextAlign(12);
    ptres -> SetTextFont(42);
    ptres -> AddText(Form("N_{#etaKK} = %.1f #pm %.1f",
             Nkk,err_Nkk));
    ptres -> AddText(Form("N_{#phi } = %.1f #pm %.1f",Nphi,err_Nphi));
    ptres -> Draw();
+
    gPad -> RedrawAxis();
-
-   if ( two_panels ) {
-      c1 -> cd(2);
-      gPad -> SetGrid();
-
-      SetHstFace(hsb);
-      if ( is2009 ) {
-         hsb -> SetMaximum(4);
-      } else {
-         hsb -> SetMaximum(5);
-      }
-      hsb -> GetXaxis() -> SetTitleOffset(1.1);
-      hsb -> GetYaxis() -> SetTitleOffset(1.);
-      hsb -> SetLineWidth(2);
-      hsb -> SetLineColor(kBlack);
-      hsb -> SetMarkerStyle(20);
-
-      hsb -> Draw("EP");
-
-      fdr -> SetParameter(0, 4); // side-band
-      fdr -> SetLineWidth(2);
-      fdr -> SetLineColor(kBlue+2);
-      fdr -> DrawCopy("SAME");
-      le_bg -> SetObject( fdr -> Clone() );
-   }
-
-   leg -> Draw();
-   gPad -> RedrawAxis();
-
    c1 -> Update();
    if ( !pdf.empty() ) {
       pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
@@ -2451,7 +2402,11 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
 // dataSBBR_Intfr(): combined with side-band + fitBR
 //--------------------------------------------------------------------
 struct myFCN_sbbr {
-   double sl = -1.8;    // efficiency parameter
+   // efficiency parameter:
+   const double sl = -1.8;
+   // Function for side-band:
+   const int funSB = 1; // 0 - constant, 1 - Argus
+
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
 
@@ -2465,27 +2420,16 @@ struct myFCN_sbbr {
    double IeBW = 0, IeAr = 0, IeIc = 0, IeIs = 0;
    double IBW = 0, IAr = 0, IIc = 0, IIs = 0;
 
-   // Side-band:
-   int funType = 1; // 0 - constant, 1 -Argus
-   // Argus for side-band (if funType = 1)
-   double slsb = 0.;       // efficiency slope for SB
-   const double arsb = 0.; // Argus parameter for SB
-   double normArsb = 1;    // normalization for Argus
+   // normalizations for Argus in side-band
+   double normArsb = 1;
 
    //-----------------------------------------------------------------
-   myFCN_sbbr(int date, int FunType) { // set parameters for 2009/2012
+   myFCN_sbbr(int date) { // set parameters for 2009/2012
    //-----------------------------------------------------------------
-      funType = FunType;
-
       // Br(eta->2gamma) = 39.41%
       const double breta = 0.3941;
       // Br(phi->K+K-) = 49.2%
       const double brphi = 0.492;
-
-//       const double NJpsi09 = 15740118; // 2009 :prod-11
-//       const double e_phi09 = 0.3221; // eff chi2 < 60 :prod-11
-//       const double NJpsi12 = 48674327; // 2012 :prod-11
-//       const double e_phi12 = 0.3169; // eff chi2 < 60 :prod-11
 
       // prod-12
       const double NJpsi09 = 15740130; // 2009
@@ -2501,18 +2445,34 @@ struct myFCN_sbbr {
          Br2Nphi = Br2Nkk * brphi;
       }
 
-      // normalization for Argus SB
-      if ( funType == 1 ) {
-         slsb = sl;
-         double par[] = {arsb,slsb};
-         auto Lintar = [](double x, void* pp) -> double{
-            double* p = static_cast<double*>(pp);
-            return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
-         };
-         // desired errors:                abs    rel
-         ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
-         normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+   }
+
+   // normalization for Argus SB
+   //-----------------------------------------------------------------
+   void calcNormAr(const double arsb) {
+   //-----------------------------------------------------------------
+      // cache for calculated values
+      static double arsb_save = -1.;
+
+      if ( funSB == 0 ) {
+         return;
       }
+      if ( arsb_save == arsb ) {
+         return;
+      }
+      arsb_save = arsb;
+
+      double par[] = {arsb,sl};
+      auto Lintar = [](double x, void* pp) -> double{
+         double* p = static_cast<double*>(pp);
+         return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
+      };
+      // desired errors:                abs    rel
+      ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
+      normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+
+      // debug print
+//       printf(" arsb= %.3f, normArsb= %.3g\n", arsb, normArsb);
    }
 
    //-----------------------------------------------------------------
@@ -2520,12 +2480,12 @@ struct myFCN_sbbr {
    //-----------------------------------------------------------------
       // cach old values
       static double sig_save = 0.;
-      if ( fabs(sig_save-sig) < 1e-6*fabs(sig_save) ) {
+      if ( sig_save == sig ) {
          return;
       }
       sig_save = sig;
 
-      // integrand lambda function
+      // integrand lambda function: mphi,gphi,sig,ar,F,ang,sl,idx
       const double F = 1.;
       const double ang = 0.; //0(PI/2) for cos(sin) members of Infr.
       double pp[] { mphi,gphi,sig,ar,F,ang,sl, 1 };
@@ -2538,7 +2498,6 @@ struct myFCN_sbbr {
       // desired errors:                abs    rel
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
 
-      // calculate integrals
       auto checkInt = [](string t, double Int, double pp[]) -> void {
          if ( !isfinite(Int) ) {
             printf("%s: pp= %g,%g,%g,%g,%g,%g,%g,%g\n", t.data(),
@@ -2546,6 +2505,10 @@ struct myFCN_sbbr {
             exit(1);
          }
       };
+
+      // calculate integrals
+      pp[6] = sl; // for Ie..
+
       pp[7] = 1; // idx
       IeBW = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IeBW",IeBW,pp);
@@ -2553,14 +2516,15 @@ struct myFCN_sbbr {
       IeAr = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IeAr",IeAr,pp);
       pp[7] = 3;
+      pp[5] = 0; // ang=0 for cos
       IeIc = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IeIc",IeIc,pp);
-      pp[5] = M_PI/2; // ang
+      pp[5] = M_PI/2; // ang = pi/2 for sin
       IeIs = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IeIs",IeIs,pp);
-      pp[5] = 0;
 
-      pp[6] = 0; // sl = 0
+      pp[6] = 0; // for I..
+
       pp[7] = 1; // idx
       IBW = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IBW",IBW,pp);
@@ -2568,9 +2532,10 @@ struct myFCN_sbbr {
       IAr = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IAr",IAr,pp);
       pp[7] = 3;
+      pp[5] = 0; // ang=0 for cos
       IIc = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IIc",IIc,pp);
-      pp[5] = M_PI/2; // ang
+      pp[5] = M_PI/2; // ang = pi/2 for sin
       IIs = gsl_int.Integral(Lint,(void *)pp,dL,dU);
       checkInt("IIs",IIs,pp);
 
@@ -2611,9 +2576,10 @@ struct myFCN_sbbr {
       }
 
       // debug print
-      if ( Dis < 0 || Ff < 0 ) {
-         printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
-               " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
+      if ( penalty > 0 ) {
+         printf(" calcF penalty= %g: Nkk=%.1f Nphi=%.1f"
+               " A=%.2g B=%.2g C=%.2g Dis=%.2g Ff=%g\n",
+               penalty,Nkk,Nphi,A,B,C,Dis,Ff);
       }
       return make_tuple(Ff,penalty);
    }
@@ -2625,10 +2591,10 @@ struct myFCN_sbbr {
    //-----------------------------------------------------------------
    double operator() (const double* p) {
    //-----------------------------------------------------------------
-      if ( !isfinite(p[0]) || !isfinite(p[1]) ||
-           !isfinite(p[2]) || !isfinite(p[3]) || !isfinite(p[4]) ) {
-         printf("NAN: p[]= %g,%g,%g,%g,%g\n",
-               p[0],p[1],p[2],p[3],p[4]);
+      if ( !isfinite(p[0]) || !isfinite(p[1]) || !isfinite(p[2]) ||
+           !isfinite(p[3]) || !isfinite(p[4]) || !isfinite(p[5]) ) {
+         printf("NAN: p[]= %g,%g,%g,%g,%g,%g\n",
+               p[0],p[1],p[2],p[3],p[4],p[5]);
          return DBL_MAX;
       }
 
@@ -2639,11 +2605,15 @@ struct myFCN_sbbr {
 
       double ang = p[2];
       double sigma = p[3];
-      double Nsb = p[4];
-
       calcIntegrals(sigma);
+
       double Ff = 0., penalty = 0.;
       tie(Ff,penalty) = calcF(p);
+
+      double Nsb = p[4];
+      double arsb = p[5];
+      calcNormAr(arsb);
+      const double NsbNorm = Nsb / normArsb;
 
 //+ this long calculation depends only on Br(eta->2gamma)...
 //+       double normI = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
@@ -2657,15 +2627,14 @@ struct myFCN_sbbr {
       double res = 2*(NkkFit+Nsb) + penalty;
 
       const double pp[] { mphi,gphi,sigma,ar,Ff,ang,sl };
-      const double NsbNorm = Nsb / normArsb;
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
          double L = NFit * IntfrBWARG( m,pp,0 );
-         if ( funType == 0 ) {
+         if ( funSB == 0 ) {
             L += Nsb/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += NsbNorm * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+         } else {
+            L += NsbNorm * RevArgus(m,arsb)*(1+sl*(m-1.02));
          }
          if (L > 0.) {
             res -= 2*log(L);
@@ -2677,14 +2646,14 @@ struct myFCN_sbbr {
       // fit SB
       int n_sb = sb.size();
       res += 2*Nsb;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb * 2*log(Nsb/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb; ++i ) {
             double m = sb[i];
-            double L = NsbNorm * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+            double L = NsbNorm * RevArgus(m,arsb)*(1+sl*(m-1.02));
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -2693,8 +2662,8 @@ struct myFCN_sbbr {
          }
       }
 
-//       printf("RES: p[]= %g,%g,%g,%g,%g -> %g\n",
-//               p[0],p[1],p[2],p[3],p[4],res);
+//       printf("RES: p[]= %g,%g,%g,%g,%g,%g -> %.3f\n",
+//               p[0],p[1],p[2],p[3],p[4],p[5],res);
       return res;
    }
 };
@@ -2705,11 +2674,9 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    bool is2009 = (fname.find("_09") != string::npos);
 
    int date = (is2009) ? 2009 : 2012;
-   const int FunType = 0;            // 0 - constant, 1 -Argus
-   myFCN_sbbr my_fcn(date,FunType);  // class for 'FitFCN'
-
-   double sl = -1.8;    // efficiency parameters
-   my_fcn.sl = sl;
+   myFCN_sbbr my_fcn(date);  // class for 'FitFCN'
+   const double sl = my_fcn.sl; // efficiency parameters
+   const int FunSB = my_fcn.funSB;
 
    // Get un-binned data
    TH1D* hist[2];
@@ -2728,11 +2695,12 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Brkk", "Brphi", "angle", "sigma", "Nbg" };
+   vector<string> par_name { "Brkk", "Brphi", "angle", "sigma",
+      "Nbg", "Arsb" };
 
-   vector<double> par_ini {4.5e-4,9.2e-4, 0.9, 1.4e-3,1.*nsb};  // 09neg
-//    vector<double> par_ini {4.5e-4,8.1e-4, -1.0, 1.4e-3,1.*nsb}; // 09pos
-//    vector<double> par_ini {4.5e-4,8.5e-4, 0.01, 1.1e-3, 1.*nsb};// 12zero
+   vector<double> par_ini {4.5e-4,9.2e-4, 0.9, 1.4e-3,1.*nsb,8.}; // 09neg
+//    vector<double> par_ini {4.5e-4,8.1e-4,-1.0, 1.4e-3,1.*nsb,8.}; // 09pos
+//    vector<double> par_ini {4.5e-4,8.5e-4, 0.01, 1.1e-3, 1.*nsb,5.};// 12zero
 
    bool neg_pos = par_ini[2] > 0; // true for negative interference
 
@@ -2750,6 +2718,7 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    fitter.Config().ParSettings(3).SetLimits(0.5e-3,2.e-3);// sigma
 //    fitter.Config().ParSettings(3).Fix();
 //    fitter.Config().ParSettings(4).SetLimits(0., 1.5*nsb); // Nbg
+   fitter.Config().ParSettings(5).SetLimits(0., 15.);     // Arsb
 
    // == Fit
    int Ndat = n + nsb;
@@ -2761,6 +2730,8 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    vector<double> Fpar = res.Parameters();
    double Ff,penalty;
    tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
+   double arsb = Fpar[5];
+   my_fcn.calcNormAr(arsb);
    if ( !isfinite(penalty) || penalty > 0. ) {
       printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
    } else {
@@ -2790,26 +2761,22 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
          my_fcn.mphi, my_fcn.gphi, sig, my_fcn.ar, Ff, ang, my_fcn.sl
       };
 
-      double Nsb = Fpar[4];
-
       // normalization on 1
+      double Nsb = Fpar[4];
       double Ntot = Nkk + Nsb;
       NFit /= Ntot;
 
-      double arsb = my_fcn.arsb;
-      double slsb = my_fcn.slsb;
       double NsbNorm = Nsb/Ntot;
-      if ( FunType == 1 ) {
+      if ( FunSB != 0 ) {
          NsbNorm /= my_fcn.normArsb;
       }
 
-      auto Lcr =
-         [NFit,pp,FunType,NsbNorm,arsb,slsb](double x) -> double {
+      auto Lcr = [NFit,pp,FunSB,NsbNorm,arsb,sl](double x) -> double {
          double ret = NFit*IntfrBWARG( x,pp,0 );
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret += NsbNorm/(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret += NsbNorm * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         } else {
+            ret += NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
          }
          return ret;
       };
@@ -2843,12 +2810,12 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
       // side-band
 //       function<double(double)> Lsb;
       NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
-      auto Lsb = [FunType,NsbNorm,arsb,slsb](double x) -> double {
+      auto Lsb = [FunSB,NsbNorm,arsb,sl](double x) -> double {
          double ret = 0;
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret = 1./(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret = NsbNorm * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         } else {
+            ret = NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
          }
          return ret;
       };
@@ -2865,7 +2832,8 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Fpar,my_fcn,Ff,FunType](double* x,double* p) -> double{
+   auto Ldr =
+      [Fpar,my_fcn,Ff,arsb,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
@@ -2880,12 +2848,12 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          Bg = Fpar[4]/(dU-dL);
-      } else if ( FunType == 1 ) {
+      } else {
          double NsbNorm = Fpar[4] / my_fcn.normArsb;
-         Bg = NsbNorm * RevArgus(x[0],my_fcn.arsb) *
-            (1+my_fcn.slsb*(x[0]-1.02));
+         Bg = NsbNorm *
+            RevArgus(x[0],arsb)*(1+my_fcn.sl*(x[0]-1.02));
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -2914,8 +2882,6 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
 
    //-----------------------------------------------------------------
    // Draw results
-   TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
-   TPaveText* pt = new TPaveText(0.58,0.41,0.89,0.69,"NDC");
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
 
@@ -2929,6 +2895,8 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    hst -> SetMarkerStyle(20);
 
    hst -> Draw("EP");
+
+   TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
    leg -> AddEntry(hst,title.c_str(),"LEP");
 
    fdr -> SetParameter(0, 0); // SUM
@@ -2957,20 +2925,33 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    fdr -> SetLineColor(kMagenta+1);
    fdr -> DrawCopy("SAME");
    leg -> AddEntry( fdr -> Clone(), "Interference", "L");
+   leg -> Draw();
 
+   TPaveText* pt = new TPaveText(0.58,0.47,0.89,0.69,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("#it{p-value = %.3f}",pvalueKS) );
-   pt -> AddText( Form("Br(KK#eta)= %s #times10^{-4}",
+   pt -> AddText( Form("Br(KK#eta)= %s #times10^{-4 }",
             PE.Eform(0,".2f",1e4)) );
    pt -> AddText( Form("Br(#phi#eta)= %s #times10^{-4}",
             PE.Eform(1,".2f",1e4)) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(2,".2f")) );
    pt -> AddText( Form("#sigma = %s MeV", PE.Eform(3,".2f",1e3)) );
-//    pt -> AddText( Form("NKK(fit)= %s", PE.Eform(3,".1f")) );
-   pt -> AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(4,".1f")) );
    pt -> Draw();
-   leg -> Draw();
+
+   TPaveText* ptsb = new TPaveText(0.58,0.35,0.89,0.47,"NDC");
+   ptsb -> SetTextAlign(12);
+   ptsb -> SetTextFont(42);
+   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKSsb) );
+   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
+            PE.Eform(4,".1f")) );
+   if ( FunSB != 0 ) {
+      ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+               PE.Eform(5,".1f")) );
+   }
+   ptsb -> Draw();
+
    gPad -> RedrawAxis();
 
    c1 -> Update();
@@ -3778,17 +3759,17 @@ void combine_Intfr_bg(string fname09, string fname12, string pdf="") {
 //--------------------------------------------------------------------
 struct myFCN_comb {
    // efficiency parameters
-   double sl09 = -1.8;
-   double sl12 = -1.8;
+   const double sl = -1.8;
+   // Function for side-band:
+   const int funSB = 2; // 0 - constant, 1 - common Argus,
+                        // 2 - separate Argus
+
    // data central part
    vector<double> mkk09;
    vector<double> mkk12;
    // data side band
    vector<double> sb09;
    vector<double> sb12;
-
-   // Function for side-band:
-   int funType = 1; // 0 - constant, 1 - Argus, 2 - common Argus
 
    // minimization function
    // the signature of this operator() MUST be exactly this:
@@ -3800,25 +3781,27 @@ struct myFCN_comb {
       if ( !isfinite(p[0]) || !isfinite(p[1]) || !isfinite(p[2]) ||
            !isfinite(p[3]) || !isfinite(p[4]) || !isfinite(p[5]) ||
            !isfinite(p[6]) || !isfinite(p[7]) || !isfinite(p[8]) ||
-           !isfinite(p[9]) || !isfinite(p[10]) ) {
-         printf("NAN: p[]= %g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g\n",
-               p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10]);
+           !isfinite(p[9]) || !isfinite(p[10])|| !isfinite(p[11])||
+           !isfinite(p[12]) ) {
+         printf("NAN: p[]= %g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g\n",
+               p[0],p[1],p[2],p[3],p[4], p[5],p[6],
+               p[7],p[8],p[9],p[10],p[11],p[12]);
          return DBL_MAX;
       }
       double Nkk09 = p[7];
       double Nsb09 = p[8];
-      double asb09 = p[9];
+      double arsb09 = p[9];
       double res = 2*(Nkk09+Nsb09);
 
-      const double p09[] = { p[0],p[1],p[5],p[2],p[3],p[4],sl09 };
+      const double p09[] = { p[0],p[1],p[5],p[2],p[3],p[4],sl };
       int n_mkk09 = mkk09.size();
       for ( int i = 0; i < n_mkk09; ++i ) {
          double m = mkk09[i];
          double L = Nkk09 * IntfrBWARGN( m,p09,0 );
-         if ( funType == 0 ) {
+         if ( funSB == 0 ) {
             L += Nsb09/(dU-dL);
          } else {
-            L += Nsb09 * RevArgusN(m,asb09,sl09);
+            L += Nsb09 * RevArgusN(m,arsb09,sl);
          }
          if (L > 0.) {
             res -= 2*log(L);
@@ -3830,14 +3813,14 @@ struct myFCN_comb {
       // fit SB
       int n_sb09 = sb09.size();
       res += 2*Nsb09;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb09 * 2*log(Nsb09/(dU-dL));
       } else {
          // by Argus
          for ( int i = 0; i < n_sb09; ++i ) {
             double m = sb09[i];
-            double L = Nsb09 * RevArgusN(m,asb09,sl09);
+            double L = Nsb09 * RevArgusN(m,arsb09,sl);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -3848,21 +3831,18 @@ struct myFCN_comb {
 
       double Nkk12 = p[10];
       double Nsb12 = p[11];
-      double asb12 = p[12];
-      if ( funType == 2 ) {
-         asb12 = asb09;
-      }
+      double arsb12 = ( funSB == 2 ) ? p[12] : arsb09;
       res += 2*(Nkk12+Nsb12);
 
-      const double p12[] = { p[0],p[1],p[6],p[2],p[3],p[4],sl12 };
+      const double p12[] = { p[0],p[1],p[6],p[2],p[3],p[4],sl };
       int n_mkk12 = mkk12.size();
       for ( int i = 0; i < n_mkk12; ++i ) {
          double m = mkk12[i];
          double L = Nkk12 * IntfrBWARGN( m,p12,0 );
-         if ( funType == 0 ) {
+         if ( funSB == 0 ) {
             L += Nsb12/(dU-dL);
          } else {
-            L += Nsb12 * RevArgusN(m,asb12,sl12);
+            L += Nsb12 * RevArgusN(m,arsb12,sl);
          }
          if (L > 0.) {
             res -= 2*log(L);
@@ -3874,14 +3854,14 @@ struct myFCN_comb {
       // fit SB
       int n_sb12 = sb12.size();
       res += 2*Nsb12;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb12 * 2*log(Nsb12/(dU-dL));
       } else {
          // by Argus
          for ( int i = 0; i < n_sb12; ++i ) {
             double m = sb12[i];
-            double L = Nsb12 * RevArgusN(m,asb12,sl12);
+            double L = Nsb12 * RevArgusN(m,arsb12,sl);
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -4024,16 +4004,9 @@ vector<ValErr> CombIntErSB( const ROOT::Fit::FitResult& res,
 void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 //--------------------------------------------------------------------
 
-   myFCN_comb my_fcn;   // class for 'FitFCN'
-
-   int FunType = 2;     // Function for SB: 0 - constant, 1 - Argus,
-                        //                  2 - common Argus
-   my_fcn.funType = FunType;
-
-   double sl09 = -1.8;  // efficiency parameters
-   double sl12 = -1.8;  // -1.83
-   my_fcn.sl09 = sl09;
-   my_fcn.sl12 = sl12;
+   myFCN_comb my_fcn;              // class for 'FitFCN'
+   const double sl = my_fcn.sl;    // efficiency parameters
+   const int FunSB = my_fcn.funSB; // Function for side-band
 
    // Get un-binned data
    TH1D* hist[4];
@@ -4063,19 +4036,14 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
-      "sig09", "sig12", "Nkk09", "Nbg09", "Asb09",
-      "Nkk12","Nbg12","Asb12" };
+      "sig09", "sig12", "Nkk09", "Nbg09", "Arsb09",
+      "Nkk12","Nbg12","Arsb12" };
 
    vector<double> par_ini { Mphi,Gphi,0., 0.75, 0.25, 1.4e-3, 1.1e-3,
         double(n09-nsb09), double(nsb09), 8.,
         double(n12-nsb12), double(nsb12), 5. };
-   if ( FunType == 0 ) {
-      par_ini[9] = 0.;
-      par_ini[12] = 0.;
-   }
-   if ( FunType == 2 ) {
-      par_ini[9] = 6.;
-      par_ini[12] = 0.;
+   if ( FunSB == 1 ) {
+      par_ini[9] = 6.; // common for 2009 & 2012
    }
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -4086,10 +4054,8 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    }
 
    // fix/limit/step for parameters
-//    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    fitter.Config().ParSettings(0).SetValue(1.01953); // like MC-sig
    fitter.Config().ParSettings(0).Fix();                    // Mphi
-//    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();                    // Gphi
    fitter.Config().ParSettings(2).Fix();                    // Ar
    fitter.Config().ParSettings(3).SetLimits(0.01, 10.);     // F
@@ -4098,14 +4064,14 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    fitter.Config().ParSettings(6).SetLimits(0.2e-3, 5.e-3); // sig12
 //    fitter.Config().ParSettings(7).SetLimits(0.,2.*n09);     // Nkk09
 //    fitter.Config().ParSettings(8).SetLimits(0.,1.5*nsb09);  // Nbg09
-   if ( FunType == 0 ) {                                    // asb09
+   if ( FunSB == 0 ) {                                      // Arsb09
       fitter.Config().ParSettings(9).Fix();
    } else {
       fitter.Config().ParSettings(9).SetLimits(0.,15.);
    }
 //    fitter.Config().ParSettings(10).SetLimits(0.,2.*n12);    // Nkk12
 //    fitter.Config().ParSettings(11).SetLimits(0.,1.5*nsb12); // Nbg12
-   if ( FunType == 1 ) {                                    // asb12
+   if ( FunSB == 2 ) {                                      // Arsb12
       fitter.Config().ParSettings(12).SetLimits(0.,15.);
    } else {
       fitter.Config().ParSettings(12).Fix();
@@ -4142,7 +4108,7 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    vector<string> names { "NKK", "Nphi", "Nnonphi", "Nifr" };
    vector<ValErr> Nos(8);
    for ( int idx = 0; idx <= 3; ++idx ) {
-      vector<ValErr> Vinteg = CombIntErSB( res,sl09,sl12,idx );
+      vector<ValErr> Vinteg = CombIntErSB( res,sl,sl,idx );
       const auto& Int09 = Vinteg[0];
 //       printf("Int09[%i] = %s\n",idx,Int09.prt(".6f")); // debug
       double Num = Nfit09 * Int09.val;
@@ -4173,28 +4139,30 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    double pvalueKS12 = 0, pvalueKS12sb = 0;
    if ( calc_pval ) {
       // central part
-      auto Lcr09 = [Fpar,sl09,FunType](double x) -> double {
-         double pp[]
-            {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl09};
+      auto Lcr09 = [Fpar,sl,FunSB](double x) -> double {
+         double pp[] {
+            Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4], sl
+         };
          double ret = Fpar[7] * IntfrBWARGN( x,pp,0 );
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret += Fpar[8]/(dU-dL);
          } else {
-            ret += Fpar[8] * RevArgusN( x,Fpar[9],sl09 );
+            ret += Fpar[8] * RevArgusN( x,Fpar[9],sl );
          }
          // normalization on 1
          double Ntot = Fpar[7] + Fpar[8];
          return ret/Ntot;
       };
-      auto Lcr12 = [Fpar,sl12,FunType](double x) -> double {
-         double pp[]
-            {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl12};
+      auto Lcr12 = [Fpar,sl,FunSB](double x) -> double {
+         double pp[] {
+            Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4], sl
+         };
          double ret = Fpar[10] * IntfrBWARGN( x,pp,0 );
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret += Fpar[11]/(dU-dL);
          } else {
-            double asb = ( FunType == 1 ) ? Fpar[12] : Fpar[9];
-            ret += Fpar[11] * RevArgusN( x,asb,sl12 );
+            double arsb12 = ( FunSB == 2 ) ? Fpar[12] : Fpar[9];
+            ret += Fpar[11] * RevArgusN( x,arsb12,sl );
          }
          // normalization on 1
          double Ntot = Fpar[10] + Fpar[11];
@@ -4238,14 +4206,13 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
       cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
 
       // side-band
-      double sl = sl09;
-      double asb = Fpar[9];
-      auto Lsb = [&sl,&asb,FunType](double x) -> double {
+      double arsb = Fpar[9];
+      auto Lsb = [&arsb,sl,FunSB](double x) -> double {
          double ret = 0;
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret = 1./(dU-dL);
          } else {
-            ret = RevArgusN( x,asb,sl );
+            ret = RevArgusN( x,arsb,sl );
          }
          return ret;
       };
@@ -4257,9 +4224,8 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
       pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
       cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
 
-      sl = sl12;
-      if ( FunType == 1 ) {
-         asb = Fpar[12];
+      if ( FunSB == 2 ) {
+         arsb = Fpar[12];
       }
       ROOT::Math::GoFTest* gofsb12 =
          new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb,
@@ -4270,19 +4236,20 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr09 = [Fpar,sl09,FunType](double* x,double* p) -> double {
+   auto Ldr09 = [Fpar,sl,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
-      double pp[]
-         {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+      double pp[] {
+         Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl
+      };
       double BWARG = Fpar[7] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          double Bg = Fpar[8]/(dU-dL);
       } else {
-         Bg = Fpar[8] * RevArgusN( x[0],Fpar[9],sl09 );
+         Bg = Fpar[8] * RevArgusN( x[0],Fpar[9],sl );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4291,20 +4258,21 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    TF1* f09 = new TF1("f09", Ldr09, bL, dU, 1);
    f09 -> SetNpx(500);
 
-   auto Ldr12 = [Fpar,sl12,FunType](double* x,double* p) -> double {
+   auto Ldr12 = [Fpar,sl,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
-      double pp[]
-         {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+      double pp[] {
+         Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl
+      };
       double BWARG = Fpar[10] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          double Bg = Fpar[11]/(dU-dL);
       } else {
-         double asb = ( FunType == 1 ) ? Fpar[12] : Fpar[9];
-         Bg = Fpar[11] * RevArgusN( x[0],asb,sl12 );
+         double arsb12 = ( FunSB == 2 ) ? Fpar[12] : Fpar[9];
+         Bg = Fpar[11] * RevArgusN( x[0],arsb12,sl );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4365,7 +4333,7 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
    h09 -> Draw("EP");
 
-   TLegend* leg = new TLegend(0.55,0.69,0.89,0.99);
+   TLegend* leg = new TLegend(0.65,0.69,0.99,0.99);
    leg -> SetTextSize(0.045);
    leg -> SetHeader("#bf{2009(top)   2012(bottom)}","C");
    leg -> AddEntry( h09,"Data","LEP" );
@@ -4400,20 +4368,20 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    leg -> Draw();
 
    TPaveText* pt = nullptr;
-   if ( FunType == 2 ) {
-      pt = new TPaveText(0.55,0.415,0.89,0.685,"NDC");
+   if ( FunSB == 1 ) { // common a(sb)
+      pt = new TPaveText(0.65,0.36,0.99,0.68,"NDC");
    } else {
-      pt = new TPaveText(0.55,0.435,0.89,0.685,"NDC");
+      pt = new TPaveText(0.65,0.41,0.99,0.68,"NDC");
    }
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt -> AddText( Form("M_{#phi}= %s MeV", PE.Eform(0,".2f",1e3)) );
    pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
            PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
-   pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
-   pt -> AddText( Form("#vartheta = %s",PE.Eform(4,".2f")) );
-   if ( FunType == 2 ) {
+   pt -> AddText( Form("a = %s", PE.Eform(2,".2f")) );
+   pt -> AddText( Form("F = %s", PE.Eform(3,".2f")) );
+   pt -> AddText( Form("#vartheta = %s", PE.Eform(4,".2f")) );
+   if ( FunSB == 1 ) {
       pt -> AddText( Form("a(sb)= %s", PE.Eform(9,".1f")) );
    }
    pt -> Draw();
@@ -4454,7 +4422,7 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
    f12 -> SetLineColor(kMagenta+1);
    f12 -> DrawCopy("SAME");
 
-   TPaveText* pt09 = new TPaveText(0.55,0.75,0.89,0.99,"NDC");
+   TPaveText* pt09 = new TPaveText(0.65,0.74,0.99,0.99,"NDC");
    pt09 -> SetTextAlign(12);
    pt09 -> SetTextFont(42);
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}", pvalueKS09) );
@@ -4462,13 +4430,13 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
             PE.Eform(5,".2f",1e3)) );
    pt09 -> AddText( Form("NKK09(fit)= %s", PE.Eform(7,".1f")) );
    pt09 -> AddText( Form("Nbg(2009)= %s", PE.Eform(8,".1f")) );
-   if ( FunType == 1 ) {
-      pt09 -> AddText( Form("a(sb09)= %s", PE.Eform(9,".1f")) );
+   if ( FunSB == 2 ) {
+      pt09 -> AddText( Form("#lower[-0.1]{a(sb09)= %s}",
+               PE.Eform(9,".1f")) );
    }
    pt09 -> Draw();
 
-//    TPaveText* pt12 = new TPaveText(0.55,0.59,0.89,0.79,"NDC");
-   TPaveText* pt12 = new TPaveText(0.55,0.51,0.89,0.75,"NDC");
+   TPaveText* pt12 = new TPaveText(0.65,0.49,0.99,0.74,"NDC");
    pt12 -> SetTextAlign(12);
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
@@ -4476,13 +4444,13 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
             PE.Eform(6,".2f",1e3)) );
    pt12 -> AddText( Form("NKK12(fit)= %s", PE.Eform(10,".1f")) );
    pt12 -> AddText( Form("Nbg(2012)= %s", PE.Eform(11,".1f")) );
-   if ( FunType == 1 ) {
-      pt12 -> AddText( Form("a(sb12)= %s", PE.Eform(12,".1f")) );
+   if ( FunSB == 2 ) {
+      pt12 -> AddText( Form("#lower[-0.1]{a(sb12)= %s}",
+               PE.Eform(12,".1f")) );
    }
    pt12 -> Draw();
 
-//    TPaveText* ptres = new TPaveText(0.55,0.39,0.89,0.59,"NDC");
-   TPaveText* ptres = new TPaveText(0.55,0.27,0.89,0.51,"NDC");
+   TPaveText* ptres = new TPaveText(0.65,0.29,0.99,0.49,"NDC");
    ptres -> SetTextAlign(12);
    ptres -> SetTextFont(42);
    ptres -> AddText( Form("N_{#etaKK}(2009)= %.1f #pm %.1f",
@@ -4498,7 +4466,8 @@ void combineSB_Intfr(string fname09, string fname12, string pdf="") {
 
    c1 -> Update();
    if ( !pdf.empty() ) {
-//       pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
+      pdf += (FunSB == 0 ) ? "_l" : "_ar" + to_string(FunSB);
+      pdf += ".pdf";
       c1 -> Print(pdf.c_str());
    }
 }
@@ -4508,14 +4477,9 @@ void combineSB_Intfr_scan( string fname09, string fname12,
       string pdf="") {
 //--------------------------------------------------------------------
 
-   myFCN_comb my_fcn;   // class for 'FitFCN'
-   int FunType = 2;     // Function for SB: 0 - constant, 1 - Argus
-                        //                  2 - common Argus
-   my_fcn.funType = FunType;
-   double sl09 = -1.8;  // efficiency parameters
-   double sl12 = -1.8;  // -1.83
-   my_fcn.sl09 = sl09;
-   my_fcn.sl12 = sl12;
+   myFCN_comb my_fcn;              // class for 'FitFCN'
+   const double sl = my_fcn.sl;    // efficiency parameters
+   const int FunSB = my_fcn.funSB; // Function for side-band
 
    // Get un-binned data
    TH1D* hist[4];
@@ -4546,11 +4510,14 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 //    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Mphi", "Gphi", "Ar", "F", "angle",
-      "sig09", "sig12", "Nkk09", "Nbg09", "Asb09",
-      "Nkk12","Nbg12","Asb12" };
+      "sig09", "sig12", "Nkk09", "Nbg09", "Arsb09",
+      "Nkk12","Nbg12","Arsb12" };
 
    vector<double> par_ini { Mphi,Gphi,0., 1.0, 0., 1.4e-3, 1.1e-3,
-                            901., 16., 5.7, 2749., 50., 0. };  // -50deg
+                            901., 16., 8., 2749., 50., 5. };  // -50deg
+   if ( FunSB == 1 ) {
+      par_ini[9] = 5.7; // common for 2009 & 2012
+   }
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -4567,25 +4534,33 @@ void combineSB_Intfr_scan( string fname09, string fname12,
    fitter.Config().ParSettings(3).SetLimits(0.01, 10.);     // F
    fitter.Config().ParSettings(5).SetLimits(0.2e-3, 5.e-3); // sig09
    fitter.Config().ParSettings(6).SetLimits(0.2e-3, 5.e-3); // sig12
-   fitter.Config().ParSettings(9).SetLimits(0.,15.);        // asb09
-   fitter.Config().ParSettings(12).Fix();                   // asb12
+   if ( FunSB == 0 ) {                                      // Arsb09
+      fitter.Config().ParSettings(9).Fix();
+   } else {
+      fitter.Config().ParSettings(9).SetLimits(0.,15.);
+   }
+   if ( FunSB == 2 ) {                                      // Arsb12
+      fitter.Config().ParSettings(12).SetLimits(0.,15.);
+   } else {
+      fitter.Config().ParSettings(12).Fix();
+   }
 
    //-----------------------------------------------------------------
    // Functions to draw
    vector<double> Fpar;
-   auto Ldr09 = [&Fpar,sl09,FunType](double* x,double* p) -> double {
+   auto Ldr09 = [&Fpar,sl,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double pp[]
-         {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl09};
+         {Fpar[0],Fpar[1],Fpar[5],Fpar[2],Fpar[3],Fpar[4],sl};
       double BWARG = Fpar[7] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          double Bg = Fpar[8]/(dU-dL);
       } else {
-         Bg = Fpar[8] * RevArgusN( x[0],Fpar[9],sl09 );
+         Bg = Fpar[8] * RevArgusN( x[0],Fpar[9],sl );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4594,20 +4569,20 @@ void combineSB_Intfr_scan( string fname09, string fname12,
    TF1* f09 = new TF1("f09", Ldr09, bL, dU, 1);
    f09 -> SetNpx(500);
 
-   auto Ldr12 = [&Fpar,sl12,FunType](double* x,double* p) -> double {
+   auto Ldr12 = [&Fpar,sl,FunSB](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double pp[]
-         {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl12};
+         {Fpar[0],Fpar[1],Fpar[6],Fpar[2],Fpar[3],Fpar[4],sl};
       double BWARG = Fpar[10] * IntfrBWARGN(x[0],pp,isw);
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          double Bg = Fpar[11]/(dU-dL);
       } else {
-         double asb = ( FunType == 1 ) ? Fpar[12] : Fpar[9];
-         Bg = Fpar[11] * RevArgusN( x[0],asb,sl12 );
+         double arsb12 = ( FunSB == 2 ) ? Fpar[12] : Fpar[9];
+         Bg = Fpar[11] * RevArgusN( x[0],arsb12,sl );
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -4668,7 +4643,7 @@ void combineSB_Intfr_scan( string fname09, string fname12,
       // calculate Nphi
       double Nfit09 = Fpar[7];
       double Nfit12 = Fpar[10];
-      vector<ValErr> Vinteg = CombIntErSB( res,sl09,sl12,1,true );
+      vector<ValErr> Vinteg = CombIntErSB( res,sl,sl,1,true );
       const auto& Int09 = Vinteg[0];
       double Nphi09 = Nfit09 * Int09.val;
       const auto& Int12 = Vinteg[1];
@@ -4733,7 +4708,9 @@ void combineSB_Intfr_scan( string fname09, string fname12,
               PE.Eform(1,".3f",1e3)) );
 //       pt -> AddText( Form("a = %s",PE.Eform(2,".2f")) );
       pt -> AddText( Form("F = %s",PE.Eform(3,".2f")) );
-      pt -> AddText( Form("a(sb)= %s", PE.Eform(9,".1f")) );
+      if ( FunSB == 1 ) {
+         pt -> AddText( Form("a(sb)= %s", PE.Eform(9,".1f")) );
+      }
       pt -> Draw();
       gPad -> RedrawAxis();
 
@@ -4772,12 +4749,18 @@ void combineSB_Intfr_scan( string fname09, string fname12,
                PE.Eform(5,".2f",1e3)) );
       pt2 -> AddText( Form("NKK09(fit)= %s", PE.Eform(7,".1f")) );
       pt2 -> AddText( Form("Nbg(2009)= %s", PE.Eform(8,".1f")) );
+      if ( FunSB == 2 ) {
+         pt2 -> AddText( Form("a(sb09)= %s", PE.Eform(9,".1f")) );
+      }
       pt2 -> AddText( Form("N_{#phi}(2009)= %.1f",Nphi09) );
 
       pt2 -> AddText( Form("#sigma(2012)= %s MeV",
                PE.Eform(6,".2f",1e3)) );
       pt2 -> AddText( Form("NKK12(fit)= %s", PE.Eform(10,".1f")) );
       pt2 -> AddText( Form("Nbg(2012)= %s", PE.Eform(11,".1f")) );
+      if ( FunSB == 2 ) {
+         pt2 -> AddText( Form("a(sb12)= %s", PE.Eform(12,".1f")) );
+      }
       pt2 -> AddText( Form("N_{#phi}(2012)= %.1f",Nphi12) );
       pt2 -> Draw();
 
@@ -4906,9 +4889,11 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 // combineSBBR_Intfr(): combined plus side-band + fitBR
 //--------------------------------------------------------------------
 struct myFCN_combsbbr {
-   const double Slope = -1.8;   // efficiency parameter: -1.8 +/- 0.2
-   double sl09 = Slope;
-   double sl12 = Slope;
+   // efficiency parameter: -1.8 +/- 0.2
+   const double sl = -1.8;
+   // Function for side-band:
+   const int funSB = 1; // 0 - constant, 1 - common Argus,
+                        // 2 - separate Argus
 
    vector<double> mkk09; // data central part
    vector<double> mkk12;
@@ -4917,7 +4902,7 @@ struct myFCN_combsbbr {
 
    const double mphi = 1.01953; // Mphi like in MC
    const double gphi = Gphi;
-   const double ar = 0.; // Argus parameter
+   const double ar = 0.; // Argus parameter in interference
 
    double Br2Nkk09 = 0.;   // conversion Br(J/Psi -> KK eta) -> Nkk
    double Br2Nkk12 = 0.;
@@ -4928,12 +4913,8 @@ struct myFCN_combsbbr {
    vector<double> IeBW, IeAr, IeIc, IeIs;
    vector<double> IBW, IAr, IIc, IIs;
 
-   // Side-band:
-   int funType = 1; // 0 - constant, 1 -Argus
-   // Argus for side-band (if funType = 1)
-   double slsb = Slope;       // efficiency slope for SB
-   const double arsb = 0.; // Argus parameter for SB
-   double normArsb = 1;    // normalization for Argus
+   // normalizations for Argus in side-band 0 -> 09, 1 -> 12
+   vector<double> normArsb;
 
    //-----------------------------------------------------------------
    myFCN_combsbbr() {
@@ -4998,17 +4979,45 @@ struct myFCN_combsbbr {
       IIc.resize(2,0.);
       IIs.resize(2,0.);
 
-      // normalization for Argus SB
-      if ( funType == 1 ) {
-         slsb = Slope;
-         double par[] = {arsb,slsb};
-         auto Lintar = [](double x, void* pp) -> double{
-            double* p = static_cast<double*>(pp);
-            return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
-         };
-         // desired errors:                abs    rel
-         ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
-         normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+      normArsb.resize(2,1.);
+   }
+
+   // normalization for Argus SB
+   //-----------------------------------------------------------------
+   void calcNormAr(const double arsb[]) { // 0 -> 09, 1 -> 12
+   //-----------------------------------------------------------------
+      // cache for calculated values
+      static double arsb_save[2] = {-1.,-1.};
+
+      if ( funSB == 0 ) {
+         return;
+      }
+
+      // integrand lambda function
+      double par[] { 0., sl };
+      auto Lintar = [](double x, void* pp) -> double{
+         double* p = static_cast<double*>(pp);
+         return RevArgus(x,p[0]) * (1+p[1]*(x-1.02));
+      };
+
+      // desired errors:                abs    rel
+      ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
+
+      // integrals 0 -> 09, 1 -> 12
+      for ( int i = 0; i < funSB; ++i ) { // funSB = 1 or 2 !
+         if ( arsb_save[i] == arsb[i] ) {
+            continue;
+         }
+         arsb_save[i] = arsb[i];
+         par[0] = arsb[i]; // set argus
+         normArsb[i] = gsl_int.Integral(Lintar,(void *)par,dL,dU);
+
+         // debug print
+//          printf(" %i: arsb= %.3f, normArsb= %.3g\n",
+//                i, arsb[i], normArsb[i]);
+      }
+      if ( funSB == 1 ) {
+         normArsb[1] = normArsb[0];
       }
    }
 
@@ -5018,8 +5027,10 @@ struct myFCN_combsbbr {
       // cache for calculated values
       static double sig_save[2] = {0.,0.};
 
-      // integrand lambda function
-      double pp[] { mphi,gphi,0.,ar,1.,0.,sl09, 1. };
+      // integrand lambda function: mphi,gphi,sig,ar,F,ang,sl,idx
+      const double F = 1.;
+      const double ang = 0.; //0(PI/2) for cos(sin) members of Infr.
+      double pp[] { mphi,gphi,0.,ar,F,ang,sl, 1. };
 
       auto Lint = [](double x, void* pp) -> double{
          const double* p = static_cast<const double*>(pp);
@@ -5041,14 +5052,15 @@ struct myFCN_combsbbr {
 
       // integrals 0 -> 09, 1 -> 12
       for ( int i = 0; i < 2; ++i ) {
-         if ( fabs(sig_save[i]-sig[i]) < 1e-6*fabs(sig_save[i]) ) {
+         if ( sig_save[i] == sig[i] ) {
             continue;
          }
          sig_save[i] = sig[i];
          pp[2] = sig[i]; // sigma
-         pp[6] = (i==0) ? sl09 : sl12; // slope
 
          // calculate integrals
+         pp[6] = sl; // for Ie..
+
          pp[7] = 1; // idx
          IeBW[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IeBW_")+to_string(i),IeBW[i],pp);
@@ -5063,7 +5075,8 @@ struct myFCN_combsbbr {
          IeIs[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IeIs_")+to_string(i),IeIs[i],pp);
 
-         pp[6] = 0; // sl = 0
+         pp[6] = 0; // for I..
+
          pp[7] = 1; // idx
          IBW[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IBW_")+to_string(i),IBW[i],pp);
@@ -5077,12 +5090,15 @@ struct myFCN_combsbbr {
          pp[5] = M_PI/2; // ang = pi/2 for sin
          IIs[i] = gsl_int.Integral(Lint,(void *)pp,dL,dU);
          checkInt(string("IIs_")+to_string(i),IIs[i],pp);
-
-//          printf(" %i: IeBW= %.3g IeAr= %.3g IeIc= %.3g IeIs= %.3g\n",
-//                i, IeBW[i], IeAr[i], IeIc[i], IeIs[i]);
-//          printf(" %i: IBW= %.3g IAr= %.3g IIc= %.3g IIs= %.3g\n",
-//                i, IBW[i], IAr[i], IIc[i], IIs[i]);
       }
+
+      // debug print
+//       for ( int i = 0; i < 2; ++i ) {
+//          printf(" %i: IeBW= %.6g IeAr= %.6g IeIc= %.6g IeIs= %.6g\n",
+//                i, IeBW[i], IeAr[i], IeIc[i], IeIs[i]);
+//          printf(" %i: IBW= %.6g IAr= %.6g IIc= %.6g IIs= %.6g\n",
+//                i, IBW[i], IAr[i], IIc[i], IIs[i]);
+//       }
    }
 
    // integrals MUST be calculated before calling this function
@@ -5115,14 +5131,15 @@ struct myFCN_combsbbr {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty = -10*Ff;
+         penalty = 1e5*fabs(Ff);
          Ff = 0.;
       }
 
       // debug print
-      if ( Dis < 0 || Ff < 0 ) {
-         printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
-               " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
+      if ( penalty > 0 ) {
+         printf(" calcF penalty= %g: Nkk=%.1f Nphi=%.1f"
+               " A=%.2g B=%.2g C=%.2g Dis=%.2g Ff=%g\n",
+               penalty,Nkk,Nphi,A,B,C,Dis,Ff);
       }
       return make_tuple(Ff,penalty);
    }
@@ -5136,9 +5153,9 @@ struct myFCN_combsbbr {
    //-----------------------------------------------------------------
       if ( !isfinite(p[0]) || !isfinite(p[1]) || !isfinite(p[2]) ||
            !isfinite(p[3]) || !isfinite(p[4]) || !isfinite(p[5]) ||
-           !isfinite(p[6]) ) {
-         printf("NAN: p[]= %g,%g,%g,%g,%g,%g,%g\n",
-               p[0],p[1],p[2],p[3],p[4],p[5],p[6]);
+           !isfinite(p[6]) || !isfinite(p[7]) || !isfinite(p[8]) ) {
+         printf("NAN: p[]= %g,%g,%g,%g,%g,%g,%g,%g,%g\n",
+               p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8]);
          return DBL_MAX;
       }
 
@@ -5149,16 +5166,21 @@ struct myFCN_combsbbr {
       double Nkk12  = Brkk  * Br2Nkk12;
       double Nphi12 = Brphi * Br2Nphi12;
 
-      double Nsb09 = p[5];
-      double Nsb12 = p[6];
-
       double ang = p[2];
       double sig09 = p[3];
       double sig12 = p[4];
-      calcIntegrals(&p[3]); // p[3],p[4]
+      this->calcIntegrals(&p[3]); // p[3],p[4]
 
       double Ff = 0., penalty = 0.;
       tie(Ff,penalty) = calcF12(p);
+
+      double Nsb09 = p[5];
+      double Nsb12 = p[6];
+      double arsb09 = p[7];
+      double arsb12 = (funSB == 2) ? p[8] : p[7];
+      calcNormAr(&p[7]); // p[7],p[8]
+      const double NsbNorm09 = Nsb09 / normArsb[0];
+      const double NsbNorm12 = Nsb12 / normArsb[1];
 
       // 2009
 //+ see myFCN_sbbr::calcF for explanation of short computation
@@ -5175,35 +5197,34 @@ struct myFCN_combsbbr {
 
       double res = 2*(NkkFit09+Nsb09) + penalty;
 
-      const double p09[] { mphi,gphi,sig09,ar,Ff,ang,sl09 };
-      const double NsbNorm09 = Nsb09 / normArsb;
+      const double p09[] { mphi,gphi,sig09,ar,Ff,ang,sl };
       int n_mkk09 = mkk09.size();
       for ( int i = 0; i < n_mkk09; ++i ) {
          double m = mkk09[i];
          double L = NFit09 * IntfrBWARG( m,p09,0 );
-         if ( funType == 0 ) {
+         if ( funSB == 0 ) {
             L += Nsb09/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += NsbNorm09 * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+         } else {
+            L += NsbNorm09 * RevArgus(m,arsb09)*(1+sl*(m-1.02));
          }
          if (L > 0.) {
             res -= 2*log(L);
          } else {
-            return DBL_MAX;
+            res += FLT_MAX; // ~3e38
          }
       }
 
       // fit SB
       int n_sb09 = sb09.size();
       res += 2*Nsb09;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb09 * 2*log(Nsb09/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb09; ++i ) {
             double m = sb09[i];
-            double L = NsbNorm09 * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+            double L = NsbNorm09 * RevArgus(m,arsb09)*(1+sl*(m-1.02));
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -5227,35 +5248,34 @@ struct myFCN_combsbbr {
 
       res += 2*(NkkFit12+Nsb12);
 
-      const double p12[] { mphi,gphi,sig12,ar,Ff,ang,sl12 };
-      const double NsbNorm12 = Nsb12 / normArsb;
+      const double p12[] { mphi,gphi,sig12,ar,Ff,ang,sl };
       int n_mkk12 = mkk12.size();
       for ( int i = 0; i < n_mkk12; ++i ) {
          double m = mkk12[i];
          double L = NFit12 * IntfrBWARG( m,p12,0 );
-         if ( funType == 0 ) {
+         if ( funSB == 0 ) {
             L += Nsb12/(dU-dL);
-         } else if ( funType == 1 ) {
-            L += NsbNorm12 * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+         } else {
+            L += NsbNorm12 * RevArgus(m,arsb12)*(1+sl*(m-1.02));
          }
          if (L > 0.) {
             res -= 2*log(L);
          } else {
-            return DBL_MAX;
+            res += FLT_MAX; // ~3e38
          }
       }
 
       // fit SB
       int n_sb12 = sb12.size();
       res += 2*Nsb12;
-      if ( funType == 0 ) {
+      if ( funSB == 0 ) {
          // by constant (mkk >= dL=2Mk)
          res += -n_sb12 * 2*log(Nsb12/(dU-dL));
-      } else if ( funType == 1 ) {
+      } else {
          // by Argus
          for ( int i = 0; i < n_sb12; ++i ) {
             double m = sb12[i];
-            double L = NsbNorm12 * RevArgus(m,arsb)*(1+slsb*(m-1.02));
+            double L = NsbNorm12 * RevArgus(m,arsb12)*(1+sl*(m-1.02));
             if (L > 0.) {
                res -= 2*log(L);
             } else {
@@ -5263,6 +5283,10 @@ struct myFCN_combsbbr {
             }
          }
       }
+
+      // debug print
+//       printf("RES: p[]= %g,%g,%g,%g,%g,%g,%g,%g,%g -> %.3f\n\n",
+//               p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],res);
 
       return res;
    }
@@ -5272,10 +5296,8 @@ struct myFCN_combsbbr {
 void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 //--------------------------------------------------------------------
    myFCN_combsbbr my_fcn;  // class for 'FitFCN'
-   const int FunType = 0;  // 0 - constant, 1 -Argus
-   my_fcn.funType = FunType;
-   const double sl09 = my_fcn.sl09;
-   const double sl12 = my_fcn.sl12;
+   const int FunSB = my_fcn.funSB;
+   const double sl = my_fcn.sl;
 
    // Get un-binned data
    TH1D* hist[4];
@@ -5305,10 +5327,13 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Brkk", "Brphi", "angle",
-      "sig09", "sig12", "Nbg09", "Nbg12" };
+      "sig09", "sig12", "Nbg09", "Nbg12", "Arsb09", "Arsb12" };
 
-   vector<double> par_ini { 4.5e-4, 8.5e-4, 0.25,
-      1.4e-3, 1.1e-3, double(nsb09), double(nsb12)};
+   vector<double> par_ini { 4.5e-4, 8.6e-4, 0.3,
+      1.4e-3, 1.1e-3, double(nsb09), double(nsb12), 8., 5. };
+   if ( FunSB == 1 ) {
+      par_ini[7] = 6.; // common for 2009 & 2012
+   }
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -5321,13 +5346,20 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    fitter.Config().ParSettings(0).SetLimits(3e-4, 6e-4);   // Brkk
    fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4);  // Brphi
    fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI);  // angle
-//    fitter.Config().ParSettings(2).Fix();
    fitter.Config().ParSettings(3).SetLimits(0.5e-3,2.e-3); // sig09
-//    fitter.Config().ParSettings(3).Fix();
    fitter.Config().ParSettings(4).SetLimits(0.5e-3,2.e-3); // sig12
-//    fitter.Config().ParSettings(4).Fix();
    fitter.Config().ParSettings(5).SetLimits(0.,2.*nsb09);  // Nbg09
    fitter.Config().ParSettings(6).SetLimits(0.,2.*nsb12);  // Nbg12
+   if ( FunSB == 0 ) {                                     // Arsb09
+      fitter.Config().ParSettings(7).Fix();
+   } else {
+      fitter.Config().ParSettings(7).SetLimits(0.,15.);
+   }
+   if ( FunSB == 2 ) {                                     // Arsb12
+      fitter.Config().ParSettings(8).SetLimits(0.,15.);
+   } else {
+      fitter.Config().ParSettings(8).Fix();
+   }
 
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
@@ -5339,6 +5371,9 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    vector<double> Fpar = res.Parameters();
    double Ff,penalty;
    tie(Ff,penalty) = my_fcn.calcF12(Fpar.data());
+   double arsb09 = Fpar[7];
+   double arsb12 = (FunSB == 2) ? Fpar[8] : Fpar[7];
+   my_fcn.calcNormAr(&Fpar[7]);
    if ( !isfinite(penalty) || penalty > 0. ) {
       printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
    } else {
@@ -5375,10 +5410,10 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 
       // {mphi,gphi,sigma,A,F,Ang,sl}
       const double pp09[] {
-         my_fcn.mphi,my_fcn.gphi,sig09,my_fcn.ar,Ff,ang,my_fcn.sl09
+         my_fcn.mphi,my_fcn.gphi,sig09,my_fcn.ar,Ff,ang,sl
       };
       const double pp12[] {
-         my_fcn.mphi,my_fcn.gphi,sig12,my_fcn.ar,Ff,ang,my_fcn.sl12
+         my_fcn.mphi,my_fcn.gphi,sig12,my_fcn.ar,Ff,ang,sl
       };
 
       double Nsb09 = Fpar[5];
@@ -5390,32 +5425,30 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
       double Ntot12 = Nkk12 + Nsb12;
       NFit12 /= Ntot12;
 
-      double arsb = my_fcn.arsb;
-      double slsb = my_fcn.slsb;
       double NsbNorm09 = Nsb09 / Ntot09;
       double NsbNorm12 = Nsb12 / Ntot12;
-      if ( FunType == 1 ) {
-         NsbNorm09 /= my_fcn.normArsb;
-         NsbNorm12 /= my_fcn.normArsb;
+      if ( FunSB != 0 ) {
+         NsbNorm09 /= my_fcn.normArsb[0];
+         NsbNorm12 /= my_fcn.normArsb[1];
       }
 
-      auto Lcr09 = [NFit09,pp09,FunType,NsbNorm09,arsb,slsb]
-         (double x) -> double {
+      auto Lcr09 =
+         [NFit09,pp09,FunSB,NsbNorm09,arsb09,sl](double x) -> double {
          double ret = NFit09 * IntfrBWARG( x,pp09,0 );
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret += NsbNorm09/(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret += NsbNorm09 * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         } else {
+            ret += NsbNorm09 * RevArgus(x,arsb09)*(1+sl*(x-1.02));
          }
          return ret;
       };
-      auto Lcr12 = [NFit12,pp12,FunType,NsbNorm12,arsb,slsb]
-         (double x) -> double {
+      auto Lcr12 =
+         [NFit12,pp12,FunSB,NsbNorm12,arsb12,sl](double x) -> double {
          double ret = NFit12 * IntfrBWARG( x,pp12,0 );
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret += NsbNorm12/(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret += NsbNorm12 * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         } else {
+            ret += NsbNorm12 * RevArgus(x,arsb12)*(1+sl*(x-1.02));
          }
          return ret;
       };
@@ -5457,13 +5490,14 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
       cout << " pvalueKS12(cr)= " << pvalueKS12 << endl;
 
       // side-band
-      double NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
-      auto Lsb = [FunType,NsbNorm,arsb,slsb](double x) -> double {
+      double NsbNorm = 1. / my_fcn.normArsb[0]; // norm to 1 for Lsb
+      double arsb = arsb09;
+      auto Lsb = [FunSB,&NsbNorm,&arsb,sl](double x) -> double {
          double ret = 0;
-         if ( FunType == 0 ) {
+         if ( FunSB == 0 ) {
             ret = 1./(dU-dL);
-         } else if ( FunType == 1 ) {
-            ret = NsbNorm * RevArgus(x,arsb)*(1+slsb*(x-1.02));
+         } else {
+            ret = NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
          }
          return ret;
       };
@@ -5475,6 +5509,8 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
       pvalueKS09sb = gofsb09 -> KolmogorovSmirnovTest();
       cout << " pvalueKS09(sb)= " << pvalueKS09sb << endl;
 
+      NsbNorm = 1. / my_fcn.normArsb[1];
+      arsb = arsb12;
       ROOT::Math::GoFTest* gofsb12 =
          new ROOT::Math::GoFTest( sb12.size(),sb12.data(),fsb,
             ROOT::Math::GoFTest::kPDF, dL,dU );
@@ -5484,7 +5520,8 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr09 = [Fpar,my_fcn,Ff,FunType](double* x,double* p)->double{
+   auto Ldr09 =
+      [Fpar,my_fcn,Ff,arsb09,FunSB] (double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double Nphi09 = Fpar[1] * my_fcn.Br2Nphi09;
@@ -5492,19 +5529,19 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
       double ang = Fpar[2];
       double sig09 = Fpar[3];
       const double pp[] {
-         my_fcn.mphi,my_fcn.gphi,sig09,my_fcn.ar,Ff,ang,my_fcn.sl09
+         my_fcn.mphi,my_fcn.gphi,sig09,my_fcn.ar,Ff,ang,my_fcn.sl
       };
 
       double BWARG = NFit09 * IntfrBWARG( x[0],pp,isw );
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          Bg = Fpar[5]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         double NsbNorm09 = Fpar[5] / my_fcn.normArsb;
-         Bg = NsbNorm09 * RevArgus(x[0],my_fcn.arsb) *
-            (1+my_fcn.slsb*(x[0]-1.02));
+      } else {
+         double NsbNorm09 = Fpar[5] / my_fcn.normArsb[0];
+         Bg = NsbNorm09 *
+            RevArgus(x[0],arsb09)*(1+my_fcn.sl*(x[0]-1.02));
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -5513,7 +5550,8 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    TF1* f09 = new TF1("f09", Ldr09, bL, dU, 1);
    f09 -> SetNpx(500);
 
-   auto Ldr12 = [Fpar,my_fcn,Ff,FunType](double* x,double* p)->double{
+   auto Ldr12 =
+      [Fpar,my_fcn,Ff,arsb12,FunSB] (double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double Nphi12 = Fpar[1] * my_fcn.Br2Nphi12;
@@ -5521,19 +5559,19 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
       double ang = Fpar[2];
       double sig12 = Fpar[4];
       const double pp[] {
-         my_fcn.mphi,my_fcn.gphi,sig12,my_fcn.ar,Ff,ang,my_fcn.sl12
+         my_fcn.mphi,my_fcn.gphi,sig12,my_fcn.ar,Ff,ang,my_fcn.sl
       };
 
       double BWARG = NFit12 * IntfrBWARG( x[0],pp,isw );
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double Bg = 0;
-      if ( FunType == 0 ) {
+      if ( FunSB == 0 ) {
          Bg = Fpar[6]/(dU-dL);
-      } else if ( FunType == 1 ) {
-         double NsbNorm12 = Fpar[6] / my_fcn.normArsb;
-         Bg = NsbNorm12 * RevArgus(x[0],my_fcn.arsb) *
-            (1+my_fcn.slsb*(x[0]-1.02));
+      } else {
+         double NsbNorm12 = Fpar[6] / my_fcn.normArsb[1];
+         Bg = NsbNorm12 *
+            RevArgus(x[0],arsb12)*(1+my_fcn.sl*(x[0]-1.02));
       }
       if ( isw == 4 ) { return bW * Bg; }
 
@@ -5594,7 +5632,7 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
 
    h09 -> Draw("EP");
 
-   TLegend* leg = new TLegend(0.55,0.53,0.89,0.89);
+   TLegend* leg = new TLegend(0.65,0.53,0.99,0.89);
    leg -> SetTextSize(0.045);
    leg -> SetHeader("2009(top)   2012(bottom)","C");
    leg -> AddEntry( h09,"Data","LEP" );
@@ -5628,7 +5666,12 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    leg -> AddEntry( f09 -> Clone(), "Interference", "L");
    leg -> Draw();
 
-   TPaveText* pt = new TPaveText(0.55,0.34,0.89,0.52,"NDC");
+   TPaveText* pt = nullptr;
+   if ( FunSB == 1 ) { // common a(sb)
+      pt = new TPaveText(0.65,0.26,0.99,0.52,"NDC");
+   } else {
+      pt = new TPaveText(0.65,0.32,0.99,0.52,"NDC");
+   }
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("Br(KK#eta)= %s #times10^{-4} ",
@@ -5636,6 +5679,9 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    pt -> AddText( Form("Br(#phi#eta)= %s #times10^{-4}",
             PE.Eform(1,".2f",1e4)) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(2,".2f")) );
+   if ( FunSB == 1 ) {
+      pt -> AddText( Form("a(sb)= %s", PE.Eform(7,".1f")) );
+   }
    pt -> Draw();
    gPad -> RedrawAxis();
 
@@ -5674,30 +5720,42 @@ void combineSBBR_Intfr(string fname09,string fname12,string pdf="") {
    f12 -> SetLineColor(kMagenta+1);
    f12 -> DrawCopy("SAME");
 
-   TPaveText* pt09 = new TPaveText(0.55,0.75,0.89,0.99,"NDC");
+   TPaveText* pt09 = new TPaveText(0.65,0.69,0.99,0.99,"NDC");
    pt09 -> SetTextAlign(12);
    pt09 -> SetTextFont(42);
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}",pvalueKS09) );
    pt09 -> AddText( Form("#sigma(2009) = %s MeV",
             PE.Eform(3,".2f",1e3)) );
+   pt09 -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKS09sb) );
    pt09 -> AddText( Form("#lower[-0.1]{Nbg(2009) = %s}",
             PE.Eform(5,".1f")) );
+   if ( FunSB == 2 ) {
+      pt09 -> AddText( Form("a(sb09)= %s", PE.Eform(7,".1f")) );
+   }
    pt09 -> Draw();
 
-   TPaveText* pt12 = new TPaveText(0.55,0.51,0.89,0.75,"NDC");
+   TPaveText* pt12 = new TPaveText(0.65,0.39,0.99,0.69,"NDC");
    pt12 -> SetTextAlign(12);
    pt12 -> SetTextFont(42);
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
    pt12 -> AddText( Form("#sigma(2009) = %s MeV",
             PE.Eform(4,".2f",1e3)) );
+   pt12 -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKS12sb) );
    pt12 -> AddText( Form("#lower[-0.1]{Nbg(2009) = %s}",
             PE.Eform(6,".1f")) );
+   if ( FunSB == 2 ) {
+      pt12 -> AddText( Form("a(sb12)= %s", PE.Eform(8,".1f")) );
+   }
    pt12 -> Draw();
 
    gPad -> RedrawAxis();
 
    c1 -> Update();
    if ( !pdf.empty() ) {
+      pdf += (FunSB == 0 ) ? "_l" : "_ar" + to_string(FunSB);
+      pdf += ".pdf";
       c1 -> Print(pdf.c_str());
    }
 }
@@ -5787,7 +5845,7 @@ void mass_kk_fit() {
 //    bkg_fit(fnames.at(id),tit,pdf,1); // type=1 for sideband
 
 // ------------- data: no interference sec.6.3.1 ---------------------
-//    int Mphix = 0; // 1 - mphi is fixed at the PDG
+//    int Mphix = 1; // 1 - mphi is fixed at the PDG
 //    string pdf = string("mkk") + ((id==0) ? "09" : "12") + "_fit"
 //       + to_string(Mphix) + ".pdf";
 //    data_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
@@ -5804,11 +5862,11 @@ void mass_kk_fit() {
 //    data_Intfr_fit(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB";
+//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBX";
 //    dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
 
    // combined with Side-Band + fitBR
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR_l";
+//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR";
 //    dataSBBR_Intfr(fnames.at(id),titles.at(id),pdf);
 
 // ------------- data: common fit ------------------------------------
@@ -5816,12 +5874,12 @@ void mass_kk_fit() {
 //    combine_Intfr_bg(fnames[0],fnames[1],"mkk_cf_bkg");
 
    // combined with Side-Band
-//    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB_n2.pdf");
+//    combineSB_Intfr(fnames[0],fnames[1],"mkk_cfSB");
 
-//    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan.pdf");
+//    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan2.pdf");
 
    // combined with Side-Band + fitBR
-//    combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR_ln.pdf");
+   combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR");
 
 //--------------------------------------------------------------------
 }
