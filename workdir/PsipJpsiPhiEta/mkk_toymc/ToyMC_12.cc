@@ -760,7 +760,8 @@ void test_Intfr() {
 // {{{1 Monte Carlo
 //-------------------------------------------------------------------------
 struct Gpar {
-   Gpar(double brKKeta, double brphieta, double nj, double nbg); // ctor
+   Gpar(double brKKeta, double brphieta, double sigma,
+         double nj, double nbg, double arsb); // ctor
 
    void Print(string info);
    vector<double> signal_ToyMC() const;
@@ -779,7 +780,7 @@ struct Gpar {
    int NetaKK;
 
    // background
-   double ar_bg;
+   double Arsb;
    int Nbg;
 
    // boundaries
@@ -793,7 +794,8 @@ struct Gpar {
 
 // nj = N(Jpsi)*eff*Breta
 //-------------------------------------------------------------------------
-Gpar::Gpar(double brKKeta, double brphieta, double nj, double nbg) {
+Gpar::Gpar(double brKKeta, double brphieta, double sigma,
+      double nj, double nbg, double arsb) {
 //-------------------------------------------------------------------------
    constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
    constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
@@ -813,7 +815,7 @@ Gpar::Gpar(double brKKeta, double brphieta, double nj, double nbg) {
    // signal
    mphi = Mphi;
    gphi = Gphi;
-   sig = 1.2e-3;
+   sig = sigma;
    ar = 0.;
    F = 0.;
    ang = 0;
@@ -822,8 +824,8 @@ Gpar::Gpar(double brKKeta, double brphieta, double nj, double nbg) {
    F = this->CalcF();
 
    // background
-   ar_bg = 0;
    Nbg = nbg;
+   Arsb = arsb;
 };
 
 //-------------------------------------------------------------------------
@@ -838,9 +840,9 @@ void Gpar::Print(string info) {
    cout << " a (Argus) = " << ar << endl;
    cout << " F = " << F << endl;
    cout << " ang = " << ang << endl;
-   cout << " NetaKK  = " << NetaKK << endl;
-   cout << " Nbg     = " << Nbg << endl;
-   cout << " a (Bgr Argus) = " << ar_bg << endl;
+   cout << " NetaKK = " << NetaKK << endl;
+   cout << " Nbg = " << Nbg << endl;
+   cout << " a (Argus side-band) = " << Arsb << endl;
    cout << " ---- End of Toy MC parameters ------ " << endl << endl;
 };
 
@@ -891,7 +893,7 @@ double Gpar::CalcF() {
    if ( Dis >= 0 ) {
       Ff = (-B + sqrt(Dis))/(2*A); // only positive root
    }
-   if ( Dis < 0 || Ff < 0 ) {
+   if ( Dis < 0 || Ff <= 0 ) {
       printf(" FATAL ERROR in Gpar::CalcF:\n BrKKeta= %e Brphieta=%e"
             " A=%.2g B=%.2g C=%.2g Dis=%.2g Ff=%g\n",
             BrKKeta,Brphieta,A,B,C,Dis,Ff);
@@ -968,7 +970,7 @@ vector<double> Gpar::bg_ToyMC() const {
          return RevArgus( x[0], p[0] );
       };
       TF1* fgenA = new TF1("fgenA", LgenA, Lphi, Uphi, 1);
-      fgenA -> SetParameter( 0, ar_bg );
+      fgenA -> SetParameter( 0, Arsb );
 
       TUnuranContDist distA(fgenA);
       distA.SetDomain( Lphi, Uphi );
@@ -1015,13 +1017,11 @@ struct myFCN_toy {
    // integrals
    double IBW = 0, IAr = 0, IIc = 0, IIs = 0;
 
-   // Argus for side-band:
-   const double arsb = 0.; // Argus parameter for SB
-   double normArsb = 0;    // normalization for Argus
-   double nbg_max = 0;
+   // normalizations for Argus in side-band
+   double normArsb = 1;
 
    //-----------------------------------------------------------------
-   myFCN_toy(double Nj, double max_nbg) { // set parameters
+   myFCN_toy(double Nj) { // set parameters
    //-----------------------------------------------------------------
       // Br(eta->2gamma) = 39.41%
 //       const double breta = 0.3941;
@@ -1030,10 +1030,22 @@ struct myFCN_toy {
 
       Br2Nkk = Nj;
       Br2Nphi = Br2Nkk * brphi;
+   }
 
-      // normalization for Argus SB
+   // normalization for Argus SB
+   //-----------------------------------------------------------------
+   void calcNormAr(const double arsb) {
+   //-----------------------------------------------------------------
+      // cache for calculated values
+      static double arsb_save = -1.;
+
+      if ( arsb_save == arsb ) {
+         return;
+      }
+      arsb_save = arsb;
+
       double par[] = {arsb};
-      auto Lintar = [](double x, void* pp) -> double{
+      auto Lintar = [](double x, void* pp) -> double {
          double* p = static_cast<double*>(pp);
          return RevArgus(x,p[0]);
       };
@@ -1041,7 +1053,8 @@ struct myFCN_toy {
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
       normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
 
-      nbg_max = max_nbg;
+      // debug print
+//       printf(" arsb= %.3f, normArsb= %.3g\n", arsb, normArsb);
    }
 
    //-----------------------------------------------------------------
@@ -1049,14 +1062,15 @@ struct myFCN_toy {
    //-----------------------------------------------------------------
       // cach old values
       static double sig_save = 0.;
-      if ( fabs(sig_save-sig) < 1e-6*fabs(sig_save) ) {
+      if ( sig_save == sig ) {
          return;
       }
       sig_save = sig;
 
       // integrand lambda function
       const double F = 1.;
-      double pp[] { mphi,gphi,sig,ar,F,0., 1. };
+      const double ang = 0.; //0(PI/2) for cos(sin) members of Infr.
+      double pp[] { mphi,gphi,sig,ar,F,ang, 1. };
 
       auto Lint = [](double x, void* pp) -> double{
          const double* p = static_cast<const double*>(pp);
@@ -1125,7 +1139,7 @@ struct myFCN_toy {
       double Ff = 0., penalty = 0.;
       if ( Dis < 0 ) { // return "minimum"
          Ff = max(0.,-B/(2*A));
-         penalty += 1e10*fabs(Dis);
+         penalty += 1e5*fabs(Dis);
       } else {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
@@ -1135,9 +1149,10 @@ struct myFCN_toy {
       }
 
       // debug print
-      if ( Dis < 0 || Ff < 0 ) {
-         printf(" calcF: Nkk=%.1f Nphi=%.1f A=%.2g B=%.2g C=%.2g"
-               " Dis=%.2g Ff=%g %g\n",Nkk,Nphi,A,B,C,Dis,Ff,penalty);
+      if ( penalty > 0 ) {
+         printf(" calcF penalty= %g: Nkk=%.1f Nphi=%.1f"
+               " A=%.2g B=%.2g C=%.2g Dis=%.2g Ff=%g\n",
+               penalty,Nkk,Nphi,A,B,C,Dis,Ff);
       }
       return make_tuple(Ff,penalty);
    }
@@ -1150,9 +1165,9 @@ struct myFCN_toy {
    double operator() (const double* p) {
    //-----------------------------------------------------------------
       if ( !isfinite(p[0]) || !isfinite(p[1]) ||
-           !isfinite(p[2]) || !isfinite(p[3]) || !isfinite(p[4]) ) {
-         printf("NAN: p[]= %g,%g,%g,%g,%g\n",
-               p[0],p[1],p[2],p[3],p[4]);
+           !isfinite(p[3]) || !isfinite(p[4]) || !isfinite(p[5]) ) {
+         printf("NAN: p[]= %g,%g,%g,%g,%g,%g\n",
+               p[0],p[1],p[2],p[3],p[4],p[5]);
          return DBL_MAX;
       }
 
@@ -1162,14 +1177,17 @@ struct myFCN_toy {
       double Nkk = Brkk * Br2Nkk;
       double Nphi = Brphi * Br2Nphi;
 
-      double Nsb = p[4];
-
       double ang = p[2];
       double sigma = p[3];
       calcIntegrals(sigma);
 
       double Ff = 0., penalty = 0.;
       tie(Ff,penalty) = calcF(p);
+
+      double Nsb = p[4];
+      double arsb = p[5];
+      calcNormAr(arsb);
+      const double NsbNorm = Nsb / normArsb;
 
 //+ this long calculation depends only on Br(eta->2gamma)...
 //+       double normI = IBW+Ff*((IIc*cos(ang)+IIs*sin(ang))+Ff*IAr);
@@ -1185,7 +1203,6 @@ struct myFCN_toy {
       double res = 2*(NkkFit+Nsb) + penalty;
 
       const double pp[] { mphi,gphi,sigma,ar,Ff,ang };
-      const double NsbNorm = Nsb / normArsb;
       int n_mkk = mkk.size();
       for ( int i = 0; i < n_mkk; ++i ) {
          double m = mkk[i];
@@ -1238,9 +1255,10 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    ROOT::Fit::Fitter fitter;
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
-   vector<string> par_name { "Brkk", "Brphi", "angle", "sig", "Nbg" };
+   vector<string> par_name { "Brkk", "Brphi", "angle", "sig",
+      "Nbg", "Arsb" };
 
-   vector<double> par_ini {4.5e-4, 8.5e-4, 0., 1.2e-3, double(nsb)};
+   vector<double> par_ini {4.5e-4, 8.5e-4, 0., 1.2e-3, 1.*nsb, 5.};
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -1254,27 +1272,29 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4);  // Brphi
    fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI);  // angle
    fitter.Config().ParSettings(3).SetLimits(0.3e-3,3.e-3); // sig
-   double max_nbg = max(2.*nsb,my_fcn.nbg_max);
-   fitter.Config().ParSettings(4).SetLimits(0.,max_nbg);   // Nbg
+   fitter.Config().ParSettings(4).SetLimits(0.,2.*nsb);    // Nbg
+   fitter.Config().ParSettings(5).SetLimits(0., 15.);      // Arsb
 
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
    fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
+
    ROOT::Fit::FitResult res = fitter.Result();
+   vector<double> Fpar = res.Parameters();
 
    bool do_refit = false;
-#ifdef BATCH
    double Ff,penalty;
-   {
-      const vector<double>& Fpar = res.Parameters();
-      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
-   }
+   tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
    if ( !isfinite(penalty) || penalty > 0. ) {
       do_refit = true;
       printf("\n=> INVALID RESULT: penalty= %f <=\n",penalty);
+   } else {
+      printf("\n=> FINAL RESULT <=\n");
    }
+
+#ifdef BATCH
    if ( !do_refit ) {
       // additional check upper and lower bounds after MINOS
       for ( unsigned int ip = 0; ip < Npar; ++ip ) {
@@ -1298,19 +1318,24 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
       fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false);
       fitter.CalculateHessErrors();
       fitter.CalculateMinosErrors();
+
       res = fitter.Result();
+      Fpar = res.Parameters();
+      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
    }
+   printf("\n=> FINAL RESULT AFTER REFIT <=\n");
 #endif
 
-   printf("\n=> FINAL RESULT <=\n");
    res.Print(cout);
+
+   double arsb = Fpar[5];
+   my_fcn.calcNormAr(arsb);
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.03); // ignore 3% upper/lower errors
-   vector<double>& Fpar = PE.Fpar;
 
    vector<double> F_ret;  // vector to return
-   F_ret.reserve(3*PE.Fpar.size()+20);
+   F_ret.reserve(4*PE.Fpar.size()+20);
    F_ret.insert(F_ret.end(),PE.Fpar.begin(),PE.Fpar.end()); // values
    F_ret.insert(F_ret.end(),PE.Uerr.begin(),PE.Uerr.end()); // upper err
    F_ret.insert(F_ret.end(),PE.Lerr.begin(),PE.Lerr.end()); // lower err
@@ -1323,13 +1348,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    if ( st == 1 && do_refit ) {
       st = 0.5;
    }
-   {  // something wrong with that solution
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
-      if ( !isfinite(penalty) || penalty > 0. ) {
-         st = -2.;
-         printf("\n=> INVALID FINAL RESULT: penalty= %f <=\n",penalty);
-      }
+   // something wrong with that solution
+   if ( !isfinite(penalty) || penalty > 0. ) {
+      st = -2.;
    }
    F_ret.push_back(st);
 
@@ -1338,22 +1359,25 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    bool calc_pval = true;
    double pvalueKS = 0, pvalueKSsb = 0;
    if ( calc_pval ) {
+      // central part
+      double Nkk = Fpar[0] * my_fcn.Br2Nkk;
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
       double NFit = Nphi/my_fcn.IBW;
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
+
       double ang = Fpar[2];
       double sig = Fpar[3];
+
+      // {mphi,gphi,sigma,A,F,Ang,sl}
       const double pp[] {
          my_fcn.mphi, my_fcn.gphi, sig, my_fcn.ar, Ff, ang
       };
-      double Nsb = Fpar[4];
-      double NsbNorm = Nsb / my_fcn.normArsb;
-      double arsb = my_fcn.arsb;
+
       // normalization on 1
-      double Nkk = Fpar[0] * my_fcn.Br2Nkk;
+      double Nsb = Fpar[4];
       double Ntot = Nkk + Nsb;
       NFit /= Ntot;
+
+      double NsbNorm = Nsb / my_fcn.normArsb;
       NsbNorm /= Ntot;
       auto Lcr = [NFit,pp,NsbNorm,arsb](double x) -> double {
          return NFit*IntfrBWARG( x,pp,0 ) + NsbNorm*RevArgus(x,arsb);
@@ -1393,6 +1417,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
          cout << " pvalueKS(cr)= " << pvalueKS << endl;
       }
 
+      // side-band
       NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
       auto Lsb = [NsbNorm,arsb](double x) -> double {
          return NsbNorm*RevArgus(x,arsb);
@@ -1418,13 +1443,11 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    double bW = hst -> GetBinWidth(1); // bin width
    double bL = hst -> GetBinLowEdge(1); // left boundary of hst
 
-   auto Ldr = [Fpar,my_fcn,bW](double* x,double* p) -> double {
+   auto Ldr = [Fpar,my_fcn,Ff,arsb,bW](double* x,double* p) -> double {
       int isw = int(p[0]+0.5);
 
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
       double NFit = Nphi/my_fcn.IBW;
-      double Ff,penalty;
-      tie(Ff,penalty) = my_fcn.calcF(Fpar.data());
       double ang = Fpar[2];
       double sig = Fpar[3];
       const double pp[] {
@@ -1435,7 +1458,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
       if ( isw > 0 && isw < 4 ) { return bW * BWARG; }
 
       double NsbNorm = Fpar[4] / my_fcn.normArsb;
-      double Bg = NsbNorm * RevArgus(x[0],my_fcn.arsb);
+      double Bg = NsbNorm * RevArgus(x[0],arsb);
       if ( isw == 4 ) { return bW * Bg; }
 
       return bW * (BWARG + Bg);
@@ -1463,8 +1486,6 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
 
    //-----------------------------------------------------------------
    // Draw results
-   TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
-   TPaveText* pt = new TPaveText(0.58,0.41,0.89,0.69,"NDC");
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
 
@@ -1478,6 +1499,8 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    hst -> SetMarkerStyle(20);
 
    hst -> Draw("EP");
+
+   TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
    leg -> AddEntry(hst,"Toy MC","LEP");
 
    fdr -> SetParameter(0, 0); // SUM
@@ -1506,7 +1529,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    fdr -> SetLineColor(kMagenta+1);
    fdr -> DrawCopy("SAME");
    leg -> AddEntry( fdr -> Clone(), "Interference", "L");
+   leg -> Draw();
 
+   TPaveText* pt = new TPaveText(0.58,0.47,0.89,0.69,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("#it{p-value = %.3f}",pvalueKS) );
@@ -1516,10 +1541,19 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
             PE.Eform(1,".2f",1e4)) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(2,".2f")) );
    pt -> AddText( Form("#sigma = %s MeV", PE.Eform(3,".2f",1e3)) );
-//    pt -> AddText( Form("NKK(fit)= %s", PE.Eform(3,".1f")) );
-   pt -> AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(4,".1f")) );
    pt -> Draw();
-   leg -> Draw();
+
+   TPaveText* ptsb = new TPaveText(0.58,0.35,0.89,0.47,"NDC");
+   ptsb -> SetTextAlign(12);
+   ptsb -> SetTextFont(42);
+   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKSsb) );
+   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
+            PE.Eform(4,".1f")) );
+   ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+            PE.Eform(5,".1f")) );
+   ptsb -> Draw();
+
    gPad -> RedrawAxis();
 
    c1 -> Update();
@@ -1593,32 +1627,27 @@ void ToyMC_fit(int Ntoys, string file_name) {
       }
       c_out -> cd();
       tuple = new TNtupleD("tmc","Toy MC",
-            "bkk:bphi:ang:sig:nbg:"
-            "ubkk:ubphi:uang:usig:unbg:"
-            "lbkk:lbphi:lang:lsig:lnbg:"
-            "pbkk:pbphi:pang:psig:pnbg:"
+            "bkk:bphi:ang:sig:nbg:arsb:"
+            "ubkk:ubphi:uang:usig:unbg:uarsb:"
+            "lbkk:lbphi:lang:lsig:lnbg:larsb:"
+            "pbkk:pbphi:pang:psig:pnbg:parsb:"
             "Lmin:st:pv:pvsb:"
             "nkkg:nbgg:ncbg"                   // generated
             );
    }
 
+   // Set parameters
    double BrKKeta  = 4.5e-4;
    double Brphieta = 8.5e-4;
 
    // Nj = N(Jpsi)*eff*Breta:
    // 2012 with bg: fig.23-24
-//    double Nj = 6.04e6; // NetaKK = 2718
-//    double Nbg = 35;
+   double Nj = 6.1e6; // NetaKK = 6.1e6*4,5e-4 = 2745
+   double Nbg = 53;
+   double Arsb = 5.;
+   double sigma = 1.2e-3;
 
-   // TEST (D) statistic ~ 2.5 times 2012 with bg level 1.3%
-//    double Nj = 15.e6; // NetaKK = 6750
-//    double Nbg = 88;
-
-   // TEST (C,Q) stat = 2012 with bg  level 0.7% & 0.33%
-   double Nj = 6.04e6; // NetaKK = 2718
-   double Nbg = 9;
-
-   Gpar* gp = new Gpar( BrKKeta, Brphieta, Nj, Nbg );
+   Gpar* gp = new Gpar( BrKKeta, Brphieta, sigma, Nj, Nbg, Arsb );
    gp -> Print("ToyMC_12");
 
    TStopwatch t;
@@ -1626,7 +1655,7 @@ void ToyMC_fit(int Ntoys, string file_name) {
    for ( int itoy = 0; itoy < Ntoys; ++itoy ) {
       t.Start();
 
-      myFCN_toy my_fcn(Nj, 1.5*Nbg);  // class for 'FitFCN'
+      myFCN_toy my_fcn(Nj);  // class for 'FitFCN'
 
       my_fcn.mkk = gp -> signal_ToyMC();
       vector<double> mkk_bg = gp -> bg_ToyMC();
@@ -1647,8 +1676,7 @@ void ToyMC_fit(int Ntoys, string file_name) {
       vector<double> ret;
       ret = do_fit_toy(my_fcn,hst,pdf);
 
-      if ( isBatch ) {
-         // add generated numbers
+      if ( isBatch ) { // add generated numbers and fill tuple
          ret.push_back( double(my_fcn.mkk.size()) );
          ret.push_back( double(mkk_bg.size()) );
          ret.push_back( double(my_fcn.sb.size()) );
@@ -1681,15 +1709,7 @@ void ToyMC_12() {
    // set integrator: ROOT::Math::GSLIntegrator adaptive method (QAG)
    ROOT::Math::IntegratorOneDimOptions::SetDefaultIntegrator("Adaptive");
 
-   // set random number generator: TRandom3 by default?
-//    gRandom -> SetSeed(0); // seed is set to a random value
-
-   // check old version (see out_12)
-//    ULong_t Iseed= 1638656110L; // out_12/ToyMC_1
-//    ULong_t Iseed= 1638824469L; // out_12/ToyMC_2
-
-//    ULong_t Iseed= 1639607937L; // DT1
-
+   // set random number generator:
    ULong_t Iseed = (ULong_t)time(NULL);
    printf("   ULong_t Iseed= %luL;\n",Iseed);
    gRandom -> SetSeed(Iseed);
@@ -1700,7 +1720,7 @@ void ToyMC_12() {
 //    test_Intfr();
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_12_QT1.pdf" ); // must be 1
+   ToyMC_fit(1, "ToyMC_12_1.pdf" ); // must be 1
 }
 #endif
 
