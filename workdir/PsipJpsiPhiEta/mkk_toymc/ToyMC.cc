@@ -789,6 +789,8 @@ struct Gpar {
    double TwoMk;
 
    private:
+   mutable TUnuran* unr = nullptr;
+   mutable TUnuran* unrA = nullptr;
    double CalcF();
 };
 
@@ -914,7 +916,6 @@ vector<double> Gpar::signal_ToyMC() const {
    // ---------------------------------------------------------------------
    // set UNU.RAN ( http://statistik.wu-wien.ac.at/unuran/ )
    // ---------------------------------------------------------------------
-   static TUnuran* unr = nullptr;
    if ( !unr ) {
       int logLevel = 2;
       unr = new TUnuran(gRandom,logLevel);
@@ -965,7 +966,6 @@ vector<double> Gpar::bg_ToyMC() const {
    // ---------------------------------------------------------------------
    // set UNU.RAN ( http://statistik.wu-wien.ac.at/unuran/ )
    // ---------------------------------------------------------------------
-   static TUnuran* unrA = nullptr;
    if ( !unrA ) {
       int logLevel = 2;
       unrA = new TUnuran(gRandom,logLevel);
@@ -1763,6 +1763,8 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    pt09 -> AddText( Form("#it{p-value(2009) = %.3f}",pvalueKS09) );
    pt09 -> AddText( Form("#sigma(2009) = %s MeV",
             PE.Eform(3,".2f",1e3)) );
+   pt09 -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKS09sb) );
    pt09 -> AddText( Form("#lower[-0.1]{Nbg(2009) = %s}",
             PE.Eform(5,".1f")) );
    pt09 -> AddText( Form("a(sb09)= %s", PE.Eform(7,".1f")) );
@@ -1774,6 +1776,8 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    pt12 -> AddText( Form("#it{p-value(2012) = %.3f}", pvalueKS12) );
    pt12 -> AddText( Form("#sigma(2012) = %s MeV",
             PE.Eform(4,".2f",1e3)) );
+   pt12 -> AddText( Form("#it{p-val(side-band) = %.3f}",
+            pvalueKS12sb) );
    pt12 -> AddText( Form("#lower[-0.1]{Nbg(2012) = %s}",
             PE.Eform(6,".1f")) );
    pt12 -> AddText( Form("a(sb12)= %s", PE.Eform(8,".1f")) );
@@ -1968,7 +1972,7 @@ void ToyMC() {
    gRandom -> SetSeed(Iseed);
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_cf_1.pdf" ); // must be Ntoys=1
+   ToyMC_fit(1, "ToyMC_cf_2.pdf" ); // must be Ntoys=1
 }
 #endif
 

@@ -789,6 +789,8 @@ struct Gpar {
    double TwoMk;
 
    private:
+   mutable TUnuran* unr = nullptr;
+   mutable TUnuran* unrA = nullptr;
    double CalcF();
 };
 
@@ -910,7 +912,6 @@ vector<double> Gpar::signal_ToyMC() const {
    // ---------------------------------------------------------------------
    // set UNU.RAN ( http://statistik.wu-wien.ac.at/unuran/ )
    // ---------------------------------------------------------------------
-   static TUnuran* unr = nullptr;
    if ( !unr ) {
       int logLevel = 2;
       unr = new TUnuran(gRandom,logLevel);
@@ -961,7 +962,6 @@ vector<double> Gpar::bg_ToyMC() const {
    // ---------------------------------------------------------------------
    // set UNU.RAN ( http://statistik.wu-wien.ac.at/unuran/ )
    // ---------------------------------------------------------------------
-   static TUnuran* unrA = nullptr;
    if ( !unrA ) {
       int logLevel = 2;
       unrA = new TUnuran(gRandom,logLevel);
