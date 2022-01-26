@@ -4890,9 +4890,9 @@ void combineSB_Intfr_scan( string fname09, string fname12,
 //--------------------------------------------------------------------
 struct myFCN_combsbbr {
    // efficiency parameter: -1.8 +/- 0.2
-   const double sl = -1.8;
+   const double sl = -1.8; // sys: -1.6 (_k16) -2.0 (_k20)
    // Function for side-band:
-   const int funSB = 1; // 0 - constant, 1 - common Argus,
+   const int funSB = 0; // 0 - constant, 1 - common Argus,
                         // 2 - separate Argus
 
    vector<double> mkk09; // data central part
@@ -4922,50 +4922,42 @@ struct myFCN_combsbbr {
       // Br(eta->2gamma) = 39.41%
       const double breta = 0.3941;
       // Br(phi->K+K-) = 49.2 +/- 0.5%
-      const double brphi = 0.492; // sys: 0.487 & 0.497
-
-// prod-11 -----------------------------------------------------------
-//       const double NJpsi09 = 15740118; // 2009
-//       const double e_phi09 = 0.3221; // eff chi2 < 60 -> std
-//       const double e_phi09 = 0.3279; // eff chi2 < 80
-//       const double e_phi09 = 0.3082; // eff chi2 < 40
-//       const double e_phi09 = 0.3269; // eff w=0.032
-//       const double e_phi09 = 0.3053; // eff w=0.016
-//       const double e_phi09 = 0.3220; // eff k=-1.6
-//       const double e_phi09 = 0.3221; // eff k=-2.0
-//
-//       const double NJpsi12 = 48674327; // 2012
-//       const double e_phi12 = 0.3169; // eff chi2 < 60 -> std
-//       const double e_phi12 = 0.3228; // eff chi2 < 80
-//       const double e_phi12 = 0.3025; // eff chi2 < 40
-//       const double e_phi12 = 0.3217; // eff w=0.032
-//       const double e_phi12 = 0.2996; // eff w=0.016
-//       const double e_phi12 = 0.3168; // eff k=-1.6
-//       const double e_phi12 = 0.3170; // eff k=-2.0
-// -------------------------------------------------------------------
+      const double brphi = 0.492; // sys: 0.487 & 0.497 (_brphi)
 
       // prod-12
       const double NJpsi09 = 15740130; // 2009
       const double NJpsi12 = 48674393; // 2012
       const double e_phi09 = 0.3280; // eff chi2<60
       const double e_phi12 = 0.3229; // eff chi2<60
-                                     //
+
+// sys for prod-12
+// -------------------------------------------------------------------
+//       const double e_phi09 = 0.3279; // sys: sl=-1.6 (_k16)
+//       const double e_phi12 = 0.3229; // sys: sl=-1.6
+//       const double e_phi09 = 0.3280; // sys: sl=-2.0 (_k20)
+//       const double e_phi12 = 0.3230; // sys: sl=-2.0
+//       const double e_phi09 = 0.3107; // sys: weta=2*seta (_etaW2)
+//       const double e_phi12 = 0.3051; // sys: weta=2*seta
+//       const double e_phi09 = 0.3330; // sys: weta=4*seta (_etaW4)
+//       const double e_phi12 = 0.3279; // sys: weta=4*seta
+// -------------------------------------------------------------------
+
       Br2Nkk09 = NJpsi09 * e_phi09 * breta;
       Br2Nphi09 = Br2Nkk09 * brphi;
 
       Br2Nkk12 = NJpsi12 * e_phi12 * breta;
       Br2Nphi12 = Br2Nkk12 * brphi;
 
-// prod-11: systematic on N(J/psi) * eff(phi) * Br(eta->2gamma) ------
-//       double common_part = 1.0071; // *= and /= (_eq18c)
+// systematic on N(J/psi) * eff(phi) * Br(eta->2gamma) ------
+//       double common_part = 1.0071; // *= and /= (_eq18c1 & c2)
 //       Br2Nkk09 /= common_part;
 //       Br2Nphi09 /= common_part;
 //       Br2Nkk12 /= common_part;
 //       Br2Nphi12 /= common_part;
-//       double part09 = 1.0085; // *= and /= (_eq18p)
+//       double part09 = 1.0063; // *= and /= (_eq18p1 & p2)
 //       Br2Nkk09 /= part09;
 //       Br2Nphi09 /= part09;
-//       double part12 = 1.0056; // *= and /= (_eq18p3)
+//       double part12 = 1.0062; // *= and /= (_eq18p3 & p4)
 //       Br2Nkk12 /= part12;
 //       Br2Nphi12 /= part12;
 // -------------------------------------------------------------------
@@ -5118,7 +5110,7 @@ struct myFCN_combsbbr {
       double ang = p[2];
 
       // calculate F:
-      const int iy = 1; // 1 for 2012 and sys: 0 for 2009 (F09)
+      const int iy = 1; // 1 for 2012 and sys: 0 for 2009 (_F09)
       double A = IAr[iy];
       double B = IIc[iy] * cos(ang) + IIs[iy] * sin(ang);
       double C = IBW[iy]*(1. - Nkk/Nphi);

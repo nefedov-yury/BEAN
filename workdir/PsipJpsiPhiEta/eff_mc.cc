@@ -96,7 +96,7 @@ void get_eff(string fname, string pdf="") {
    };
 
    auto c_chi2 = [](double ch2) -> bool{
-      return ch2 < 60; // std: 60; uncertainties study: 40, 80
+      return ch2 < 60; // std: 60; NO uncertainties study!
    };
 
    // Mphi cut: [dL, dU]
@@ -207,12 +207,7 @@ void get_eff(string fname, string pdf="") {
       ff2 -> SetLineWidth(2);
       ff2 -> SetLineStyle(kDashed);
 
-//       if ( is2009 ) {
-//          ff2 -> FixParameter(1, -1.8); // helix corr
-//       } else {
-//          ff2 -> FixParameter(1, -1.8); // helix corr
-//       }
-      ff2 -> FixParameter(1, -1.8); // -1.8 +/- 0.2
+      ff2 -> FixParameter(1, -1.8); // sys: -1.8 +/- 0.2
    }
 
    double bin_width = heff -> GetBinWidth(1);

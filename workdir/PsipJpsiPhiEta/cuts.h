@@ -22,7 +22,7 @@
    TCut c_MCmkk("mcmkk<1.08"); // cut for MC generated events
 
    // chi^2 cut:
-   double chi2M = 60; // standard: 60, uncertainties study: 40,80
+   double chi2M = 60; // standard: 60; NO uncertainties study!
    string str_c_chi2 = string("ch2<") + to_string(chi2M);
    TCut c_chi2( str_c_chi2.c_str() );
 
