@@ -24,8 +24,8 @@ CXXFLAGS        += $(ROOTCFLAGS)
 LIBS            := $(ROOTLIBS)
 LIBS            += $(GSLLIBS)
 #------------------------------------------------------------------------------
-#  SRCS          := ToyMC.cc
-SRCS          := ToyMC_12.cc
+SRCS          := ToyMC.cc
+#  SRCS          := ToyMC_12.cc
 OBJS          := $(SRCS:.cc=.o)
 
 #------------------------------------------------------------------------------

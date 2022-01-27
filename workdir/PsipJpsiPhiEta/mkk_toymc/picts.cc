@@ -42,7 +42,7 @@ TH1D* get_hist(string fname, string var) {
    double Vmin = 0, Vmax = 0;
    string select = var + string(">>") + hname;
    if ( var == "Lmin" ) {
-      Vmin = -81e3; Vmax = -71e3;
+      Vmin = -82.5e3; Vmax = -72.5e3;
       title = ";#it{-2log(L_{max})};Events/100";
    } else if (var == "pv09" || var == "pv12") {
       Vmin = 0.; Vmax = 1.;
@@ -72,11 +72,17 @@ TH1D* get_hist(string fname, string var) {
       }
       title += ";Events/0.01MeV/c^{2}";
    } else if (var == "nbg09" ) {
-      Vmin = 2.; Vmax = 27.;Nbins = 25;
+      Vmin = 5.; Vmax = 30.;Nbins = 25;
       title = ";N_{bg}(2009);Events";
    } else if (var == "nbg12" ) {
-      Vmin = 15.; Vmax = 55.;Nbins = 40;
+      Vmin = 30.; Vmax = 80.;Nbins = 50;
       title = ";N_{bg}(2012);Events";
+   } else if (var == "ar09" ) {
+      Vmin = 4.5; Vmax = 11.5;Nbins = 70;
+      title = ";a_{side-band}(2009);Entries/0.1";
+   } else if (var == "ar12" ) {
+      Vmin = 1.5; Vmax = 8.5;Nbins = 70;
+      title = ";a_{side-band}(2012);Entries/0.1";
    } else {
       cerr << " unknown var=" << var << endl;
       exit(0);
@@ -84,13 +90,13 @@ TH1D* get_hist(string fname, string var) {
 
    TH1D* hst = new TH1D(hname.c_str(),title.c_str(),Nbins,Vmin,Vmax);
 
-   tmc -> Draw(select.c_str(),"","goff");
+   tmc -> Draw(select.c_str(),"st>0","goff");
 
    return hst;
 }
 
 //-------------------------------------------------------------------------
-TH2D* get_hist2D(string fname, string var) {
+tuple<TH2D*,double> get_hist2D(string fname, string var) {
 //-------------------------------------------------------------------------
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -101,7 +107,8 @@ TH2D* get_hist2D(string fname, string var) {
 
    string hname = string("toymc_2D") + var;
    string select;
-   string cut("");
+   string cut("st>0");
+   string cutTrue;
    string title;
    int Nbins = 100;
    double Vmin = 0, Vmax = 0;
@@ -110,21 +117,24 @@ TH2D* get_hist2D(string fname, string var) {
       title+=";lower limit";
       title+=";upper limit";
       select = string("(bkk+ubkk)*1e4:(bkk-ubkk)*1e4>>") + hname;
-      cut = string("ubkk*lbkk>0");
+      cut += string("&&ubkk*lbkk>0");
+      cutTrue = cut + "&&(bkk+ubkk)*1e4>4.5&&(bkk-lbkk)*1e4<4.5";
       Vmin = 4.1; Vmax = 4.9;
    } else if (var == "bphi") {
       title ="Toy MC: Br(J/#psi #rightarrow #phi#eta) #times 10^{-4}";
       title+=";lower limit";
       title+=";upper limit";
       select = string("(bphi+ubphi)*1e4:(bphi-lbphi)*1e4>>") + hname;
-      cut = string("ubphi*lbphi>0");
+      cut += string("&&ubphi*lbphi>0");
+      cutTrue = cut + "&&(bphi+ubphi)*1e4>8.5&&(bphi-lbphi)*1e4<8.5";
       Vmin = 7.; Vmax = 10.;
    } else if (var == "ang" ) {
       title ="Toy MC: mixing angle #vartheta";
       title+=";lower limit";
       title+=";upper limit";
       select = string("(ang+uang):(ang-lang)>>") + hname;
-      cut = string("uang*lang>0");
+      cut += string("&&uang*lang>0");
+      cutTrue = cut + "&&(ang+uang)>0&&(ang-lang)<0";
       Vmin = -1.2; Vmax = 1.2;
    } else {
       cerr << " unknown var=" << var << endl;
@@ -134,9 +144,13 @@ TH2D* get_hist2D(string fname, string var) {
    TH2D* h2d = new TH2D(hname.c_str(),title.c_str(),
          Nbins,Vmin,Vmax, Nbins,Vmin,Vmax);
 
-   tmc -> Draw(select.c_str(),cut.c_str(),"goff");
+   int Nall = tmc -> Draw(select.c_str(),cut.c_str(),"goff");
+   int Ntrue = tmc -> Draw("st",cutTrue.c_str(),"goff");
 
-   return h2d;
+   double ptrue = double(Ntrue) / double(Nall);
+//    cout << " ptrue= " << ptrue << endl;
+
+   return make_tuple(h2d,ptrue);
 }
 
 //-------------------------------------------------------------------------
@@ -197,9 +211,18 @@ void plot_var(string fname, string var, string pdf) {
       pt -> SetX1(0.11);
       pt -> SetX2(0.36);
       if (var == "nbg09") {
-         pt -> AddText("N_{bg}(2009) = 13");
+         pt -> AddText("N_{bg}(2009) = 17");
       } else {
-         pt -> AddText("N_{bg}(2012) = 35");
+         pt -> AddText("N_{bg}(2012) = 54");
+      }
+   } else if ( var == "ar09" || var == "ar12" ) {
+      GaussFit(hst);
+      pt -> SetX1(0.11);
+      pt -> SetX2(0.36);
+      if (var == "ar09") {
+         pt -> AddText("a_{s-b}(2009) = 8.");
+      } else {
+         pt -> AddText("a_{s-b}(2012) = 5.");
       }
    }
 
@@ -224,7 +247,9 @@ void plot_var(string fname, string var, string pdf) {
 //-------------------------------------------------------------------------
 void plot_2D(string fname, string var, string pdf) {
 //-------------------------------------------------------------------------
-   TH2D* hst = get_hist2D(fname, var);
+   TH2D* hst = nullptr;
+   double ptrue = 0;
+   tie(hst,ptrue) = get_hist2D(fname, var);
 
    TBox* box = new TBox;
    box -> SetFillStyle(3001);
@@ -250,15 +275,15 @@ void plot_2D(string fname, string var, string pdf) {
    if ( var == "bkk" ) {
       box -> DrawBox(4.1,4.5,4.5,4.9);
       Tl.DrawLatex(4.14,4.85,"True value is included");
-      Tl.DrawLatex(4.25,4.80,"69%");
+      Tl.DrawLatex(4.25,4.80,Form("%.0f%%",ptrue*100));
    } else if ( var == "bphi" ) {
       box -> DrawBox(7.0,8.5,8.5,10.);
       Tl.DrawLatex(7.12,9.8,"True value is included");
-      Tl.DrawLatex(7.6,9.6,"86%");
+      Tl.DrawLatex(7.6,9.6,Form("%.0f%%",ptrue*100));
    } else if (var == "ang" ) {
       box -> DrawBox(-1.2,0.,0.,1.2);
       Tl.DrawLatex(-1.1,1.1,"True value is included");
-      Tl.DrawLatex(-0.5,0.9,"82%");
+      Tl.DrawLatex(-0.5,0.9,Form("%.0f%%",ptrue*100));
    }
 
    gPad -> RedrawAxis();
@@ -278,8 +303,9 @@ void picts() {
    //----------------------------------------------------------------
    // file-name:
    // Br(KKeta)=4.5e-4; Br(phi eta)=8.5e-4; ang=0;
-   // sig09=1.4e-3; Nbg09=13; sig12=1.1e-3; Nbg12=35
-   string fname("ToyMC_cf_7K.root");
+   // sig09=1.4e-3; Nbg09=17; arsb09=8.;
+   // sig12=1.1e-3; Nbg12=54; arsb12=5.;
+   string fname("ToyMC_cf_1K.root");
 
 //    plot_var(fname,"Lmin","ToyMC_Lmin.pdf");
 //    plot_var(fname,"pv09","ToyMC_pv09.pdf");
@@ -298,6 +324,9 @@ void picts() {
 
 //    plot_var(fname,"nbg09","ToyMC_nbg09.pdf");
 //    plot_var(fname,"nbg12","ToyMC_nbg12.pdf");
+
+//    plot_var(fname,"ar09","ToyMC_arsb09.pdf");
+//    plot_var(fname,"ar12","ToyMC_arsb12.pdf");
 
    //----------------------------------------------------------------
 }
