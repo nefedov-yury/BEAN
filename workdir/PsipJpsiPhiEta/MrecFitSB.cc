@@ -143,11 +143,57 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
       cut = TCut("dec==64");
    } else if ( type == 3 ) {
       cut = TCut("dec!=64");
+   } else if ( type == 10 ) { // I/O check all: Mrs+Mrec
+      dr = string("Mrs>>") + hname;
+      nt1->Draw(dr.c_str(),"","goff");
+      dr = string("Mrec>>+") + hname;
+   } else if ( type == 11 ) { // I/O check signal
+      dr = string("Mrs>>") + hname;
+      cut = TCut("dec==64");
    }
 
    nt1->Draw(dr.c_str(),cut,"goff");
 
    return hst;
+}
+
+//--------------------------------------------------------------------
+void fill_hist2009_IO(TH1D* hst[]) {
+//--------------------------------------------------------------------
+#include "norm.h"
+
+   const string hname[5] = {
+      "MCdata09", "empty09",
+      "mc09sig", "mc09bg1", "mc09bg2"
+   };
+
+   // check cache file
+   const string cachef = dir + string("MrecFitSB_2009_IO.root");
+   TFile* froot = TFile::Open(cachef.c_str(),"READ");
+   if ( froot != 0 ) {
+      for ( int i = 0; i < 5; ++i ) {
+         hst[i]=(TH1D*)froot->Get(hname[i].c_str());
+      }
+      return;
+   }
+
+   hst[0]=fill_mrec("mcinc_09psip_all.root", hname[0], 10);
+
+   hst[1]=(TH1D*)hst[0]->Clone(hname[1].c_str());
+   hst[1]->Reset(); // must be empty
+
+   hst[2]=fill_mrec("mcinc_09psip_all.root",hname[2],11);
+
+   hst[3]=fill_mrec("mcinc_09psip_all.root",hname[3],2);
+
+   hst[4]=fill_mrec("mcinc_09psip_all.root",hname[4],3);
+
+   // save histos in cache file
+   froot = TFile::Open(cachef.c_str(),"NEW");
+   for ( int i = 0; i < 5; ++i ) {
+      hst[i]->Write();
+   }
+   froot->Close();
 }
 
 //--------------------------------------------------------------------
@@ -183,6 +229,45 @@ void fill_hist2009(TH1D* hst[]) {
 
    hst[4]=fill_mrec("mcinc_09psip_all.root",hname[4],3);
    hst[4]->Scale(Ito09);
+
+   // save histos in cache file
+   froot = TFile::Open(cachef.c_str(),"NEW");
+   for ( int i = 0; i < 5; ++i ) {
+      hst[i]->Write();
+   }
+   froot->Close();
+}
+
+//--------------------------------------------------------------------
+void fill_hist2012_IO(TH1D* hst[]) {
+//--------------------------------------------------------------------
+#include "norm.h"
+
+   const string hname[5] = {
+      "MCdata12", "empty12",
+      "mc12sig", "mc12bg1", "mc12bg2"
+   };
+
+   // check cache file
+   const string cachef = dir + string("MrecFitSB_2012_IO.root");
+   TFile* froot = TFile::Open(cachef.c_str(),"READ");
+   if ( froot != 0 ) {
+      for ( int i = 0; i < 5; ++i ) {
+         hst[i]=(TH1D*)froot->Get(hname[i].c_str());
+      }
+      return;
+   }
+
+   hst[0]=fill_mrec("mcinc_12psip_all.root",hname[0],10);
+
+   hst[1]=(TH1D*)hst[0]->Clone(hname[1].c_str());
+   hst[1]->Reset(); // must be empty
+
+   hst[2]=fill_mrec("mcinc_12psip_all.root",hname[2],11);
+
+   hst[3]=fill_mrec("mcinc_12psip_all.root",hname[3],2);
+
+   hst[4]=fill_mrec("mcinc_12psip_all.root",hname[4],3);
 
    // save histos in cache file
    froot = TFile::Open(cachef.c_str(),"NEW");
@@ -407,16 +492,19 @@ TH1D* rescale_bg(TH1D* hst, const double* p, int npol) {
 }
 
 //--------------------------------------------------------------------
-void print_Numbers(TH1D* hst[], double Emin, double Emax) {
+void print_Numbers(TH1D* hst[], double Emin, double Emax, bool
+      isIOcheck = false) {
 //--------------------------------------------------------------------
    // ATTENTION: here I assume:
    // [0] - data
    // [7] - CONT(norm to Lum_data) + BG(after rescale_bg)
+   // I/O check: [2] - correct signal MC
 
    double ndata   = 0;
    double er_data = 0;
    double nbg     = 0;
    double er_bg   = 0;
+   double ntrue   = 0; // I/O check
 
    double Emin_hst = 0, Emax_hst = 0;
    int nbins = hst[0] -> GetNbinsX();
@@ -435,8 +523,9 @@ void print_Numbers(TH1D* hst[], double Emin, double Emax) {
       }
       ndata   += hst[0]->GetBinContent(n);
       er_data += SQ(hst[0]->GetBinError(n));
-      nbg   += hst[7]->GetBinContent(n);
-      er_bg += SQ(hst[7]->GetBinError(n));
+      nbg     += hst[7]->GetBinContent(n);
+      er_bg   += SQ(hst[7]->GetBinError(n));
+      ntrue   += hst[2]->GetBinContent(n); // I/O check
    }
 
    double n1   = ndata-nbg;
@@ -450,19 +539,30 @@ void print_Numbers(TH1D* hst[], double Emin, double Emax) {
    printf(" MC(bg):          %9.0f +/- %4.0f\n", nbg,er_bg);
    printf(" NPsip(data-bg):  %9.0f +/- %4.0f\n", n1,er1);
    printf("\n");
+   if ( isIOcheck ) {
+      printf(" The correct number of J/Psi is %9.0f\n",ntrue);
+   }
 }
 
 // {{{1 Fit
 //--------------------------------------------------------------------
-void DoFitSB(int date) {
+void DoFitSB(int date, bool isIOcheck = false) {
 //--------------------------------------------------------------------
    TH1D* hst[20];
    if ( date==2009 ) {
-      fill_hist2009(hst);
+      if ( isIOcheck ) {
+         fill_hist2009_IO(hst);
+      } else {
+         fill_hist2009(hst);
+      }
       hst[0]->SetMaximum(7.e6);
       hst[0]->SetMinimum(0.99e5);
    } else if(date==2012) {
-      fill_hist2012(hst);
+      if ( isIOcheck ) {
+         fill_hist2012_IO(hst);
+      } else {
+         fill_hist2012(hst);
+      }
       hst[0]->SetMaximum(2.e7);
       hst[0]->SetMinimum(3.e5);
    }
@@ -583,8 +683,13 @@ void DoFitSB(int date) {
 
    TLegend* leg = new TLegend(0.55,0.65,0.89,0.89);
 //    leg->SetHeader("#bf{Recoil Mass of #pi^{#plus}#pi^{#minus}}", "C");
-   leg->AddEntry(hst[0],
-         (string("Data ")+to_string(date)).c_str(), "EP");
+   if ( isIOcheck ) {
+      leg->AddEntry(hst[0],
+            (string("Pseudo-Data ")+to_string(date)).c_str(), "EP");
+   } else {
+      leg->AddEntry(hst[0],
+            (string("Data ")+to_string(date)).c_str(), "EP");
+   }
 
    leg->AddEntry(hst[7],
          Form("#color[%i]{sum of backgrounds}",
@@ -621,12 +726,13 @@ void DoFitSB(int date) {
    gPad->RedrawAxis();
 
    c1->Update();
-   string pdf = string("Mrec") + to_string(date) + "_fsb.pdf";
+   string pdf = string("Mrec") + to_string(date) +
+      ((isIOcheck) ? "_fsbIO.pdf" : "_fsb.pdf");
    c1->Print(pdf.c_str());
 
    // print for E in [Emin,Emax]
-   print_Numbers(hst,3.092,3.102); // see cuts.h !
-   print_Numbers(hst,3.055,3.145); // BAM-42
+   print_Numbers(hst,3.092,3.102,isIOcheck); // see cuts.h !
+   print_Numbers(hst,3.055,3.145,isIOcheck); // BAM-42
 }
 
 // {{{1 Draw Mrec
@@ -736,4 +842,8 @@ void MrecFitSB() {
 //    MrecDraw(date,  zoom);
 
    DoFitSB(date);
+
+   // IO check: trivially get the exact result!
+//    bool isIOcheck = true;
+//    DoFitSB(date, isIOcheck);
 }
