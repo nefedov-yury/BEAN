@@ -69,8 +69,7 @@ void get_eff(string fname, string pdf="") {
    mkk_sb -> Sumw2(true);
 
    double Nppj = nt1 -> Draw("mcmkk>>mkk_i",c_Mrb&&c_MCmkk,"goff");
-   cout << " number of pi+pi-J/Psi after 'Mrb' cut = "
-        << Nppj << endl;
+   printf(" number of pi+pi-J/Psi after 'Mrb' cut = %.0f\n\n", Nppj);
 
    double nI = mkk_i -> Integral(1,Nbins);
    if ( fabs(nI-Nppj) > 1e-3 ) {
