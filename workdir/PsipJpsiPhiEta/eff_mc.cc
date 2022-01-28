@@ -63,8 +63,10 @@ void get_eff(string fname, string pdf="") {
    TCut c_MCmkk("mcmkk<1.08"); // cut for MC generated events
    TH1D* mkk_i = new TH1D("mkk_i","",Nbins,Lphi,Uphi);
    TH1D* mkk_f = new TH1D("mkk_f","",Nbins,Lphi,Uphi);
+   TH1D* mkk_sb= new TH1D("mkk_sb","",Nbins,Lphi,Uphi);
    mkk_i -> Sumw2(true);
    mkk_f -> Sumw2(true);
+   mkk_sb -> Sumw2(true);
 
    double Nppj = nt1 -> Draw("mcmkk>>mkk_i",c_Mrb&&c_MCmkk,"goff");
    cout << " number of pi+pi-J/Psi after 'Mrb' cut = "
@@ -114,7 +116,6 @@ void get_eff(string fname, string pdf="") {
       return fabs(Mgg-Meta) < weta;
    };
 
-   // Meta: side-band DOES NOT CHANGE EFFICENCY
    // 'shift_eta' is the start of the side-band
 //    double shift_eta = 6*seta; // old (prod<=10)
    double shift_eta = 7*seta; // new for prod-11
@@ -152,6 +153,7 @@ void get_eff(string fname, string pdf="") {
       } else if ( c_sbgg(Mgg) ) {       // side-band
          Nsb  += w;
          eNsb += SQ(w);
+         mkk_sb -> Fill(mcmkk,w);
       }
    }
 
@@ -159,10 +161,10 @@ void get_eff(string fname, string pdf="") {
 //    double nF = mkk_f -> Integral(1,Nbins);
 //    cout << " DEBUG: mkk_f(Integ)= " << nF << " Ncp= " << Ncp << endl;
 
-   double eff = Ncp / Nppj;
-   double err = eff*sqrt( eNcp/SQ(Ncp) + 1./Nppj);
-   printf("\n integral efficiency in %d is %.5f +/- %.5f\n",
-         date, eff, err);
+//    double eff = Ncp / Nppj;
+//    double err = eff*sqrt( eNcp/SQ(Ncp) + 1./Nppj);
+//    printf("\n integral efficiency in %d is %.5f +/- %.5f\n",
+//          date, eff, err);
 
    // side-band subtraction:
 //    double eff_sb = (Ncp - Nsb) / Nppj;
@@ -179,6 +181,7 @@ void get_eff(string fname, string pdf="") {
    gPad -> SetGrid();
 
    TH1D* heff = (TH1D*)mkk_i -> Clone("heff");
+//    mkk_f -> Add(mkk_f,mkk_sb,1.,-1.); // side-band subtraction ?
    heff -> Divide(mkk_f,mkk_i,1.,1.,"B");
 
    string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}"
