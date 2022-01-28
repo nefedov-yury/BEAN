@@ -143,6 +143,8 @@ void get_eff(string fname, string pdf="") {
       // correction for eta eff:
       w *= Weta;
 
+//       double w = 1.;  // disabled for I/O check
+
       if ( c_cpgg(Mgg) ) {              // central part
          Ncp  += w;
          eNcp += SQ(w);
