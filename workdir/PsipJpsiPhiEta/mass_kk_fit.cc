@@ -1157,12 +1157,13 @@ void data_fit(string fname,string title,int date,int Mphix,
 // dataSB_fit() no interference + side-band fit
 //--------------------------------------------------------------------
 struct myFCN_nointer_sb {
-   const double sl = -1.8; // efficiency parameters
+   // efficiency parameters:
+   const double sl = -1.8;
+   // Function for side-band: 0 - constant, 1 - Argus
+   const int funSB = 1;
+
    vector<double> mkk;     // data central part
    vector<double> sb;      // data side band
-
-   // Function for side-band:
-   const int funSB = 1; // 0 - constant, 1 - Argus
 
    // minimization function
    // the signature of this operator() MUST be exactly this:
@@ -1219,8 +1220,7 @@ struct myFCN_nointer_sb {
 };
 
 //--------------------------------------------------------------------
-void dataSB_fit( string fname,string title,int date,int Mphix,
-      string pdf="" ) {
+void dataSB_fit( string fname,string title,int Mphix,string pdf="" ) {
 //--------------------------------------------------------------------
    bool is2009 = (fname.find("_09") != string::npos);
 
@@ -1248,8 +1248,11 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
    vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
                              "Nphi", "Nnonphi", "Nbkg", "Arsb" };
 
-   vector<double> par_ini { Mphi,Gphi,1.3e-3,0., 840,70,14,7.4 }; // 2009
+//    vector<double> par_ini { Mphi,Gphi,1.3e-3,0., 840,70,14,7.4 }; // 2009
 //    vector<double> par_ini { Mphi,Gphi,1.1e-3,0., 2560,190,51,4.}; // 2012
+
+   vector<double> par_ini { Mphi,Gphi,1.1e-3,0.,
+                                0.9*n, 0.05*n, 1.*nsb, 6. }; // I/O check
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -1266,7 +1269,7 @@ void dataSB_fit( string fname,string title,int date,int Mphix,
       fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    }
    fitter.Config().ParSettings(1).Fix(); // Gphi
-   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
+   fitter.Config().ParSettings(2).SetLimits(0.2e-3, 2.e-3); // sig
    fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // ar
    fitter.Config().ParSettings(3).Fix();
 //    fitter.Config().ParSettings(4).SetLimits(1.,1.5*norm);   // Nphi
@@ -5837,7 +5840,7 @@ void mass_kk_fit() {
 //    bkg_fit(fnames.at(id),tit,pdf,1); // type=1 for sideband
 
 // ------------- data: no interference sec.6.3.1 ---------------------
-//    int Mphix = 1; // 1 - mphi is fixed at the PDG
+   int Mphix = 1; // 1 - mphi is fixed at the PDG
 //    string pdf = string("mkk") + ((id==0) ? "09" : "12") + "_fit"
 //       + to_string(Mphix) + ".pdf";
 //    data_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
@@ -5845,7 +5848,12 @@ void mass_kk_fit() {
    // combined with Side-Band (constant or Argus SB)
 //    string pdf = string("mkk") + ((id==0) ? "09" : "12") +
 //       "_fitSB_" + to_string(Mphix) + ".pdf";
-//    dataSB_fit(fnames.at(id),titles.at(id),2009+id*3,Mphix,pdf);
+//    dataSB_fit(fnames.at(id),titles.at(id),Mphix,pdf);
+
+   // I/O check: use mcinc files as data: id+3 => incl.MC
+   string pdf = string("mkk") + ((id==0) ? "09" : "12") +
+      "_chkIO_" + to_string(Mphix) + ".pdf";
+   dataSB_fit(fnames.at(id+3),titles.at(id+3),Mphix,pdf);
 
 // ------------- data: interference sec 6.3.2 ------------------------
 //    test_Intfr();
@@ -5871,7 +5879,7 @@ void mass_kk_fit() {
 //    combineSB_Intfr_scan(fnames[0],fnames[1],"mkk_cfSB_scan2.pdf");
 
    // combined with Side-Band + fitBR
-   combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR");
+//    combineSBBR_Intfr(fnames[0],fnames[1],"mkk_cfSBBR");
 
 //--------------------------------------------------------------------
 }
