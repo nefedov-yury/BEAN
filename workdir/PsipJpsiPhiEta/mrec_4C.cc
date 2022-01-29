@@ -1,6 +1,7 @@
-// plot Mrec after 4C-kinematik fit
-// we require cuts for: chi^2(4C) && |Mgg-Meta| && |Mkk-Mphi|
-// Data, inclusive MC, signal MC and MC KKeta
+// Here we use special selection with 4C-kinematic constrints
+// for data (2009,2012 and continuum) and inclusive MC events.
+// The 'Mrec' is drawn and the contribution of
+// Psi(2S) -> pi+ pi- phi eta (non J/Psi) is calculated.
 // -> mrec_4Cyear.pdf
 
 #include "masses.h"
