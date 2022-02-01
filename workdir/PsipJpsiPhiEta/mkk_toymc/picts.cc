@@ -193,8 +193,9 @@ void plot_var(string fname, string var, string pdf) {
    } else if ( var == "bkk" ) {
       GaussFit(hst);
    } else if ( var == "bphi" ) {
-      gStyle -> SetOptStat(1110);
-      gStyle->SetStatH(0.1);
+//       gStyle -> SetOptStat(1110);
+//       gStyle->SetStatH(0.1);
+      GaussFit(hst);
    } else if (var == "ang" ) {
       pt -> AddText("#vartheta = 0");
       hst -> GetXaxis() -> SetNdivisions(1005);
@@ -220,9 +221,9 @@ void plot_var(string fname, string var, string pdf) {
       pt -> SetX1(0.11);
       pt -> SetX2(0.36);
       if (var == "ar09") {
-         pt -> AddText("a_{s-b}(2009) = 8.");
+         pt -> AddText("a(sb2009) = 8.");
       } else {
-         pt -> AddText("a_{s-b}(2012) = 5.");
+         pt -> AddText("a(sb2012) = 5.");
       }
    }
 
@@ -305,16 +306,17 @@ void picts() {
    // Br(KKeta)=4.5e-4; Br(phi eta)=8.5e-4; ang=0;
    // sig09=1.4e-3; Nbg09=17; arsb09=8.;
    // sig12=1.1e-3; Nbg12=54; arsb12=5.;
-   string fname("ToyMC_cf_1K.root");
+   string fname("ToyMC_cf_4K.root");
+//    string fname("ToyMC_cf_D4K.root");
 
 //    plot_var(fname,"Lmin","ToyMC_Lmin.pdf");
 //    plot_var(fname,"pv09","ToyMC_pv09.pdf");
 //    plot_var(fname,"pv12","ToyMC_pv12.pdf");
 
-//    plot_var(fname,"bkk","ToyMC_bkk.pdf");
-//    plot_var(fname,"bphi","ToyMC_bphi.pdf");
-//    plot_2D(fname,"bkk","ToyMC_2d_bkk.pdf");
-//    plot_2D(fname,"bphi","ToyMC_2d_bphi.pdf");
+//    plot_var(fname,"bkk","ToyMC_bkk_D.pdf");
+//    plot_var(fname,"bphi","ToyMC_bphi_D.pdf");
+//    plot_2D(fname,"bkk","ToyMC_2d_bkk_D.pdf");
+//    plot_2D(fname,"bphi","ToyMC_2d_bphi_D.pdf");
 
 //    plot_var(fname,"ang","ToyMC_ang.pdf");
 //    plot_2D(fname,"ang","ToyMC_2d_ang.pdf");
