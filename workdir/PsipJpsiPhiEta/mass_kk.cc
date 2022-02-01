@@ -389,14 +389,7 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    hst[10+ib] -> Draw("SAME HIST");
    hst[10+id] -> Draw("E,SAME");
 
-   TPaveText* pt = new TPaveText(0.45,0.73,0.89,0.89,"NDC");
-//    if ( type == 1 ) {
-//       pt = new TPaveText(0.45,0.69,0.89,0.89,"NDC");
-//    } else if ( type == 2 ) {
-//       pt = new TPaveText(0.45,0.65,0.89,0.89,"NDC");
-//    } else {
-//       pt = new TPaveText(0.45,0.73,0.89,0.89,"NDC");
-//    }
+   TPaveText* pt = new TPaveText(0.45,0.76,0.89,0.89,"NDC,TR");
    pt -> SetTextAlign(22);
    pt -> SetTextFont(42);
    pt -> SetTextSize(0.05);
@@ -442,7 +435,8 @@ void mass_kk() {
    gStyle -> SetOptFit(111); // do not print fixed params
    gStyle -> SetFitFormat(".1f");
    gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.72);
+   gStyle->SetStatY(0.755);
+   gStyle->SetStatW(0.245);
 
 
    // just test
