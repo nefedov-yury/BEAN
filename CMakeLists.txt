@@ -159,7 +159,18 @@ IF( GCC_VERSION VERSION_LESS 6.1 )
              " we use C++11 features" )
   ENDIF()
 ELSEIF( GCC_VERSION VERSION_GREATER 10.5 )
-  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14" )
+  # use std version from  --cflags of ROOT
+  EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--cflags"
+    OUTPUT_VARIABLE ROOT_CFLAGS )
+#    MESSAGE( STATUS "ROOT_CFLAGS= ${ROOT_CFLAGS}" )
+
+  # backslashes themselves need to be escaped inside a CMake string:
+  STRING( REGEX REPLACE "^.*(-std=[^ ]*).*$" "\\1"
+    ROOT_STDCXX "${ROOT_CFLAGS}" )
+#    MESSAGE( STATUS "ROOT_STDCXX= ${ROOT_STDCXX}" )
+
+  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_STDCXX}" )
+#    MESSAGE( STATUS "CMAKE_CXX_FLAGS= ${CMAKE_CXX_FLAGS}" )
 ENDIF()
 
   # just to see all compilation warnings:
