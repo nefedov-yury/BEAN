@@ -120,6 +120,32 @@ static map<string,int> warning_msg;
 
 static bool isMC = true;
 
+//Dalitz plots limits
+static map<double,tuple<double,double,int,int>> Dalitz_Parameters {
+  {2.000,  make_tuple(2.5,4.0,50,50)},
+  {2.050,  make_tuple(2.5,4.0,50,50)},
+  {2.100,  make_tuple(2.5,4.0,50,50)},
+  {2.12655,  make_tuple(3.0,4.0,50,50)},
+  {2.150,  make_tuple(3.0,4.5,50,50)},
+  {2.175,  make_tuple(3.0,4.5,50,50)},
+  {2.200,  make_tuple(3.0,4.5,50,50)},
+  {2.2324, make_tuple(3.0,5.0,50,50)},
+  {2.3094, make_tuple(3.5,5.5,50,50)},
+  {2.3864, make_tuple(3.5,5.5,50,50)},
+  {2.396,  make_tuple(3.5,5.5,50,50)},
+  {2.500,  make_tuple(4.5,6.5,50,50)},
+  {2.6444, make_tuple(4.5,6.5,50,50)},
+  {2.6464, make_tuple(4.5,6.5,50,50)},
+  {2.700,  make_tuple(5.0,7.0,50,50)},
+  {2.8,    make_tuple(5.5,8.0,50,50)},
+  {2.900,  make_tuple(6.0,8.0,50,50)},
+  {2.950,  make_tuple(6.0,8.0,50,50)},
+  {2.981,  make_tuple(6.5,8.5,50,50)},
+  {3.000,  make_tuple(6.5,8.5,50,50)},
+  {3.020,  make_tuple(6.5,9.0,50,50)},
+  {3.080,  make_tuple(7.0,9.0,50,50)},
+};
+
 // Functions: use C-linkage names
 #ifdef __cplusplus
 extern "C" {
@@ -277,8 +303,9 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
                         2001,-1000.5,1000.5);
    hst[113] = new TH1D("mc_Eg", "ISR: E(#gamma) (MeV)", 100,0.,1000.);
    hst[114] = new TH1D("mc_Ng", "ISR: N_{#gamma}", 10,-0.5,9.5);
-   hst[115] = new TH1D("mc_Etot","ISR: Eisr (MeV)",200,0.,2000.);
-   hst[116] = new TH1D("mc_xisr","ISR: s'/s",1001,0.,1.001);
+   hst[115] = new TH1D("mc_Etot","ISR: Eisr (MeV)",100,0.,2000.);
+   hst[116] = new TH1D("mc_xisr_2g","ISR: s'/s for 2g",1000,0.,1.);
+   hst[117] = new TH1D("mc_xisr_6g","ISR: s'/s for 6g", 1000, 0., 1.);
    hst[118] = new TH1D("mc_bspr","MC: energy spread (MeV)",100,-5.,5.);
    hst[119] = new TH1D("mc_dec_Eta", "Decay codes for eta (1 - 2g, 2 - 6g)",
                        5, -1.5, 3.5);
@@ -307,8 +334,15 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[147] = new TH1D("mc_3pi2gE", "E(g) eta->pi+pi-pi0", 100,0.,2.);
    hst[148] = new TH1D("mc_3pi2gC", "cos(g) eta->pi+pi-pi0", 100,-1.,1.);
 
-   hst2[2] = new TH2D("Dalitz_ini_2g", "Dalitz Plot for initial momenta of particles, eta->2g", 400, 0., 10.,400,0.,10.);
-   hst2[6] = new TH2D("Dalitz_ini_6g", "Dalitz Plot for initial momenta of particles, eta->3pi0->6g", 400, 0., 10.,400,0.,10.);
+   hst[151] = new TH1D("mc_cos_eta_2g", "cos(#Theta) of eta for eta->2g", 100, -1., 1.);
+   hst[152] = new TH1D("mc_cos_pip_2g", "cos(#Theta) of pi+ for eta->2g", 100, -1., 1.);
+   hst[153] = new TH1D("mc_cos_pim_2g", "cos(#Theta) of pi- for eta->2g", 100, -1., 1.);
+   hst[154] = new TH1D("mc_cos_eta_6g", "cos(#Theta) of eta for eta->3pi0->6g", 100, -1., 1.);
+   hst[155] = new TH1D("mc_cos_pip_6g", "cos(#Theta) of pi+ for eta->3pi0->6g", 100, -1., 1.);
+   hst[156] = new TH1D("mc_cos_pim_6g", "cos(#Theta) of pi- for eta->3pi0->6g", 100, -1., 1.);
+
+   hst2[2] = new TH2D("Dalitz_ini_2g", "Dalitz Plot for initial momenta of particles, x_isr>0.9, eta->2g", 50,0.,10.,80,0.,10.);
+   hst2[6] = new TH2D("Dalitz_ini_6g", "Dalitz Plot for initial momenta of particles, eta->3pi0->6g", 40,0.,10.,64,0.,10.);
 
    // final ntuple for e+ e- -> Pi+ Pi- 2 gammas
    m_tuple[2] = new TNtupleD("a4c2","after 4C kinematic fit (2 gammas)",
@@ -613,7 +647,6 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
    HepLorentzVector Prp = Pr - Pisr;
    double Sp = Prp*Prp;
    Slct.Xisr = Sp/S;
-   hst[116]->Fill(Slct.Xisr);
    hst[118]->Fill( (sqrt(S) - Slct.LVcms.e()) * 1e3 ); // => MeV
 
    // paranoid check
@@ -628,19 +661,29 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
    Slct.decEta = 0;
    if ( Pdg_eta.size() == 2 && Pdg_eta[0]==22 && Pdg_eta[1]==22 ) {
       Slct.decEta = 1; // eta -> 2 gamma
+      hst[116]->Fill(Slct.Xisr);
       M2_pp = (Ppip+Ppim).m2();
       M2_pe = (Ppip+Peta).m2();
       Slct.M2_pip_pim = M2_pp;
       Slct.M2_pip_eta = M2_pe;
-      hst2[2]->Fill(M2_pp, M2_pe);
+      if (Slct.Xisr > 0.9){
+          hst2[2]->Fill(M2_pp, M2_pe);
+      }
+      hst[151]->Fill(Peta.cosTheta());
+      hst[152]->Fill(Ppip.cosTheta());
+      hst[153]->Fill(Ppim.cosTheta());
    } else if ( Pdg_eta.size() == 3 ) {
       if ( Pdg_eta[0]==111 && Pdg_eta[1]==111 && Pdg_eta[2]==111 ) {
          Slct.decEta = 2; // eta -> 3pi0
+         hst[117]->Fill(Slct.Xisr);
          M2_pp = (Ppip+Ppim).m2();
          M2_pe = (Ppip+Peta).m2();
          Slct.M2_pip_pim = M2_pp;
          Slct.M2_pip_eta = M2_pe;
          hst2[6]->Fill(M2_pp, M2_pe);
+         hst[154]->Fill(Peta.cosTheta());
+         hst[155]->Fill(Ppip.cosTheta());
+         hst[156]->Fill(Ppim.cosTheta());
       } else {
          sort(Pdg_eta.begin(),Pdg_eta.end());
          if ( Pdg_eta[0]==-211 && Pdg_eta[1] ==111 && Pdg_eta[2]==211 ) {
@@ -1410,6 +1453,7 @@ bool Eta_TwoPiEvent( ReadDst*       selector,
    if ( Ecms < 0 ) { // skip bad runs
       return false;
    }
+
    hst[9]->Fill(Ecms);
    Slct.LVcms = HepLorentzVector(Ecms*sin(beam_angle), 0, 0, Ecms);
 
@@ -1424,6 +1468,34 @@ bool Eta_TwoPiEvent( ReadDst*       selector,
            << endl;
       Warning("Incorrect number of MC particles");
       return false;
+   }
+
+   if ( isMC ) {
+     double Ecms_local = Ecms;
+     try{
+       Dalitz_Parameters.at(Ecms_local);
+     }
+     catch(std::out_of_range const&){
+       Ecms_local = round(Ecms_local*100000.)/100000.;
+     }
+     if (!( Ecms_local == 2.12655 || Ecms_local == 2.396 || Ecms_local == 2.900 || Ecms_local == 3.080) && ( hst[151]->GetNbinsX() != 50 )){
+       hst[151]->Rebin(2); hst[152]->Rebin(2); hst[153]->Rebin(2);
+       hst[154]->Rebin(2); hst[155]->Rebin(2); hst[156]->Rebin(2);
+     }
+     double dp_lim_x = get<0>(Dalitz_Parameters.at(Ecms));
+     double dp_lim_y = get<1>(Dalitz_Parameters.at(Ecms));
+     if(hst2[2]->GetXaxis()->GetXmax() != dp_lim_x){
+       hst2[2]->GetXaxis()->SetLimits(0., dp_lim_x);
+     }
+     if(hst2[2]->GetYaxis()->GetXmax() != dp_lim_y){
+       hst2[2]->GetYaxis()->SetLimits(0., dp_lim_y);
+     }
+     if(hst2[6]->GetXaxis()->GetXmax() != dp_lim_x){
+       hst2[6]->GetXaxis()->SetLimits(0., dp_lim_x);
+     }
+     if(hst2[6]->GetYaxis()->GetXmax() != dp_lim_y){
+       hst2[6]->GetYaxis()->SetLimits(0., dp_lim_y);
+     }
    }
 
    if ( isMC ) {
