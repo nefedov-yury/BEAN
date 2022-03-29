@@ -341,7 +341,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
    hst[155] = new TH1D("mc_cos_pip_6g", "cos(#Theta) of pi+ for eta->3pi0->6g", 100, -1., 1.);
    hst[156] = new TH1D("mc_cos_pim_6g", "cos(#Theta) of pi- for eta->3pi0->6g", 100, -1., 1.);
 
-   hst2[2] = new TH2D("Dalitz_ini_2g", "Dalitz Plot for initial momenta of particles, x_isr>0.9, eta->2g", 50,0.,10.,80,0.,10.);
+   hst2[2] = new TH2D("Dalitz_ini_2g", "Dalitz Plot for initial momenta of particles, eta->2g", 50,0.,10.,80,0.,10.);
    hst2[6] = new TH2D("Dalitz_ini_6g", "Dalitz Plot for initial momenta of particles, eta->3pi0->6g", 40,0.,10.,64,0.,10.);
 
    // final ntuple for e+ e- -> Pi+ Pi- 2 gammas
@@ -666,9 +666,7 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
       M2_pe = (Ppip+Peta).m2();
       Slct.M2_pip_pim = M2_pp;
       Slct.M2_pip_eta = M2_pe;
-      if (Slct.Xisr > 0.9){
-          hst2[2]->Fill(M2_pp, M2_pe);
-      }
+      hst2[2]->Fill(M2_pp, M2_pe);
       hst[151]->Fill(Peta.cosTheta());
       hst[152]->Fill(Ppip.cosTheta());
       hst[153]->Fill(Ppim.cosTheta());
@@ -1482,8 +1480,8 @@ bool Eta_TwoPiEvent( ReadDst*       selector,
        hst[151]->Rebin(2); hst[152]->Rebin(2); hst[153]->Rebin(2);
        hst[154]->Rebin(2); hst[155]->Rebin(2); hst[156]->Rebin(2);
      }
-     double dp_lim_x = get<0>(Dalitz_Parameters.at(Ecms));
-     double dp_lim_y = get<1>(Dalitz_Parameters.at(Ecms));
+     double dp_lim_x = get<0>(Dalitz_Parameters.at(Ecms_local));
+     double dp_lim_y = get<1>(Dalitz_Parameters.at(Ecms_local));
      if(hst2[2]->GetXaxis()->GetXmax() != dp_lim_x){
        hst2[2]->GetXaxis()->SetLimits(0., dp_lim_x);
      }
