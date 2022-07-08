@@ -96,8 +96,10 @@ void get_eff(string fname, string pdf="") {
       return fabs(Mrec-3.097) < 0.005;
    };
 
+   // chi^2 cut: NO uncertainties study! (helix correction)
    auto c_chi2 = [](double ch2) -> bool{
-      return ch2 < 60; // std: 60; NO uncertainties study!
+//       return ch2 < 60; // OLD std
+      return ch2 < 40; // std: v15a
    };
 
    // Mphi cut: [dL, dU]
@@ -212,6 +214,7 @@ void get_eff(string fname, string pdf="") {
       ff2 -> SetLineStyle(kDashed);
 
       ff2 -> FixParameter(1, -1.8); // sys: -1.8 +/- 0.2
+//       ff2 -> FixParameter(1, -1.85); //
    }
 
    double bin_width = heff -> GetBinWidth(1);
