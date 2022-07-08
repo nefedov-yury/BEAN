@@ -343,6 +343,7 @@ void Eta_TwoPiStartJob(ReadDst* selector) {
 
    hst2[2] = new TH2D("Dalitz_ini_2g", "Dalitz Plot for initial momenta of particles, eta->2g", 50,0.,10.,80,0.,10.);
    hst2[6] = new TH2D("Dalitz_ini_6g", "Dalitz Plot for initial momenta of particles, eta->3pi0->6g", 40,0.,10.,64,0.,10.);
+   hst2[3] = new TH2D("Dalitz_ini_2g_0", "ini Dalitz Plot eta->2g for x>0.9", 50,0.,10.,80,0.,10.);
 
    // final ntuple for e+ e- -> Pi+ Pi- 2 gammas
    m_tuple[2] = new TNtupleD("a4c2","after 4C kinematic fit (2 gammas)",
@@ -667,6 +668,9 @@ static void FillHistoMC(const ReadDst* selector, SelectEtaTwoPi& Slct) {
       Slct.M2_pip_pim = M2_pp;
       Slct.M2_pip_eta = M2_pe;
       hst2[2]->Fill(M2_pp, M2_pe);
+      if ( Slct.Xisr > 0.9 ) {
+         hst2[3]->Fill(M2_pp, M2_pe);
+      }
       hst[151]->Fill(Peta.cosTheta());
       hst[152]->Fill(Ppip.cosTheta());
       hst[153]->Fill(Ppim.cosTheta());
