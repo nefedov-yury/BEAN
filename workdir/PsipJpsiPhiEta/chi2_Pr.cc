@@ -5,6 +5,8 @@
 // 2) data vs inclusive MC
 //    -> chi2_YEAR.pdf
 
+static double chi2_cut = 0.; // to keep value from cuts.h file
+
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -32,9 +34,10 @@ void SetHstFace(TH1* hst) {
 }
 
 //--------------------------------------------------------------------
-TH1D* get_chi2(string fname, string hname, int icut=0) {
+TH1D* get_chi2(string fname, string hname, int icp=1) {
 //--------------------------------------------------------------------
 #include "cuts.h"
+   chi2_cut = chi2M;
 
    // name of folder with root files
    static string dir("prod-12/");
@@ -45,13 +48,23 @@ TH1D* get_chi2(string fname, string hname, int icut=0) {
       exit(0);
    }
 
-   froot->cd("PsipJpsiPhiEta");
-   TTree* a4c = (TTree*)gDirectory->Get("a4c");
+   froot -> cd("PsipJpsiPhiEta");
+   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
 
-   TCut c_here = c_Mrec + c_phi;
-   if ( icut == 1 ) { // CP
+   // 1) cut on recoil mass: [3.092, 3.102]
+   TCut c_here = c_Mrec;
+
+   // 2) cut on Mkk:
+   if ( icp < 10 ) {
+      c_here += c_phi; // Mkk in [2*Mk, 1.08GeV]
+   } else {  // for chi2opt
+      c_here += TCut( "Mkk>1.025&&Mkk<1.08" ); // [1.025,1.08 GeV]
+   }
+
+   // 3) central part and side-band of Mgg:
+   if ( icp%10 == 1 ) { // CP
       c_here += c_cpgg;
-   } else if ( icut == 2 ) { // SB
+   } else if ( icp%10 == 2 ) { // SB
       c_here += c_sbgg;
    }
 
@@ -138,6 +151,136 @@ void chi2_Plot(int date) {
    c1->Print(pdf.c_str());
 }
 
+// plot Sig/sqrt(Sig+Bkg) ratio (type=0)
+// or 1/(relative error) (type=1)
+//--------------------------------------------------------------------
+TGraph* optSigBkg(TH1D* data, TH1D* sb, int type = 0) {
+//--------------------------------------------------------------------
+   int n = data -> GetXaxis() -> GetNbins();
+   if ( sb -> GetXaxis() -> GetNbins() != n ) {
+      return nullptr;
+   }
+
+   vector<double> x(n);
+//    data -> GetXaxis() -> GetCenter( x.data() );
+   data -> GetXaxis() -> GetLowEdge( x.data() );
+   double wx = data -> GetBinWidth(1);
+   for_each( begin(x),end(x),[wx](double& v){v+=wx;} );
+
+   // data = sig + bkg
+   const double* y = data -> GetArray();
+   vector<double> d(y+1,y+1+n); // exclude underflow/overflows bins
+   partial_sum(begin(d), end(d), begin(d));
+
+   // sideband = bkg
+   const double* t = sb -> GetArray();
+   vector<double> b(t+1,t+1+n); // exclude underflow/overflows bins
+   partial_sum(begin(b), end(b), begin(b));
+
+   vector<double> SBrat(n);
+   double rat = 0.;
+   for ( int i = 0; i < n; i++ ) {
+      if ( type == 0 ) { // default
+         rat = (d[i]>0) ? (d[i]-b[i])/sqrt(d[i]) : 0;
+      } else if (type == 1 ) {
+         rat = (d[i]-b[i])/sqrt(d[i]+b[i]);
+      }
+      SBrat[i] = rat;
+   }
+
+   TGraph* gr = new TGraph( n, x.data(), SBrat.data() );
+   gr -> SetTitle(";#chi^{2};#it{Sig/#sqrt{Sig+Bkg}}");
+   gr -> GetYaxis() -> SetMaxDigits(3);
+   gr -> GetYaxis() -> SetTitleOffset(1.3);
+   gr -> SetMarkerColor(kViolet);
+   gr -> SetMarkerStyle(20);
+
+   return gr;
+}
+
+//--------------------------------------------------------------------
+void chi2opt(int date) {
+//--------------------------------------------------------------------
+   string dname = (date==2009) ? "09" : "12";
+   double maxh = 0.;
+//    cout << " DEBUG: " << __func__ << " dname= " << dname << endl;
+
+   string fn1 = string("data_") + dname + string("psip_all.root");
+   TH1D* chi2cp = get_chi2(fn1.c_str(), "chi2_cp", 11);
+   SetHstFace(chi2cp);
+   chi2cp -> SetLineColor(kBlack);
+   chi2cp -> SetLineWidth(1);
+//    chi2cp -> GetYaxis() -> SetMaxDigits(3);
+   chi2cp -> GetYaxis() -> SetTitleOffset(1.25);
+
+   TH1D* chi2sb = get_chi2(fn1.c_str(), "chi2_sb", 12);
+   chi2sb -> SetLineColor(kBlue+2);
+   chi2sb -> SetFillStyle(3001);
+   chi2sb -> SetFillColor(kBlue+1);
+   maxh = max(maxh, chi2cp->GetMaximum());
+
+   // MC signal phi eta: arbitrary normalization
+   string fn3 = string("mcsig_kkmc_") + dname + string(".root");
+   TH1D* chi2_mcS = get_chi2(fn3.c_str(), "chi2_mcS", 11);
+//    chi2_mcS -> SetLineColor(kRed+1);
+   chi2_mcS -> SetLineColor(kGreen+2);
+   chi2_mcS -> SetLineWidth(1);
+   chi2_mcS -> Scale(
+      (chi2cp->Integral() - chi2sb->Integral())
+      / chi2_mcS->Integral()
+   );
+   maxh = max(maxh, chi2_mcS -> GetMaximum());
+
+   TGraph* gr = optSigBkg(chi2cp,chi2sb,0);
+//    gr -> GetXaxis() -> SetLimits(40.,200.);
+//    if ( date == 2012 ) {
+//       gr -> SetMaximum(53.49);
+//       gr -> SetMinimum(50.);
+//    } else if ( date == 2009 ) {
+//       gr -> SetMaximum(31.49);
+//       gr -> SetMinimum(28.);
+//    }
+   gr -> GetXaxis() -> SetLimits(20.,200.);
+   if ( date == 2012 ) {
+      gr -> SetMaximum(25.86);
+      gr -> SetMinimum(20.85);
+   } else if ( date == 2009 ) {
+//       gr -> SetMaximum(31.49);
+      gr -> SetMinimum(10.);
+   }
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1500,800);
+   c1 -> Divide(2,1);
+
+   c1 -> cd(1);
+   gPad -> SetGrid();
+
+   double ymax = 1.15*maxh;
+   chi2cp -> SetMaximum(ymax);
+   chi2cp -> DrawCopy("E1");
+   chi2sb -> DrawCopy("SAME");
+   chi2_mcS -> DrawCopy("SAME HIST");
+
+   TLegend* leg = new TLegend(0.46,0.64,0.89,0.89);
+   leg -> SetHeader(
+         (string("#chi^{2}(5C): ") + to_string(date)).c_str(),"C");
+   leg -> AddEntry(chi2cp,"Data: signal region","LE");
+   leg -> AddEntry(chi2sb,"Data: side-band","F");
+   leg -> AddEntry(chi2_mcS,"MC signal #phi#eta","L");
+   leg -> Draw();
+
+   gPad -> RedrawAxis();
+
+   c1 -> cd(2);
+   gPad -> SetGrid();
+
+   gr -> Draw("APL");
+
+   c1 -> Update();
+   string pdf = string("chi2opt_") + to_string(date) + string(".pdf");
+   c1 -> Print(pdf.c_str());
+}
+
 //--------------------------------------------------------------------
 void chi2_SB(int date) {
 //--------------------------------------------------------------------
@@ -159,7 +302,7 @@ void chi2_SB(int date) {
    chi2sb -> SetFillColor(kBlue+1);
    maxh = max(maxh, chi2cp->GetMaximum());
 
-   // MC phi eta: arbitrary normalization
+   // MC signal phi eta: arbitrary normalization
    string fn3 = string("mcsig_kkmc_") + dname + string(".root");
    TH1D* chi2_mcS = get_chi2(fn3.c_str(), "chi2_mcS", 1);
 //    chi2_mcS -> SetLineColor(kRed+1);
@@ -175,7 +318,7 @@ void chi2_SB(int date) {
    chi2cp -> SetMaximum(ymax);
 
    // box to show rejected region
-   double ch2_cut = 60.;
+   double ch2_cut = chi2_cut;
    double ch2_max = 200.;
    TBox* box = new TBox;
    box -> SetFillStyle(3001);
@@ -183,9 +326,7 @@ void chi2_SB(int date) {
    box -> SetLineColor(kRed-10);
    box -> SetLineWidth(2);
 
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
-
    c1->cd();
    gPad->SetGrid();
 
@@ -221,9 +362,13 @@ void chi2_Pr()
    gStyle->SetLegendFont(42);
 //    gStyle->SetLegendTextSize(0.04);
 
+// 0) optimization of chi2-cut
+//    chi2opt(2009);
+//    chi2opt(2012);
+
 // 1) data vs signal MC in the window for M(K+K-) and M(gg) .. fig.11
-   chi2_SB(2009);
-//    chi2_SB(2012);
+//    chi2_SB(2009);
+   chi2_SB(2012);
 
 // 2) data vs inclusive MC
 //    chi2_Plot(2009);
