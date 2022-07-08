@@ -218,7 +218,7 @@ void kkgg_dataMC() {
 //    plot_var("Pgg",2012, "Pgg_datMC12.pdf");
 //    plot_var("Cgg", 2012, "Cgg_datMC12.pdf");
 
-   // fig.15
+   // fig.13
 //    plot_var("Ptk",2009, "Ptk_datMC09.pdf");
 //    plot_var("Ckk",2009, "Ckk_datMC09.pdf");
 //    plot_var("Ptk",2012, "Ptk_datMC12.pdf");
