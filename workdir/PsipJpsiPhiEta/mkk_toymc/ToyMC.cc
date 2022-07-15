@@ -1008,6 +1008,9 @@ struct myFCN_toy {
    const double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
    const double dL = 2*Mk, dU = 1.08; // boundaries
 
+   // Function for side-band:
+   const int funSB = 1; // 1 - common Argus, 2 - separate Argus
+
    vector<double> mkk09;  // data central part
    vector<double> mkk12;
    vector<double> sb09;   // data side band
@@ -1068,7 +1071,7 @@ struct myFCN_toy {
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
 
       // integrals 0 -> 09, 1 -> 12
-      for ( int i = 0; i < 2; ++i ) {
+      for ( int i = 0; i < funSB; ++i ) { // funSB = 1 or 2 !
          if ( arsb_save[i] == arsb[i] ) {
             continue;
          }
@@ -1079,6 +1082,9 @@ struct myFCN_toy {
          // debug print
 //          printf(" %i: arsb= %.3f, normArsb= %.3g\n",
 //                i, arsb[i], normArsb[i]);
+      }
+      if ( funSB == 1 ) {
+         normArsb[1] = normArsb[0];
       }
    }
 
@@ -1178,7 +1184,7 @@ struct myFCN_toy {
          Ff = (-B + sqrt(Dis))/(2*A);
       }
       if ( Ff < 0. ) {
-         penalty = -1e5*Ff;
+         penalty = 1e5*fabs(Ff);
          Ff = 0.;
       }
 
@@ -1227,7 +1233,7 @@ struct myFCN_toy {
       double Nsb09 = p[5];
       double Nsb12 = p[6];
       double arsb09 = p[7];
-      double arsb12 = p[8];
+      double arsb12 = (funSB == 2) ? p[8] : p[7];
       calcNormAr(&p[7]); // p[7],p[8]
       const double NsbNorm09 = Nsb09 / normArsb[0];
       const double NsbNorm12 = Nsb12 / normArsb[1];
@@ -1335,6 +1341,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    const vector<double>& sb12 = my_fcn.sb12;
    int nsb12 = sb12.size();
 
+   const int FunSB = my_fcn.funSB;
    const double& dL = my_fcn.dL;
    const double& dU = my_fcn.dU;
 
@@ -1350,6 +1357,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
 
    vector<double> par_ini {4.5e-4, 8.5e-4, 0.,
       1.4e-3, 1.1e-3, 1.*nsb09, 1.*nsb12, 8., 5. };
+   if ( FunSB == 1 ) { // use only ar1 which is common for 2009 & 2012
+      par_ini[7] = 6.;
+   }
 
    const unsigned int Npar = par_name.size(); // number of parameters
 
@@ -1367,7 +1377,11 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    fitter.Config().ParSettings(5).SetLimits(0.,2.*nsb09);  // Nbg09
    fitter.Config().ParSettings(6).SetLimits(0.,2.*nsb12);  // Nbg12
    fitter.Config().ParSettings(7).SetLimits(0.,15.);       // Arsb09
-   fitter.Config().ParSettings(8).SetLimits(0.,15.);       // Arsb12
+   if ( FunSB == 2 ) {                                     // Arsb12
+      fitter.Config().ParSettings(8).SetLimits(0.,15.);
+   } else {
+      fitter.Config().ParSettings(8).Fix();
+   }
 
    // == Fit
    int Ndat = n09 + nsb09 + n12 + nsb12;
@@ -1392,6 +1406,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    if ( !do_refit ) {
       // additional check upper and lower bounds after MINOS
       for ( unsigned int ip = 0; ip < Npar; ++ip ) {
+         if ( res.IsParameterFixed(ip) ) {
+            continue;
+         }
          if ( !res.HasMinosError(ip) ||
                res.UpperError(ip)*res.LowerError(ip) == 0 ) {
             do_refit = true;
@@ -1423,7 +1440,7 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    res.Print(cout);
 
    double arsb09 = Fpar[7];
-   double arsb12 = Fpar[8];
+   double arsb12 = (FunSB == 2) ? Fpar[8] : Fpar[7];
    my_fcn.calcNormAr(&Fpar[7]);
 
    double Lmin = res.MinFcnValue();
@@ -1711,7 +1728,12 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    leg -> AddEntry( f09 -> Clone(), "Interference", "L");
    leg -> Draw();
 
-   TPaveText* pt = new TPaveText(0.65,0.32,0.99,0.52,"NDC");
+   TPaveText* pt = nullptr;
+   if ( FunSB == 1 ) { // common a(sb)
+      pt = new TPaveText(0.65,0.26,0.99,0.52,"NDC");
+   } else {
+      pt = new TPaveText(0.65,0.32,0.99,0.52,"NDC");
+   }
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
    pt -> AddText( Form("Br(KK#eta)= %s #times10^{-4} ",
@@ -1719,6 +1741,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
    pt -> AddText( Form("Br(#phi#eta)= %s #times10^{-4}",
             PE.Eform(1,".2f",1e4)) );
    pt -> AddText( Form("#vartheta = %s",PE.Eform(2,".2f")) );
+   if ( FunSB == 1 ) {
+      pt -> AddText( Form("a(sb)= %s", PE.Eform(7,".1f")) );
+   }
    pt -> Draw();
    gPad -> RedrawAxis();
 
@@ -1767,7 +1792,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
             pvalueKS09sb) );
    pt09 -> AddText( Form("#lower[-0.1]{Nbg(2009) = %s}",
             PE.Eform(5,".1f")) );
-   pt09 -> AddText( Form("a(sb09)= %s", PE.Eform(7,".1f")) );
+   if ( FunSB == 2 ) {
+      pt09 -> AddText( Form("a(sb09)= %s", PE.Eform(7,".1f")) );
+   }
    pt09 -> Draw();
 
    TPaveText* pt12 = new TPaveText(0.65,0.39,0.99,0.69,"NDC");
@@ -1780,7 +1807,9 @@ vector<double> do_fit_toy( myFCN_toy& my_fcn, TH1D* hist[],
             pvalueKS12sb) );
    pt12 -> AddText( Form("#lower[-0.1]{Nbg(2012) = %s}",
             PE.Eform(6,".1f")) );
-   pt12 -> AddText( Form("a(sb12)= %s", PE.Eform(8,".1f")) );
+   if ( FunSB == 2 ) {
+      pt12 -> AddText( Form("a(sb12)= %s", PE.Eform(8,".1f")) );
+   }
    pt12 -> Draw();
 
    gPad -> RedrawAxis();
@@ -1841,7 +1870,7 @@ void plot_hst(TH1D* hst[], string pdf) {
 }
 
 //----------------------------------------------------------------------
-void ToyMC_fit(int Ntoys, string file_name) {
+void ToyMC_fit(int Ntoys, string file_name, int Nsec=0) {
 //----------------------------------------------------------------------
    bool isBatch = Ntoys > 1;
 
@@ -1872,17 +1901,35 @@ void ToyMC_fit(int Ntoys, string file_name) {
    double BrKKeta  = 4.5e-4;
    double Brphieta = 8.5e-4;
 
-   // Nj = N(Jpsi)*eff*Breta:
-   double Nj09 = 2.02e6; // 2009 : 2.02e6*4.5e-4 = 909
-   double Nj12 = 6.14e6; // 2012 : 6.14e6*4.5e-4 = 2763
-
    double sig09 = 1.4e-3;
    double sig12 = 1.1e-3;
+
+   // Nj = N(Jpsi)*eff*Breta:
+   /*
+   // numbers corresponds real statistic with ch<60
+   double Nj09 = 2.02e6; // 2009 : 2.02e6*4.5e-4 = 909
+   double Nj12 = 6.14e6; // 2012 : 6.14e6*4.5e-4 = 2763
 
    double nbg09 = 17;
    double nbg12 = 54;
    double arsb09 = 8.;
    double arsb12 = 5.;
+   */
+
+   // numbers corresponds real statistic with ch<40
+   double Nj09 = 1.87e6; // 2009 : 1.87e6*4.5e-4 = 842
+   double Nj12 = 5.80e6; // 2012 : 5.80e6*4.5e-4 = 2610
+
+   double nbg09 = 10;
+   double nbg12 = 30;
+   double arsb09 = 6.;
+   double arsb12 = 6.;
+
+   // quadruple the statistics:
+   Nj09 *= 4;
+   Nj12 *= 4;
+   nbg09 *= 4;
+   nbg12 *= 4;
 
    Gpar* gp12 = new Gpar(BrKKeta, Brphieta,
          sig12, Nj12, nbg12, arsb12 );
@@ -1891,10 +1938,21 @@ void ToyMC_fit(int Ntoys, string file_name) {
          sig09, Nj09, nbg09, arsb09, gp12 -> F);
    gp09 -> Print("2009");
 
-   TStopwatch t;
+   TStopwatch T_tot;
+   T_tot.Start();
+   TStopwatch T_ev;
    TH1D* hst[4] {nullptr, nullptr, nullptr, nullptr};
    for ( int itoy = 0; itoy < Ntoys; ++itoy ) {
-      t.Start();
+      if ( Nsec > 0 ) {
+         double real_time = T_tot.RealTime();
+         if ( int(real_time) > Nsec ) {
+            printf(" end of ToyMC: run time exceeds %i: ",Nsec);
+            T_tot.Print();
+            break;
+         }
+         T_tot.Continue();
+      }
+      T_ev.Start();
 
       myFCN_toy my_fcn(Nj09,Nj12);  // class for 'FitFCN'
 
@@ -1940,9 +1998,9 @@ void ToyMC_fit(int Ntoys, string file_name) {
          tuple -> Fill( ret.data() );
       }
 
-      t.Stop();
+      T_ev.Stop();
       printf(" end of MCtoy# %i: ",itoy+1);
-      t.Print();
+      T_ev.Print();
    }
 
    if ( isBatch ) { // save in root file
@@ -1972,7 +2030,8 @@ void ToyMC() {
    gRandom -> SetSeed(Iseed);
 
    // ------------- ToyMC ---------------
-   ToyMC_fit(1, "ToyMC_cf_2.pdf" ); // must be Ntoys=1
+   string pdf_out = "ToyMC_cf_" + to_string(Iseed) + "L.pdf";
+   ToyMC_fit(1,pdf_out); // must be Ntoys=1
 }
 #endif
 
@@ -1983,6 +2042,7 @@ int main(int argc, char* argv[]) {
 //----------------------------------------------------------------------
    ULong_t Iseed = 0;
    int Ntoys = 10;
+   int Nsec = 10*60*60; // default: ten hours
    string hst_file("ToyMC_cf.root");
 
    //-------------------------------------------------------------------
@@ -2002,6 +2062,10 @@ int main(int argc, char* argv[]) {
 
       case 'n':  // number of toy MC generated
          Ntoys = atoi(optarg);
+         break;
+
+      case 't':  // maximum running time of the program in seconds
+         Nsec = atoi(optarg);
          break;
 
       case ':':  // no argument (first character of optstring MUST be ':')
@@ -2033,6 +2097,7 @@ int main(int argc, char* argv[]) {
 
    printf(" -- getopt parameters --\n");
    printf(" Ntoys= %i\n", Ntoys);
+   printf(" Nsec= %i\n", Nsec);
    printf(" Set gRrandom with ULong_t Iseed= %luL;\n",Iseed);
    printf(" output root file: %s\n", hst_file.c_str());
    printf(" -- end getopt parameters --\n");
@@ -2051,7 +2116,7 @@ int main(int argc, char* argv[]) {
    //-------------------------------------------------------------------
    TTimeStamp ts;
    cout << " Start time: " << ts.AsString() << endl;
-   ToyMC_fit(Ntoys,hst_file);
+   ToyMC_fit(Ntoys,hst_file,Nsec);
    ts.Set(); // update
    cout << " Stop time: " << ts.AsString() << endl;
 }
