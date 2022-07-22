@@ -13,7 +13,7 @@ constexpr double SQ(double x) {
 }
 
 //--------------------------------------------------------------------
-void get_eff(string fname, string pdf="") {
+void get_eff(string fname, string pdf="", bool chkIO = false) {
 //--------------------------------------------------------------------
 #include "masses.h"
 
@@ -24,7 +24,6 @@ void get_eff(string fname, string pdf="") {
 
    // MC signal MUST contain nt1
    string prod("prod-12/");
-//    string prod("prod-12/NoHC/"); // systematic: no helix corr.
    fname = prod + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -145,7 +144,9 @@ void get_eff(string fname, string pdf="") {
       // correction for eta eff:
       w *= Weta;
 
-//       double w = 1.;  // disabled for I/O check
+      if ( chkIO ) {  // disable corrections for I/O check
+         w = 1.;
+      }
 
       if ( c_cpgg(Mgg) ) {              // central part
          Ncp  += w;
@@ -214,7 +215,7 @@ void get_eff(string fname, string pdf="") {
       ff2 -> SetLineStyle(kDashed);
 
       ff2 -> FixParameter(1, -1.8); // sys: -1.8 +/- 0.2
-//       ff2 -> FixParameter(1, -1.85); //
+//       ff2 -> FixParameter(1, -2.0);
    }
 
    double bin_width = heff -> GetBinWidth(1);
@@ -279,13 +280,19 @@ void eff_mc() {
    gStyle -> SetOptFit(0);
    gStyle -> SetLegendFont(42);
 
-   // fig.16
+   // fig.16: no pdf-files, fit with k-fixed
 //    get_eff("mcsig_kkmc_09.root","eff_sig_2009.pdf");
 //    get_eff("mcsig_kkmc_12.root","eff_sig_2012.pdf");
-
-   // Systematic study => no pictures, fit with k-fixed
    get_eff("mcsig_kkmc_09.root");
 //    get_eff("mcsig_kkmc_12.root");
+
+   // Systematic study => NoHC: no helix corrections
+//    get_eff("NoHC/mcsig_kkmc_09.root");
+//    get_eff("NoHC/mcsig_kkmc_12.root");
+
+   // Systematic study => I/O check: disable corrections
+//    get_eff("mcsig_kkmc_09.root","",true);
+//    get_eff("mcsig_kkmc_12.root","",true);
 
    // KKeta phase space MC ???
 //    get_eff("mckketa_kkmc_09.root");

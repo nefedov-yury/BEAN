@@ -77,13 +77,6 @@ mass_kk.cc - plot M(K+K-) for data, inclusive MC, signal MC and
              MC KKeta cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
              -> mass_kk.pdf
 
-mrec_4C.cc - Here we use special selection with 4C-kinematic
-             constrints for data (2009,2012 and continuum) and
-             inclusive MC events.
-             The 'Mrec' is drawn and the contribution of
-             Psi(2S) -> pi+ pi- phi eta (non J/Psi) is calculated.
-             -> mrec_4Cyear.pdf
-
 //--------------------------------------------------------------------
 // 2a) Study M(K+K-)
 //--------------------------------------------------------------------
@@ -105,6 +98,14 @@ mass_kk_fit.cc - unbinned LH fit of M(K+K-) distributions
 //--------------------------------------------------------------------
 // Study systematic uncertainties:
 //--------------------------------------------------------------------
+mrec_4C.cc - Here we use special selection with 4C-kinematic
+             constrints for data (2009,2012 and continuum) and
+             inclusive MC events.
+             The 'Mrec' is drawn and the contribution of
+             Psi(2S) -> pi+ pi- phi eta (non J/Psi) is calculated.
+             -> mrec_4Cyear.pdf
+
+//--------------------------------------------------------------------
 //      K & Pi track+PID efficiencies
 //--------------------------------------------------------------------
 trk_eff_sel.cc - Pictures for presentation/memo
@@ -125,7 +126,6 @@ trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
 //--------------------------------------------------------------------
 //      eta->2gamma reconstruction efficiencies
 //--------------------------------------------------------------------
-
 eta_eff_sel.cc - Pictures for presentation/memo
                  Study of the eta -> 2gamma reconstruction efficiency
 
@@ -134,8 +134,10 @@ eta_eff.cc -     Study of the eta -> 2gamma reconstruction efficiency
                  -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
 //--------------------------------------------------------------------
-// Calculation of branching
+// Calculation of branching:
 //--------------------------------------------------------------------
-br_aver.py - average of two periods of data taking
+Lmedian.cc - calculate confidence interval
 
+OLD:
+br_aver.py - average of two periods of data taking
 

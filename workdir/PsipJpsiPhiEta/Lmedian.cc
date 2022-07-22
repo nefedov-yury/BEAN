@@ -1,4 +1,4 @@
-// {{{1
+// Lmedian.cc - calculate confidence interval
 
 //----------------------------------------------------------------------
 constexpr double SQ(double x) {
