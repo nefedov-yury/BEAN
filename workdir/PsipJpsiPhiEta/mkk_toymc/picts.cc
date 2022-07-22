@@ -42,7 +42,8 @@ TH1D* get_hist(string fname, string var) {
    double Vmin = 0, Vmax = 0;
    string select = var + string(">>") + hname;
    if ( var == "Lmin" ) {
-      Vmin = -82.5e3; Vmax = -72.5e3;
+//       Vmin = -82.5e3; Vmax = -72.5e3; // ch60
+      Vmin = -76.e3; Vmax = -66.5e3;
       title = ";#it{-2log(L_{max})};Events/100";
    } else if (var == "pv09" || var == "pv12") {
       Vmin = 0.; Vmax = 1.;
@@ -72,14 +73,18 @@ TH1D* get_hist(string fname, string var) {
       }
       title += ";Events/0.01MeV/c^{2}";
    } else if (var == "nbg09" ) {
-      Vmin = 5.; Vmax = 30.;Nbins = 25;
+//       Vmin = 5.; Vmax = 30.;Nbins = 25; // ch60
+      Vmin = 0.; Vmax = 20.;Nbins = 20;
       title = ";N_{bg}(2009);Events";
    } else if (var == "nbg12" ) {
-      Vmin = 30.; Vmax = 80.;Nbins = 50;
+//       Vmin = 30.; Vmax = 80.;Nbins = 50; //ch60
+      Vmin = 15.; Vmax = 45.;Nbins = 30;
       title = ";N_{bg}(2012);Events";
    } else if (var == "ar09" ) {
-      Vmin = 4.5; Vmax = 11.5;Nbins = 70;
-      title = ";a_{side-band}(2009);Entries/0.1";
+//       Vmin = 4.5; Vmax = 11.5;Nbins = 70; // ch60
+      Vmin = 2.5; Vmax = 9.5;Nbins = 70;
+//       title = ";a_{side-band}(2009);Entries/0.1";
+      title = ";a(side-band);Entries/0.1"; // common for 09 & 12
    } else if (var == "ar12" ) {
       Vmin = 1.5; Vmax = 8.5;Nbins = 70;
       title = ";a_{side-band}(2012);Entries/0.1";
@@ -212,16 +217,19 @@ void plot_var(string fname, string var, string pdf) {
       pt -> SetX1(0.11);
       pt -> SetX2(0.36);
       if (var == "nbg09") {
-         pt -> AddText("N_{bg}(2009) = 17");
+//          pt -> AddText("N_{bg}(2009) = 17"); // ch 60
+         pt -> AddText("N_{bg}(2009) = 10");
       } else {
-         pt -> AddText("N_{bg}(2012) = 54");
+//          pt -> AddText("N_{bg}(2012) = 54"); // ch 60
+         pt -> AddText("N_{bg}(2012) = 30");
       }
    } else if ( var == "ar09" || var == "ar12" ) {
       GaussFit(hst);
       pt -> SetX1(0.11);
       pt -> SetX2(0.36);
       if (var == "ar09") {
-         pt -> AddText("a(sb2009) = 8.");
+//          pt -> AddText("a(sb2009) = 8."); // ch60
+         pt -> AddText("a(sb) = 6."); // common for 09 & 12
       } else {
          pt -> AddText("a(sb2012) = 5.");
       }
@@ -303,20 +311,30 @@ void picts() {
 
    //----------------------------------------------------------------
    // file-name:
+   //----------------------------------------------------------------
+   // ch60:
    // Br(KKeta)=4.5e-4; Br(phi eta)=8.5e-4; ang=0;
    // sig09=1.4e-3; Nbg09=17; arsb09=8.;
    // sig12=1.1e-3; Nbg12=54; arsb12=5.;
-   string fname("ToyMC_cf_4K.root");
+//    string fname("ToyMC_cf_4K.root");
 //    string fname("ToyMC_cf_D4K.root");
+   //----------------------------------------------------------------
+   // ch40:
+   // Br(KKeta)=4.5e-4; Br(phi eta)=8.5e-4; ang=0;
+   // sig09=1.4e-3; Nbg09=10; arsb09=6.;
+   // sig12=1.1e-3; Nbg12=30; arsb12=6.;
+//    string fname("ToyMC_cf_4K.root");
+   string fname("ToyMC_cfD_2K.root");
+   //----------------------------------------------------------------
 
 //    plot_var(fname,"Lmin","ToyMC_Lmin.pdf");
 //    plot_var(fname,"pv09","ToyMC_pv09.pdf");
 //    plot_var(fname,"pv12","ToyMC_pv12.pdf");
 
-//    plot_var(fname,"bkk","ToyMC_bkk_D.pdf");
-//    plot_var(fname,"bphi","ToyMC_bphi_D.pdf");
-//    plot_2D(fname,"bkk","ToyMC_2d_bkk_D.pdf");
-//    plot_2D(fname,"bphi","ToyMC_2d_bphi_D.pdf");
+   plot_var(fname,"bkk","ToyMC_bkk_Q.pdf");
+//    plot_var(fname,"bphi","ToyMC_bphi_Q.pdf");
+//    plot_2D(fname,"bkk","ToyMC_2d_bkk.pdf");
+//    plot_2D(fname,"bphi","ToyMC_2d_bphi.pdf");
 
 //    plot_var(fname,"ang","ToyMC_ang.pdf");
 //    plot_2D(fname,"ang","ToyMC_2d_ang.pdf");

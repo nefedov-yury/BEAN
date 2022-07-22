@@ -2049,7 +2049,7 @@ int main(int argc, char* argv[]) {
    // => getopt()
    bool is_error = false;
    int oc; // option
-   while( (oc = getopt(argc,argv,":n:h:s:")) != -1 ) {
+   while( (oc = getopt(argc,argv,":n:t:h:s:")) != -1 ) {
       switch( oc ) {
 
       case 'h':  // change default file name for histograms
