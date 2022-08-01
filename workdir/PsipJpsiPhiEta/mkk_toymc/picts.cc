@@ -58,6 +58,7 @@ TH1D* get_hist(string fname, string var) {
    } else if (var == "bphi") {
       select = var + string("*1e4>>") + hname;
       Nbins = 100; Vmin = 7.5; Vmax = 9.5;
+//       Nbins = 100; Vmin = 4.5; Vmax = 12.5;
       title = ";Br(J/#psi #rightarrow #phi#eta) #times 10^{-4}";
       title += ";Events/2e-6";
    } else if (var == "ang" ) {
@@ -190,6 +191,11 @@ void plot_var(string fname, string var, string pdf) {
    hst -> GetXaxis() -> SetTitleOffset(1.1);
    hst -> GetYaxis() -> SetTitleOffset(1.3);
 
+   // must be here for GaussFit
+   TCanvas* c1 = new TCanvas("c1","note",0,0,900,900);
+   c1 -> cd();
+   gPad -> SetGrid();
+
    if ( var == "Lmin" ) {
       hst -> GetXaxis() -> SetNdivisions(1005);
       pt -> SetX2(0.35);
@@ -234,10 +240,6 @@ void plot_var(string fname, string var, string pdf) {
          pt -> AddText("a(sb2012) = 5.");
       }
    }
-
-   TCanvas* c1 = new TCanvas("c1","note",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
 
    SetHstFace(hst);
    hst -> SetLineWidth(2);
@@ -323,16 +325,16 @@ void picts() {
    // Br(KKeta)=4.5e-4; Br(phi eta)=8.5e-4; ang=0;
    // sig09=1.4e-3; Nbg09=10; arsb09=6.;
    // sig12=1.1e-3; Nbg12=30; arsb12=6.;
-//    string fname("ToyMC_cf_4K.root");
-   string fname("ToyMC_cfD_2K.root");
+   string fname("ToyMC_cf_4K.root");
+//    string fname("ToyMC_cfD_2K.root");
    //----------------------------------------------------------------
 
 //    plot_var(fname,"Lmin","ToyMC_Lmin.pdf");
 //    plot_var(fname,"pv09","ToyMC_pv09.pdf");
 //    plot_var(fname,"pv12","ToyMC_pv12.pdf");
 
-   plot_var(fname,"bkk","ToyMC_bkk_Q.pdf");
-//    plot_var(fname,"bphi","ToyMC_bphi_Q.pdf");
+//    plot_var(fname,"bkk","ToyMC_bkk.pdf");
+   plot_var(fname,"bphi","ToyMC_bphi.pdf");
 //    plot_2D(fname,"bkk","ToyMC_2d_bkk.pdf");
 //    plot_2D(fname,"bphi","ToyMC_2d_bphi.pdf");
 
