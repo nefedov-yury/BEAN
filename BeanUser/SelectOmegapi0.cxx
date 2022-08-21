@@ -57,7 +57,7 @@ using CLHEP::HepLorentzVector;
 using namespace std;
 
 //-----------------------------------------------------------------------------
-struct Select {
+struct Select_OmegaPi0 {
   double Ecms;                  // energy in center of mass system
 
   // charge tracks:
@@ -75,11 +75,6 @@ struct Select {
 
   HepLorentzVector ppi01, ppi02;        // 4-momentum of pi0 = g+g
 
-  // 4-momentums before kinematic corrections: ???
-  HepLorentzVector ppls, pmns;  // charged tracks: "+" & "-"
-  HepLorentzVector pgg;         // gg
-  HepLorentzVector ptot;        // sum of charged tracks and gg
-
   HepLorentzVector ppls_init, pmns_init, P_missing;  // 4-momentum of pi+/-
   double SoverS0;        //for check MCGPJ, MeV
 
@@ -93,7 +88,7 @@ struct Select {
   // momentums of pi(+,-,0) after kinematic fit
   HepLorentzVector Ppls, Pmns, Pgg1,Pgg2, Pomega, Pgg;
 
-  Select() {
+  Select_OmegaPi0() {
     Ecms = 0.;
     ipls = imns = -1;
     ipls_mc = imns_mc = -1;
@@ -112,8 +107,11 @@ struct Select {
   int gamma2() { return (ig2 >= 0) ? gammas[ig2] : -1; }
   int gamma3() { return (ig3 >= 0) ? gammas[ig3] : -1; }
   int gamma4() { return (ig4 >= 0) ? gammas[ig4] : -1; }
-  bool GoodGammas() { return (ig1 != -1 && ig2 != -1 && ig3 != -1 && ig4 != -1); }
+  bool GoodGammas() {
+     return (ig1 != -1 && ig2 != -1 && ig3 != -1 && ig4 != -1); }
 };
+
+typedef Select_OmegaPi0 Select;
 
 //-----------------------------------------------------------------------------
 // Lexicogrphic Sequencing
@@ -595,7 +593,7 @@ static Hep3Vector getVertexOrigin(int runNo)
     ParticleID *pid = ParticleID::instance();
 #if (BOSS_VER < 700)
     pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
-#else   
+#else
     pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
@@ -1015,14 +1013,14 @@ static double GetEcms(int run, double& Lumi)
 
   // we need some values any way
   double Ecms   = 3.097;
-  double Spread = 1000.;
+//   double Spread = 1000.;
   Lumi          = 0;
 
   int i = 0;
   for(; i < Np; i++) {
      if ( absrun >= ListRuns[i].runS && absrun <= ListRuns[i].runE ) {
        Ecms   = ListRuns[i].Ebeam  * 1.e-3;  // MeV -> GeV
-       Spread = ListRuns[i].Spread * 1.e-6;  // KeV -> GeV
+//        Spread = ListRuns[i].Spread * 1.e-6;  // KeV -> GeV
        Lumi   = ListRuns[i].Lumi;
        break;
      }
@@ -1082,7 +1080,7 @@ bool SelectOmegapi0Event(ReadDst* selector,
 
   //tmp
   double lum0 = 0;
-  S3pi.E_cms =  GetEcms(abs(runNo), lum0) * 1e3; // MeV;
+  S3pi.Ecms =  GetEcms(abs(runNo), lum0) * 1e3; // MeV;
 
   isMC = (runNo < 0);
   if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||

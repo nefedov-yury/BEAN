@@ -26,21 +26,22 @@ Long64_t TMergeableMap::Merge(TCollection* li)
 
       while (( key = (TObjString*)next_key() )) {
 
-          //check whether this key already exists in map
-          TObjString* present_value = (TObjString*) GetValue( key->GetName() );
-          TObjString* new_value = (TObjString*) map->GetValue( key );
-          if (present_value) {
-              if ( new_value->GetString() != present_value->GetString() ) {
-                  Error("TMergeableMaps::Merge",
-                        "Trying to merge TMergeableMaps with different"
-                        " values(%s,%s) of the same key %s!",
-                        new_value->GetString().Data(),
-                        present_value->GetString().Data(),
-                        key->GetString().Data()                         );
-              }
-          } else {
-              Add(key, new_value);
-          }
+         //check whether this key already exists in map
+         TObjString* present_value =
+            (TObjString*) GetValue( key->GetName() );
+         TObjString* new_value = (TObjString*) map->GetValue( key );
+         if (present_value) {
+            if ( new_value->GetString() != present_value->GetString() ) {
+               Error("TMergeableMaps::Merge",
+                     "Trying to merge TMergeableMaps with different"
+                     " values(%s,%s) of the same key %s!",
+                     new_value->GetString().Data(),
+                     present_value->GetString().Data(),
+                     key->GetString().Data()                         );
+            }
+         } else {
+            Add(key, new_value);
+         }
 
       }
    }

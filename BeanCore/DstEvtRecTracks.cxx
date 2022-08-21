@@ -3,16 +3,17 @@
 // "EvtRecEvent/EvtRecTrack.h"
 //
 
-#include <iostream>
+// #include <iostream>
 
 #include "RootEventData/TEvtRecTrack.h"
 #include "RootEventData/TDstEvent.h"
 
 #include "DstEvtRecTracks.h"
 
-//-----------------------------------------------------------------------------
-DstEvtRecTracks::DstEvtRecTracks(TEvtRecTrack* rec_trk, TDstEvent* dst_event)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+DstEvtRecTracks::DstEvtRecTracks(TEvtRecTrack* rec_trk,
+                                 TDstEvent* dst_event)
+//--------------------------------------------------------------------
 {
   mdc_trk = 0;
   mdc_dedx = 0;
@@ -41,8 +42,10 @@ DstEvtRecTracks::DstEvtRecTracks(TEvtRecTrack* rec_trk, TDstEvent* dst_event)
 
   int mdc_kal_trk_id = rec_trk->mdcKalTrackId();
   if( mdc_kal_trk_id  >= 0 ) {
-    const TObjArray* m_mdcKalTrackCol = dst_event->getMdcKalTrackCol();
-    TMdcKalTrack* tmp = (TMdcKalTrack*) m_mdcKalTrackCol->At(mdc_kal_trk_id);
+    const TObjArray* m_mdcKalTrackCol =
+       dst_event->getMdcKalTrackCol();
+    TMdcKalTrack* tmp =
+       (TMdcKalTrack*) m_mdcKalTrackCol->At(mdc_kal_trk_id);
     if( tmp ) mdc_kal_trk = new RecMdcKalTrack(tmp);
   }
 
@@ -78,26 +81,33 @@ DstEvtRecTracks::DstEvtRecTracks(TEvtRecTrack* rec_trk, TDstEvent* dst_event)
   }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 DstEvtRecTracks::~DstEvtRecTracks()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-//   cerr << " dtor DstEvtRecTracks: " << mdc_kal_trk << " " << ext_trk << endl;
-  delete(mdc_trk);      mdc_trk = 0;
-  delete(mdc_dedx);     mdc_dedx = 0;
-  delete(mdc_kal_trk);  mdc_kal_trk = 0;
+  delete(mdc_trk);
+  mdc_trk = 0;
+  delete(mdc_dedx);
+  mdc_dedx = 0;
+  delete(mdc_kal_trk);
+  mdc_kal_trk = 0;
+
   for ( auto& tt : tof_trk ) {
      delete(tt);
   }
-                        tof_trk.clear();
-  delete(ext_trk);      ext_trk = 0;
-  delete(emc_trk);      emc_trk = 0;
-  delete(muc_trk);      muc_trk = 0;
+  tof_trk.clear();
+
+  delete(ext_trk);
+  ext_trk = 0;
+  delete(emc_trk);
+  emc_trk = 0;
+  delete(muc_trk);
+  muc_trk = 0;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 int DstEvtRecTracks::trackId() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   return m_rec_trk->trackId();
 }

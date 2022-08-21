@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include <vector>
-#include "TSelector.h"
+#include <TSelector.h>
 
 class TChain;
 class TFile;
@@ -34,66 +34,63 @@ public :
                         DstFormat();
    virtual             ~DstFormat();
 
-   // inherited from TSelector --------------------------------------------
+   // inherited from TSelector ---------------------------------------
 
-   // We MUST define API version: version one uses Process(), introduces
-   // the SlaveBegin()/SlaveTerminate() functions and clarifies the role
-   // of Init() and Notify()
+   // We MUST define API version: version one uses Process(),
+   // introduces the SlaveBegin()/SlaveTerminate() functions and
+   // clarifies the role of Init() and Notify()
    // Init() call in TTreePlayer requires Version()  == 2
-   virtual Int_t        Version() const { return 2;}
+   virtual Int_t  Version() const override { return 2;}
 
-   virtual void         Begin(TTree* ) = 0;
-   virtual void         SlaveBegin(TTree* ) = 0;
-   virtual Bool_t       Process(Long64_t entry) = 0;
-   virtual void         SlaveTerminate() = 0;
-   virtual void         Terminate() = 0;
+   virtual void   Begin(TTree* ) override = 0;
+   virtual void   SlaveBegin(TTree* ) override = 0;
+   virtual Bool_t Process(Long64_t entry) override = 0;
+   virtual void   SlaveTerminate() override = 0;
+   virtual void   Terminate() override = 0;
 
-   virtual void         Init(TTree* tree);
-   virtual Bool_t       Notify();
-   virtual Int_t        GetEntry(Long64_t entry, Int_t getall = 0);
-   // ---------------------------------------------------------------------
+   virtual void   Init(TTree* tree) override;
+   virtual Bool_t Notify() override;
+   virtual Int_t  GetEntry(Long64_t entry, Int_t getall = 0) override;
+   // ----------------------------------------------------------------
 
-   virtual bool         Verbose() const = 0;
+   virtual bool   Verbose() const = 0;
 
-   void                 SetBranches(TTree *tree);
-   void                 Show(Long64_t entry = -1);
-   TFile*               GetCurrentFile() const;
+   void           SetBranches(TTree *tree);
+   void           Show(Long64_t entry = -1);
+   TFile*         GetCurrentFile() const;
 
    // print-functions
-   void                 PrintHeader() const;
+   void  PrintHeader() const;
 
-   void                 PrintDst() const;
-   void                 PrintMdcTracks(const TObjArray* m_mdcTrackCol) const;
-   void                 PrintMdcDedx(const TObjArray* m_mdcDedxCol)    const;
-   void                 PrintMdcKalTracks(const TObjArray*
-                                                     m_mdcKalTrackCol) const;
-   void                 PrintTofTrack(const TObjArray* m_tofTrackCol)  const;
-   void                 PrintExtTrack(const TObjArray* m_extTrackCol)  const;
-   void                 PrintEmcTrack(const TObjArray* m_emcTrackCol)  const;
-   void                 PrintMucTrack(const TObjArray* m_mucTrackCol)  const;
+   void  PrintDst() const;
+   void  PrintMdcTracks(const TObjArray* m_mdcTrackCol) const;
+   void  PrintMdcDedx(const TObjArray* m_mdcDedxCol)    const;
+   void  PrintMdcKalTracks(const TObjArray* m_mdcKalTrackCol) const;
+   void  PrintTofTrack(const TObjArray* m_tofTrackCol)  const;
+   void  PrintExtTrack(const TObjArray* m_extTrackCol)  const;
+   void  PrintEmcTrack(const TObjArray* m_emcTrackCol)  const;
+   void  PrintMucTrack(const TObjArray* m_mucTrackCol)  const;
 
-   void                 PrintEvtRec() const;
-   void                 PrintRecTrack(const TObjArray* m_evtRecTrackCol) const;
-   void                 PrintRecVeeVertex(const TObjArray*
-                                                   m_evtRecVeeVertexCol) const;
-   void                 PrintRecPi0(const TObjArray* m_evtRecPi0Col)     const;
-   void                 PrintRecEtaToGG(const TObjArray*
-                                                     m_evtRecEtaToGGCol) const;
-   void                 PrintRecDTag(const TObjArray* m_evtRecDTagCol)   const;
+   void  PrintEvtRec() const;
+   void  PrintRecTrack(const TObjArray* m_evtRecTrackCol) const;
+   void  PrintRecVeeVertex(const TObjArray* m_evtRecVeeVertexCol) const;
+   void  PrintRecPi0(const TObjArray* m_evtRecPi0Col)     const;
+   void  PrintRecEtaToGG(const TObjArray* m_evtRecEtaToGGCol) const;
+   void  PrintRecDTag(const TObjArray* m_evtRecDTagCol)   const;
 
-   void                 PrintMcEvent() const;
-   void                 PrintMdcMC(const TObjArray* m_mdcMcHitCol)       const;
-   void                 PrintEmcMC(const TObjArray* m_emcMcHitCol)       const;
-   void                 PrintTofMC(const TObjArray* m_tofMcHitCol)       const;
-   void                 PrintMucMC(const TObjArray* m_mucMcHitCol)       const;
-   void                 PrintMCParticle(const TObjArray* m_mcParticleCol)const;
-   void                 PrintMcDecayTree(int root = -99, int shift = 0)  const;
+   void  PrintMcEvent() const;
+   void  PrintMdcMC(const TObjArray* m_mdcMcHitCol)       const;
+   void  PrintEmcMC(const TObjArray* m_emcMcHitCol)       const;
+   void  PrintTofMC(const TObjArray* m_tofMcHitCol)       const;
+   void  PrintMucMC(const TObjArray* m_mucMcHitCol)       const;
+   void  PrintMCParticle(const TObjArray* m_mcParticleCol)const;
+   void  PrintMcDecayTree(int root = -99, int shift = 0)  const;
 
-   void                 PrintTrigEvent() const;
-   void                 PrintDigiEvent() const;
-   void                 PrintHltEvent() const;
+   void  PrintTrigEvent() const;
+   void  PrintDigiEvent() const;
+   void  PrintHltEvent() const;
 #if BOSS_VER >= 661
-   void                 PrintEvtNavigator() const;
+   void  PrintEvtNavigator() const;
 #endif
 
    // access functions:
@@ -105,7 +102,7 @@ public :
    const TDigiEvent*    GetDigiEvent()    const {return m_TDigiEvent;}
    const THltEvent*     GetHltEvent()     const {return m_THltEvent;}
 #if BOSS_VER >= 661
-   const TEvtNavigator* GetEventNavigator()     const {return m_TEvtNavigator;}
+   const TEvtNavigator* GetEventNavigator() const {return m_TEvtNavigator;}
 #endif
 
 protected :
@@ -138,7 +135,9 @@ protected :
    virtual void         ClearClasses();
 
    // ClassVersionID=0 because we don't need object I/O
-   ClassDef(DstFormat,0); // description of the DST format
+//    ClassDef(DstFormat,0); // DST format description
+   // if class definition use `override` keyword
+   ClassDefOverride(DstFormat,0); // DST format description
 };
 
 #endif

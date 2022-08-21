@@ -20,7 +20,7 @@
 
 #include "RootEventData/TMdcTrack.h"
 
-class BMdcTrack : public TMdcTrack 
+class BMdcTrack : public TMdcTrack
 {
  public:
         BMdcTrack(const TMdcTrack* trk) : TMdcTrack(*trk) {;}
@@ -40,4 +40,4 @@ class BMdcTrack : public TMdcTrack
   // The Coordinate of Track origin(m)
   const HepPoint3D              x3()                    const;
 };
-#endif 
+#endif

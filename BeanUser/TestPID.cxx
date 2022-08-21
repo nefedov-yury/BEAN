@@ -65,13 +65,13 @@ extern "C" {
 
 static FILE* fout = 0;
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void TestPIDStartJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " TestPIDStartJob() " << endl;
-  
+
    const char outfile[] = "TestPID.out";
    fout = fopen(outfile, "w+");
    if( !fout ) {
@@ -80,7 +80,7 @@ void TestPIDStartJob(ReadDst* selector)
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 bool TestPIDEvent( ReadDst* selector,
                    TEvtHeader* m_TEvtHeader,
@@ -90,10 +90,10 @@ bool TestPIDEvent( ReadDst* selector,
                    TTrigEvent* m_TTrigEvent,
                    TDigiEvent* m_TDigiEvent,
                    THltEvent* m_THltEvent)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " TestPIDEvent() " << endl;
-   
+
    const TEvtRecEvent*  m_evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
    int event = m_TEvtHeader->getEventId();
    int run = m_TEvtHeader->getRunId();
@@ -102,8 +102,8 @@ bool TestPIDEvent( ReadDst* selector,
    fprintf(fout,
    "***********************************************************************\n");
    fprintf(fout,"event: %i, run: %i, total charged: %i\n", event,run,ncharge);
-   
-   cout << 
+
+   cout <<
    "***********************************************************************\n";
    cout << "event: " << event <<", run: " << run << ", total charged: "
         << ncharge << endl;
@@ -117,7 +117,7 @@ bool TestPIDEvent( ReadDst* selector,
    ParticleID *pid = ParticleID::instance();
 #if (BOSS_VER < 700)
    pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
-#else   
+#else
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 //    cout << " pid= " << pid << endl;
@@ -142,7 +142,7 @@ bool TestPIDEvent( ReadDst* selector,
 //        pid->usePidSys(pid->useDedx());
 //        pid->usePidSys(pid->useTof1() | pid->useTof2());
        pid->identify(pid->onlyPion() | pid->onlyKaon() |
-                     pid->onlyProton() | pid->onlyMuon() | 
+                     pid->onlyProton() | pid->onlyMuon() |
                      pid->onlyElectron());
        cout << " pid->calculate(" << run << ")" << endl;
        pid->calculate(run);
@@ -154,9 +154,9 @@ bool TestPIDEvent( ReadDst* selector,
 
          fprintf(fout,"track #%i prob(electron, muon, pion, kaon, proton):",i);
          fprintf(fout," %15.10f %15.10f %15.10f %15.10f %15.10f\n",
-                pid->probElectron(), pid->probMuon(), pid->probPion(), 
+                pid->probElectron(), pid->probMuon(), pid->probPion(),
                 pid->probKaon(), pid->probPion());
-            
+
        } else {
          fprintf(fout,"NOPID INFO\n");
        }
@@ -164,14 +164,14 @@ bool TestPIDEvent( ReadDst* selector,
        if( i < ncharge ) fprintf(fout,"BAD TRACK\n");
      }
    }
-   
+
    return false;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void TestPIDEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " TestPIDEndJob() " << endl;
 }

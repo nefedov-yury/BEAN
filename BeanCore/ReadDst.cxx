@@ -7,9 +7,10 @@
 //////////////////////////////////////////////////////////////////////////
 #include <iostream>
 #include <cstdlib>
+#include <csignal>
 #include <ctime>
-#include <iterator>
-#include <typeinfo>
+
+extern volatile sig_atomic_t bean_termination;  // signal handler
 
 #include <RVersion.h> // Root version
 #include <TSystem.h>
@@ -26,16 +27,12 @@
 #include <TFileCollection.h>
 #include <TEntryList.h>
 
-
 // if not, gproof->print redirection will be used.
 //~ #define USE_MASTER_INFOHACK
 
 #ifdef USE_MASTER_INFOHACK
     #include "MasterInfoHack.h"
 #endif
-
-
-#include "TMergeableMap.h"
 
 #include "RootEventData/TEvtHeader.h"
 #include "RootEventData/TDstEvent.h"
@@ -47,15 +44,15 @@
 #include "RootEventData/THltEvent.h"
 #include "RootEventData/TJobInfo.h"
 
-#include "Bean.h"
 #include "DstEvtRecTracks.h"
+#include "TMergeableMap.h"
 #include "ReadDst.h"
 
 using namespace std;
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 ReadDst::ReadDst(): DstFormat()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    bean = 0;
 
@@ -75,19 +72,20 @@ ReadDst::ReadDst(): DstFormat()
    return;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 ReadDst::~ReadDst()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    delete m_evtRecTrkCol;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 bool ReadDst::LoadConfig(Bean* _bean)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( bean ) {
-     cout << "ReadDst::LoadConfig: Warning: config is already loaded." << endl;
+     cout << "ReadDst::LoadConfig: Warning: config is already loaded."
+          << endl;
    }
 
    if( _bean ) {
@@ -95,47 +93,50 @@ bool ReadDst::LoadConfig(Bean* _bean)
    } else {
      bean = (Bean *) fInput->FindObject("Bean");
      if( !bean ) {
-       cout << "ReadDst::LoadConfig: ERROR: No Bean in fInput!" << endl;
+       cout << "ReadDst::LoadConfig: ERROR: No Bean in fInput!"
+            << endl;
      }
    }
 
    return (bean != 0);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 bool ReadDst::Verbose() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !bean ) {
-     cout << "ReadDst::Verbose: Warning: config is not yet loaded." << endl;
+     cout << "ReadDst::Verbose: Warning: config is not yet loaded."
+          << endl;
      return true;
    }
 
    return bean->Verbose();
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 string ReadDst::GetBaseDir() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !bean ) {
-     cout << "ReadDst::GetBaseDir: ERROR: config is not yet loaded." << endl;
+     cout << "ReadDst::GetBaseDir: ERROR: config is not yet loaded."
+          << endl;
      exit(1);
    }
 
    return bean->GetBaseDir();
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 string ReadDst::AbsPath(string rel_path) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    return (this->GetBaseDir() + "/" + rel_path);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::SetEntryList(TEntryList* el)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selected_entries ) {
     cout << " ReadDst::SetEntryList WARNING: you will rewrite list"
@@ -145,31 +146,32 @@ void ReadDst::SetEntryList(TEntryList* el)
 
   if( fChain ) {
     if( fChain->GetEntryList() ) {
-      cout << " ReadDst::SetEntryList WARNING: list of selected entries"
-              " of the fChain will be overridden" << endl;
+      cout << " ReadDst::SetEntryList WARNING: "
+         "list of selected entries of the fChain will be overridden"
+         << endl;
     }
     fChain->SetEntryList(selected_entries);
   }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 Long64_t ReadDst::GetEntryNumber()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   return fChain->GetChainEntryNumber(current_entry);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::SaveEntryInList(TEntryList* el)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   // current_entry ??
   el->Enter(this->GetEntryNumber(),fChain);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::Begin(TTree* )
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // This method is called before looping on the events in the Tree.
    // The user can create his histograms in this function.
@@ -183,9 +185,9 @@ void ReadDst::Begin(TTree* )
    return;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::SlaveBegin(TTree* )
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // The SlaveBegin() function is called after the Begin() function.
    // This method is called on each PROOF worker node.
@@ -221,13 +223,16 @@ void ReadDst::SlaveBegin(TTree* )
          if ( bean->DstFileIsDataset() ) {
             fp_select = new TProofOutputFile(bean->DstFileName().c_str(),
                   TProofOutputFile::kDataset,
-                  TProofOutputFile::kRegister | TProofOutputFile::kVerify | TProofOutputFile::kOverwrite );
+                  TProofOutputFile::kRegister |
+                  TProofOutputFile::kVerify |
+                  TProofOutputFile::kOverwrite );
 
             fp_select->GetFileCollection()->SetDefaultTreeName("/Event");
 
          } else {
             // here we are using old constructor
-            fp_select = new TProofOutputFile(bean->DstFileName().c_str(), "M" );
+            fp_select =
+               new TProofOutputFile(bean->DstFileName().c_str(), "M" );
 
             if (! bean->DstFileIsLocal() ) {
                fp_select->SetOutputFileName(bean->DstFile().c_str());
@@ -251,13 +256,13 @@ void ReadDst::SlaveBegin(TTree* )
    return;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::Init(TTree *tree)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-   // The Init() function is called when the selector needs to initialize
-   // a new tree or chain. Typically here the branch addresses and branch
-   // pointers of the tree will be set.
+   // The Init() function is called when the selector needs to
+   // initialize a new tree or chain. Typically here the branch
+   // addresses and branch pointers of the tree will be set.
 
    DstFormat::Init(tree);
 
@@ -268,9 +273,9 @@ void ReadDst::Init(TTree *tree)
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 Bool_t ReadDst::Notify()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // The Notify() function is called when a new file is opened.
    // This can be either for a new TTree in a TChain or when
@@ -311,42 +316,27 @@ Bool_t ReadDst::Notify()
    return kTRUE;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 Bool_t ReadDst::Process(Long64_t entry)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // This method is called to process an event. It is the user's
-   // responsability to read the corresponding entry in memory
+   // responsibility to read the corresponding entry in memory
    // (may be just a partial read).
    // Once the entry is in memory one can apply a selection and if the
    // event is selected histograms can be filled.
    //
-   // The processing can be stopped by calling Abort().
-   //
-   // Processing stops when this function returns kFALSE.
+   // The processing can be stopped by calling Abort()
+   // in this case (root6.26) termination functions are not called
 
    current_entry = entry;
 
    ClearClasses(); // must be before "GetEntry"
 
    Int_t nbytes=0;
+
    // WARNING: entry is always the local entry number
-   //          in the current tree !
-
-/*
-   // test ____ test ____ test ____ test ____ test ____ test ____ test
-   cout << " entry= " << entry
-        << " BytesRead= " << fChain->GetCurrentFile()->GetFileBytesRead()
-        << " ReadCals= " << fChain->GetCurrentFile()->GetFileReadCalls()
-        << " BytesReadExtra= "
-        << fChain->GetCurrentFile()->GetBytesReadExtra() << endl;
-
-   if( entry%1000 != 0 ) return kTRUE;
-//   if( (entry/10000)%10 != 0 ) return kTRUE;
-
-   // test ^^^^ test ^^^^ test ^^^^ test ^^^^ test ^^^^ test ^^^^ test
-*/
-
+   //          in the current tree!
    nbytes += fChain->GetTree()->GetEntry(entry);
 
    // debug print
@@ -375,27 +365,23 @@ Bool_t ReadDst::Process(Long64_t entry)
      T_select->Fill();
      n_select_events++;
      if( Verbose() ) {
-         //~ TBranch * tmp = T_select->GetBranch("TEvtRecObject");
-         //~ cerr << "T_select: " <<   (long) T_select << endl;
-         //~ cerr << "addr TEvtRecObject: " <<   (long) tmp->GetAddress() << endl;
-         //~ TBranch * tmp2 = fChain->GetBranch("TEvtRecObject");
-         //~ cerr << "addr TEvtRecObject chain: " <<   (long) tmp2->GetAddress() << endl;
-
        cout << " + n_select_events= " << n_select_events << endl;
      }
    }
 
    n_events += 1;
-   if( bean->UserSignal() != 0 ) {
-     Abort(" Normal job termination?");
+   if( bean_termination != 0 ) {
+      printf("User signal '%s' had been received\n",
+            strsignal(bean_termination));
+      this->Abort("Stop the event loop...");
    }
 
    return kTRUE;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::SlaveTerminate()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // This method is called at the end of the loop on all PROOF worker
    // nodes. In local mode this method is called on the client too.
@@ -453,9 +439,9 @@ void ReadDst::SlaveTerminate()
    return;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::Terminate()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // This method is called at the end of the loop on all events.
    // When using PROOF Terminate() is call on the client only.
@@ -498,7 +484,7 @@ void ReadDst::Terminate()
 
    // retrieving output DST file from master
    if( bean->IsProof() && !bean->Proof()->IsLite()
-       && bean->DstFileName().size() > 0 &&   bean->DstFileIsLocal() ){
+       && bean->DstFileName().size() > 0 && bean->DstFileIsLocal() ) {
 
        string serverDstLocation;
        bool use_xrootd = 0;
@@ -514,7 +500,8 @@ void ReadDst::Terminate()
        #endif
 
 
-       // getfile return code, -1 for error (getfile is not supported by server)
+       // getfile return code, -1 for error (getfile is not supported
+       // by server)
        int getfile_rc = 0;
 
        #if ROOT_VERSION_CODE >= ROOT_VERSION(5,25,2)
@@ -529,7 +516,8 @@ void ReadDst::Terminate()
        #endif
 
        if ( (bean->ProofXrdOutput())  || (getfile_rc == -1)  ) {
-          // construct URL using master host, master workdir and Dst file name
+          // construct URL using master host, master workdir and Dst
+          // file name
           serverDstLocation = "root://" + bean->ProofClr() + "/"
                   + workdir + "/"+ bean->DstFileName();
           use_xrootd = 1;
@@ -540,7 +528,8 @@ void ReadDst::Terminate()
          // in some rare cases (one worker) merging doesn't happen.
          // so we use worker dir to get file
 
-           // FIXME: this will not work when master node has no worker nodes
+           // FIXME: this will not work when master node has no worker
+           // nodes
 
            TProofOutputFile* fProofFile = (TProofOutputFile*)
                         fOutput->FindObject(bean->DstFileName().c_str() );
@@ -565,9 +554,9 @@ void ReadDst::Terminate()
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::UserStartJob()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // User Start-Job functions:
    const VecUF& Ufn_start = bean->GetStartJobFns();
@@ -580,9 +569,9 @@ void ReadDst::UserStartJob()
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 bool ReadDst::UserEvent(TTree* T)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    const VecUF& Ufn_event = bean->GetUserEventFns();
    VecUF::const_iterator iuf = Ufn_event.begin();
@@ -593,8 +582,8 @@ bool ReadDst::UserEvent(TTree* T)
    for( ;iuf != Ufn_event.end(); iuf++) {
       pufn user_func = (pufn) (*iuf);
       bool ret = user_func(this,
-                          m_TEvtHeader,m_TDstEvent,m_TEvtRecObject,
-                          m_TMcEvent,m_TTrigEvent,m_TDigiEvent,m_THltEvent);
+            m_TEvtHeader,m_TDstEvent,m_TEvtRecObject,
+            m_TMcEvent,m_TTrigEvent,m_TDigiEvent,m_THltEvent);
       if( T && ret ) {
         save_this = true;
       }
@@ -605,9 +594,9 @@ bool ReadDst::UserEvent(TTree* T)
    return save_this;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::UserEndJob()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    const VecUF& Ufn_end = bean->GetEndJobFns();
    VecUF::const_iterator iuf = Ufn_end.begin();
@@ -619,28 +608,33 @@ void ReadDst::UserEndJob()
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::CreateEvtRecTrkCol()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( Verbose() ) {
-     cout << " CreateEvtRecTrkCol " << m_evtRecTrkCol->GetEntriesFast() << endl;
+     cout << " CreateEvtRecTrkCol " << m_evtRecTrkCol->GetEntriesFast()
+          << endl;
    }
    m_evtRecTrkCol->Delete();
    if (m_TEvtRecObject) {
-      const TObjArray*  m_evtRecTrackCol = m_TEvtRecObject->getEvtRecTrackCol();
+      const TObjArray* m_evtRecTrackCol =
+         m_TEvtRecObject->getEvtRecTrackCol();
       TIter evtRecTrackIter(m_evtRecTrackCol);
       TEvtRecTrack* evtRecTrack = 0;
-      while( (evtRecTrack = (TEvtRecTrack*)evtRecTrackIter.Next()) != 0 ) {
-        m_evtRecTrkCol->AddLast( new DstEvtRecTracks(evtRecTrack,m_TDstEvent) );
+      while(
+            (evtRecTrack = (TEvtRecTrack*)evtRecTrackIter.Next()) != 0
+           ) {
+        m_evtRecTrkCol->AddLast(
+              new DstEvtRecTracks(evtRecTrack,m_TDstEvent) );
       }
    }
 }
 
 // To add objects SHOULD be implemented the method 'Merge()'
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::RegInDir(const VecObj* hst, const char* dir)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( Verbose() ) cout << " ReadDst::RegInDir(VecObj*) " << endl;
 
@@ -661,15 +655,16 @@ void ReadDst::RegInDir(const VecObj* hst, const char* dir)
         CheckDupName(*it1);
         fOutput->Add(*it1);
         if( dir ) {
-          dirMap->Add(new TObjString((*it1)->GetName()), new TObjString(dir));
+          dirMap->Add(
+                new TObjString((*it1)->GetName()), new TObjString(dir));
         }
       }
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void  ReadDst::RegInDir(const TList* hst, const char* dir )
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( Verbose() ) cout << " ReadDst::RegInDir(TList*) " << endl;
    TIter next(hst);
@@ -682,16 +677,17 @@ void  ReadDst::RegInDir(const TList* hst, const char* dir )
    RegInDir(hst_vec, dir);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::Save_histo() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( fOutput->GetSize() == 0 ) return;
 
    string hst_file = bean->HstFile();
    TFile* c_out = TFile::Open(hst_file.c_str(),"RECREATE");
    if( !c_out ) {
-     cout << " ReadDst::Save_histo::ERROR can not open " << hst_file << endl;
+     cout << " ReadDst::Save_histo::ERROR can not open " << hst_file
+          << endl;
      return;
    }
    c_out->cd();
@@ -722,7 +718,8 @@ void ReadDst::Save_histo() const
          if( obj->InheritsFrom("TH1") ) { // this is histograms
             if( ((TH1*) obj) -> GetEntries() < 0.01 ) {
                if( Verbose() ) {
-                  cout << " skip empty histogram:  " << hst->GetName() << endl;
+                  cout << " skip empty histogram:  " << hst->GetName()
+                       << endl;
                }
                continue;
             }
@@ -730,7 +727,8 @@ void ReadDst::Save_histo() const
          } else if( obj->InheritsFrom("TTree") ) { // this is tree
             if( ((TTree*) obj) -> GetEntries() < 0.01 ) {
                if( Verbose() ) {
-                  cout << " skip empty tree:  " << hst->GetName() << endl;
+                  cout << " skip empty tree:  " << hst->GetName()
+                       << endl;
                }
                continue;
             }
@@ -781,13 +779,14 @@ void ReadDst::Save_histo() const
    c_out->Close();
    if( Verbose() ) {
      cout << " Save " << nhisto << " histograms " << endl
-          << "  and " << ntrees << " trees in file " << hst_file << endl;
+          << "  and " << ntrees << " trees in file " << hst_file
+          << endl;
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::CheckDupName(TObject *obj)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( obj ) {
      TObject *org = fOutput->FindObject(obj->GetName());
@@ -800,9 +799,9 @@ void ReadDst::CheckDupName(TObject *obj)
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void ReadDst::WriteJobInfo()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // copy&pasted from BOSS
    TJobInfo* jobInfo = new TJobInfo;

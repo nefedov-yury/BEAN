@@ -4,6 +4,7 @@
 
 # explicit listing of files
 SET( CXX_FILES
+   # List of test functions  
    User1.cxx
    UserTest.cxx
    TestDb.cxx
@@ -11,24 +12,30 @@ SET( CXX_FILES
    MagField.cxx
    JobInfo.cxx
    Rhopi.cxx
-   Bhabha.cxx
-   RadBhabha.cxx
    EntryList.cxx
    TestEventTag.cxx
+   TestAbsCor.cxx
    Etaetagamma.cxx
+   #    the analysis of Jpsi -> rho pi  written for BEAN;
+   #    analogue of the Boss: Analysis/Physics/RhopiAlg 
+   Rhopi.cxx
 #
-#   Semileptonic.cxx
-#   DoubleDTag.cxx
+# -- local and old files --
+#     Semileptonic.cxx
+#     DoubleDTag.cxx
+#     Bhabha.cxx
+#     RadBhabha.cxx
+#
+#     SelectOmegaEta.cxx
+#     SelectOmegapi0.cxx
+#     Eta_TwoPi.cxx
+#     PipPimPi0Eta.cxx
+#     SelectJpsiX.cxx
 #
    SelectKKgg.cxx
    PsipJpsiPhiEta.cxx
    PsipPiPiKK.cxx
    PsipJpsiGammaEta.cxx
-#
-# local files
-   Eta_TwoPi.cxx
-   PipPimPi0Eta.cxx
-#     SelectJpsiX.cxx
 )
 
 #--------------------------------------------------------------------------

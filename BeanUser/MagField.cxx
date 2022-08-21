@@ -51,8 +51,8 @@ static std::vector<TH1D*> his1;
 static std::vector<TH2D*> his2;
 
 static MagneticFieldSvc* mag_field;
-static double max_x = 1.8*m, min_x = -1.8*m; 
-static double max_y = 1.8*m, min_y = -1.8*m; 
+static double max_x = 1.8*m, min_x = -1.8*m;
+static double max_y = 1.8*m, min_y = -1.8*m;
 static double max_z = 2.1*m, min_z = -2.1*m;
 
 
@@ -62,11 +62,11 @@ void MagFieldStartJob(ReadDst* selector)
 //-----------------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " MagFieldStartJob() " << endl;
-   
-   // reserve 
+
+   // reserve
    his1.resize(100,(TH1D*)0);
    his2.resize(100,(TH2D*)0);
-   
+
    // book histograms
    his1[1] = new TH1D("Bx_z","Bx(z) x=0 y=0", 420, min_z, max_z);
    his1[2] = new TH1D("By_z","By(z) x=0 y=0", 420, min_z, max_z);
@@ -88,7 +88,7 @@ void MagFieldStartJob(ReadDst* selector)
 
    VecObj his2o(his2.begin(),his2.end());
    selector->RegInDir( his2o     ,"MagField2");
-   
+
    // create MagneticFieldSvc
    mag_field = MagneticFieldSvc::instance();
    if( !(mag_field->GetPath()).empty() ) {
@@ -123,9 +123,9 @@ bool MagFieldEvent(ReadDst* selector,
 
    int run = m_TEvtHeader->getRunId();
    mag_field->handle(run); // MUST BE !
-   
+
    double bx = 0,by = 0,bz = 0;
-   
+
    // center of detector:
    double pz = 0;
    double dz = 0.01*m;
@@ -159,7 +159,7 @@ bool MagFieldEvent(ReadDst* selector,
       his1[8]->Fill(pz,by);
       his1[9]->Fill(pz,bz);
    }
-   
+
    pz = 0;
    double px = 0, py = 0;
    double dx = 0.05*m;
@@ -178,7 +178,7 @@ bool MagFieldEvent(ReadDst* selector,
          his2[2]->Fill(px,py,by);
          his2[3]->Fill(px,py,bz);
 //          if( abs(i-36) < 3 && abs(j-36) < 3 ) {
-//            cout << i << ":" << j 
+//            cout << i << ":" << j
 //                 << " (x,y,z)= " << r << " vecB= " << b << endl;
 //          }
       }

@@ -66,17 +66,13 @@ extern "C" {
 #endif
 
 
-//const double twopi = 6.2831853;
-//const double pi = 3.1415927;
 const double mpi = 0.13957;
 const double xmass[5] = {0.000511, 0.105658, 0.139570,0.493677, 0.938272};
-//const double velc = 29.9792458;  tof_path unit in cm.
 const double velc = 299.792458;   // tof path unit in mm
 
 typedef std::vector<int> Vint;
 typedef std::vector<HepLorentzVector> Vp4;
 
-/////////////////////////////////////////////////////////////////////////////
 static int Ncut0,Ncut1,Ncut2,Ncut3,Ncut4,Ncut5,Ncut6;
 
 static std::vector<TNtuple* > m_tuple;
@@ -99,12 +95,11 @@ static int m_checkDedx;
 static int m_checkTof;
 
 static AbsCor* m_abscor = 0;
-/////////////////////////////////////////////////////////////////////////////
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void RhopiStartJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " RhopiStartJob() " << endl;
 
@@ -213,7 +208,7 @@ void RhopiStartJob(ReadDst* selector)
   selector->RegInDir(ntuples,"Rhopi");
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 bool RhopiEvent(ReadDst* selector,
                    TEvtHeader* m_TEvtHeader,
@@ -223,7 +218,7 @@ bool RhopiEvent(ReadDst* selector,
                    TTrigEvent* m_TTrigEvent,
                    TDigiEvent* m_TDigiEvent,
                    THltEvent* m_THltEvent)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " RhopiEvent() " << endl;
 
@@ -754,21 +749,21 @@ bool RhopiEvent(ReadDst* selector,
 //         RecEmcShower *g2Trk = (*(evtRecTrkCol->begin()+iGam[j]))->emcShower();
         RecEmcShower *g2Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(iGam[j]))
                                                                ->emcShower();
-	kmfit->init();
-	kmfit->AddTrack(0, wpip);
-	kmfit->AddTrack(1, wpim);
-	kmfit->AddTrack(2, 0.0, g1Trk);
-	kmfit->AddTrack(3, 0.0, g2Trk);
-	kmfit->AddFourMomentum(0, ecms);
-	bool oksq = kmfit->Fit();
-	if(oksq) {
-	  double chi2 = kmfit->chisq();
-	  if(chi2 < chisq) {
-	    chisq = chi2;
-	    ig1 = iGam[i];
-	    ig2 = iGam[j];
-	  }
-	}
+        kmfit->init();
+        kmfit->AddTrack(0, wpip);
+        kmfit->AddTrack(1, wpim);
+        kmfit->AddTrack(2, 0.0, g1Trk);
+        kmfit->AddTrack(3, 0.0, g2Trk);
+        kmfit->AddFourMomentum(0, ecms);
+        bool oksq = kmfit->Fit();
+        if(oksq) {
+          double chi2 = kmfit->chisq();
+          if(chi2 < chisq) {
+            chisq = chi2;
+            ig1 = iGam[i];
+            ig2 = iGam[j];
+          }
+        }
       }
     }
 
@@ -789,10 +784,10 @@ bool RhopiEvent(ReadDst* selector,
       kmfit->AddFourMomentum(0, ecms);
       bool oksq = kmfit->Fit();
       if(oksq) {
-	HepLorentzVector ppi0 = kmfit->pfit(2) + kmfit->pfit(3);
-	double m_mpi0 = ppi0.m();
-	double m_chi1 = kmfit->chisq();
-	m_tuple[4]->Fill(m_chi1,m_mpi0);
+        HepLorentzVector ppi0 = kmfit->pfit(2) + kmfit->pfit(3);
+        double m_mpi0 = ppi0.m();
+        double m_chi1 = kmfit->chisq();
+        m_tuple[4]->Fill(m_chi1,m_mpi0);
         Ncut4++;
       }
     }
@@ -817,24 +812,24 @@ bool RhopiEvent(ReadDst* selector,
 //         RecEmcShower *g2Trk = (*(evtRecTrkCol->begin()+iGam[j]))->emcShower();
         RecEmcShower *g2Trk = ((DstEvtRecTracks*)evtRecTrkCol->At(iGam[j]))
                                                                ->emcShower();
-	kmfit->init();
-	kmfit->AddTrack(0, wpip);
-	kmfit->AddTrack(1, wpim);
-	kmfit->AddTrack(2, 0.0, g1Trk);
-	kmfit->AddTrack(3, 0.0, g2Trk);
-	kmfit->AddResonance(0, 0.135, 2, 3);
-	kmfit->AddFourMomentum(1, ecms);
-	if(!kmfit->Fit(0)) continue;
-	if(!kmfit->Fit(1)) continue;
-	bool oksq = kmfit->Fit();
-	if(oksq) {
-	  double chi2 = kmfit->chisq();
-	  if(chi2 < chisq) {
-	    chisq = chi2;
-	    ig1 = iGam[i];
-	    ig2 = iGam[j];
-	  }
-	}
+        kmfit->init();
+        kmfit->AddTrack(0, wpip);
+        kmfit->AddTrack(1, wpim);
+        kmfit->AddTrack(2, 0.0, g1Trk);
+        kmfit->AddTrack(3, 0.0, g2Trk);
+        kmfit->AddResonance(0, 0.135, 2, 3);
+        kmfit->AddFourMomentum(1, ecms);
+        if(!kmfit->Fit(0)) continue;
+        if(!kmfit->Fit(1)) continue;
+        bool oksq = kmfit->Fit();
+        if(oksq) {
+          double chi2 = kmfit->chisq();
+          if(chi2 < chisq) {
+            chisq = chi2;
+            ig1 = iGam[i];
+            ig2 = iGam[j];
+          }
+        }
       }
     }
 
@@ -858,32 +853,32 @@ bool RhopiEvent(ReadDst* selector,
       kmfit->AddFourMomentum(1, ecms);
       bool oksq = kmfit->Fit();
       if(oksq){
-	HepLorentzVector ppi0 = kmfit->pfit(2) + kmfit->pfit(3);
-	HepLorentzVector prho0 = kmfit->pfit(0) + kmfit->pfit(1);
-	HepLorentzVector prhop = ppi0 + kmfit->pfit(0);
-	HepLorentzVector prhom = ppi0 + kmfit->pfit(1);
+        HepLorentzVector ppi0 = kmfit->pfit(2) + kmfit->pfit(3);
+        HepLorentzVector prho0 = kmfit->pfit(0) + kmfit->pfit(1);
+        HepLorentzVector prhop = ppi0 + kmfit->pfit(0);
+        HepLorentzVector prhom = ppi0 + kmfit->pfit(1);
 
-	double m_chi2  = kmfit->chisq();
-	double m_mrh0 = prho0.m();
-	double m_mrhp = prhop.m();
-	double m_mrhm = prhom.m();
-	double eg1 = (kmfit->pfit(2)).e();
-	double eg2 = (kmfit->pfit(3)).e();
-	double fcos = abs(eg1-eg2)/ppi0.rho();
-	m_tuple[5]->Fill(m_chi2,m_mrh0,m_mrhp,m_mrhm);
+        double m_chi2  = kmfit->chisq();
+        double m_mrh0 = prho0.m();
+        double m_mrhp = prhop.m();
+        double m_mrhm = prhom.m();
+        double eg1 = (kmfit->pfit(2)).e();
+        double eg2 = (kmfit->pfit(3)).e();
+        double fcos = abs(eg1-eg2)/ppi0.rho();
+        m_tuple[5]->Fill(m_chi2,m_mrh0,m_mrhp,m_mrhm);
         Ncut5++;
-	//
-	//  Measure the photon detection efficiences via
-	//          J/psi -> rho0 pi0
-	//
-	if(fabs(prho0.m()-0.770)<0.150) {
-	  if(fabs(fcos)<0.99) {
-	    double m_fcos = (eg1-eg2)/ppi0.rho();
-	    double m_elow =  (eg1 < eg2) ? eg1 : eg2;
-	    m_tuple[6]->Fill(m_fcos,m_elow);
+        //
+        //  Measure the photon detection efficiences via
+        //          J/psi -> rho0 pi0
+        //
+        if(fabs(prho0.m()-0.770)<0.150) {
+          if(fabs(fcos)<0.99) {
+            double m_fcos = (eg1-eg2)/ppi0.rho();
+            double m_elow =  (eg1 < eg2) ? eg1 : eg2;
+            m_tuple[6]->Fill(m_fcos,m_elow);
             Ncut6++;
-	  }
-	} // rho0 cut
+          }
+        } // rho0 cut
       }  //oksq
     }
   }
@@ -891,10 +886,10 @@ bool RhopiEvent(ReadDst* selector,
   return false; // skip event
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void RhopiEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " RhopiEndJob() " << endl;
 

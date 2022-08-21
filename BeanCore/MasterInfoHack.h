@@ -17,12 +17,12 @@
 class MasterInfoHack : public TNamed
 {
     public:
-        MasterInfoHack()  ;
-        ~MasterInfoHack() {};        
-     
+        MasterInfoHack();
+        ~MasterInfoHack() {};
+
          Long64_t Merge(TCollection* list);
-         std::string  MasterWorkdir() const        {return fDir;}    
-     
+         std::string  MasterWorkdir() const        {return fDir;}
+
     private:
         std::string fDir;
         ClassDef(MasterInfoHack,1);

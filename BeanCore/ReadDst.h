@@ -10,7 +10,6 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include "DstFormat.h"
-#include "TMergeableMap.h"
 #include "Bean.h"
 
 // class Bean;
@@ -19,6 +18,8 @@ class TProofOutputFile;
 class TObject;
 class TNamed;
 class TEntryList;
+
+class TMergeableMap;
 
 // pointers on user functions:
 // - start/end job
@@ -37,7 +38,7 @@ public :
    virtual             ~ReadDst();
 
    bool                 LoadConfig(Bean* _bean = 0);
-   bool                 Verbose() const;
+   bool                 Verbose() const override;
    void                 SetVerbose() {bean->SetVerbose();}
    void                 SetSilent()  {bean->SetSilent();}
    std::string          GetBaseDir() const;
@@ -49,14 +50,14 @@ public :
    Long64_t             GetEntryNumber();
    void                 SaveEntryInList(TEntryList* el);
 
-   // TSelector functions
-   void                 Begin(TTree* );
-   void                 SlaveBegin(TTree* );
-   void                 Init(TTree *tree);
-   Bool_t               Notify();
-   Bool_t               Process(Long64_t entry);
-   void                 SlaveTerminate();
-   void                 Terminate();
+   // TSelector functions:
+   void                 Begin(TTree* ) override;
+   void                 SlaveBegin(TTree* ) override;
+   void                 Init(TTree *tree) override;
+   Bool_t               Notify() override;
+   Bool_t               Process(Long64_t entry) override;
+   void                 SlaveTerminate() override;
+   void                 Terminate() override;
 
    // -- call user functions
    void                 UserStartJob();
@@ -66,15 +67,17 @@ public :
 
    // -- histogramming
    void                 RegInDir(const VecObj* hst, const char* dir = 0);
-   void                 RegInDir(const VecObj& hst, const char* dir = 0)
-                                                        { RegInDir(&hst,dir);}
+   void                 RegInDir(const VecObj& hst, const char* dir = 0){
+      RegInDir(&hst,dir);
+   }
    void                 RegInDir(const TList* hst, const char* dir = 0);
-   void                 RegInDir(const TList& hst, const char* dir = 0)
-                                                        { RegInDir(&hst,dir);}
+   void                 RegInDir(const TList& hst, const char* dir = 0){
+      RegInDir(&hst,dir);
+   }
    void                 Save_histo() const;
 
 private :
-   Bean*                bean;   //-> all configuration parameters are here
+   Bean*                bean; //-> all configuration parameters are here
 
    Long64_t             current_entry;
    TEntryList*          selected_entries;
@@ -100,6 +103,8 @@ private :
    void                 WriteJobInfo();
 
    // ClassVersionID=0 because we don't need object I/O
-   ClassDef(ReadDst,0); // Primary class to read DST
+//    ClassDef(ReadDst,0); // Primary class to read DST
+   // if class definition use `override` keyword
+   ClassDefOverride(ReadDst,0); // Primary class to read DST
 };
 #endif

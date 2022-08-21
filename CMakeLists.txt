@@ -58,7 +58,7 @@ ENDIF()
 # 1) the ROOTEVENTDATA_VERSION
 # 2) versions of the algorithms in the Analysis folder;
 #    (by setting the preprocessor variable BOSS_VER)
-# Tested values: 6.6.3; 6.6.4; 6.6.5; 7.0.3; 7.0.4
+# Tested values: 6.6.3-6.6.5; 7.0.3;7.0.4;7.0.5-7.0.9
 SET( BOSS_VERSION
    6.6.4
    CACHE STRING
@@ -91,14 +91,16 @@ MESSAGE( STATUS "+++ BOSS_VER is ${BOSS_VER}" )
 #   6.5.2; 6.5.3; 6.5.5; 6.6.1          = BOSS_VERSION
 #   6.6.2                               6.6.1
 #   >= 6.6.3 < 7.0.5                    6.6.3
-#   7.0.5                               7.0.5
+#   >= 7.0.5 <= 7.0.9                   7.0.5
 #
-SET( ROOTEVENTDATA_VERSION "6.6.3" )
-IF( BOSS_VERSION  VERSION_EQUAL  "7.0.5" OR
-    BOSS_VERSION  VERSION_LESS  "6.6.2" )
-  SET( ROOTEVENTDATA_VERSION ${BOSS_VERSION} )
-ELSEIF( BOSS_VERSION  VERSION_EQUAL  "6.6.2" )
+SET( ROOTEVENTDATA_VERSION ${BOSS_VERSION} )
+IF( BOSS_VERSION  VERSION_EQUAL  "6.6.2" )
   SET( ROOTEVENTDATA_VERSION "6.6.1" )
+ELSEIF( BOSS_VERSION  VERSION_GREATER  "6.6.2" AND
+        BOSS_VERSION  VERSION_LESS  "7.0.5" )
+  SET( ROOTEVENTDATA_VERSION "6.6.3" )
+ELSEIF( BOSS_VERSION  VERSION_LESS  "7.0.10" )
+  SET( ROOTEVENTDATA_VERSION "7.0.5" )
 ENDIF()
 #  MESSAGE( STATUS "+++ ROOTEVENTDATA_VERSION is ${ROOTEVENTDATA_VERSION}" )
 
@@ -154,7 +156,7 @@ IF( GCC_VERSION VERSION_LESS 6.1 )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
   ELSEIF( GCC_VERSION VERSION_GREATER 4.3 )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x" )
-  ELSEIF()
+  ELSE()
     MESSAGE( FATAL_ERROR "Insufficient gcc version: ${GCC_VERSION}"
              " we use C++11 features" )
   ENDIF()

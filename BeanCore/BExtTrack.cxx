@@ -1,13 +1,13 @@
-// #include <iostream>
-
 #include "BExtTrack.h"
 
-using namespace std;
-using namespace CLHEP;
+// #include <iostream>
+// using namespace std;
 
-//-----------------------------------------------------------------------------
-const HepSymMatrix BExtTrack::tof1ErrorMatrix() const 
-//-----------------------------------------------------------------------------
+// using namespace CLHEP;
+
+//--------------------------------------------------------------------
+const HepSymMatrix BExtTrack::tof1ErrorMatrix() const
+//--------------------------------------------------------------------
 {
   // see ExtTrackCnv.cxx
   HepSymMatrix tmp(6);
@@ -19,9 +19,9 @@ const HepSymMatrix BExtTrack::tof1ErrorMatrix() const
   return tmp;
 }
 
-//-----------------------------------------------------------------------------
-const HepSymMatrix BExtTrack::tof2ErrorMatrix() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepSymMatrix BExtTrack::tof2ErrorMatrix() const
+//--------------------------------------------------------------------
 {
   // see ExtTrackCnv.cxx
   HepSymMatrix tmp(6);
@@ -33,9 +33,9 @@ const HepSymMatrix BExtTrack::tof2ErrorMatrix() const
   return tmp;
 }
 
-//-----------------------------------------------------------------------------
-const HepSymMatrix BExtTrack::emcErrorMatrix() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepSymMatrix BExtTrack::emcErrorMatrix() const
+//--------------------------------------------------------------------
 {
   // see ExtTrackCnv.cxx
   HepSymMatrix tmp(6);
@@ -47,9 +47,9 @@ const HepSymMatrix BExtTrack::emcErrorMatrix() const
   return tmp;
 }
 
-//-----------------------------------------------------------------------------
-const HepSymMatrix BExtTrack::mucErrorMatrix() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepSymMatrix BExtTrack::mucErrorMatrix() const
+//--------------------------------------------------------------------
 {
   // see ExtTrackCnv.cxx
   HepSymMatrix tmp(6);

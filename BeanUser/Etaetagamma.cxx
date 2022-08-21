@@ -705,7 +705,7 @@ void     _handleMC(TMcEvent* m_TMcEvent,const TEvtRecEvent*  evtRecEvent,unsigne
 
 
         if (((pi0Count==2) && (etaCount==0)) || ((etaCount==2) && (pi0Count==0))) {
-            char tag_str[10];
+            char tag_str[15];
             unsigned int eventTagDecay =  (eventTag & 0xFFFFFF00) >> 8;
 
             formatTag(tag_str, eventTagDecay);
@@ -780,7 +780,7 @@ typedef struct  {
 } Combination;
 
 void HepLorentzToRootLorentz(HepLorentzVector from, TLorentzVector& to) {
-	to.SetXYZT( from.x(), from.y(), from.z(), from.t());
+   to.SetXYZT( from.x(), from.y(), from.z(), from.t());
 }
 Combination findCombinationLIU(const Vtracks& photons,const vector<TLorentzVector>& photonsP, double mesonMass, double mesonWindow, double vetoMass, double vetoWindow) { // using C.Y. LIU cuts from PWA of J/\psi -> \gamma \eta \eta
     // bool pairFound;
@@ -1144,7 +1144,7 @@ bool EtaetagammaEvent(ReadDst* selector,
     unsigned int eventTagDecay =  (eventTag & 0xFFFFFF00) >> 8;
 
 
-    char tag_str[10];
+    char tag_str[15];
     formatTag(tag_str, eventTagDecay);
     hInitialTags->Fill(tag_str,1.0);
 

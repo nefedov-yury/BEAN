@@ -29,12 +29,14 @@ IF( BUILTIN_SQLITE )
   IF( NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.c OR
       NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.h )
       MESSAGE( FATAL_ERROR
-         "There are no local files \"sqlite3.c\" and \"sqlite3.h\".\n"
-         "Please download them from site: \nhttp://www.sqlite.org \n"
-         "and put them in ${CMAKE_CURRENT_SOURCE_DIR} directory "
-         "(see script Analysis/DatabaseSvc/share/get_sqlite3.sh).\n"
-         "Also you can try to use the system sqlite library "
-         "(set BUILTIN_SQLITE to OFF and rerun cmake)."
+        "There are no local files \"sqlite3.c\" and \"sqlite3.h\". "
+        "Please download the SQLite-amalgamation version of them "
+        "from the site:  http://www.sqlite.org  and put in "
+        "\"${CMAKE_CURRENT_SOURCE_DIR}\" directory.\n"
+        "To do this, you can use the \"get_sqlite3.sh\" script "
+        "from the BEAN/scripts folder. "
+        "Alternatively, you can try using the SQLITE system library "
+        "by setting -DBUILTIN_SQLITE=OFF when call the cmake."
       )
   ENDIF()
 
@@ -76,7 +78,7 @@ IF( ${CMAKE_VERSION} VERSION_LESS "3.12.0" )
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/share/"
     )
   ENDIF()
-ELSE()  
+ELSE()
   find_package (Python3 COMPONENTS Interpreter)
   IF( Python3_Interpreter_FOUND )
     ADD_CUSTOM_TARGET( updatedb

@@ -1,7 +1,11 @@
 #ifndef TOFHITSTATUS_H
 #define TOFHITSTATUS_H
 
-// This is modification of boss-7/Event/DstEvent/../TofHitStatus.h
+//////////////////////////////////////////////////////////////////////////
+//                                                                      //
+// This is modification of boss-7/Event/DstEvent/../TofHitStatus.h      //
+//                                                                      //
+//////////////////////////////////////////////////////////////////////////
 
 class TofHitStatus {
 
@@ -12,12 +16,16 @@ class TofHitStatus {
 
   void init();
   TofHitStatus& operator=(const TofHitStatus& source);
-  //  TofHitStatus& operator+(const TofHitStatus& source1, const TofHitStatus& source2 )
+//   TofHitStatus& operator+(const TofHitStatus& source1,
+//         const TofHitStatus& source2 )
 
  public:
 
   unsigned int value()          const { return  m_status;   }
-  //  void status( const bool raw, bool readout, bool counter, bool cluster,bool barrel, bool east, const unsigned int layer, unsigned int ncounter, unsigned int neast, unsigned int nwest ) const;
+//   void status( const bool raw, bool readout, bool counter,
+//         bool cluster, bool barrel, bool east,
+//         const unsigned int layer, unsigned int ncounter,
+//         unsigned int neast, unsigned int nwest ) const;
   bool  is_raw()                const { return  m_raw;      }
   bool  is_readout()            const { return  m_readout;  }
   bool  is_counter()            const { return  m_counter;  }

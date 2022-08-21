@@ -3,12 +3,12 @@
 
 #include "BMdcTrack.h"
 
-using namespace std;
+// using namespace std;
 using namespace CLHEP;
 
-//-----------------------------------------------------------------------------
-const HepVector BMdcTrack::helix() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepVector BMdcTrack::helix() const
+//--------------------------------------------------------------------
 {
   HepVector tmp(5);
   for(int i = 0; i < 5; i++) {
@@ -17,9 +17,9 @@ const HepVector BMdcTrack::helix() const
   return tmp;
 }
 
-//-----------------------------------------------------------------------------
-const HepSymMatrix BMdcTrack::err() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepSymMatrix BMdcTrack::err() const
+//--------------------------------------------------------------------
 {
   HepSymMatrix tmp(5);
    // m_err[] is stored as a lower triangular matrix (see DstMdcTrack.cxx)
@@ -32,9 +32,9 @@ const HepSymMatrix BMdcTrack::err() const
   return tmp;
 }
 
-//-----------------------------------------------------------------------------
-const Hep3Vector BMdcTrack::p3() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const Hep3Vector BMdcTrack::p3() const
+//--------------------------------------------------------------------
 {
   double pt = pxy();
   double fi0 = helix(1);
@@ -42,9 +42,9 @@ const Hep3Vector BMdcTrack::p3() const
   return Hep3Vector(-pt*sin(fi0),pt*cos(fi0),pt*tanl);
 }
 
-//-----------------------------------------------------------------------------
-const HepLorentzVector BMdcTrack::p4(const double mass) const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepLorentzVector BMdcTrack::p4(const double mass) const
+//--------------------------------------------------------------------
 {
   double pt = pxy();
   double fi0 = helix(1);
@@ -54,17 +54,17 @@ const HepLorentzVector BMdcTrack::p4(const double mass) const
   return HepLorentzVector(-pt*sin(fi0),pt*cos(fi0),pt*tanl,E);
 }
 
-//-----------------------------------------------------------------------------
-const HepPoint3D BMdcTrack::poca() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepPoint3D BMdcTrack::poca() const
+//--------------------------------------------------------------------
 {
   // see RootCnvSvc: Dst/MdcTrackCnv.cxx poca == x3 ???
   return HepPoint3D(x(),y(),z());
 }
 
-//-----------------------------------------------------------------------------
-const HepPoint3D BMdcTrack::x3() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepPoint3D BMdcTrack::x3() const
+//--------------------------------------------------------------------
 {
   return HepPoint3D(x(),y(),z());
 }

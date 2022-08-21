@@ -1,4 +1,7 @@
 author hekl,qing,huangb
+2021-11-04 chentong@ihep.ac.cn
+	* chi value of low momentum for proton/Kaon/Pion from round05/09/11/12 Jpsi data in DedxPID is corrected.
+	* the reconstructed momenta after kalman correction are used in DedxPID.
 2020-03-22 sunss@ihep.ac.cn
 	* A bug is fixed in ParticleID.cxx, changed a loop from 4 to 5
 	* Remove low momentum proton correction based on 09 Jpsi data in previous version

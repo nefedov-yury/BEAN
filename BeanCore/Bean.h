@@ -30,7 +30,6 @@ public :
    // -- set/get options functions:
    void         SetVerbose()                    {verbose = true;}
    void         SetSilent()                     {verbose = false;}
-   void         SetUserSignal(int sig)          {user_signal = sig;}
    void         SetEventDump()                  {event_dump = true;}
    void         SetHstFile(const char* opt)     {hst_file = opt;}
    void         SetDstFile(const char* opt);
@@ -43,7 +42,6 @@ public :
    void         SetProofXrdOutput(bool val)     {proof_xrd_output = val;}
 
    bool         Verbose() const                 {return verbose;}
-   int          UserSignal() const              {return user_signal;}
    bool         IsDump() const                  {return event_dump;}
    std::string  HstFile() const                 {return hst_file;}
    std::string  DstFile() const                 {return dst_file;}
@@ -85,7 +83,6 @@ public :
 
 private :
    bool         verbose;         // by default false => silent mode
-   int          user_signal;
    bool         event_dump;
    std::string  hst_file;
    std::string  dst_file; // full path

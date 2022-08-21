@@ -5,9 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
 #include <csignal>
-#include <cstring>
 #include <cerrno>
 #include <climits>
 
@@ -19,18 +17,18 @@
 #  include "win_getopt/getopt.h"
 #endif
 
-#include <TEnv.h>
-#include <TSystem.h>
-#include <TProof.h>
 #include <TROOT.h>
+#include <TSystem.h>
+#include <TEnv.h>
+#include <TProof.h>
+#include <TProofLog.h>
+#include <TMap.h>
 #include <TChain.h>
 #include <TObjArray.h>
 #include <TObjString.h>
-#include <TEnv.h>
-#include <TProofLog.h>
 #include <TFileCollection.h>
 
-// #include <TObjectTable.h> // debug memeory leak
+// #include <TObjectTable.h> // debug memory leak
 
 #include "Bean.h"
 #include "ReadDst.h"
@@ -47,7 +45,9 @@ void win_exit(){::ExitProcess(0);}
 
 // local:
 static Bean* bean = 0;
-#define TREE_CACHE_SIZE 10000000  //10 Mbytes
+#define TREE_CACHE_SIZE 10000000  //10 MB
+
+volatile sig_atomic_t bean_termination = 0;
 
 static void termination_handler(int isig);
 static void set_user_termination();
@@ -57,13 +57,14 @@ static void check_upload_enable(TProof* proof, const char* pname);
 
 static bool save_proof_logs;
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void graceful_proof_exit()
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if (gProof) {
       if (save_proof_logs) {
-         gProof->GetManager()->GetSessionLogs()->Save("*", "bean_proof.log");
+         gProof->GetManager()->GetSessionLogs()
+            ->Save("*", "bean_proof.log");
       }
 
       gProof->Close();
@@ -71,133 +72,133 @@ void graceful_proof_exit()
    }
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Usage(int argc, char **argv)
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    bool verbose = (bean) ? bean->Verbose() : false;
 
    cout << endl;
-   cout << " Usage: " << argv[0] << " [ -option(s)] dst_file(s)" << endl;
+   cout << " Usage: " << argv[0] << " [ -option(s)] dst_file(s)\n";
 
-   if( !verbose ) cout
-        << "  Note: This is a short note, run \""
-        << argv[0] << " -v\" for more information" << endl;
-   else cout
-        << "  Note: The program has been compiled for BOSS-"
-        << BOSS_VER << " version" << endl;
-
+   if( !verbose ) {
+      cout << "  Note: This is a short note,"
+         " use the '-v' option for more details\n";
+   } else {
+      cout << "  Note: The program has been compiled for"
+         " BOSS-" << BOSS_VER << " version\n";
 #if defined _WIN32
-   if( verbose ) cout
-        << "    Important: Note that PROOF & PROOF-Lite is not yet available"
-           " for Windows OS" << endl;
+      cout << "  PROOF (PROOF-Lite) is not available on Windows\n";
 #endif
+   }
 
    cout << endl;
    cout << " Arguments:" << endl;
-
-   cout << "  dst_file(s)   input ROOT files (mandatory";
-   if( verbose ) cout
-        << ", see also -L flag):" << endl;
-   else cout
-        << "):" << endl;
-   cout << "     local_file.root - path to the local file" << endl
+   cout << "  dst_file(s)   input ROOT files"
+      " (mandatory but see also -L flag):\n";
+   cout << "     local_file.root - path to the local file\n"
         << "     root://user@host/path/to/file.root"
-           " - use remote file from xrootd" << endl;
-   if( verbose ) cout
-        << "     ds://DatasetName - use dataset registered on PROOF cluster"
-        << endl;
+        " - remote file from xrootd\n";
+   if( verbose ) {
+      cout
+        << "     ds://DatasetName - dataset registered"
+        " on PROOF cluster\n";
+   }
 
    cout << endl;
-   cout << " Options: " << endl;
+   cout << " Options for dst_file(s):" << endl;
+   cout << "  -r prefix     add prefix to each dst_file name\n";
+   cout << "  -L filelist   read dst_file(s) names from filelist,"
+      " one per line\n";
 
-   cout << "  -h hst_file   change default name for file of histograms"
-        << " (bean_histo.root)" << endl;
+   cout << endl;
+   cout << " Other options: " << endl;
 
-   cout << "  -o out_file   name of output ROOT tree file"
-        << " (default: no output is written)" << endl;
-   if( verbose ) cout
-        << "                In PROOF mode the file name could be " << endl
+   cout << "  -h hst_file   change file name with histograms,"
+      " default: bean_histo.root\n";
+
+   cout << "  -o out_file   file name to output the selected DST,"
+      " default: no output\n";
+   if( verbose ) { // PROF-experts
+      cout
+        << "                In PROOF mode the file name could be:\n"
         << "                  1) out_file.root - the file will be"
-                                 " merged on master node" << endl
-        << "                     and then fetched back to client." << endl
+                                 " merged on master node\n"
+        << "                     and then fetched back to client.\n"
         << "                  2) root://user@host/path/to/file.root"
-                                 " - to save output" << endl
-        << "                     at remote xrootd server" << endl
+                                 " - to save output\n"
+        << "                     at remote xrootd server\n"
         << "                  3) ds://DatasetName"
-                                 " - to register output as dataset " << endl
-        << "                     on PROOF cluster (experts prefer) " << endl;
+                                 " - to register output as dataset\n"
+        << "                     on PROOF cluster (experts prefer)\n";
+   }
 
-   cout << "  -u Uname      add user function user/Uname.cxx" << endl;
-   if( verbose ) cout
-        << "                (could be specified more than once) " << endl;
+   cout << "  -u Uname      add user function from BeanUser/Uname.cxx"
+      " to analysis,\n"
+        << "                option \'-u\' could be specified"
+        " more than once\n";
 
-   cout << "  -v            set verbosity on (try \"" << argv[0] << " -v\")"
-        << endl;
+   cout << "  -v            set verbosity on"
+      " (try \"" << argv[0] << " -v\")\n";
 
-   cout << "  -D            event dump (detailed printout of DST content) "
-        << endl;
+   cout << "  -D            event dump"
+      " (detailed printout of DST content)\n";
 
-   cout << "  -N num        process not more than \"num\" events in total"
-        << endl;
-
-   cout << "  -l            use PROOF-Lite (local PROOF optimized for"
-        << " multi-core systems)" << endl;
-
-   if( verbose ) cout
-        << "  -p proof_clr  use the specified PROOF cluster" << endl;
-
-#if defined (__unix__)
-   cout << "  -S[path]      inicialize Sqlite database. The optional"
-           " argument [path]" << endl
-        << "                is used to specify the location where you want"
-           " to create" << endl
-        << "                a copy of the database to avoid locking"
-           " problems on NFS." << endl
-        << "                For example: \"-S/tmp\" or \"-S/dev/shm\""
-        << endl;
-#endif
+   cout << "  -N num        process not more than \"num\" events"
+      " in total\n";
 
    if( verbose ) {
-   cout << endl;
-   cout << " Advanced options:" << endl;
+      cout << endl;
+      cout << " Advanced options:" << endl;
 
-   cout << " * for input files:" << endl;
-   cout << "  -L filelist   read dst_file(s) names from filelist, one per line"
-        << endl;
-   cout << "  -r prefix     add prefix to each file name" << endl;
+      cout << "  -e var=value  add variable to gEnv,"
+           " for example: XProof.Debug=2\n";
 
-   cout << " For output files:" << endl;
-   cout << "  -x            use xrootd to fetch output file from master"
-           " (with -o)" << endl
-#if ROOT_VERSION_CODE >= ROOT_VERSION(5,25,2)
-        << "                (default: PROOF sandbox access will be used)"
-#else
-        << "                (This is the only avilable method."
-           " In order to use PROOF" << endl
-        << "                sandbox access you must install ROOT >= 5.22/2)"
+#if defined (__unix__)
+      cout << "  -S[path]      initialize Sqlite database"
+         " The optional argument [path]\n"
+           << "                is used to specify the location"
+         " where you want to create\n"
+           << "                a copy of the database"
+         " to avoid locking problems on NFS.\n"
+           << "                For example: \"-S/tmp\"\n";
 #endif
-        << endl;
 
-   cout << " * for PROOF management: " << endl;
-   cout << "  -a params     set PROOF parameter "
-           "(\"valgrind\", \"workers=42\", etc)" << endl;
-   cout << "  -A key=value  set PROOF INPUT parameter (TProof::SetParameter()) "
-        << endl;
+      cout << " * for PROOF management: " << endl;
 
-   cout << "  -g            save proof error logs to bean_proof.log file"
-        << endl;
-   cout << "  -d workers    disable some workers, comma-separated" << endl;
-   cout << "  -E var=value  add variable to PROOF environment,"
-           " for example:" << endl
-        << "                PROOF_WRAPPERCMD=valgrind_opts:--leak-check=full"
-        << endl;
-   cout << "  -V level      set PROOF log level" << endl;
+      cout << "  -l            use PROOF-Lite (local PROOF"
+         " optimized for multi-core systems)\n";
 
-   cout << " * others: " << endl;
-   cout << "  -e var=value  add variable to gEnv,"
-           " for example: XProof.Debug=2" << endl;
-   cout << endl;
+      cout << "  -p proof_clr  use the specified PROOF cluster\n";
+
+      cout << "  -x            use xrootd to fetch output DST-file"
+         " (with -o) from master\n";
+#if ROOT_VERSION_CODE >= ROOT_VERSION(5,25,2)
+      cout << "                (default: PROOF sandbox)\n";
+#else
+      cout << "                (This is the only available method,"
+           " in order to use PROOF\n"
+           << "                sandbox, use ROOT >= 5.22/2)\n";
+#endif
+
+      cout << "  -a params     set PROOF parameter"
+         " (\"valgrind\", \"workers=42\", etc)\n";
+
+      cout << "  -A key=value  set PROOF INPUT parameter"
+         " (TProof::SetParameter())\n";
+
+      cout << "  -g            save proof error logs to"
+         " bean_proof.log file\n";
+
+      cout << "  -d workers    disable specified workers,"
+         " comma separated\n";
+
+      cout << "  -E var=value  add variable to PROOF environment,"
+         " for example:\n"
+           << "                PROOF_WRAPPERCMD="
+         "valgrind_opts:--leak-check=full\n";
+
+      cout << "  -V level      set PROOF log level\n";
    } // end of if( verbose )
 
    graceful_proof_exit();
@@ -223,9 +224,9 @@ bool str2int(const char * str, long & val) {
    return true;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 int main(int argc, char **argv)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // Switch on synchronization with the standard C streams.
    ios_base::sync_with_stdio(true);
@@ -237,7 +238,7 @@ int main(int argc, char **argv)
    // suppress the abort message
    _set_abort_behavior( 0, _WRITE_ABORT_MSG );
 
-   // Disable the message box for errors, unrecoverable problems, and so on
+   // Disable the message box for errors, unrecoverable problems ...
    _CrtSetReportMode( _CRT_ERROR, 0 );
 
    // Disable assertion failures
@@ -270,10 +271,11 @@ int main(int argc, char **argv)
    TString * str_env_var;
    int proof_log_level = 0;
 
-   std::multimap<std::string, std::string>  proof_params;
+   multimap<string, string>  proof_params;
 
    int oc; // option
-   while( (oc = getopt(argc,argv,":d:r:L:xh:o:la:A:p:u:vDN:e:gS::E:V:")) != -1 ) {
+   while( (oc = getopt(argc,argv,
+               ":d:r:L:xh:o:la:A:p:u:vDN:e:gS::E:V:")) != -1 ) {
      switch( oc ) {
 
      case 'r':  // input files  prefix
@@ -319,13 +321,12 @@ int main(int argc, char **argv)
      case 'N':  // process N events
                 {
                    long val;
-                   if (!str2int(optarg, val) || val < 0) {
-                       cout << " option -N requires positive number " << endl;
-                       cout << " incorrect argument: " << optarg << endl;
-                       is_error = true;
-                       break;
+                   if ( !str2int(optarg, val) || val < 0 ) {
+                      printf(" option -N requires positive number\n");
+                      printf(" incorrect argument: %s\n", optarg);
+                      is_error = true;
+                      break;
                    }
-
                    bean->SetMaxNumberEvents(val);
                 }
                 break;
@@ -335,18 +336,23 @@ int main(int argc, char **argv)
                 break;
      case 'e':
                 str_arg = new TString(optarg);
-                str_env_var = new TString(((*str_arg)(0, str_arg->First('='))));
+                str_env_var =
+                   new TString(((*str_arg)(0, str_arg->First('='))));
                 gEnv->SetValue(str_env_var->Data(),
-                  (*str_arg)(str_arg->First('=')+1, str_arg->Length() ).Data());
+                  (*str_arg)( str_arg->First('=')+1,
+                              str_arg->Length() ).Data());
                 delete str_arg;
                 delete str_env_var;
 
                 break;
      case 'E':
                 str_arg = new TString(optarg);
-                str_env_var = new TString(((*str_arg)(0, str_arg->First('='))));
-                TProof::AddEnvVar(str_env_var->Data(),
-                (*str_arg)(str_arg->First('=') + 1, str_arg->Length() ).Data());
+                str_env_var =
+                   new TString(((*str_arg)(0, str_arg->First('='))));
+                TProof::AddEnvVar( str_env_var->Data(),
+                      (*str_arg)
+                      (str_arg->First('=')+1,str_arg->Length()).Data()
+                      );
 
                 delete str_arg;
                 delete str_env_var;
@@ -355,16 +361,18 @@ int main(int argc, char **argv)
 
      case 'A':
                 str_arg = new TString(optarg);
-                str_env_var = new TString(((*str_arg)(0, str_arg->First('='))));
+                str_env_var =
+                   new TString(((*str_arg)(0, str_arg->First('='))));
 
-                proof_params.insert( std::pair<std::string, std::string> (
-                   str_env_var->Data(),
-                   (*str_arg)(str_arg->First('=') + 1, str_arg->Length() ).Data()
-                ));
+                proof_params.insert(
+                      pair<string, string> ( str_env_var->Data(),
+                      (*str_arg)
+                      (str_arg->First('=')+1,str_arg->Length()).Data()
+                      )
+                   );
 
                 delete str_arg;
                 delete str_env_var;
-
                 break;
 
 
@@ -375,13 +383,12 @@ int main(int argc, char **argv)
      case 'V': // set PROOF log level
                {
                   long val;
-                  if (!str2int(optarg, val) || val < 0) {
-                     cout << " option -V requires positive number " << endl;
-                     cout << " incorrect argument: " << optarg << endl;
-                     is_error = true;
-                     break;
+                  if ( !str2int(optarg, val) || val < 0 ) {
+                      printf(" option -N requires positive number\n");
+                      printf(" incorrect argument: %s\n", optarg);
+                      is_error = true;
+                      break;
                   }
-
                   proof_log_level = val;
                }
                break;
@@ -389,8 +396,6 @@ int main(int argc, char **argv)
 #if defined (__unix__)
      case 'S':  // initialize Sqlite database
                 {
-                  // cerr << " S-option with optarg= "
-                  //     << ((optarg) ? string(optarg) : "not set") << endl;
                   DatabaseSvc* dbs = DatabaseSvc::instance();
                   char dir_name[256];
                   snprintf(dir_name, sizeof(dir_name),
@@ -403,7 +408,6 @@ int main(int argc, char **argv)
                   } else {       //  without argument
                     dbs->SetDBFilePath(dir_name);
                   }
-
                   break;
                 }
 #endif
@@ -446,7 +450,8 @@ int main(int argc, char **argv)
             list_s->getline(cin_fname_buffer,1024);
             cin_fname_size = strlen(cin_fname_buffer);
             if( cin_fname_size > 0 ) {
-              cin_fname = (char*) malloc( sizeof(char) * (cin_fname_size+1));
+              cin_fname = (char*)
+                 malloc( sizeof(char) * (cin_fname_size+1));
               strcpy(cin_fname, cin_fname_buffer);
               file_names.push_back(cin_fname);
             }
@@ -465,19 +470,15 @@ int main(int argc, char **argv)
      Usage(argc,argv);
    }
 
-   //~ if( bean->NUserFns() == 0 && !bean->IsDump() ) {
-     //~ cerr << " WARNING: you do not specify user function (option -u): "
-          //~ << " use user/UserTest.cxx " << endl;
-     //~ bean->AddUserFcn("UserTest");
-   //~ }
-
    if( (!bean->IsProof() ) && ( bean->DstFileIsDataset() )) {
-     cout << " ERROR: dataset output is not allowed in no-PROOF mode " << endl;
+     cout << " ERROR: dataset output is not allowed in no-PROOF mode "
+        << endl;
      Usage(argc,argv);
    }
 
    if( (!bean->IsProof() ) && (! bean->DstFileIsLocal() )) {
-     cerr << " ERROR: remote file output is not allowed in no-PROOF mode " << endl;
+     cerr << " ERROR: remote file output is not allowed in no-PROOF mode "
+        << endl;
      Usage(argc,argv);
    }
 
@@ -501,7 +502,7 @@ int main(int argc, char **argv)
         cout << " add file: " << filename << endl;
       }
 
-      // If we are working in proof mode and filename is definetely dataset
+      // If we are working in proof mode and filename is definitely dataset
       string dataset_name = bean->ParseDatasetName(filename.c_str());
       if ( dataset_name.size() ) {
          if (!bean->IsProof()) {
@@ -533,16 +534,16 @@ int main(int argc, char **argv)
             TProof::AddEnvVar("ROOTPROOFLITE", "1");
          #endif
 
-         // If BEAN is built with xlinked ROOT there is no ROOT libraries in
-         //                                           the ld.so search PATH.
-         // But proofserv.exe need this libraries to work.
-         // So in case of ProofLite we should set ld_library_path to
-         // appropriate one
+         // If BEAN is built with xlinked ROOT there is no ROOT
+         // libraries in the ld.so search PATH. But proofserv.exe
+         // need this libraries to work. So in case of ProofLite we
+         // should set LD_LIBRARY_PATH to appropriate one
          #ifdef ROOTLIBDIR
             string new_library_path;
             new_library_path += ROOTLIBDIR;
             new_library_path +=":$LD_LIBRARY_PATH";
-            TProof::AddEnvVar("LD_LIBRARY_PATH", new_library_path.c_str() );
+            TProof::AddEnvVar("LD_LIBRARY_PATH",
+                  new_library_path.c_str() );
          #endif
       }
 
@@ -563,8 +564,8 @@ int main(int argc, char **argv)
 
       // set user-specified proof parameters
 
-      for (std::multimap<std::string, std::string>::const_iterator it = proof_params.begin();
-           it != proof_params.end(); ++it )
+      for ( multimap<string, string>::const_iterator
+            it = proof_params.begin(); it != proof_params.end(); ++it )
       {
          proof->SetParameter(it->first.c_str(), it->second.c_str());
       }
@@ -575,7 +576,6 @@ int main(int argc, char **argv)
          if ( proof->GetDataSets(bean->DstFile().c_str())->GetSize() != 0) {
             cerr << " WARNING: dataset " << bean->DstFile() <<
                " already exists on cluster and will be overwriten" << endl;
-
          }
       }
 
@@ -595,14 +595,15 @@ int main(int argc, char **argv)
          // if not, try to retrieve information from proof cluster
          for (unsigned int i = 0; i < dataset_names.size(); ++i) {
             TFileCollection* collection =
-                                proof->GetDataSet(dataset_names[i].c_str());
+               proof->GetDataSet(dataset_names[i].c_str());
             if ( collection ) {
-               chain.AddFileInfoList((TCollection*) collection->GetList());
+               chain.AddFileInfoList(
+                     (TCollection*) collection->GetList()
+                     );
             } else {
-               cerr << "Dataset " << dataset_names[i] << "does not exist"
-                    << endl;
+               cerr << "Dataset " << dataset_names[i]
+                  << "does not exist" << endl;
             }
-
          }
       }
 
@@ -620,13 +621,8 @@ int main(int argc, char **argv)
             ("par/BeanLib_" + to_string(BOSS_VER) + ".par").c_str()
                          );
 
-
       bean->SetProof(proof);
       proof->AddInput(bean);
-
-
-
-
 
       if ( dataset_names_string.empty() ) {
          // use chain
@@ -641,7 +637,8 @@ int main(int argc, char **argv)
          if( !nentries ) {
             proof->Process(dataset_names_string.c_str(), "ReadDst");
          } else {
-            proof->Process(dataset_names_string.c_str(), "ReadDst","",nentries);
+            proof->Process(dataset_names_string.c_str(),
+                  "ReadDst","",nentries);
          }
       }
 
@@ -658,6 +655,12 @@ int main(int argc, char **argv)
       } else {
          chain.Process(selector,"",nentries);
       }
+      // if process was interrupted with Abort() call
+      // Terminate functions by hand:
+      if ( selector -> GetAbort() == TSelector::kAbortProcess ) {
+         selector -> SlaveTerminate();
+         selector -> Terminate();
+      }
       delete selector;
 
    }
@@ -666,7 +669,7 @@ int main(int argc, char **argv)
       graceful_proof_exit();
    }
 
-// ================== CLEAN UP AFTER TERMINATION ========================
+// ================== CLEAN UP AFTER TERMINATION =====================
 #if defined (__unix__)
    if( copy_sqlite ) { // remove copy of database
      DatabaseSvc* dbs = DatabaseSvc::instance();
@@ -675,7 +678,7 @@ int main(int argc, char **argv)
    }
 #endif
 
-// ========================= DEBUG MEMORY LEAKS =========================
+// ========================= DEBUG MEMORY LEAKS ======================
 //    // do not forget put following in .rootrc file:
 //    // Root.MemStat: 1
 //    // Root.MemStat.size: -1
@@ -683,125 +686,127 @@ int main(int argc, char **argv)
 //    // Root.ObjectStat: 1
 //    // display the contents of the memory table:
 //    gObjectTable->Print();
-
-   return 0;
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void termination_handler(int isig)
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-   cout << endl <<" User signal \""
-#if defined (__unix__) || defined (__APPLE__)
-        << strsignal(isig)
-#elif defined _WIN32
-        << isig
-#endif
-        << "\" had been received." << endl << flush;
+   // POSIX 2008 edition says:
+   // the behavior is undefined if the signal handler refers to any
+   // object other than 'volatile sig_atomic_t',
+   // or if the signal handler calls any function except one of the
+   // functions listed in the table...
+   // There are __no printf()__ functions in the list,
+   // only _Exit() and abort().
 
-   static int UserSignal = 0;
    switch( isig ) {
-     case SIGINT: // "program interrupt" (the user types CTRL-C )
-                  if( UserSignal == SIGINT ) {  // 2-d CTRL-C
-                    cout << endl
-                         <<" second CRTL-C had been detected. Abort!"
-                         << endl << flush;
-                    abort();
-                  }
-
-     case SIGTERM:// politely ask a program to terminate.
+     case SIGINT:  // "program interrupt" (the user types CTRL-C )
+        if ( bean_termination != 0 ) { // second CTRL-C
+           abort();
+        }
+     case SIGTERM: // politely ask a program to terminate.
 #if defined (__unix__) || defined (__APPLE__)
-     case SIGHUP: // "hang up" (the user's terminal is disconnected)
+     case SIGHUP:  // "hang up" - the user's terminal is disconnected
 #endif
-                  cout << " Normal job termination." << endl;
-                  UserSignal=isig;
-                  break;
+        bean_termination = isig;
+        break;
 
-     // SIGSEGV is the signal sent to a process when it makes an invalid
-     //         memory reference, or segmentation fault.
+     // SIGSEGV is the signal sent to a process when it makes an
+     //         invalid memory reference, or segmentation fault.
      case SIGSEGV:
-                  cout << endl
-                       <<" SIGSEGV signal had been received."
-                       << endl << flush
-                       << "Stack trace: " << endl << flush;
-
-                  gSystem->StackTrace();
-
-                  abort();
+        abort();
 
      default:
-                  break;
+        break;
    }
-
-   if( UserSignal && bean ) bean->SetUserSignal(UserSignal);
 }
 
 #if defined _WIN32
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BOOL CtrlHandler( DWORD fdwCtrlType )
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl
-        <<" Ctrl signal \"" << fdwCtrlType << "\" had been received."
-        << endl << flush;
+      <<" Ctrl signal \"" << fdwCtrlType << "\" had been received."
+      << endl << flush;
 
-   static int CtrlSignal = -1; // CTRL_C_EVENT is 0
+   static int CtrlSignal = -1;
    switch( fdwCtrlType ) {
-     case CTRL_C_EVENT: // Handle the CTRL-C signal.
-                  cout << "Ctrl-C event" << endl;
-                  if( CtrlSignal == CTRL_C_EVENT ) {
-                    cout << endl
-                         <<" second CRTL-C had been detected. Abort!"
-                         << endl << flush;
-                    abort();
-                  }
-                  break;
+     case CTRL_C_EVENT:
+        // Handle the CTRL-C signal.
+        cout << "Ctrl-C event" << endl;
+        if( CtrlSignal == CTRL_C_EVENT ) {
+           cout << endl
+              <<" second CRTL-C had been detected. Abort!"
+              << endl << flush;
+           abort();
+        }
+        break;
 
-     case CTRL_CLOSE_EVENT: // CTRL-CLOSE: confirm that the user wants to exit.
-                  cout << "Ctrl-Close event" << endl;
-                  break;
+     case CTRL_CLOSE_EVENT:
+        // CTRL-CLOSE: confirm that the user wants to exit.
+        cout << "Ctrl-Close event" << endl;
+        break;
 
      default:
-                  return FALSE;
+        return FALSE;
    }
 
   CtrlSignal = fdwCtrlType;
 
-  // this is user interupt
-  if( (CtrlSignal != -1) && bean ) bean->SetUserSignal(SIGINT);
+  // event loop interrupt:
+  bean_termination = SIGINT;
 
   return( TRUE );
 }
 #endif
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void set_user_termination()
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
+   gSystem -> ResetSignals(); // Reset signals handlers to default
+   bool verbose = (bean) ? bean->Verbose() : false;
+   if( verbose ) { printf("INFO: start %s()\n",__func__); }
 #if defined (__unix__) || defined (__APPLE__)
    struct sigaction new_action, old_action;
 
    // Set up the structure to specify the new action
    new_action.sa_handler = &termination_handler;
-   sigemptyset(&new_action.sa_mask);
+   int ret  = sigemptyset(&new_action.sa_mask);
+   if ( ret != 0 ) {
+      printf("ERROR: sigemptyset return %i\n", ret);
+   }
    new_action.sa_flags = 0;
 
    // avoid handling signals previously set to be ignored
    sigaction(SIGINT, NULL, &old_action);
    if( old_action.sa_handler != SIG_IGN ) {
-     sigaction(SIGINT, &new_action, NULL);
+      ret = sigaction(SIGINT, &new_action, NULL);
+      if( verbose ) { printf("INFO: set SIGINT: ret=  %i\n", ret); }
+   } else {
+      if( verbose ) { printf("INFO: SIGINT ignored\n"); }
    }
    sigaction(SIGTERM, NULL, &old_action);
    if( old_action.sa_handler != SIG_IGN ) {
-     sigaction(SIGTERM, &new_action, NULL);
+      ret = sigaction(SIGTERM, &new_action, NULL);
+      if( verbose ) { printf("INFO: set SIGTERM: ret=  %i\n", ret); }
+   } else {
+      if( verbose ) { printf("INFO: SIGTERM ignored\n"); }
    }
    sigaction(SIGHUP, NULL, &old_action);
    if( old_action.sa_handler != SIG_IGN ) {
-     sigaction(SIGHUP, &new_action, NULL);
+      ret = sigaction(SIGHUP, &new_action, NULL);
+      if( verbose ) { printf("INFO: set SIGHUP: ret=  %i\n", ret); }
+   } else {
+      if( verbose ) { printf("INFO: SIGHUP ignored\n"); }
    }
 
    // ignoring SIGSEGV results in undefined behavior
-   sigaction(SIGSEGV, &new_action, NULL);
+   ret = sigaction(SIGSEGV, &new_action, NULL);
+   if( verbose ) { printf("INFO: set SIGSEGV: ret=  %i\n", ret); }
+
 #elif defined _WIN32
   signal(SIGINT,  termination_handler);
   signal(SIGTERM, termination_handler);
@@ -813,34 +818,25 @@ static void set_user_termination()
     exit(1);
   }
   if( bean->Verbose() ) {
-    cout << " set_user_termination: The Control Handler is installed" << endl;
+    cout << " set_user_termination: The Control Handler is installed"
+       << endl;
   }
 #endif
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void segfault_handler(int isig)
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-   // SIGSEGV is the signal sent to a process when it makes an invalid
-   //         memory reference, or segmentation fault.
-
-   cout << endl <<" SIGSEGV signal \""
-#if defined (__unix__) || defined (__APPLE__)
-        << strsignal(isig)
-#elif defined _WIN32
-        << isig
-#endif
-        << "\" had been received." << endl << flush;
-
-   bean->Proof()->GetManager()->GetSessionLogs()->Save("*", "bean_proof.log");
-
+   // Normal behavior is not guaranteed, but worth a try:
+   bean->Proof()->GetManager()->GetSessionLogs()
+      ->Save("*", "bean_proof.log");
    abort();
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void set_proof_termination()
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
 #if defined (__unix__) || defined (__APPLE__)
    struct sigaction new_action;
@@ -853,13 +849,13 @@ static void set_proof_termination()
    // ignoring SIGSEGV results in undefined behavior
    sigaction(SIGSEGV, &new_action, NULL);
 #elif defined _WIN32
-  signal(SIGSEGV, segfault_handler);
+   signal(SIGSEGV, segfault_handler);
 #endif
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void check_upload_enable(TProof* proof, const char* pname)
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( proof->UploadPackage(pname) != 0 ) {
      cerr << "Cannot upload package "<< pname <<" on PROOF. Exiting."

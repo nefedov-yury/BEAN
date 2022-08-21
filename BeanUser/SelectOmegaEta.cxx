@@ -64,7 +64,7 @@ using CLHEP::twopi;
 
 using namespace std;
 
-struct Select {
+struct Select_OmegaEta {
   double Ecms;                  // energy in center of mass system
 
   // charge tracks:
@@ -88,7 +88,7 @@ struct Select {
   // momentums after kinematic fit
   HepLorentzVector Ppip, Ppim, Pgg1,Pgg2, Pomega, Pgg;
 
-  Select() {
+  Select_OmegaEta() {
     Ecms = -1;
     ipip = ipim = -1;
     ipip_mc = ipim_mc = -1;
@@ -109,6 +109,8 @@ struct Select {
   bool GoodGammas()
         {return (ig1 != -1 && ig2 != -1 && ig3 != -1 && ig4 != -1); }
 };
+
+typedef Select_OmegaEta Select;
 
 //-----------------------------------------------------------------------------
 // Global file variables
@@ -133,14 +135,14 @@ static std::vector<TNtuple* > m_tuple;
 static int ERROR_WARNING = 0;
 static bool isMC = false;
 
-static bool omega_to_pis=false;
+// static bool omega_to_pis=false;
 static bool omega_best_mass=false;
 static bool one_ISR=false;
-static bool one_ISR_less50=false;
-static bool one_ISR_more50=false;
+// static bool one_ISR_less50=false;
+// static bool one_ISR_more50=false;
 static bool two_ISR=false;
-static bool two_ISR_less50=false;
-static bool two_ISR_more50=false;
+// static bool two_ISR_less50=false;
+// static bool two_ISR_more50=false;
 static bool SoverS0 = false;
 static bool EtaTo2Gammas = false;
 
@@ -590,14 +592,14 @@ static double GetEcms(int run, double& Lumi)
 
   // we need some values any way
   double Ecms   = 3.097;
-  double Spread = 1000.;
+//   double Spread = 1000.;
   Lumi          = 0;
 
   int i = 0;
   for(; i < Np; i++) {
      if ( absrun >= ListRuns[i].runS && absrun <= ListRuns[i].runE ) {
        Ecms   = ListRuns[i].Ebeam  * 1.e-3;  // MeV -> GeV
-       Spread = ListRuns[i].Spread * 1.e-6;  // KeV -> GeV
+//        Spread = ListRuns[i].Spread * 1.e-6;  // KeV -> GeV
        Lumi   = ListRuns[i].Lumi;
        break;
      }
@@ -1186,7 +1188,7 @@ bool SelectOmegaEtaEvent(ReadDst* selector,
   ParticleID *pid = ParticleID::instance();
 #if (BOSS_VER < 700)
   pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
-#else   
+#else
   pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 

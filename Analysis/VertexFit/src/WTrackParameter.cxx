@@ -87,7 +87,7 @@ WTrackParameter::WTrackParameter(const int charge, const HepLorentzVector &p, co
 		helix[0] = x[1] / sin(phi0);
 	helix[1] = phi0;
 	helix[2] = charge/p.perp();
-	helix[3] = x[3];
+	helix[3] = x[2];
 	helix[4] = p[3]/p.perp();
 	HepMatrix dWdA(7, 5, 0);
 	dWdA = GetCvtMatrix(p.m(), helix);

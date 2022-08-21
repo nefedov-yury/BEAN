@@ -17,6 +17,7 @@
 
 class VertexFit : public TrackPool 
 {
+    friend class VertexFitRefine; // add by Hao-Kai SUN <sunhk@ihep.ac.cn>
 public:
 	// constructor & deconstructor
 	static VertexFit *instance();

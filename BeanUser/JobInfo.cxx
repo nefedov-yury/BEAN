@@ -57,7 +57,7 @@ bool JobInfoEvent(ReadDst* selector,
    if ( selector->Verbose() ) cout << " JobInfoEvent() " << endl;
 
    static TJobInfo*     m_TJobInfo = 0;
-   static TBranch*      b_TJobInfo = 0;   
+   static TBranch*      b_TJobInfo = 0;
 
    if ( m_TJobInfo ) return false; // print only once
    TFile* tf = selector->GetCurrentFile();
@@ -103,9 +103,9 @@ bool JobInfoEvent(ReadDst* selector,
         cout << " N(events)= " << nevents << endl;
         sum += nevents;
      }
-     cout << " ---------------------------- " << endl; 
+     cout << " ---------------------------- " << endl;
      if( sum > 0 )
-       cout << " Total " << sum << " events " << endl; 
+       cout << " Total " << sum << " events " << endl;
    }
    cout << " ====================================================== " << endl;
 

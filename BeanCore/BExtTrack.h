@@ -9,7 +9,7 @@
 // DstEvent/DstExtTrack.h                                               //
 //                                                                      //
 // Root file contains information only for extrapolation of pions,      //
-// therefore all functions with (int parID) are refused                 //
+// therefore all functions with (int parID) can not be usable           //
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 

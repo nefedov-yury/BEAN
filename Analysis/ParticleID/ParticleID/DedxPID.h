@@ -48,6 +48,9 @@ class DedxPID : public ParticleIDBase {
   double CorrDedx(int n, double ptrk, double cost,double chi,int charge); 
   double iterate(double ptrk,double *mean,double *p);
   double cal_par(int index1,double *m_jpsi_pip_ptrk_offset,double ptrk,double begin,double bin);
+  double offsetCorr(int n, int charge, double ptrk, double cost);
+  double sigmaCorr(int n, int charge, double ptrk, double cost);
+  double interpolation(double cost, double * costheta, double * par);
  private:
   double m_chi[5];
   double m_prob[5];
@@ -159,7 +162,8 @@ class DedxPID : public ParticleIDBase {
     double m_psipp_mc_proton_theta_offset[18];
     double m_psipp_mc_proton_theta_sigma[18];
 
-
+    double m_offsetCorr[5];
+    double m_sigmaCorr[5];
 
 
 

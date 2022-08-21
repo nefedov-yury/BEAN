@@ -1,7 +1,7 @@
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # BeanCore: library provides the basic functionality of the bean
 #           and contains transitional classes Root->Analysis
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 
 SET( libname BeanCore )
 
@@ -15,7 +15,7 @@ INCLUDE_DIRECTORIES( ${INCLUDE_DIRECTORIES} )
 
 # MESSAGE( " +++Bean INCLUDE_DIRECTORIES= ${INCLUDE_DIRECTORIES}" )
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # the list of headers are needed to generate the root dictionary
 SET( LINKDEFHDRS        DstFormat.h ReadDst.h Bean.h
                         MasterInfoHack.h TMergeableMap.h )
@@ -40,18 +40,19 @@ ELSE()
   SET( DictNamePcm ${libname}_rdict.pcm )
 ENDIF()
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # the list of source files
 SET( CXX_FILES  DstFormat.cxx ReadDst.cxx Bean.cxx
                 MasterInfoHack.cxx TMergeableMap.cxx
                 DstEvtRecTracks.cxx TofHitStatus.cxx
-                BMdcTrack.cxx BMdcKalTrack.cxx BEmcTrack.cxx BExtTrack.cxx
+                BMdcTrack.cxx BMdcKalTrack.cxx BEmcTrack.cxx
+                BExtTrack.cxx
                 unix_cp.cxx )
 
 # add the dictionary to the list of source files
 LIST( APPEND CXX_FILES ${DICTIONARY} )
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 #
 IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
   ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
@@ -71,9 +72,9 @@ ELSE()
   MAC_LIB_RPATH( ${libname} )
 ENDIF()
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # install
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 INSTALL( TARGETS ${libname} DESTINATION ${install_lib_dir} )
 
 IF( ROOT_MAJOR_VERS GREATER 5 )

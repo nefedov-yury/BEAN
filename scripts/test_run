@@ -1,0 +1,30 @@
+#!/bin/bash
+set -x
+# test-debug output
+
+BEAN="./bean_6.6.4.exe"
+
+######################## TEST ########################
+
+#   gdb -ex=r --args \
+  ${BEAN} -v \
+        -u PsipJpsiPhiEta \
+        664p01_psi4600_DD_stream008_35739_35739_file0002.dst
+
+#         -u PsipPiPiKK \
+#         -u PsipJpsiPhiEta \
+#         -u PsipMuMuGamma\
+#         -L PsipJpsiPhiEta/local/Lists/mckketa_09psip.list \
+#         -L PsipJpsiPhiEta/local/Lists/mcsig_12psip.list \
+#         -N 10 \
+#         -h /dev/null
+#         > >(tee test.out) 2>&1
+#         > test_2608.out 2>&1
+#
+# run#  35739 :
+#          BossVer= 6.6.4.p01  Vtx= [ 0.116005 -0.141809 0.485078 ]
+#          BossVer= 6.6.5  Vtx= [ 0.116095 -0.142269 0.447155 ]
+#          BossVer= 6.6.5.p01  Vtx= [ 0.116064 -0.141606 0.487981 ]
+#          BossVer= 7.0.3  Vtx= [ 0.115888 -0.141623 0.489831 ]
+#          BossVer= 7.0.6  Vtx= [ 0.115958 -0.141638 0.488688 ]
+######################## END ########################

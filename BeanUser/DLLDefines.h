@@ -6,7 +6,7 @@
   when it configures to build a shared library with name "Library".
 */
 
-#if defined (_WIN32) 
+#if defined (_WIN32)
     // We are using the Visual Studio Compiler and building Shared libraries
     #if defined(BeanUser_EXPORTS)
         #define  BeanUserShared_EXPORT __declspec(dllexport)

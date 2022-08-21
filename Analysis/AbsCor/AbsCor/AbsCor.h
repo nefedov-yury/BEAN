@@ -1,73 +1,90 @@
 #ifndef Analysis_AbsCor_H
 #define Analysis_AbsCor_H
 
-#if   (BOSS_VER >= 661 && BOSS_VER <= 665)
-#define AbsCor_00_00_28
-#elif (BOSS_VER >= 702)
-#define AbsCor_00_00_36
-#else
-#error "unknown BOSS version"
-#endif
-
 #include <string>
 #include "ReadDst.h"
-
-#ifdef  AbsCor_00_00_36
 #include "TGraph2DErrors.h"
-#endif
 
-//-----------------------------------------------------------------------------
-// This class is a replacement for class AbsCor from the Boss
-// AbsCor: <=> boss/Analysis/PhotonCor/AbsCor
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+// This class is a replacement for class AbsCor from the Boss:
+// 'boss-version'/Analysis/PhotonCor/AbsCor
+//--------------------------------------------------------------------
 
 class AbsCor {
 
-public:
-                // for default values see declareProperty() in BOSS
-                AbsCor( const std::string& path,
-                        bool _usetof = true,
-                        bool _dodatacor = true,
-                        bool _edgecor = false
-#ifdef  AbsCor_00_00_36
-                        ,
-                        bool _hotcellmask = false,
-                        bool _dopi0Cor = true,
-                        bool _MCuseTof = true
-#endif
-                      );
+   public:
+      AbsCor(const std::string& path,
+            bool UseTof = true,
+            bool DoDataCor = true
+      );
 
-  void          AbsorptionCorrection(ReadDst* selector);
-  void          SuppressHotCrystals(ReadDst* selector);
+      // read corrections from given files:
+      void ReadDatac3p(std::string DataPathc3p, bool info=true);
+      void ReadParMcCor(std::string paraPath, bool info=true);
+      void ReadCorFunpara(std::string CorFunparaPath, bool info=true);
 
-private:
-  bool          usetof;
-  bool          dodatacor;
-  bool          edgecor;
+      // apply corrections:
+      void AbsorptionCorrection(ReadDst* selector);
+      void SuppressHotCrystals(ReadDst* selector);
 
-  double        ai[4];
+      // functions to managing parameters of algorithm:
+      void UseTof(bool use = true) {
+         usetof = use;
+      }
+      void DoDataCor(bool cor = true) {
+         dodatacor = cor;
+      }
+      void SuppressHotCrystals(bool use = false) {
+         hotcellmask = use;
+      }
+      void DoPi0Cor(bool cor = true) {
+         dopi0Cor = cor;
+      }
+      void McUseTof(bool use = true) {
+         MCuseTof = use;
+      }
+      void SetMCCorUseFunction(bool use = true) {
+         MCCorUseFunction = use;
+      }
 
-  int hrunstart[10];
-  int hrunend[10];
-  int hcell[10];
+   private:
+      // parameters of AbsCor:
+      bool          usetof;
+      bool          dodatacor;
 
-#ifdef  AbsCor_00_00_36
-  bool          hotcellmask;
-  bool          dopi0Cor;
-  bool          MCuseTof;
+      bool          hotcellmask;
+      bool          dopi0Cor;
+      bool          MCuseTof;
 
-  double e25min[28];
-  double e25max[28];
-  // Shower energy correction
-  TGraph2DErrors *dt;
-  // Energy error
-  TGraph2DErrors *dtErr;
+      bool          MCCorUseFunction;
+      std::string   m_DataPathc3ptof;
+      std::string   m_CorFunparaPath;
 
-  double ECorrMC(double eg, double theid) const;
-  double ErrMC(double eg, double theid) const;
-  double E25min(int n) const { return e25min[n]; }
-  double E25max(int n) const { return e25max[n]; }
-#endif
+      // arrays and structures for internal needs:
+      double        ai[4];
 
+      int           hrunstart[10];
+      int           hrunend[10];
+      int           hcell[10];
+
+      double        e25min[28];
+      double        e25max[28];
+
+      double        m_corFunPar[28][6];
+
+      TGraph2DErrors* dt;       // Shower energy correction
+      TGraph2DErrors* dtErr;    // Energy error
+
+      // correction functions:
+      double ECorrMC(double eg, double theid) const;
+      double ErrMC(double eg, double theid) const;
+      double E25min(int n) const {
+         return e25min[n];
+      }
+      double E25max(int n) const {
+         return e25max[n];
+      }
+
+      double ECorrFunctionMC(double eg, double theid) const;
 };
 #endif

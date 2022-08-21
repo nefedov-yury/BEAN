@@ -40,7 +40,7 @@ extern "C" {
 static std::vector<TH1D*> his1;
 static std::vector<TH2D*> his2;
 
-// 
+//
 enum ENL { ENL_FILL, ENL_READ, ENL_NULL };
 static TEntryList* enlst = 0;
 static const char* FileName = "EnLst.root";
@@ -56,19 +56,19 @@ void EntryListStartJob(ReadDst* selector)
 //-----------------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " EntryListStartJob() " << endl;
-  
-   // reserve 
+
+   // reserve
    his1.resize(100,(TH1D*)0);
    his2.resize(100,(TH2D*)0);
-   
+
    // book histograms:
    his1[1] = new TH1D("nmdctrk","Ntracks in MDC", 20,-0.5,19.5);
-   his1[2] = new TH1D("p_pos","P positive (2trk)",100,0.,3.); 
-   his1[3] = new TH1D("p_neg","P negative (2trk)",100,0.,3.); 
+   his1[2] = new TH1D("p_pos","P positive (2trk)",100,0.,3.);
+   his1[3] = new TH1D("p_neg","P negative (2trk)",100,0.,3.);
 
    his2[1] = new TH2D("phi_pos_neg","Phi_pos vs Phi_neg",
-                                        100,-M_PI,M_PI,100,-M_PI,M_PI); 
- 
+                                        100,-M_PI,M_PI,100,-M_PI,M_PI);
+
    // register in selector to save in given directory
    VecObj his1o(his1.begin(),his1.end());
    selector->RegInDir( his1o     ,"EntryList");
@@ -117,7 +117,7 @@ bool EntryListEvent(ReadDst* selector,
 {
    const TObjArray* m_mdcTrackCol = m_TDstEvent->getMdcTrackCol();
    int NmdcTracks = m_mdcTrackCol->GetEntries();
-  
+
    his1[1]->Fill(NmdcTracks);
 
    if( NmdcTracks != 2 ) return false; // skip event
@@ -129,7 +129,7 @@ bool EntryListEvent(ReadDst* selector,
    TMdcTrack* mdcTrack = 0;
    while ((mdcTrack = (TMdcTrack*)mdcTrackIter.Next())) {
      sum_charge += mdcTrack->charge();
-     
+
      if( mdcTrack->charge() > 0 ) {
        his1[2]->Fill(mdcTrack->p());
        p_trk[0] = mdcTrack->p();
@@ -140,7 +140,7 @@ bool EntryListEvent(ReadDst* selector,
        phi_trk[1] = mdcTrack->phi();
      }
    }
-   
+
    // if( sum_charge==0 ) {
    if( sum_charge==0 && p_trk[0] < 1. && p_trk[1] < 1. ) {
      his2[1]->Fill(phi_trk[0],phi_trk[1]);

@@ -24,7 +24,6 @@ class TEvtRecTrack;
 typedef         BMdcTrack       RecMdcTrack;
 typedef         TMdcDedx        RecMdcDedx;
 typedef         BMdcKalTrack    RecMdcKalTrack;
-// typedef         TTofTrack       RecTofTrack;
 typedef         BTofTrack       RecTofTrack;
 typedef         BExtTrack       RecExtTrack;
 typedef         BEmcTrack       RecEmcShower;
@@ -37,7 +36,8 @@ typedef         TMucTrack       RecMucTrack;
 class DstEvtRecTracks : public TObject
 {
  public:
-                DstEvtRecTracks(TEvtRecTrack* rec_trk, TDstEvent* dst_event);
+                DstEvtRecTracks(TEvtRecTrack* rec_trk,
+                                TDstEvent* dst_event);
                ~DstEvtRecTracks();
 
   int           trackId() const;

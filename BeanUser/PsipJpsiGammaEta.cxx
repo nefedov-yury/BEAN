@@ -55,9 +55,9 @@ using CLHEP::HepLorentzVector;
 
 using namespace std;
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Structure to save variables for a single event
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 struct PimPipGammas {
    // Run-info:
    int runNo;              // run-number
@@ -95,9 +95,9 @@ struct PimPipGammas {
    }
 };
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Global variables
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
@@ -130,34 +130,34 @@ static int DataPeriod = 0;
 
 static bool isMC = false;
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 // Functions: use C-linkage names
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static inline double RtoD(double ang) {
    return ang*180/M_PI;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static inline double SQ(double x) {
    return x*x;
 }
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool SelectPM(double cosPM, double invPM) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
    if ( (cosPM > 0.80) ||         // flying in one direction
@@ -168,9 +168,9 @@ static bool SelectPM(double cosPM, double invPM) {
    return ret;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
    }
@@ -203,14 +203,14 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
       Warning("EventTagSvc has already been initialized");
    }
 
-   // We have to initialize DatabaseSvc ---------------------------------------
+   // We have to initialize DatabaseSvc -----------------------------------
    DatabaseSvc* dbs = DatabaseSvc::instance();
    if ( (dbs->GetDBFilePath()).empty() ) {
       // set path to directory with databases:
       dbs->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
    }
 
-   // We have to initialize Magnetic field ------------------------------------
+   // We have to initialize Magnetic field --------------------------------
    MagneticFieldSvc* mf = MagneticFieldSvc::instance();
    if ( (mf->GetPath()).empty() ) {
       // set path to directory with magnetic fields tables
@@ -232,7 +232,7 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   //--------- Book histograms ------------------------------------------------
+   //--------- Book histograms --------------------------------------------
 
    hst[1] = new TH1D("All_cuts","selections cuts", 20,-0.5,19.5);
 
@@ -441,9 +441,9 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
 
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    static int save_runNo = 0;
    static Hep3Vector xorigin;
 
@@ -485,9 +485,9 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    return xorigin;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, PimPipGammas& ppg) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -638,9 +638,9 @@ static void FillHistoMC(const ReadDst* selector, PimPipGammas& ppg) {
 
 // find the reconstructed gamma that best matches the gamma
 // in decay of J/Psi -> gamma eta (decJpsi=22)
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void MatchGammaMC(PimPipGammas& ppg) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -693,9 +693,9 @@ static void MatchGammaMC(PimPipGammas& ppg) {
 // 1) select events with:
 //    - two soft pions with recoil mass of M(J/psi)
 //    - no other charged tracks
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
 //    static const double cosTheta_max = 0.80;  // barrel only
@@ -899,9 +899,9 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
 //    - search for photons from J/Psi->gamma X decay with recoil mass
 //      close to mass of eta-particle
 //    - remove events with gammas from pi0 decays
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // parameters of reconstruction
    static const double min_angle = 10 * M_PI/180; // 10 grad
 
@@ -1127,9 +1127,9 @@ static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
 }
 
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    // window for selection of eta: see cuts.h (in PsipJpsiPhiEta)
    static const double seta = 0.008;
    static const double weta = 3*seta; // standard
@@ -1404,7 +1404,7 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
 
 
 // Loop for each event
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
                             TEvtHeader*    m_TEvtHeader,
                             TDstEvent*     m_TDstEvent,
@@ -1413,7 +1413,7 @@ bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
                             TTrigEvent*    m_TTrigEvent,
                             TDigiEvent*    m_TDigiEvent,
                             THltEvent*     m_THltEvent      ) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " start " << __func__ << "()" << endl;
    }
@@ -1422,9 +1422,9 @@ bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
 
    PimPipGammas ppg; // information for the current event
 
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    //-- Get event information --
-   //--------------------------------------------------------------------------
+   //----------------------------------------------------------------------
    int runNo   = m_TEvtHeader->getRunId();
    int eventNo = m_TEvtHeader->getEventId();
    ppg.runNo = runNo;
@@ -1481,9 +1481,9 @@ bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
    return true;
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 void PsipJpsiGammaEtaEndJob(ReadDst* selector) {
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << __func__ << "()" << endl;
    }
@@ -1510,7 +1510,7 @@ void PsipJpsiGammaEtaEndJob(ReadDst* selector) {
    }
 }
 
-//-----------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif

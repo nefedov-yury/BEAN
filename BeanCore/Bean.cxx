@@ -10,8 +10,6 @@
 
 #include <iostream>
 #include <cstdlib>
-#include <ctime>
-#include <iterator>
 
 // #include <typeinfo> // for debug
 
@@ -30,7 +28,8 @@
 
 #include "Bean.h"
 
-// These includes (espesially windows.h) MUST be after "RootEventData/TMcEvent.h" include
+// These includes (espesially windows.h) MUST be after
+// "RootEventData/TMcEvent.h" include
 #if defined (__unix__) || defined (__APPLE__)
 // __unix__ is defined by compiler for Unix and __APPLE__ for MacOS
 #  include <dlfcn.h>    // interface to dynamic linking loader
@@ -49,12 +48,11 @@ ClassImp(Bean);
 
 using namespace std;
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 Bean::Bean() : TObject()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    verbose = false;
-   user_signal = 0;
    event_dump = false;
    hst_file = "bean_histo.root";
    max_number_events = 0;
@@ -64,9 +62,9 @@ Bean::Bean() : TObject()
    dst_file_is_dataset = 0;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::SetDstFile(const char* opt)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // parse output file path
    TString path(opt);
@@ -96,9 +94,9 @@ void Bean::SetDstFile(const char* opt)
    dst_file = opt;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::SetProof(TProof * val)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    proof = val;
    if (proof) {
@@ -106,14 +104,13 @@ void Bean::SetProof(TProof * val)
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 bool Bean::DstFileIsLocal() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-// Proof lite should be able to directly write file to proper destination
-// on local PC
-// So, the output file won't be 'local' i.e. it will be stored outside
-// the sandbox
+// Proof lite should be able to directly write file to proper
+// destination on local PC So, the output file won't be 'local' i.e.
+// it will be stored outside the sandbox
 
 //~ local !lite  isLocal()
 //~ 0      1     0
@@ -122,12 +119,12 @@ bool Bean::DstFileIsLocal() const
 //~ 1      0     0
     // TODO: set PROOF first
 
-   return dst_file_is_local && (!proof_lite)  ;
+   return dst_file_is_local && (!proof_lite);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::PrintOptions() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( verbose ) {
      cout << " Bean::PrintOptions() " << endl;
@@ -140,8 +137,6 @@ void Bean::PrintOptions() const
      cout << " dst_file= " << dst_file << endl;
      if (DstFileIsLocal() ) cout << "   dst_file is local "<< endl;
      cout << " dst_file_name= " << dst_file_name << endl;
-
-
 
      if( IsProof() ) {
        cout << " Use PROOF cluster: " << proof_clr << endl;
@@ -157,16 +152,16 @@ void Bean::PrintOptions() const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::AddUserFcn(const char* name)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    Ufn_names.push_back(string(name));
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::LoadUserLib()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( verbose ) cout << " Bean::LoadUserLib()" << endl;
 
@@ -216,14 +211,13 @@ void Bean::LoadUserLib()
    }
 
    if( verbose ) {
-     // cout << " User library " << usrlib_name << " is loaded" << endl;
-     cout << " User library is loaded" << endl;
+      cout << " User library is loaded" << endl;
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::LoadUserFcn(const char* name)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !usrlib_handle ) LoadUserLib();
 
@@ -274,9 +268,9 @@ void Bean::LoadUserFcn(const char* name)
    if( verbose ) cout << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void Bean::LoadUserFcns()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // load all user functions
    if( verbose ) cout << " Bean::LoadUserFcns() " << endl;
@@ -291,9 +285,9 @@ void Bean::LoadUserFcns()
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 std::string  Bean::ParseDatasetName(const char * filename )
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    TString name(filename);
    TString prefix("ds://");
@@ -307,9 +301,9 @@ std::string  Bean::ParseDatasetName(const char * filename )
 
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 std::string Bean::GetProofMasterWorkdir()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if (proof) {
        RedirectHandle_t rh;

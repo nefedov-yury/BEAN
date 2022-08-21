@@ -36,10 +36,10 @@ extern "C" {
 
 static DatabaseSvc* m_dbsvc = 0;
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void TestDbStartJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " TestDbStartJob() " << endl;
 
@@ -49,9 +49,9 @@ void TestDbStartJob(ReadDst* selector)
   // set path to directory with databases:
   m_dbsvc->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
 
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
   // example of using VertexDbSvc::ReadOneTime()
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
   VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 //   vtxsvc -> SetBossVer("6.6.3");
 //   vtxsvc -> ReadOneTime(9947,10878);
@@ -64,9 +64,9 @@ void TestDbStartJob(ReadDst* selector)
 //   }
 //   cout << endl;
 
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
   // this is example from DatabaseSvc/TestDbAlg
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
 
   std::cout << "*************************************************************"
             << std::endl;
@@ -169,7 +169,7 @@ void TestDbStartJob(ReadDst* selector)
 
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 bool TestDbEvent(ReadDst* selector,
                  TEvtHeader* m_TEvtHeader,
@@ -179,14 +179,14 @@ bool TestDbEvent(ReadDst* selector,
                  TTrigEvent* m_TTrigEvent,
                  TDigiEvent* m_TDigiEvent,
                  THltEvent* m_THltEvent)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " TestDbEvent() " << endl;
   int run = abs( m_TEvtHeader->getRunId() );
 
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
   // this is test for MagneticField/ConnectionDB
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
 
   string stmt("select Magnet_Current,SCQL,SCQR "
               "from SC_magnet where run_number = ");
@@ -204,13 +204,13 @@ bool TestDbEvent(ReadDst* selector,
     double scql_curr = rec.GetDouble("SCQL");
     double scqr_curr = rec.GetDouble("SCQR");
 
-    cout << " currents= " << ssm_curr << " " 
+    cout << " currents= " << ssm_curr << " "
        << scql_curr << " " << scqr_curr << endl;
   }
 
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
   // this is an example to use the VertexFit/VertexDbSvc.h service
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
 
   VertexDbSvc* vtxsvc = VertexDbSvc::instance();
   vtxsvc->handle(run); // MUST BE !
@@ -221,7 +221,7 @@ bool TestDbEvent(ReadDst* selector,
   cout << " vx sigma: " << a2[0] << " vy sigma: " << a2[1]
        << " vz sigma: " << a2[2] << endl;
 
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
   // this is example from DatabaseSvc/TestDbAlg
   // Check BLOBs => this works only for full db !!!
   stmt =  "select EndTofPar,BarTofPar from TofCalConst where ";
@@ -255,15 +255,15 @@ bool TestDbEvent(ReadDst* selector,
         cout << endl;
      }
   }
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
 
   return false;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void TestDbEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
   if( selector->Verbose() ) cout << " TestDbEndJob() " << endl;
 }

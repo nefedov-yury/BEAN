@@ -1,20 +1,20 @@
-// #include <iostream>
-
 #include "BEmcTrack.h"
 
-using namespace std;
+// #include <iostream>
+// using namespace std;
+
 using namespace CLHEP;
 
-//-----------------------------------------------------------------------------
-const HepPoint3D BEmcTrack::position() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepPoint3D BEmcTrack::position() const
+//--------------------------------------------------------------------
 {
   return HepPoint3D(x(),y(),z());
 }
 
-//-----------------------------------------------------------------------------
-const HepSymMatrix BEmcTrack::errorMatrix() const 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+const HepSymMatrix BEmcTrack::errorMatrix() const
+//--------------------------------------------------------------------
 {
   HepSymMatrix tmp(3);
   // Error Matrix: 0:dxx, 1:dyy, 2:dzz
@@ -25,6 +25,6 @@ const HepSymMatrix BEmcTrack::errorMatrix() const
   tmp[0][1] = err(3);
   tmp[0][2] = err(4);
   tmp[1][2] = err(5);
-  
+
   return tmp;
 }

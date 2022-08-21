@@ -3,8 +3,6 @@
 // TestEventTag                                                         //
 //                                                                      //
 // This example shows how to use EventTag library ported from BOSS      //
-// IMPORTANT: It MUST contain "name"Event() function.                   //
-// Two functions "name"StartJob() and "name"EndJob() are optional.      //
 //                                                                      //
 // NOTE: You MUST specify the paths to pdg and decayCodes files.        //
 //       Use the function AbsPath(file) which returns absolute path     //
@@ -47,10 +45,10 @@ static std::vector<TH1D*> his1;
 
 static EventTagSvc * m_EventTagSvc;
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void TestEventTagStartJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " TestEventTagStartJob() " << endl;
 
@@ -90,7 +88,7 @@ void TestEventTagStartJob(ReadDst* selector)
 
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 bool TestEventTagEvent(ReadDst* selector,
                    TEvtHeader* m_TEvtHeader,
@@ -100,10 +98,10 @@ bool TestEventTagEvent(ReadDst* selector,
                    TTrigEvent* m_TTrigEvent,
                    TDigiEvent* m_TDigiEvent,
                    THltEvent* m_THltEvent)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " TestEventTagEvent() " << endl;
-    
+
    m_EventTagSvc->setMcEvent(m_TMcEvent);
    if ( selector->Verbose() ) {
       cout  << "TAG:"  << hex << m_EventTagSvc->getEventTag() << endl;
@@ -114,10 +112,10 @@ bool TestEventTagEvent(ReadDst* selector,
    return (0);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void TestEventTagEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " TestEventTagEndJob() " << endl;
 }

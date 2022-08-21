@@ -3,7 +3,9 @@
 
 #include "TofHitStatus.h"
 
+//--------------------------------------------------------------------
 TofHitStatus::TofHitStatus() {
+//--------------------------------------------------------------------
   m_status   = 0;
   m_raw      = false;
   m_readout  = false;
@@ -21,7 +23,9 @@ TofHitStatus::TofHitStatus() {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::init() {
+//--------------------------------------------------------------------
   m_status   = 0;
   m_raw      = false;
   m_readout  = false;
@@ -39,79 +43,109 @@ void TofHitStatus::init() {
 }
 
 
-TofHitStatus& 
+//--------------------------------------------------------------------
+TofHitStatus&
 TofHitStatus::operator=( const TofHitStatus& source ){
+//--------------------------------------------------------------------
   m_status = source.m_status;
   return *this;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_raw( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Raw_Mask) >> Raw_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_readout( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Readout_Mask) >> Readout_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_counter( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Counter_Mask) >> Counter_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_cluster( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Cluster_Mask) >> Cluster_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_barrel( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Barrel_Mask) >> Barrel_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_east( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & East_Mask) >> East_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 unsigned int TofHitStatus::layer( unsigned int status ) {
+//--------------------------------------------------------------------
   return (status  & Layer_Mask) >> Layer_Index;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_overflow( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Overflow_Mask) >> Overflow_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_multihit( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & Multihit_Mask) >> Multihit_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 unsigned int TofHitStatus::ncounter( unsigned int status ) {
+//--------------------------------------------------------------------
   return (status >> Ncounter_Index ) & N_Mask;
 }
 
 
+//--------------------------------------------------------------------
 unsigned int  TofHitStatus::neast( unsigned int status ) {
+//--------------------------------------------------------------------
   return (status >> Neast_Index ) & N_Mask;
 }
 
 
+//--------------------------------------------------------------------
 unsigned int  TofHitStatus::nwest( unsigned int status ) {
+//--------------------------------------------------------------------
   return (status >> Nwest_Index ) & N_Mask;
 }
 
 
+//--------------------------------------------------------------------
 bool TofHitStatus::is_mrpc( unsigned int status ) {
+//--------------------------------------------------------------------
   return ((status & MRPC_Mask) >> MRPC_Index ) ? true : false;
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setStatus( unsigned int status ) {
+//--------------------------------------------------------------------
   m_status   = status;
   m_raw      = ((m_status & Raw_Mask) >> Raw_Index ) ? true : false;
   m_readout  = ((m_status & Readout_Mask) >> Readout_Index ) ? true : false;
@@ -129,70 +163,90 @@ void TofHitStatus::setStatus( unsigned int status ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setRaw( bool raw ) {
+//--------------------------------------------------------------------
   m_raw = raw;
   if( raw ) { m_status |= Raw_Mask; }
   else { m_status &= (~Raw_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setReadout( bool readout ) {
+//--------------------------------------------------------------------
   m_readout = readout;
   if( readout ) { m_status |= Readout_Mask; }
   else { m_status &= (~Readout_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setCounter( bool counter ) {
+//--------------------------------------------------------------------
   m_counter = counter;
   if( counter ) { m_status |= Counter_Mask; }
   else { m_status &= (~Counter_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setCluster( bool cluster ) {
+//--------------------------------------------------------------------
   m_cluster = cluster;
   if( cluster ) { m_status |= Cluster_Mask; }
   else { m_status &= (~Cluster_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setBarrel( bool barrel ) {
+//--------------------------------------------------------------------
   m_barrel = barrel;
   if( barrel ) { m_status |= Barrel_Mask; }
   else { m_status &= (~Barrel_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setEast( bool east ) {
+//--------------------------------------------------------------------
   m_east = east;
   if( east ) { m_status |= East_Mask; }
   else { m_status &= (~East_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setLayer( unsigned int layer ) {
+//--------------------------------------------------------------------
   assert(layer<=3);
   m_layer = layer;
   m_status |= (layer << Layer_Index);
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setOverflow( bool overflow ) {
+//--------------------------------------------------------------------
   m_overflow = overflow;
   if( overflow ) { m_status |= Overflow_Mask; }
   else { m_status &= (~Overflow_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setMultihit( bool multihit ) {
+//--------------------------------------------------------------------
   m_multihit = multihit;
   if( multihit ) { m_status |= Multihit_Mask; }
   else { m_status &= (~Multihit_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setNCounter( unsigned int ncounter ) {
+//--------------------------------------------------------------------
   if( m_barrel ) assert(ncounter<=176);
   else assert(ncounter<=96);
   m_ncounter = ncounter;
@@ -200,7 +254,9 @@ void TofHitStatus::setNCounter( unsigned int ncounter ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setNEast( unsigned int neast ) {
+//--------------------------------------------------------------------
   if( m_barrel ) assert(neast<=176);
   else assert(neast<=96);
   m_neast = neast;
@@ -208,7 +264,9 @@ void TofHitStatus::setNEast( unsigned int neast ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setNWest( unsigned int nwest ) {
+//--------------------------------------------------------------------
   if( m_barrel ) assert(nwest<=176);
   else assert(nwest<=96);
   m_nwest = nwest;
@@ -216,14 +274,18 @@ void TofHitStatus::setNWest( unsigned int nwest ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setMRPC( bool mrpc ) {
+//--------------------------------------------------------------------
   m_mrpc = mrpc;
   if( mrpc ) { m_status |= MRPC_Mask; }
   else { m_status &= (~MRPC_Mask); }
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setBarrelCluster( unsigned int layer ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( false );
   TofHitStatus::setCluster( true );
   TofHitStatus::setBarrel( true );
@@ -270,7 +332,7 @@ void TofHitStatus::setBarrelCluster( unsigned int layer ) {
     }
   }
   else{
-    std::cout << "TofRec  TofHitStatus::setBarrelCounter  layer = " 
+    std::cout << "TofRec  TofHitStatus::setBarrelCounter  layer = "
               << layer << std::endl;
     return;
   }
@@ -280,7 +342,9 @@ void TofHitStatus::setBarrelCluster( unsigned int layer ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setBarrelCounter( unsigned int layer ) {
+//--------------------------------------------------------------------
 
   TofHitStatus::setRaw( false );
   TofHitStatus::setCounter( true );
@@ -323,7 +387,9 @@ void TofHitStatus::setBarrelCounter( unsigned int layer ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setBarrelReadout( unsigned int layer, bool east ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( false );
   TofHitStatus::setReadout( true );
   TofHitStatus::setCounter( false );
@@ -347,7 +413,9 @@ void TofHitStatus::setBarrelReadout( unsigned int layer, bool east ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setBarrelRaw( unsigned int layer, bool east ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( true );
   TofHitStatus::setReadout( true );
   TofHitStatus::setCounter( false );
@@ -371,7 +439,9 @@ void TofHitStatus::setBarrelRaw( unsigned int layer, bool east ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setEndcapCluster( bool east ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( false );
   TofHitStatus::setReadout( true );
   TofHitStatus::setCounter( true );
@@ -389,7 +459,9 @@ void TofHitStatus::setEndcapCluster( bool east ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setEndcapRaw( bool east ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( true );
   TofHitStatus::setReadout( true );
   TofHitStatus::setCounter( false );
@@ -407,7 +479,9 @@ void TofHitStatus::setEndcapRaw( bool east ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setMRPCReadout( bool east ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( false );
   TofHitStatus::setReadout( true );
   TofHitStatus::setCounter( false );
@@ -431,7 +505,9 @@ void TofHitStatus::setMRPCReadout( bool east ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setMRPCCluster( bool cluster, bool east ) {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( false );
   if( cluster ) {
     TofHitStatus::setReadout( false );
@@ -467,7 +543,9 @@ void TofHitStatus::setMRPCCluster( bool cluster, bool east ) {
 }
 
 
+//--------------------------------------------------------------------
 void TofHitStatus::setNoHit() {
+//--------------------------------------------------------------------
   TofHitStatus::setRaw( true );
   TofHitStatus::setReadout( false );
   TofHitStatus::setCounter( false );

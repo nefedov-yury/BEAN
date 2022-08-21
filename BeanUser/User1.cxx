@@ -49,22 +49,25 @@ static std::vector<TH2D*> his2;
 
 inline Double_t DtoR(Double_t ang){ return ang/180*M_PI; }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void User1StartJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " User1StartJob() " << endl;
-  
-   // reserve 
+
+   // reserve
    his1.resize(100,(TH1D*)0);
    his2.resize(100,(TH2D*)0);
-   
+
    // book histograms:
    his1[1] = new TH1D("nmdctrk","Ntracks in MDC", 20,-0.5,19.5);
-   his2[2] = new TH2D("dedx_nmdc","Ndedx vs Nmdc", 20,-0.5,19.5, 20,-0.5,19.5);
-   his2[3] = new TH2D("nmuc_nmdc","Nmuc vs Nmdc", 20,-0.5,19.5, 20,-0.5,19.5);
-   his2[4] = new TH2D("ntof_nmdc","Ntof vs Nmdc", 20,-0.5,19.5, 20,-0.5,19.5);
+   his2[2] = new TH2D("dedx_nmdc","Ndedx vs Nmdc",
+         20,-0.5,19.5, 20,-0.5,19.5);
+   his2[3] = new TH2D("nmuc_nmdc","Nmuc vs Nmdc",
+         20,-0.5,19.5, 20,-0.5,19.5);
+   his2[4] = new TH2D("ntof_nmdc","Ntof vs Nmdc",
+         20,-0.5,19.5, 20,-0.5,19.5);
 
    his1[2] = new TH1D("nmdcdedx","Nmdc Dedx", 20,-0.5,19.5);
    his1[3] = new TH1D("nmuctrk","Nmuc tracks", 20,-0.5,19.5);
@@ -76,59 +79,73 @@ void User1StartJob(ReadDst* selector)
 // theta[0]+theta[1] - mTh,MTh hTheta12m
    //1a
    his1[10] = new TH1D("hTheta12m", "", 50, 3, 3.3);
-   his1[11] = new TH1D("hTheta12M", "1:#theta_{1}+#theta_{2}", 50, 3, 3.3);
+   his1[11] = new TH1D("hTheta12M", "1:#theta_{1}+#theta_{2}",
+         50, 3, 3.3);
 // phi[0]+phi[1] - mTh, Mth
    //1b
    his1[12] = new TH1D("hPhi12m", "hPhi12m", 50, 3, 3.3);
-   his1[13] = new TH1D("hPhi12M", "1:|#varphi_{1}-#varphi_{2}|", 50, 3, 3.3);
+   his1[13] = new TH1D("hPhi12M", "1:|#varphi_{1}-#varphi_{2}|",
+         50, 3, 3.3);
 
 // theta[0]+theta[1]:
    //1c theta*-bins
-   his2[10] = new TH2D("Theta12Th", ";#theta*;#theta_{1}+#theta_{2}", 
-                        50, 0.6, M_PI/2, 50, 3, 3.3); //setOptionStat 1100011  !!!0.6
+   his2[10] = new TH2D("Theta12Th", ";#theta*;#theta_{1}+#theta_{2}",
+         50, 0.6, M_PI/2, 50, 3, 3.3); //setOptionStat 1100011  !!!0.6
    //1d phi*-bins
    his2[11] = new TH2D("Theta12Ph", ";#phi*;#theta_{1}+#theta_{2}",
-                        50, -M_PI/2, M_PI/2, 50, 3, 3.3);
+         50, -M_PI/2, M_PI/2, 50, 3, 3.3);
 
    //1e theta*-bins
-   his2[12] = new TH2D("Phi12Th", ";#theta*;|#varphi_{1}-#varphi_{2}|", 
-                        50, 0.6, M_PI/2, 50, 3, 3.3);
+   his2[12] = new TH2D("Phi12Th",
+         ";#theta*;|#varphi_{1}-#varphi_{2}|",
+         50, 0.6, M_PI/2, 50, 3, 3.3);
    //1f phi*bins
-   his2[13] = new TH2D("Phi12Phm", ";#varphi*;|#varphi_{1}-#varphi_{2}|", 
-                        50, -M_PI/2, M_PI/2, 50, 3, 3.3);
-   his2[14] = new TH2D("Phi12PhM", ";#varphi*;|#varphi_{1}-#varphi_{2}|", 
-                        50, -M_PI/2, M_PI/2, 50, 3, 3.3);
+   his2[13] = new TH2D("Phi12Phm",
+         ";#varphi*;|#varphi_{1}-#varphi_{2}|",
+         50, -M_PI/2, M_PI/2, 50, 3, 3.3);
+   his2[14] = new TH2D("Phi12PhM",
+         ";#varphi*;|#varphi_{1}-#varphi_{2}|",
+         50, -M_PI/2, M_PI/2, 50, 3, 3.3);
 
 //----------------------------p----------------------------
 
-   his2[21] = new TH2D("h2pPTheta", ";#theta;p", 50, 0, M_PI, 50, 0.5, 2.4);
-   his2[22] = new TH2D("h2ePTheta", ";#theta;p", 50, 0, M_PI, 50, 0.5, 2.4);
+   his2[21] = new TH2D("h2pPTheta", ";#theta;p",
+         50, 0, M_PI, 50, 0.5, 2.4);
+   his2[22] = new TH2D("h2ePTheta", ";#theta;p",
+         50, 0, M_PI, 50, 0.5, 2.4);
 
 //----------------------------e----------------------------
 
-   his2[31] = new TH2D("h2pETheta", ";#theta;E", 50, 0, M_PI, 50, 0.5, 2.4);
-   his2[32] = new TH2D("h2eETheta", ";#theta;E", 50, 0, M_PI, 50, 0.5, 2.4);
+   his2[31] = new TH2D("h2pETheta", ";#theta;E",
+         50, 0, M_PI, 50, 0.5, 2.4);
+   his2[32] = new TH2D("h2eETheta", ";#theta;E",
+         50, 0, M_PI, 50, 0.5, 2.4);
 
 //---------------------------dedx---------------------------
 
    his2[41] = new TH2D("hDedxP", ";p;dedx", 50, 1.4, 2, 100,0,2.);
 
-   his2[42] = new TH2D("hDedxTheta", ";#theta;dedx", 50, 0, M_PI, 100,0,2.);
-   his2[43] = new TH2D("hDedxPhi", ";#varphi;dedx", 50, -M_PI, M_PI, 100,0,2.);
+   his2[42] = new TH2D("hDedxTheta", ";#theta;dedx",
+         50, 0, M_PI, 100,0,2.);
+   his2[43] = new TH2D("hDedxPhi", ";#varphi;dedx",
+         50, -M_PI, M_PI, 100,0,2.);
 
 //---------------------------beta---------------------------
 
    his2[51] = new TH2D("hBetaP", ";p;#beta", 50, 1.4, 2, 50, 0, 1.4);
 
-   his2[52] = new TH2D("hBetaTheta", ";#theta;#beta", 50, 0, M_PI, 50, 0, 1.4);
-   his2[53] = new TH2D("hBetaPhi", ";#varphi;#beta", 
-                        50, -M_PI, M_PI, 50, 0, 1.4);
+   his2[52] = new TH2D("hBetaTheta", ";#theta;#beta",
+         50, 0, M_PI, 50, 0, 1.4);
+   his2[53] = new TH2D("hBetaPhi", ";#varphi;#beta",
+         50, -M_PI, M_PI, 50, 0, 1.4);
 
 //---------------------------MUC----------------------------
 
    his1[61] = new TH1D("hMucLayers", "MUC Layers", 10, 0, 10);
-   his2[62] = new TH2D("hMucLayersTheta", ";#theta;N", 50, 0, M_PI, 10, 0, 10);
-   his2[63] = new TH2D("hMucLayersPhi", ";#phi;N", 50, -M_PI, M_PI, 10, 0, 10);
+   his2[62] = new TH2D("hMucLayersTheta", ";#theta;N",
+         50, 0, M_PI, 10, 0, 10);
+   his2[63] = new TH2D("hMucLayersPhi", ";#phi;N",
+         50, -M_PI, M_PI, 10, 0, 10);
 
 
    // register in selector to save in given directory
@@ -137,10 +154,10 @@ void User1StartJob(ReadDst* selector)
 
    VecObj his2o(his2.begin(),his2.end());
    selector->RegInDir( his2o     ,"User1");
-   
+
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 bool User1Event(ReadDst* selector,
                    TEvtHeader* m_TEvtHeader,
@@ -150,22 +167,22 @@ bool User1Event(ReadDst* selector,
                    TTrigEvent* m_TTrigEvent,
                    TDigiEvent* m_TDigiEvent,
                    THltEvent* m_THltEvent)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " User1Event() " << endl;
-   
+
    const double e_beam = 1.8495;
 
    const TObjArray* m_mdcTrackCol = m_TDstEvent->getMdcTrackCol();
-   const TObjArray* m_mdcDedxCol  = m_TDstEvent->getMdcDedxCol(); 
+   const TObjArray* m_mdcDedxCol  = m_TDstEvent->getMdcDedxCol();
    const TObjArray* m_mucTrackCol = m_TDstEvent->getMucTrackCol();
    const TObjArray* m_tofTrackCol = m_TDstEvent->getTofTrackCol();
-   
+
    int NmdcTracks = m_mdcTrackCol->GetEntries();
    int NmdcDedx   = m_mdcDedxCol->GetEntries();
    int NmucTracks = m_mucTrackCol->GetEntries();
    int NtofTracks = m_tofTrackCol->GetEntries();
-   
+
    his1[1]->Fill(NmdcTracks);
    his2[2]->Fill(NmdcTracks,NmdcDedx);
    his2[3]->Fill(NmdcTracks,NmucTracks);
@@ -229,7 +246,7 @@ bool User1Event(ReadDst* selector,
    }
 
 
-   Double_t th = M_PI/2 - TMath::Abs(theta[0] - theta[1])/2;  // 0..pi/2
+   Double_t th = M_PI/2 - TMath::Abs(theta[0] - theta[1])/2; // 0,pi/2
    Double_t ph = phi[0] + phi[1];  // -pi/2 .. pi/2
    his1[8]->Fill(th);
    his1[9]->Fill(ph);
@@ -302,10 +319,10 @@ bool User1Event(ReadDst* selector,
    return false;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void User1EndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " User1EndJob() " << endl;
 }

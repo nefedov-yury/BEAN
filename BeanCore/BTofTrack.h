@@ -17,9 +17,7 @@
 class BTofTrack : public TTofTrack
 {
  public:
-        BTofTrack(const TTofTrack* trk) : TTofTrack(*trk) {
-
-        }
+        BTofTrack(const TTofTrack* trk) : TTofTrack(*trk) {;}
 
   // two new function in BOSS-7 (DstEvent-00-02-51)
   int tofID() {

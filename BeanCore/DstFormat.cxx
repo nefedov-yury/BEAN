@@ -9,12 +9,12 @@
 #include <iomanip>
 #include <cstdlib>
 #include <ctime>
-#include <iterator>
 
 #include <TChain.h>
 #include <TFile.h>
 #include <TObjArray.h>
 #include <TDatabasePDG.h>
+#include <TVector3.h>
 
 #include "RootEventData/TEvtHeader.h"
 #include "RootEventData/TDstEvent.h"
@@ -28,17 +28,15 @@
 #endif
 
 #include "DstFormat.h"
-#include "TVector3.h"
-#include "TMath.h"
 
 ClassImp(DstFormat);
 
 using namespace std;
 
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 DstFormat::DstFormat()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    fChain = 0;
 
@@ -54,9 +52,9 @@ DstFormat::DstFormat()
 #endif
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 DstFormat::~DstFormat()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    delete m_TEvtHeader;
    delete m_TDstEvent;
@@ -74,17 +72,19 @@ DstFormat::~DstFormat()
 //    delete fChain->GetCurrentFile();
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::Init(TTree *tree)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-   // The Init() function is called when the selector needs to initialize
-   // a new tree or chain. Typically here the branch addresses and branch
-   // pointers of the tree will be set.
+   // The Init() function is called when the selector needs to
+   // initialize a new tree or chain. Typically here the branch
+   // addresses and branch pointers of the tree will be set.
    // Init() will be called many times when running on PROOF
    // (once per file to be processed).
 
-   if( Verbose() ) cout << " DstFormat::Init(tree= " << tree << ") " << endl;
+   if( Verbose() ) {
+      cout << " DstFormat::Init(tree= " << tree << ") " << endl;
+   }
 
    if (!tree) return;
 
@@ -94,9 +94,9 @@ void DstFormat::Init(TTree *tree)
 
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 Bool_t DstFormat::Notify()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // The Notify() function is called when a new file is opened.
    // This can be either for a new TTree in a TChain or when
@@ -119,17 +119,17 @@ Bool_t DstFormat::Notify()
    return kTRUE;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 Int_t DstFormat::GetEntry(Long64_t entry, Int_t getall)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
 // Read contents of entry.
-   return (!fChain) ? fChain->GetTree()->GetEntry(entry, getall) : 0;
+   return (fChain) ? fChain->GetTree()->GetEntry(entry, getall) : 0;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::SetBranches(TTree *tree)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    // auxiliary function to set branch addresses and branch pointers
 
@@ -139,7 +139,8 @@ void DstFormat::SetBranches(TTree *tree)
 
    tree->SetBranchAddress("TEvtHeader", &m_TEvtHeader, &b_TEvtHeader);
    tree->SetBranchAddress("TDstEvent", &m_TDstEvent, &b_TDstEvent);
-   tree->SetBranchAddress("TEvtRecObject", &m_TEvtRecObject, &b_TEvtRecObject);
+   tree->SetBranchAddress("TEvtRecObject", &m_TEvtRecObject,
+         &b_TEvtRecObject);
 
    tree->SetBranchAddress("TMcEvent", &m_TMcEvent, &b_TMcEvent);
 
@@ -149,13 +150,14 @@ void DstFormat::SetBranches(TTree *tree)
    tree->SetBranchAddress("THltEvent", &m_THltEvent, &b_THltEvent);
 
 #if BOSS_VER >= 661
-   tree->SetBranchAddress("EventNavigator", &m_TEvtNavigator, &b_TEvtNavigator);
+   tree->SetBranchAddress("EventNavigator", &m_TEvtNavigator,
+         &b_TEvtNavigator);
 #endif
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::Show(Long64_t entry)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
@@ -163,18 +165,19 @@ void DstFormat::Show(Long64_t entry)
    fChain->Show(entry);
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 TFile* DstFormat::GetCurrentFile() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    return (fChain != 0) ? fChain->GetCurrentFile() : 0;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintHeader() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
-   cout << " ==================== EVENT HEADER ==================== " << endl;
+   cout << " ==================== EVENT HEADER ==================== "
+        << endl;
    if( m_TEvtHeader ) {
      int run = m_TEvtHeader->getRunId();
      bool isMC = run < 0;
@@ -200,12 +203,13 @@ void DstFormat::PrintHeader() const
      }
 #endif
    }
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+        << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintDst() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_TDstEvent ) return;
 
@@ -230,7 +234,8 @@ void DstFormat::PrintDst() const
                   NmdcKalTracks==0);
 
    if( !isNULL || Verbose() ) {
-     cout << " ===================== Dst Event ====================== " << endl;
+     cout << " ===================== Dst Event ====================== "
+          << endl;
      cout << " mdcTrackColSize= "    << NmdcTracks    << endl;
      cout << " mdcDedxColSize= "     << NmdcDedx      << endl;
      cout << " mdcKalTrackColSize= " << NmdcKalTracks << endl;
@@ -249,12 +254,13 @@ void DstFormat::PrintDst() const
    if( NemcTracks )     PrintEmcTrack(m_emcTrackCol);
    if( NmucTracks )     PrintMucTrack(m_mucTrackCol);
 
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+      << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMdcTracks(const TObjArray* m_mdcTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_mdcTrackCol: " << endl;
    TIter mdcTrackIter(m_mdcTrackCol);
@@ -294,9 +300,9 @@ void DstFormat::PrintMdcTracks(const TObjArray* m_mdcTrackCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMdcDedx(const TObjArray* m_mdcDedxCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_mdcDedxCol: " << endl;
    TIter mdcDedxIter(m_mdcDedxCol);
@@ -327,16 +333,18 @@ void DstFormat::PrintMdcDedx(const TObjArray* m_mdcDedxCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
-void DstFormat::PrintMdcKalTracks(const TObjArray* m_mdcKalTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void DstFormat::PrintMdcKalTracks(const TObjArray*
+                                  m_mdcKalTrackCol) const
+//--------------------------------------------------------------------
 {
    // pointers to finctions:
    typedef Double_t (TMdcKalTrack::*Helix)(Int_t i) const;
    typedef Double_t (TMdcKalTrack::*Error)(Int_t i, Int_t j) const;
 
    // arrays of function for easy access
-   const static string pid_name[5] = {"Electron","Muon","Pion","Kaon","Proton"};
+   const static string pid_name[5] =
+   {"Electron","Muon","Pion","Kaon","Proton"};
    const static Helix Zhel[5] = {       &TMdcKalTrack::getZHelixE,
         &TMdcKalTrack::getZHelixMu,     &TMdcKalTrack::getZHelix,
         &TMdcKalTrack::getZHelixK,      &TMdcKalTrack::getZHelixP };
@@ -419,9 +427,9 @@ void DstFormat::PrintMdcKalTracks(const TObjArray* m_mdcKalTrackCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintTofTrack(const TObjArray* m_tofTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_tofTrackCol: " << endl;
    TIter tofTrackIter(m_tofTrackCol);
@@ -483,9 +491,9 @@ void DstFormat::PrintTofTrack(const TObjArray* m_tofTrackCol) const
    } // end of while
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintExtTrack(const TObjArray* m_extTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_extTrackCol: " << endl;
    TIter extTrackIter(m_extTrackCol);
@@ -607,9 +615,9 @@ void DstFormat::PrintExtTrack(const TObjArray* m_extTrackCol) const
    } // end of while
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintEmcTrack(const TObjArray* m_emcTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    int MaxEmcTracks = m_emcTrackCol->GetEntries();
    int i_emc_trk = 0;
@@ -688,9 +696,9 @@ void DstFormat::PrintEmcTrack(const TObjArray* m_emcTrackCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMucTrack(const TObjArray* m_mucTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_mucTrackCol: " << endl;
    TIter mucTrackIter(m_mucTrackCol);
@@ -732,9 +740,9 @@ void DstFormat::PrintMucTrack(const TObjArray* m_mucTrackCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintEvtRec() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_TEvtRecObject ) return;
 
@@ -762,7 +770,8 @@ void DstFormat::PrintEvtRec() const
    bool isVtxValid = m_evtRecPrimaryVertex->isValid();
 
    if( !isNULL || Verbose() ) {
-     cout << " =================== EvtRec Object ==================== " << endl;
+     cout << " =================== EvtRec Object ==================== "
+          << endl;
      cout << " evtRecTrackColSize= "     << NevtRecTracks     << endl;
      cout << " valid primary vertex= "   << isVtxValid        << endl;
      cout << " evtRecVeeVertexColSize= " << NevtRecVeeVertexs << endl;
@@ -822,12 +831,13 @@ void DstFormat::PrintEvtRec() const
    if( NevtRecPi0 )        PrintRecPi0(m_evtRecPi0Col);
    if( NevtRecEtaToGG )    PrintRecEtaToGG(m_evtRecEtaToGGCol);
    if( NevtRecDTag )       PrintRecDTag(m_evtRecDTagCol);
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+        << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintRecTrack(const TObjArray* m_evtRecTrackCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    const static int max_rectrk = 20; // max number of rec. tracks to print
 
@@ -858,23 +868,28 @@ void DstFormat::PrintRecTrack(const TObjArray* m_evtRecTrackCol) const
      if( !Verbose() ) {
        if( ++i_rec_trk >= max_rectrk ) {
          int n_skip = m_evtRecTrackCol->GetEntries() - i_rec_trk;
-         if( n_skip > 0 ) cout << " ... skip " << n_skip << " tracks" << endl;
+         if( n_skip > 0 )
+            cout << " ... skip " << n_skip << " tracks" << endl;
          break;
        }
      }
    } // end of while
 }
 
-//-----------------------------------------------------------------------------
-void DstFormat::PrintRecVeeVertex(const TObjArray* m_evtRecVeeVertexCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void DstFormat::PrintRecVeeVertex(const TObjArray*
+                                  m_evtRecVeeVertexCol) const
+//--------------------------------------------------------------------
 {
-   const static string pid_name[6] = {"Electron","Muon","Pion","Kaon","Proton","---"};
+   const static string pid_name[6] =
+   {"Electron","Muon","Pion","Kaon","Proton","---"};
 
    cout << endl << " L________> m_evtRecVeeVertexCol: " << endl;
    TIter evtRecVeeVertexIter(m_evtRecVeeVertexCol);
    TEvtRecVeeVertex* evtRecVeeVertex = 0;
-   while ((evtRecVeeVertex = (TEvtRecVeeVertex*)evtRecVeeVertexIter.Next())) {
+   while (
+         (evtRecVeeVertex = (TEvtRecVeeVertex*)evtRecVeeVertexIter.Next())
+         ) {
      cout << " +++++ vertexId= " << evtRecVeeVertex->vertexId() << endl;
      cout << " V-type= " << setw(8);
      switch( evtRecVeeVertex->vertexType() ) {
@@ -919,9 +934,9 @@ void DstFormat::PrintRecVeeVertex(const TObjArray* m_evtRecVeeVertexCol) const
    } // end of while
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintRecPi0(const TObjArray* m_evtRecPi0Col) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_evtRecPi0Col: " << endl;
    TIter evtRecPi0Iter(m_evtRecPi0Col);
@@ -944,9 +959,10 @@ void DstFormat::PrintRecPi0(const TObjArray* m_evtRecPi0Col) const
    }
 }
 
-//-----------------------------------------------------------------------------
-void DstFormat::PrintRecEtaToGG(const TObjArray* m_evtRecEtaToGGCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
+void DstFormat::PrintRecEtaToGG(const TObjArray*
+                                m_evtRecEtaToGGCol) const
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_evtRecEtaToGGCol: " << endl;
    TIter evtRecEtaToGGIter(m_evtRecEtaToGGCol);
@@ -969,9 +985,9 @@ void DstFormat::PrintRecEtaToGG(const TObjArray* m_evtRecEtaToGGCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintRecDTag(const TObjArray* m_evtRecDTagCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_evtRecDTagCol: " << endl;
    TIter evtRecDTagIter(m_evtRecDTagCol);
@@ -1037,9 +1053,9 @@ void DstFormat::PrintRecDTag(const TObjArray* m_evtRecDTagCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMcEvent() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_TMcEvent ) return;
 
@@ -1059,7 +1075,8 @@ void DstFormat::PrintMcEvent() const
                   NmucMcHits==0 && NmcParticles==0);
 
    if( !isNULL || Verbose() ) {
-     cout << " ====================== Mc event ====================== " << endl;
+     cout << " ====================== Mc event ====================== "
+          << endl;
      cout << " mdcMcHitColSize= "   << NmdcMcHits   << endl;
      cout << " emcMcHitColSize= "   << NemcMcHits   << endl;
      cout << " tofMcHitColSize= "   << NtofMcHits   << endl;
@@ -1075,12 +1092,13 @@ void DstFormat::PrintMcEvent() const
    if( NmucMcHits )   PrintMucMC(m_mucMcHitCol);
    if( NmcParticles ) PrintMCParticle(m_mcParticleCol);
 
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+        << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMdcMC(const TObjArray* m_mdcMcHitCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_mdcMcHitCol: " << endl;
    TIter mdcMcHitIter(m_mdcMcHitCol);
@@ -1097,9 +1115,9 @@ void DstFormat::PrintMdcMC(const TObjArray* m_mdcMcHitCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintEmcMC(const TObjArray* m_emcMcHitCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_emcMcHitCol: " << endl;
    TIter emcMcHitIter(m_emcMcHitCol);
@@ -1131,9 +1149,9 @@ void DstFormat::PrintEmcMC(const TObjArray* m_emcMcHitCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintTofMC(const TObjArray* m_tofMcHitCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_tofMcHitCol: " << endl;
    TIter tofMcHitIter(m_tofMcHitCol);
@@ -1152,9 +1170,9 @@ void DstFormat::PrintTofMC(const TObjArray* m_tofMcHitCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMucMC(const TObjArray* m_mucMcHitCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    cout << endl << " L________> m_mucMcHitCol: " << endl;
    TIter mucMcHitIter(m_mucMcHitCol);
@@ -1168,16 +1186,18 @@ void DstFormat::PrintMucMC(const TObjArray* m_mucMcHitCol) const
      cout << "       Px,Py,Pz= " << mucMc->getPx()
           << ", " << mucMc->getPy()
           << ", " << mucMc->getPz()  << endl;
-//      cout << "       DepositEnergy= " << mucMc->getDepositEnergy() << endl;
+//      cout << "       DepositEnergy= " << mucMc->getDepositEnergy()
+//           << endl;
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMCParticle(const TObjArray* m_mcParticleCol) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !Verbose() ) { // short print
-     cout << " =================== Mc Decay Tree ==================== " << endl;
+     cout << " =================== Mc Decay Tree ==================== "
+          << endl;
      PrintMcDecayTree(-99,0);
    } else { // long print
      cout << endl << " L________> m_mcParticleCol: " << endl;
@@ -1186,7 +1206,8 @@ void DstFormat::PrintMCParticle(const TObjArray* m_mcParticleCol) const
      while ((mcParticle = (TMcParticle*)mcParticleIter.Next())) {
        int pId = mcParticle->getParticleID();
        cout << " +++++ mcParticle: " ;
-       TParticlePDG* pdgParticle = TDatabasePDG::Instance()->GetParticle(pId);
+       TParticlePDG* pdgParticle =
+          TDatabasePDG::Instance()->GetParticle(pId);
        if( pdgParticle ) {
          cout << '\"' << pdgParticle->GetTitle() << '\"';
        } else {
@@ -1210,17 +1231,20 @@ void DstFormat::PrintMCParticle(const TObjArray* m_mcParticleCol) const
        cout << endl;
 #endif
 
-       cout << "       ini (x,y,z,t)= " << mcParticle->getInitialPositionX()
+       cout << "       ini (x,y,z,t)= "
+                    << mcParticle->getInitialPositionX()
             << ", " << mcParticle->getInitialPositionY()
             << ", " << mcParticle->getInitialPositionZ()
             << ", " << mcParticle->getInitialPositionT()
             << endl;
-       cout << "       ini (Px,Py,Pz,E)= " << mcParticle->getInitialMomentumX()
+       cout << "       ini (Px,Py,Pz,E)= "
+                    << mcParticle->getInitialMomentumX()
             << ", " << mcParticle->getInitialMomentumY()
             << ", " << mcParticle->getInitialMomentumZ()
             << ", " << mcParticle->getInitialMomentumE()
             << endl;
-       cout << "       fin (x,y,z,t)= " << mcParticle->getFinalPositionX()
+       cout << "       fin (x,y,z,t)= "
+                    << mcParticle->getFinalPositionX()
             << ", " << mcParticle->getFinalPositionY()
             << ", " << mcParticle->getFinalPositionZ()
             << ", " << mcParticle->getFinalPositionT()
@@ -1229,9 +1253,9 @@ void DstFormat::PrintMCParticle(const TObjArray* m_mcParticleCol) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintMcDecayTree(int root, int shift) const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    const TObjArray* particles = m_TMcEvent->getMcParticleCol();
    TIter next(particles);
@@ -1242,22 +1266,25 @@ void DstFormat::PrintMcDecayTree(int root, int shift) const
              cout << "  ";
          }
 
-         TParticlePDG * pdgParticle =
-            TDatabasePDG::Instance()->GetParticle(particle->getParticleID());
+         TParticlePDG * pdgParticle = TDatabasePDG::Instance()
+            ->GetParticle(particle->getParticleID());
          if (pdgParticle) {
-            cout << pdgParticle->GetTitle() << " [" <<  particle->getParticleID()  << "]";
+            cout << pdgParticle->GetTitle() << " ["
+                 << particle->getParticleID() << "]";
          } else {
             cout << "?? [" <<  particle->getParticleID()  << "]";
          }
 
-         cout << " " << particle->getInitialMomentumE() * 1000 << " MeV"
-              << " p: (" << particle->getInitialMomentumX() * 1000 << ", "
+         cout << " " << particle->getInitialMomentumE()*1000 << " MeV"
+              << " p: ("
+              << particle->getInitialMomentumX() * 1000 << ", "
               << particle->getInitialMomentumY() * 1000 << ", "
               << particle->getInitialMomentumZ() * 1000 << ") MeV/c"
-              << " th: " << TVector3(particle->getInitialMomentumX(),
-                                     particle->getInitialMomentumY(),
-                                     particle->getInitialMomentumZ()).Theta() / TMath::Pi() * 180
-                         << " deg"
+              << " th: "
+              << TVector3(particle->getInitialMomentumX(),
+                          particle->getInitialMomentumY(),
+                          particle->getInitialMomentumZ()).Theta()
+               * (180./M_PI) << " deg"
               <<endl;
 
          PrintMcDecayTree(particle->getTrackIndex(), shift + 1);
@@ -1265,15 +1292,16 @@ void DstFormat::PrintMcDecayTree(int root, int shift) const
    }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintTrigEvent() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_TTrigEvent ) return;
 
    const TTrigData*  m_trigData = m_TTrigEvent->getTrigData();
 
-   cout << " ==================== Triger Event ==================== " << endl;
+   cout << " ==================== Triger Event ==================== "
+        << endl;
    // m_trigData->Dump();
    if( m_trigData && m_trigData->IsA() == TTrigData::Class() ) {
      cout << " L________> m_trigData: " << endl;
@@ -1296,12 +1324,13 @@ void DstFormat::PrintTrigEvent() const
        }
      }
    }
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+        << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintDigiEvent() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_TDigiEvent ) return;
 
@@ -1318,18 +1347,20 @@ void DstFormat::PrintDigiEvent() const
 
    if( NmdcDigi==0 && NemcDigi==0 && NtofDigi==0 && NmucDigi==0 ) return;
 
-   cout << " ===================== Digi Event ===================== " << endl;
+   cout << " ===================== Digi Event ===================== "
+        << endl;
    cout << " m_fromMc= " << m_fromMc << endl;
    cout << " mdcDigiColSize= " << NmdcDigi << endl;
    cout << " emcDigiColSize= " << NemcDigi << endl;
    cout << " tofDigiColSize= " << NtofDigi << endl;
    cout << " mucDigiColSize= " << NmucDigi << endl;
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+        << endl;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintHltEvent() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_THltEvent ) return;
 
@@ -1339,7 +1370,8 @@ void DstFormat::PrintHltEvent() const
 
    int NhltRaw = m_hltRawCol->GetEntries();
 
-   cout << " ===================== Hlt Event ====================== " << endl;
+   cout << " ===================== Hlt Event ====================== "
+        << endl;
    cout << " hltRawColSize= " << NhltRaw << endl;
 
    if( NhltRaw ) {
@@ -1368,35 +1400,40 @@ void DstFormat::PrintHltEvent() const
       std::vector<Int_t> mdcData = m_hltInf->getMdcData();
       if( !mdcData.empty() ) {
         cout << " MdcData= ";
-        copy(mdcData.begin(), mdcData.end(), ostream_iterator<int>(cout, " "));
+        copy(mdcData.begin(), mdcData.end(),
+              ostream_iterator<int>(cout, " "));
         cout << endl;
       }
 
       std::vector<Int_t> tofData = m_hltInf->getTofData();
       if( !tofData.empty() ) {
         cout << " TofData= ";
-        copy(tofData.begin(), tofData.end(), ostream_iterator<int>(cout, " "));
+        copy(tofData.begin(), tofData.end(),
+              ostream_iterator<int>(cout, " "));
         cout << endl;
       }
 
       std::vector<Int_t> emcData = m_hltInf->getEmcData();
       if( !emcData.empty() ) {
         cout << " EmcData= ";
-        copy(emcData.begin(), emcData.end(), ostream_iterator<int>(cout, " "));
+        copy(emcData.begin(), emcData.end(),
+              ostream_iterator<int>(cout, " "));
         cout << endl;
       }
 
       std::vector<Int_t> mucData = m_hltInf->getMucData();
       if( !mucData.empty() ) {
         cout << " MucData= ";
-        copy(mucData.begin(), mucData.end(), ostream_iterator<int>(cout, " "));
+        copy(mucData.begin(), mucData.end(),
+              ostream_iterator<int>(cout, " "));
         cout << endl;
       }
 
       std::vector<Int_t> conData = m_hltInf->getMdcData();
       if( !conData.empty() ) {
         cout << " ConData= ";
-        copy(conData.begin(), conData.end(), ostream_iterator<int>(cout, " "));
+        copy(conData.begin(), conData.end(),
+              ostream_iterator<int>(cout, " "));
         cout << endl;
       }
     }
@@ -1412,13 +1449,14 @@ void DstFormat::PrintHltEvent() const
           << " Number= " << m_dstHltInf->getNumber()
           << " NCON= " << m_dstHltInf->getNCON() << endl;
    }
-   cout << " ====================================================== " << endl;
+   cout << " ====================================================== "
+        << endl;
 }
 
 #if BOSS_VER >= 661
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::PrintEvtNavigator() const
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( !m_TEvtNavigator ) return;
 
@@ -1428,9 +1466,9 @@ void DstFormat::PrintEvtNavigator() const
 #endif
 
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void DstFormat::ClearClasses()
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( Verbose() )
      cout << " DstFormat::ClearClasses() " << endl;
@@ -1454,12 +1492,16 @@ void DstFormat::ClearClasses()
    if( m_TEvtRecObject ) {
      m_TEvtRecObject->Clear();
 
-     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecTrackCol())->Delete();
+     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecTrackCol())
+        ->Delete();
      const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecVeeVertexCol())
-                                                                 ->Delete();
-     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecDTagCol())->Delete();
-     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecPi0Col())->Delete();
-     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecEtaToGGCol())->Delete();
+        ->Delete();
+     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecDTagCol())
+        ->Delete();
+     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecPi0Col())
+        ->Delete();
+     const_cast<TObjArray*>(m_TEvtRecObject->getEvtRecEtaToGGCol())
+        ->Delete();
    }
 
    if( m_TMcEvent      ) {
