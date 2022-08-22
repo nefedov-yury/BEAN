@@ -40,17 +40,17 @@ public :
    // introduces the SlaveBegin()/SlaveTerminate() functions and
    // clarifies the role of Init() and Notify()
    // Init() call in TTreePlayer requires Version()  == 2
-   virtual Int_t  Version() const override { return 2;}
+   virtual Int_t  Version() const { return 2;}
 
-   virtual void   Begin(TTree* ) override = 0;
-   virtual void   SlaveBegin(TTree* ) override = 0;
-   virtual Bool_t Process(Long64_t entry) override = 0;
-   virtual void   SlaveTerminate() override = 0;
-   virtual void   Terminate() override = 0;
+   virtual void   Begin(TTree* ) = 0;
+   virtual void   SlaveBegin(TTree* ) = 0;
+   virtual Bool_t Process(Long64_t entry) = 0;
+   virtual void   SlaveTerminate() = 0;
+   virtual void   Terminate() = 0;
 
-   virtual void   Init(TTree* tree) override;
-   virtual Bool_t Notify() override;
-   virtual Int_t  GetEntry(Long64_t entry, Int_t getall = 0) override;
+   virtual void   Init(TTree* tree);
+   virtual Bool_t Notify();
+   virtual Int_t  GetEntry(Long64_t entry, Int_t getall = 0);
    // ----------------------------------------------------------------
 
    virtual bool   Verbose() const = 0;
@@ -135,9 +135,9 @@ protected :
    virtual void         ClearClasses();
 
    // ClassVersionID=0 because we don't need object I/O
-//    ClassDef(DstFormat,0); // DST format description
+   ClassDef(DstFormat,0); // DST format description
    // if class definition use `override` keyword
-   ClassDefOverride(DstFormat,0); // DST format description
+//    ClassDefOverride(DstFormat,0); // DST format description
 };
 
 #endif

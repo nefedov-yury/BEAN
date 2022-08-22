@@ -38,7 +38,7 @@ public :
    virtual             ~ReadDst();
 
    bool                 LoadConfig(Bean* _bean = 0);
-   bool                 Verbose() const override;
+   bool                 Verbose() const;
    void                 SetVerbose() {bean->SetVerbose();}
    void                 SetSilent()  {bean->SetSilent();}
    std::string          GetBaseDir() const;
@@ -51,13 +51,13 @@ public :
    void                 SaveEntryInList(TEntryList* el);
 
    // TSelector functions:
-   void                 Begin(TTree* ) override;
-   void                 SlaveBegin(TTree* ) override;
-   void                 Init(TTree *tree) override;
-   Bool_t               Notify() override;
-   Bool_t               Process(Long64_t entry) override;
-   void                 SlaveTerminate() override;
-   void                 Terminate() override;
+   void                 Begin(TTree* );
+   void                 SlaveBegin(TTree* );
+   void                 Init(TTree *tree);
+   Bool_t               Notify();
+   Bool_t               Process(Long64_t entry);
+   void                 SlaveTerminate();
+   void                 Terminate();
 
    // -- call user functions
    void                 UserStartJob();
@@ -103,8 +103,8 @@ private :
    void                 WriteJobInfo();
 
    // ClassVersionID=0 because we don't need object I/O
-//    ClassDef(ReadDst,0); // Primary class to read DST
+   ClassDef(ReadDst,0); // Primary class to read DST
    // if class definition use `override` keyword
-   ClassDefOverride(ReadDst,0); // Primary class to read DST
+//    ClassDefOverride(ReadDst,0); // Primary class to read DST
 };
 #endif
