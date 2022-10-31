@@ -12,6 +12,7 @@
 
 #include <TChain.h>
 #include <TFile.h>
+#include <TFileCacheRead.h>
 #include <TObjArray.h>
 #include <TDatabasePDG.h>
 #include <TVector3.h>
@@ -102,6 +103,18 @@ Bool_t DstFormat::Notify()
    // This can be either for a new TTree in a TChain or when
    // a new TTree is started when using PROOF.
    // The return value is currently not used.
+
+   // disable prefetch when reading TTree
+   bool disable_pref = true;
+   if ( disable_pref ) {
+     TFile* tf = fChain->GetCurrentFile();
+     if ( tf ) {
+        TFileCacheRead* fc = tf->GetCacheRead();
+        if ( fc ) {
+           fc->SetEnablePrefetching(false);
+        }
+     }
+   }
 
    // debug print:
    if( Verbose() ) {
