@@ -1,0 +1,80 @@
+#!/bin/bash
+
+BASE_DIR="/data/bes3/phasejpsiscan/664-1"
+
+print_file_list()
+{
+  run_beg=$1
+  run_end=$2
+  out_file=$3
+
+  if [ -t "$out_file" ]; then
+        printf " file $out_file exists. Remove it first!\n"
+        exit
+  fi
+
+  {
+  for file in `find $BASE_DIR -name "*.dst"`;do
+      runNo=`printf $file | cut -s -d _ -f 2 | cut -b 3-`
+      if [ $runNo -ge $run_beg -a $runNo -le $run_end ]; then
+        printf "%s\n" $file
+      fi 
+  done
+  } | sort > $out_file
+
+  printf "%s done\n" $out_file
+}
+
+SFX="list"
+
+# 
+# print_file_list 27147 27233 3080old.$SFX
+
+print_file_list 28312 28346 3050.$SFX
+
+print_file_list 28347 28381 3060.$SFX
+
+# 3080 at the end of list
+
+print_file_list 28382 28387 3083.$SFX
+print_file_list 28466 28469 3083b.$SFX
+cat 3083b.$SFX >> 3083.$SFX
+rm -f 3083b.$SFX
+
+print_file_list 28388 28416 3090.$SFX
+print_file_list 28472 28475 3090b.$SFX
+cat 3090b.$SFX >> 3090.$SFX
+rm -f 3090b.$SFX
+
+print_file_list 28417 28453 3093.$SFX
+print_file_list 28476 28478 3093b.$SFX
+cat 3093b.$SFX >> 3093.$SFX
+rm -f 3093b.$SFX
+
+print_file_list 28479 28482 3094.$SFX
+
+print_file_list 28487 28489 3095.$SFX
+
+print_file_list 28490 28492 3096.$SFX
+
+print_file_list 28493 28495 3097.$SFX
+
+print_file_list 28496 28498 3098.$SFX
+
+print_file_list 28499 28501 3099.$SFX
+
+print_file_list 28504 28505 3102.$SFX
+
+print_file_list 28506 28509 3106.$SFX
+
+print_file_list 28510 28511 3112.$SFX
+
+print_file_list 28512 28513 3120.$SFX
+
+#### special for 3080
+BASE_DIR="/data/bes3/phasejpsiscan/664-1/120523"
+print_file_list 28241 28266 3080.$SFX
+BASE_DIR="/data/bes3/phasejpsiscan/664-1/120524"
+print_file_list 28241 28266 3080b.$SFX
+cat 3080b.$SFX >> 3080.$SFX
+rm -f 3080b.$SFX

@@ -1,0 +1,3 @@
+# 
+# cat JPsi_664.list | sort | \
+# split -d --lines=50 - "JPsi_664_" --additional-suffix=".list"

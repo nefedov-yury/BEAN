@@ -1,0 +1,2 @@
+find /data/bes3/phasejpsiscan/664-1/ -name "*.dst" | cut -c 45-49 | sort | uniq | tr '\n' ','
+find /data/bes3/phasejpsiscan/664-1/120408con/ -name "*.dst" | cut -c 48-52 | sort | uniq | tr '\n' ','

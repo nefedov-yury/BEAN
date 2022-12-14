@@ -1,0 +1,1 @@
+zcat besfs2_offline_data_664-1_jpsi_09mc_dst.ls.gz | awk '{print $9,$5}' > jpsi_664_besfs2.list

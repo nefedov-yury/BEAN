@@ -1,0 +1,6 @@
+#!/bin/bash
+#
+# find /data/user/nefedov/bes3/665-1/ -name "*.dst" |sort > 3080_new.list
+
+find /data/bes3/phasejpsiscan/665-1/ -name "*.dst" |sort \
+  | split -d --lines=500 --additional-suffix=".list" - 3080_new
