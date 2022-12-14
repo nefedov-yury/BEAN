@@ -290,6 +290,9 @@ void SelectKKggStartJob(ReadDst* selector) {
    hst[119] = new TH2D("mcisr_Eg1_Eg2","Eg1 vs Eg2",
          1500,0.,1500., 1500,0.,1500.);
 
+   // initial number of events for efficiency: Mkk(MC) for Xisr>0.9
+   hst[121] = new TH1D("mc_Mkk_ini", "Minv(K^{+}K^{-})", 100,0.98,1.08);
+
    // FillHistoMC:
    hst[131] = new TH1D("mc_EtaP", "Momentum of #eta", 1000,0.,2.);
    hst[132] = new TH1D("mc_EtaPt","Pt of #eta", 1000,0.,2.);
@@ -762,6 +765,11 @@ static void ISRhistoMC(const ReadDst* selector, Select& Slct) {
    hst[116]->Fill(Slct.Xisr);
    hst[117]->Fill(1.-Slct.Xisr);
    hst[118]->Fill( sqrt(S) - Slct.LVcms.e() * 1e3);
+
+   // initial number of events for efficiency: Mkk(MC) for Xisr>0.9
+   if ( Slct.Xisr > 0.9 ) {
+      hst[121]->Fill( Slct.mc_mkk );
+   }
 }
 
 
