@@ -1,7 +1,11 @@
 *.sw?
 *.o
 *.exe
+*.db
 build*/
-Analysis/DatabaseSvc/dat/
-workdir/*
-!workdir/PsipJpsiPhiEta/
+.root_hist
+*.root
+*.out
+*.out.*
+*.pdf
+*.pdf.*

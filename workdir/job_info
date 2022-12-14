@@ -1,0 +1,20 @@
+#!/bin/bash
+
+dir=/data/bes3/phasejpsiscan/MC/phieta_mcgpj
+
+fls=()
+out=()
+for f in $dir/*_1.dst; do
+  fls+=($(printf $f | cut -d"_" -f4))
+  j=$(./bean_6.6.3.exe -N1 -u JobInfo -h /dev/null $f \
+    | grep "RealizationSvc\.RunIdList"  | cut -d" " -f3- | cut -d";" -f1)
+#     | grep "Mcgpj\.EnergySpread"  | cut -d" " -f3 | cut -d";" -f1)
+#     | grep "Mcgpj\.CMEnergy"  | cut -d" " -f3 | cut -d";" -f1)
+#   out+=($(echo "$j*1000+0.55" | bc ))
+  out+=($j)
+#   break
+done
+printf " %s," "${fls[@]}"
+printf "\n\n"
+printf " %s," "${out[@]}"
+printf "\n\n"
