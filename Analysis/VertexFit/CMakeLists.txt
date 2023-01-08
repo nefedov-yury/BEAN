@@ -1,20 +1,20 @@
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # VertexFit: <=> boss/Analysis/VertexFit
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 
 SET( libname VertexFit )
 
 INCLUDE_DIRECTORIES(
-   ${CMAKE_CURRENT_SOURCE_DIR}
-   ${ROOTEVENTDATA_DIR}
-   ${BeanCore_DIR}
-   ${MagneticField_DIR}
-   ${DatabaseSvc_DIR}
-   ${CLHEP_INCLUDE_DIR}
-   ${ROOT_INCLUDE_DIR}
-)
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${ROOTEVENTDATA_DIR}
+  ${BeanCore_DIR}
+  ${MagneticField_DIR}
+  ${DatabaseSvc_DIR}
+  ${CLHEP_INCLUDE_DIR}
+  ${ROOT_INCLUDE_DIR}
+  )
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # the list of source files
 FILE( GLOB CXX_FILES src/*.cxx )
 
@@ -25,14 +25,7 @@ LIST( REMOVE_ITEM CXX_FILES ${LAST_FILE} )
 LIST( APPEND CXX_FILES ${LAST_FILE} )
 # MESSAGE( " +++VertexFit: src files are: ${CXX_FILES}" )
 
-#------------------------------------------------------------------------------
-# do not print warnings about known features
-#  IF ( CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
-#       CMAKE_CXX_COMPILER_ID MATCHES "GNU"       )
-#    ADD_COMPILE_OPTIONS(-Wno-unused-variable)
-#  ENDIF()
-
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 #
 IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
   ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
@@ -42,16 +35,16 @@ ELSE()
 ENDIF()
 
 TARGET_LINK_LIBRARIES( ${libname}
-   RootEventData
-   BeanCore
-   MagneticField
-   DatabaseSvc
-   ${ROOT_LIBRARIES}
-   ${CLHEP_LIBRARIES}
-)
+  RootEventData
+  BeanCore
+  MagneticField
+  DatabaseSvc
+  ${ROOT_LIBRARIES}
+  ${CLHEP_LIBRARIES}
+  )
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 # install
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------
 INSTALL( TARGETS ${libname} DESTINATION ${install_lib_dir} )
 
