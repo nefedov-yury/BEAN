@@ -10,7 +10,7 @@
 #include <csignal>
 #include <ctime>
 
-extern volatile sig_atomic_t bean_termination;  // signal handler
+volatile sig_atomic_t bean_termination;  // signal handler
 
 #include <RVersion.h> // Root version
 #include <TSystem.h>

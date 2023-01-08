@@ -47,7 +47,7 @@ void win_exit(){::ExitProcess(0);}
 static Bean* bean = 0;
 #define TREE_CACHE_SIZE 10000000  //10 MB
 
-volatile sig_atomic_t bean_termination = 0;
+extern volatile sig_atomic_t bean_termination = 0;
 
 static void termination_handler(int isig);
 static void set_user_termination();
