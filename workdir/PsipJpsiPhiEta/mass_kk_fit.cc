@@ -72,7 +72,7 @@ struct ParAndErr {
 
    // ctor
    //-----------------------------------------------------------------
-   ParAndErr(const ROOT::Fit::FitResult& res, double threshold = 0.1) {
+   ParAndErr(const ROOT::Fit::FitResult& res,double threshold = 0.1) {
    //-----------------------------------------------------------------
       Fpar = res.Parameters();
       Perr = res.Errors();
@@ -129,6 +129,21 @@ struct ParAndErr {
    double Middle (int i) {
    //-----------------------------------------------------------------
       return Fpar[i] + 0.5*(Uerr[i]-Lerr[i]);
+   }
+
+   // pretty print for table
+   //-----------------------------------------------------------------
+   const char* Tform (int i,string fm, double X = 1) {
+   //-----------------------------------------------------------------
+      if ( Perr[i] > 0 ) {
+         string fmt = "%" +fm+ " \\pm %" +fm;
+         return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
+      } else if ( Perr[i] < 0 ) {
+         string fmt = "%" + fm + "^{%+" + fm + "}" + "_{%+" + fm + "}";
+         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,-Lerr[i]*X);
+      }
+      string fmt = "%" +fm;
+      return Form(fmt.c_str(),Fpar[i]*X);
    }
 };
 
@@ -718,7 +733,7 @@ void sig_fit_mc(string fname, string pdf="") {
 //--------------------------------------------------------------------
 double Argus(double x, double a) {
 //--------------------------------------------------------------------
-// ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
+//ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
 // This is a regular ARGUS distribution with one parameter 'a'.
 
    if ( x < 0 || x > 1 ) {
@@ -798,7 +813,7 @@ double RevArgusN(double m, double A, double slope) {
 }
 
 //--------------------------------------------------------------------
-void test_Agrus() {
+void test_Argus() {
 //--------------------------------------------------------------------
    auto Largus = [](const double* x,const double* p) -> double {
 //       return p[0]*Argus(x[0],p[1]);
@@ -828,7 +843,7 @@ void test_Agrus() {
 }
 
 //--------------------------------------------------------------------
-void test_RevAgrus() {
+void test_RevArgus() {
 //--------------------------------------------------------------------
    auto Lrargus = [](const double* x,const double* p) -> double {
       return p[0]*RevArgusN(x[0],p[1],p[2]);
@@ -6525,8 +6540,8 @@ void mass_kk_fit() {
 //    sig_fit(fnames.at(is),titles.at(is),pdf);
 
 // ------------- background sec.6.2 ----------------------------------
-//    test_Agrus();
-//    test_RevAgrus();
+//    test_Argus();
+//    test_RevArgus();
 
    // fit kk-eta by Argus
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_fitbg.pdf";
