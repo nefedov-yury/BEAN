@@ -574,13 +574,11 @@ void setScan18( vector<string>& names, vector<double>& ebeam,
 void setRscan15( vector<string>& names, vector<double>& ebeam,
       vector<double>& er_eb, vector<double>& lumi ) {
 //--------------------------------------------------------------------
-//       "2900_rs", "3000_rs", "3080_rs"
    names = {
       "2900_rs", "2950_rs", "2981_rs", "3000_rs", "3020_rs", "3080_rs"
            };
    int N = names.size();
 
-//        2900., 3000., 3080.
    ebeam =  {
        2900., 2950., 2981., 3000., 3020., 3080.
    };
@@ -589,14 +587,12 @@ void setRscan15( vector<string>& names, vector<double>& ebeam,
       exit(0);
    }
 
-//       1.000, 1.000, 1.000
    er_eb = vector<double>(N,1.0);
-//    if( er_eb.size() != N ) {
-//       cout << " ERROR in " << __func__ << " size of er_eb" << endl;
-//       exit(0);
-//    }
+   // if( er_eb.size() != N ) {
+      // cout << " ERROR in " << __func__ << " size of er_eb" << endl;
+      // exit(0);
+   // }
 
-//       105.53, 15.849, 126.21
    lumi = {
       105.53, 15.960, 16.046, 15.849, 17.315, 126.21
    };
@@ -609,7 +605,7 @@ void setRscan15( vector<string>& names, vector<double>& ebeam,
 // {{{1 MAIN:
 //--------------------------------------------------------------------
 void get_cross_section( string pdfeff="eff", string pdfcs="cs",
-      string prtCS="" ) {
+      string prtCS="cs" ) {
 //--------------------------------------------------------------------
    // set names, energies and lumi
    vector<string> name12,  name18,  nameR;
@@ -681,20 +677,17 @@ void get_cross_section( string pdfeff="eff", string pdfcs="cs",
    string t12("J/Psi scan 2012, Note: 0.55MeV is already subtracted");
    string t18("scan 2018");
    string tR("R-scan 2015");
-   time_t temp = time(NULL);
-   struct tm * timeptr = localtime(&temp);
-   char suf[32];
-   strftime(suf,sizeof(suf),"%d%b%y",timeptr);
-   string ssuf(suf);
    FILE* fp = stdout;                       // by default
    if ( !prtCS.empty() ) {
-      string ftxt = prtCS + "_" + ssuf + ".txt"; // to file
+      string ftxt = prtCS + ".txt"; // to file
       fp = fopen(ftxt.c_str(),"w");
       if ( !fp ) {
          printf("Error open file %s\n",ftxt.c_str());
          fp = stdout;
       }
    } else {
+      time_t temp = time(NULL);
+      struct tm * timeptr = localtime(&temp);
       char Cdate[100];
       strftime(Cdate,sizeof(Cdate),"%B %d %Y",timeptr);
       printf("\nResults obtained on %s\n",Cdate);
@@ -708,7 +701,7 @@ void get_cross_section( string pdfeff="eff", string pdfcs="cs",
 
    if ( !prtCS.empty() ) {
       // print cpp-code with cross-section in file
-      string fcpp = prtCS + "_" + ssuf + "_results.h";
+      string fcpp = prtCS + "_results.h";
       FILE* fp = fopen(fcpp.c_str(),"w");
       if ( !fp ) {
          printf("Error open file %s\n", fcpp.c_str());
@@ -733,6 +726,12 @@ void cross_section() {
    gStyle -> SetStatFont(62);
    gStyle -> SetLegendFont(42);
 
-   get_cross_section("eff","cs","cs");
-//    get_cross_section("","","cs"); // tables only
+   time_t temp = time(NULL);
+   struct tm * timeptr = localtime(&temp);
+   char buf[32];
+   strftime(buf,sizeof(buf),"%d%b%y",timeptr);
+   string dat(buf);
+
+   get_cross_section("eff_"+dat,"cs_"+dat,"cs_"+dat);
+//    get_cross_section("","","cs"+dat); // tables only
 }
