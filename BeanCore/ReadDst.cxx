@@ -10,6 +10,8 @@
 #include <csignal>
 #include <ctime>
 
+// to avoid an error when linking in AppleClang, I should define this
+// variable here, and use the external declaration in the main.cxx
 volatile sig_atomic_t bean_termination;  // signal handler
 
 #include <RVersion.h> // Root version

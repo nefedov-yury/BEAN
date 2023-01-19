@@ -2,7 +2,7 @@
 //                                                                  //
 // SelectKKgg - search for e+ e- -> K+ K- 2gammas                   //
 //                                                                  //
-// TODO: helix corrections for MC ?
+// TODO: helix corrections for MC?
 //==================================================================//
 
 #include "DLLDefines.h"         // mandatory!
