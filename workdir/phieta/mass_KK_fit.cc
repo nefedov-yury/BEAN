@@ -1,16 +1,37 @@
-// unbinned LH fit of M(K+K-) distributions
+// fit distributions  M(K+K-) after sideband subtraction
+// / see also PsipJpsiPhiEta/mass_kk_fit.cc and mkk_fitch2.cc /
 // -> Mkk_fit.pdf
+//
+// TODO: flat bgr -> Argus
+//       interference
 
-#include "gsl/gsl_errno.h"   // GSL error handler
+#include "gsl/gsl_errno.h" // GSL error handler
+
+#include "masses.h"
+
+// {{{1 constants
+//--------------------------------------------------------------------
+// the meson radial parameter in Blatt-Weisskopf form factor
+static const double R_BW = 3.; // GeV^{-1}; +/-1 uncertainties study
+
+static const double dL = 2*Mk; // the left cutoff = 0.987354
+
+static const double MphiMC = 1.01953; // Mphi like in signal MC
+
+// binning for Breit-Wigner: bin width 1.0 MeV
+static const int Nbins = 50;
+static const double bL = 0.98; // first bin < dL
+static const double dU = 1.08; // MUST BE < 1.0835 !!!
+static const double bW = (dU-bL)/Nbins; // bin width
 
 // {{{1 helper function
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // adapter class to use lambda functions with closures in ROOT::MATH
 // Using:  rmath_fun< decltype(Lambda) > Functor(Lambda);
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 template< typename F >
 class rmath_fun: public ROOT::Math::IBaseFunctionOneDim {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    public:
       rmath_fun(const F& lam) : _f(lam) {}
       rmath_fun* Clone() const {
@@ -23,41 +44,9 @@ class rmath_fun: public ROOT::Math::IBaseFunctionOneDim {
       }
 };
 
-//----------------------------------------------------------------------
-constexpr double SQ(double x) {
-//----------------------------------------------------------------------
-   return x*x;
-}
-
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
-//--------------------------------------------------------------------
-   TAxis* X = hst->GetXaxis();
-   if ( X ) {
-      X->SetLabelFont(62);
-      X->SetLabelSize(0.04);
-      X->SetTitleFont(62);
-      X->SetTitleSize(0.04);
-   }
-   TAxis* Y = hst->GetYaxis();
-   if ( Y ) {
-      Y->SetLabelFont(62);
-      Y->SetLabelSize(0.04);
-      Y->SetTitleFont(62);
-      Y->SetTitleSize(0.04);
-   }
-   TAxis* Z = hst->GetZaxis();
-   if ( Z ) {
-      Z->SetLabelFont(62);
-      Z->SetLabelSize(0.04);
-      Z->SetTitleFont(62);
-      Z->SetTitleSize(0.04);
-   }
-}
-
-//----------------------------------------------------------------------
 // adapter class for handling parameters and errors
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct ParAndErr {
    vector<double> Fpar; // parameters
    vector<double> Perr; // symmetric errors
@@ -65,9 +54,9 @@ struct ParAndErr {
    vector<double> Lerr; // lower minos errors
 
    // ctor
-   //-------------------------------------------------------------------
-   ParAndErr(const ROOT::Fit::FitResult& res) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
+   ParAndErr(const ROOT::Fit::FitResult& res,double threshold = 0.1) {
+   //-----------------------------------------------------------------
       Fpar = res.Parameters();
       Perr = res.Errors();
 
@@ -77,16 +66,15 @@ struct ParAndErr {
 
       // if the upper and lower errors differ no more than the
       // 'threshold', the maximum of them is used as a symmetric error
-      constexpr double threshold = 0.1;
       for ( int np = 0; np < Npar; ++np ) {
          if ( res.HasMinosError(np) ) {
             double uerr = fabs(res.UpperError(np));
             double lerr = fabs(res.LowerError(np));
-            if ( uerr*lerr == 0 ) { // one of the errors is not defined
-               continue;
-            }
             Uerr[np] = uerr;
             Lerr[np] = lerr;
+            if ( uerr*lerr == 0 ) {// one of the errors is not defined
+               continue;
+            }
             if ( fabs(1-lerr/uerr) < threshold ) {
                Perr[np] = max(lerr,uerr);
             } else {
@@ -101,25 +89,35 @@ struct ParAndErr {
    }
 
    // pretty print parameters with errors
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
    const char* Eform (int i,string fm, double X = 1) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
       if ( Perr[i] > 0 ) {
          string fmt = "%" +fm+ " #pm %" +fm;
          return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
       } else if ( Perr[i] < 0 ) {
          string fmt = "%" + fm
-            + "^{#lower[0.1]{#kern[0.1]{%+" + fm + "}}" + "}"
-            + "_{#lower[-0.1]{#kern[0.2]{%+" + fm + "}}" + "}";
-         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,-Lerr[i]*X);
+            + "^{#lower[0.15]{#kern[0.15]{#plus}#kern[0.05]{%"
+            + fm + "}}" + "}"
+            + "_{#lower[-0.15]{#kern[0.15]{#minus}#kern[0.05]{%"
+            + fm + "}}" + "}";
+         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,Lerr[i]*X);
       }
       string fmt = "%" +fm+ " (fixed)";
       return Form(fmt.c_str(),Fpar[i]*X);
    }
 
-   //-------------------------------------------------------------------
+   // return middle point = par(i) + 0.5(UpperError+LowerError)
+   //-----------------------------------------------------------------
+   double Middle (int i) {
+   //-----------------------------------------------------------------
+      return Fpar[i] + 0.5*(Uerr[i]-Lerr[i]);
+   }
+
+   // pretty print for table
+   //-----------------------------------------------------------------
    const char* Tform (int i,string fm, double X = 1) {
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
       if ( Perr[i] > 0 ) {
          string fmt = "%" +fm+ " \\pm %" +fm;
          return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
@@ -127,41 +125,147 @@ struct ParAndErr {
          string fmt = "%" + fm + "^{%+" + fm + "}" + "_{%+" + fm + "}";
          return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,-Lerr[i]*X);
       }
-      string fmt = "%" +fm;
+      string fmt = "%" +fm+ " (fixed)";
       return Form(fmt.c_str(),Fpar[i]*X);
    }
 };
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct ValErr {
-   double val;
-   double err;
-   const char* prt(string fm) {
+   double val = 0.;
+   double err = 0.;
+   const char* prt(string fm) const {
       string fmt = "%" + fm + " +/- %" + fm;
       return Form(fmt.c_str(),val,err);
    }
 };
 
+//--------------------------------------------------------------------
+constexpr double SQ(double x) {
+//--------------------------------------------------------------------
+   return x*x;
+}
+
+//--------------------------------------------------------------------
+void SetHstFace(TH1* hst) {
+//--------------------------------------------------------------------
+   TAxis* X = hst -> GetXaxis();
+   if ( X ) {
+      X -> SetLabelFont(62);
+      X -> SetLabelSize(0.04);
+      X -> SetTitleFont(62);
+      X -> SetTitleSize(0.04);
+   }
+   TAxis* Y = hst -> GetYaxis();
+   if ( Y ) {
+      Y -> SetLabelFont(62);
+      Y -> SetLabelSize(0.04);
+      Y -> SetTitleFont(62);
+      Y -> SetTitleSize(0.04);
+   }
+   TAxis* Z = hst -> GetZaxis();
+   if ( Z ) {
+      Z -> SetLabelFont(62);
+      Z -> SetLabelSize(0.04);
+      Z -> SetTitleFont(62);
+      Z -> SetTitleSize(0.04);
+   }
+}
+
+// {{{1 data processing (see mass_KK.cc)
+//--------------------------------------------------------------------
+vector<double> get_mkk_hist( string fname, string hname,
+                              TH1D* hst[], int type = 0 ) {
+//--------------------------------------------------------------------
+#include "cuts.h"
+
+   // name of folder with root files
+   static string dir("Ntpls/");
+   fname = dir + fname;
+   TFile* froot = TFile::Open(fname.c_str(),"READ");
+   if( froot == 0 ) {
+      cerr << "can not open " << fname << endl;
+      exit(0);
+   }
+
+   froot -> cd("SelectKKgg");
+   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
+
+   TCut c_here = c_chi2+c_phi;
+   if ( type == 0 ) {        // central part
+      c_here += c_cpgg;
+   } else if ( type == 1 ) { // side-band
+      c_here += c_sbgg;
+   }
+   int n = a4c -> Draw("Mkk", c_here, "goff");
+   // cout << " n= " << n << endl;
+   double* buffer = a4c -> GetVal(0);
+   vector<double> mkk(buffer, buffer+n);
+
+   string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
+   int ibW = int(bW*1e5+0.1);
+   title += string(";Entries / ") +
+      ( (ibW%10 == 0) ? string(Form("%.0f MeV/c^{2}",bW*1e3))
+                      : string(Form("%.2f MeV/c^{2}",bW*1e3)) );
+   hst[0] = new TH1D(hname.c_str(),title.c_str(),Nbins,bL,dU);
+
+   hst[0] -> Sumw2(true);
+   for ( const auto& mk : mkk ) {
+      hst[0] -> Fill(mk);
+   }
+   return mkk;
+}
+
+//--------------------------------------------------------------------
+TH1D* plot_Mkk( string fname, string hname, int type = 0 ) {
+//--------------------------------------------------------------------
+   TH1D* hist[1];
+   get_mkk_hist( fname, hname, hist, type );
+   return hist[0];
+}
+
+//--------------------------------------------------------------------
+TH1D* Subtract(string fname) {
+//--------------------------------------------------------------------
+// Side-band subtraction
+   TH1D* hst1 = plot_Mkk(fname,string("mkk_data_cp"),0);
+   TH1D* hst2 = plot_Mkk(fname,string("mkk_data_sb"),1);
+   TH1D* sub = (TH1D*)hst1->Clone("sub");
+   sub->Add(hst1,hst2,1.,-1.);
+
+   // calculate bins with negative content
+   int Nneg = 0;
+   for ( int ib = 1; ib <= sub->GetNbinsX(); ++ib ) {
+      if ( sub -> GetBinContent(ib) < 0. ) {
+         // sub -> SetBinContent(0.);
+         Nneg+=1;
+      }
+   }
+
+   if ( Nneg > 0 ) {
+      printf("fname: %s, Nneg=%i\n",fname.c_str(),Nneg);
+   }
+
+   return sub;
+}
+
 // {{{1 Breigt Wigner for phi -> KK
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Breigt Wigner for e+ e- -> phi eta -> K+K- eta
-//----------------------------------------------------------------------
+// Eee is the energy of (e+e-) != Mjpsi
+//--------------------------------------------------------------------
 
-//----------------------------------------------------------------------
-double BreitWigner( double m, double Eee, double mphi, double gphi ) {
-//----------------------------------------------------------------------
-//    constexpr double Mjpsi = 3.096916; // 3096.916 +/- 0.011 MeV
-   constexpr double Meta  = 0.547862; // 547.862  +/- 0.017 MeV
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-
-//    constexpr double Mjpsi2 = SQ(Mjpsi);
-   constexpr double Meta2  = SQ(Meta);
-   constexpr double Mk2    = SQ(Mk);
-
-   constexpr double dL = 2*Mk; // the left cutoff = 0.987354
+//--------------------------------------------------------------------
+double BreitWigner(double m, double Eee, double mphi, double gphi) {
+//--------------------------------------------------------------------
+// we assume that mphi, gphi and R are the fit parameters
    if ( m < dL ) { // phase space becomes zero (see p_k)
       return 0;
    }
+
+   static const double R   = R_BW; // Blatt-Weisskopf ff
+   constexpr double Meta2  = SQ(Meta);
+   constexpr double Mk2    = SQ(Mk);
 
    double m2    = SQ(m);
    double Eee2  = SQ(Eee);
@@ -180,59 +284,57 @@ double BreitWigner( double m, double Eee, double mphi, double gphi ) {
    double r_k  = p_k / p_k0;
 
    // B(m)/B(m0)
-   constexpr double R  = 3.; // GeV^{-1} for Blatt-Weisskopf ff
    double BB_phi = sqrt( (1+SQ(R*p_phi0)) / (1+SQ(R*p_phi)) );
    double BB_k2  = (1+SQ(R*p_k0)) / (1+SQ(R*p_k));
    double BB_k = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
 
-//?    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
+//--    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    return (kap * SQ(fm)) / ( SQ(m2-mphi2) + SQ(GM) );
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double BreitWignerGauss( double m, double Eee,
                          double mphi, double gphi, // BW parameters
                          double sigma              // Gauss
                        ) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Function Fun(x) folded with a normal distribution:
 //
 //        1                        [                  (X'-X)^2    ]
 // ---------------- *   Integral   [ Fun(X') * exp( - --------- ) ] dX'
 // sqrt(2*pi)*sigma   (-oo<X'<+oo) [                  2*sigma^2   ]
 //
-//----------------------------------------------------------------------
-// sigma ~ 1/3 gphi => +/-5 sigma integration
-//----------------------------------------------------------------------
-   constexpr double one_over_sqrt2pi = 0.5*M_2_SQRTPI*M_SQRT1_2;
+//--------------------------------------------------------------------
+// sigma ~ 1/3 gphi (bes3-exp)
+// integration in +/-5 sigma interval
+//--------------------------------------------------------------------
+   static const double Ngauss = 1./sqrt(2*M_PI);
 
    // integrand lambda function
    double pp[] = { m, Eee, mphi, gphi, sigma };
    auto Lint = [](double t, void* pp) -> double{ // t == (X'-X)/sigma
       double* p = static_cast<double*>(pp);
-      return exp(-0.5*t*t) * BreitWigner( (p[0]+t*p[4]),p[1],p[2],p[3]);
+      double x = p[0] + t*p[4];
+      return exp(-0.5*t*t) * BreitWigner( x,p[1],p[2],p[3]);
    };
 
    // desired errors:                abs    rel
-   ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
+   ROOT::Math::GSLIntegrator gsl_int(1.e-7, 1.e-6, 1000);
    double result = gsl_int.Integral(Lint,pp,-5.,+5.);
 
-   return one_over_sqrt2pi * result;
+   return Ngauss * result;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double BreitWignerGaussN( double m, double Eee,
                           double mphi, double gphi, double sigma
                         ) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // Numeric normalisation on one for range [dL,dU]
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-   constexpr double dL = 2*Mk; // the left cutoff = 0.987354
-   constexpr double dU = 1.08; // upper limit
 
    double norm = 0;
    // cash parameters: Eee is the constant
@@ -263,17 +365,11 @@ double BreitWignerGaussN( double m, double Eee,
    return BreitWignerGauss(m,Eee,mphi,gphi,sigma) / norm;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void test_BreitWigner() {
-//-------------------------------------------------------------------------
-   constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
-   constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
-
-   constexpr double dL = 0.98;
-   constexpr double dU = 1.08;
+//--------------------------------------------------------------------
 
    // 1) BreitWigner (internally normalized to 1)
-   constexpr double Mjpsi = 3.096916; // 3096.916 +/- 0.011 MeV
 //    double Eee = Mjpsi;
    double Eee = 3.08;
    auto Lbw = [Eee](const double* x,const double* p) -> double {
@@ -305,23 +401,30 @@ void test_BreitWigner() {
    double normN = 1./bwgn->Integral(dL,dU,1e-8);
    printf("normN = %.6f\n",normN);
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg -> SetHeader("Breit-Wigner (M_{#phi}, #Gamma_{#phi})","C");
+   leg -> AddEntry(bw -> Clone(), "BW, Rff=3GeV^{-1}", "L");
+   leg -> AddEntry( bwgn -> Clone(), Form("BWG(#sigma=%.2f MeV)",
+            bwgn -> GetParameter(3)*1e3), "L" );
+
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
+   gPad -> SetLogy(true);
 
    bw -> Draw();
    bwgn -> Draw("SAME");
+   leg -> Draw();
+
+   gPad -> RedrawAxis();
+   c1 -> Update();
 }
 
 // {{{1 Argus functions
-//----------------------------------------------------------------------
-// Argus functions
-//----------------------------------------------------------------------
-
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double Argus(double x, double a) {
-//----------------------------------------------------------------------
-// ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
+//--------------------------------------------------------------------
+//ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
 // This is a regular ARGUS distribution with one parameter 'a'.
 
    if ( x < 0 || x > 1 ) {
@@ -346,69 +449,61 @@ double Argus(double x, double a) {
    return Ar;
 }
 
-//----------------------------------------------------------------------
-double RevArgus(double m, double A) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
+double RevArgus(double m, double A, double Eee) {
+//--------------------------------------------------------------------
 // Argus function with left cutoff (L)
 //      U is the upper limit of fitting
-//      L,U - must be const for fit
+//      L,U - must be constants for fitting
 
-   constexpr double Mjpsi = 3.096916; // 3096.916 +/- 0.011 MeV
-   constexpr double Meta  = 0.547862; // 547.862  +/- 0.017 MeV
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-   constexpr double L = 2*Mk;
-   constexpr double U = Mjpsi - Meta;
+   static const double L = 2*Mk;
+   const double U = Eee - Meta;
 
    double x = (U-m)/(U-L); // transformation: (L,U) -> (1,0)
    return Argus(x,A)/(U-L);
 }
 
 //----------------------------------------------------------------------
-double RevArgusN(double m, double A) {
+double RevArgusN(double m, double A, double Eee) {
 //----------------------------------------------------------------------
 // Numeric normalisation on one for range [dL,dU]
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-   constexpr double dL = 2*Mk; // the left cutoff = 0.987354
-   constexpr double dU = 1.08; // upper limit
 
    double norm = 0;
-   // cash parameters
+   // cash parameters: Eee is the constant
    static double cacheN = 0;
    static double cacheA = 0;
    if ( cacheN > 0 && A == cacheA ) {
       norm = cacheN;
    } else {
       // integrand lambda function
-      double p[] = {A};
+      double p[] = {A,Eee};
       auto Lint = [](double x, void* pp) -> double{
          double* p = static_cast<double*>(pp);
-         return RevArgus(x,p[0]);
+         return RevArgus(x,p[0],p[1]);
       };
 
       // desired errors:                abs    rel
-      ROOT::Math::GSLIntegrator gsl_int(1.e-9, 1.e-6, 1000);
+      ROOT::Math::GSLIntegrator gsl_int(1.e-6, 1.e-6, 1000);
       norm = gsl_int.Integral(Lint,p,dL,dU);
       cacheN = norm;
       cacheA = A;
    }
 
-   return RevArgus(m,A) / norm;
+   return RevArgus(m,A,Eee) / norm;
 }
 
-//-------------------------------------------------------------------------
-void test_RevAgrus() {
-//-------------------------------------------------------------------------
-   constexpr double dL = 0.98;
-   constexpr double dU = 1.08;
+//--------------------------------------------------------------------
+void test_RevArgus() {
+//--------------------------------------------------------------------
 
-   // ---------------------------------------------------------------------
-   // create Unuran 1D distribution object
+   double Eee = 3.08;
+   // Create Unuran 1D distribution object
    auto Lar = [](const double* x,const double* p) -> double {
-      return RevArgus(x[0],p[0]);
+      return RevArgus(x[0],p[0],p[1]);
    };
-   TF1* far = new TF1("far", Lar, dL,dU, 1);
-//    far -> SetParameter(0,0.98);
-   far -> SetParameter(0,0.);
+   TF1* far = new TF1("far", Lar, dL,dU, 2);
+   // far -> SetParameter(0,1.);
+   far -> SetParameters(1.,Eee); // A=1
    TUnuranContDist dist(far);
    dist.SetDomain(dL,dU);
    // to use a different random number engine do:
@@ -422,8 +517,7 @@ void test_RevAgrus() {
       exit(0);
    }
 
-   // ---------------------------------------------------------------------
-   // generate
+   // Generate
    TH1D* h1 = new TH1D("h1Ar","", 100,dL,dU);
    h1 -> SetLineWidth(2);
    h1 -> SetLineColor(kBlack);
@@ -435,32 +529,30 @@ void test_RevAgrus() {
       h1 -> Fill(x);
    }
 
-   // ---------------------------------------------------------------------
-   // to draw
+   // Draw
    double Wb = Ngen * (dU-dL) / h1 -> GetNbinsX();
    auto Larg = [Wb](const double* x,const double* p) -> double {
-      return Wb*RevArgusN(x[0],p[0]);
+      return Wb*RevArgusN(x[0],p[0],p[1]);
    };
 
-   TF1* fbkg = new TF1("fbkg", Larg, dL, dU, 1);
+   TF1* fbkg = new TF1("fbkg", Larg, dL, dU, 2);
    fbkg -> SetParameter(0, far -> GetParameter(0) );
+   fbkg -> SetParameter(1, Eee );
    fbkg -> SetLineWidth(2);
    fbkg -> SetLineColor(kBlue);
 
-
    TLegend* leg = new TLegend(0.13,0.74,0.43,0.89);
-   leg -> SetHeader( Form("RevArgus a=%.2f",fbkg -> GetParameter(0)),"C" );
+   leg -> SetHeader( Form("RevArgus(Eee=%.2f) a=%.2f",
+            Eee, fbkg -> GetParameter(0)),"C" );
+   leg -> AddEntry( h1,"Unuran generated","PLE");
+   leg -> AddEntry( fbkg -> Clone(), "RevArgusN function","L");
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
 
    h1 -> Draw("EP");
-   leg -> AddEntry( h1,"Unuran generated","PLE");
-
    fbkg -> DrawCopy("SAME");
-   leg -> AddEntry( fbkg -> Clone(), "Function line","L");
-
    leg -> Draw();
 
    gPad -> RedrawAxis();
@@ -468,38 +560,29 @@ void test_RevAgrus() {
 
    // test normalization:
    printf(" RevArgusN norm= %.6f\n",fbkg -> Integral(dL,dU)/Wb );
-
 }
 
 // {{{1 Interference BW with Argus bkg.
-//----------------------------------------------------------------------
-// Interference BW with Argus bkg.
-//----------------------------------------------------------------------
-
-//----------------------------------------------------------------------
+/*
+//--------------------------------------------------------------------
 vector<double> IntfrBWAR( double m, double Eee,
-                  double mphi, double gphi,      // B-W
-                  double A, double F, double Ang // Argus & interference
-               ) {
-//----------------------------------------------------------------------
+      double mphi, double gphi,      // B-W
+      double A, double F, double Ang // Argus & interference
+      ) {
+//--------------------------------------------------------------------
 // see BreitWigner() function
 // The return vector contains:
 //                   0    1     2        3
 //        ret     { Sum, B-W, Argus, Interference }
-//----------------------------------------------------------------------
-//    constexpr double Mjpsi = 3.096916; // 3096.916 +/- 0.011 MeV
-   constexpr double Meta  = 0.547862; // 547.862  +/- 0.017 MeV
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-
-//    constexpr double Mjpsi2 = SQ(Mjpsi);
-   constexpr double Meta2  = SQ(Meta);
-   constexpr double Mk2    = SQ(Mk);
-
-   constexpr double dL = 2*Mk; // the left cutoff = 0.987354
+//--------------------------------------------------------------------
    if ( m < dL ) { // phase space becomes zero
       vector<double> ret(4,0.);
       return ret;
    }
+
+   static const double R   = R_BW; // Blatt-Weisskopf ff
+   constexpr double Meta2  = SQ(Meta);
+   constexpr double Mk2    = SQ(Mk);
 
    double m2    = SQ(m);
    double Eee2  = SQ(Eee);
@@ -518,13 +601,12 @@ vector<double> IntfrBWAR( double m, double Eee,
    double r_k  = p_k / p_k0;
 
    // B(m)/B(m0)
-   constexpr double R  = 3.; // GeV^{-1} for Blatt-Weisskopf ff
    double BB_phi = sqrt( (1+SQ(R*p_phi0)) / (1+SQ(R*p_phi)) );
    double BB_k2  = (1+SQ(R*p_k0)) / (1+SQ(R*p_k));
    double BB_k   = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
-//?    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
+//    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    // common multipliers
@@ -534,73 +616,69 @@ vector<double> IntfrBWAR( double m, double Eee,
    double BW = tmp*fm*kap;
 
    // background:
-   double Ar = RevArgus(m,A)*SQ(F);
+   double Ar_fun = RevArgus(m,A);
+   double Ar = Ar_fun*SQ(F);
 
    // interference:
-   double Intfr = 2 * tmp*sqrt(kap*Ar) *
+   double Intfr = 2 * tmp*F*sqrt(kap*Ar_fun) *
                   ( (m2-mphi2)*cos(Ang) - GM*sin(Ang) );
 
    double Sum = BW + Ar + Intfr;
    vector<double> ret { Sum, BW, Ar, Intfr };
-
    return ret;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double IntfrBWARG( double m, double Eee,
-                   const double p[], // {mphi,gphi,sigma,A,F,Ang}
-                   unsigned int idx = 0 // what to return
-                 ) {
-//----------------------------------------------------------------------
+      const double p[], // {mphi,gphi,sigma,A,F,Ang}
+      unsigned int idx = 0 // what to return
+      ) {
+//--------------------------------------------------------------------
 // Function Fun(x) folded with a normal distribution:
 //
 //        1                        [                  (X'-X)^2    ]
 // ---------------- *   Integral   [ Fun(X') * exp( - --------- ) ] dX'
 // sqrt(2*pi)*sigma   (-oo<X'<+oo) [                  2*sigma^2   ]
 //
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 // integration in +/-5 sigma interval
-//----------------------------------------------------------------------
-//    static const double Ngauss = 1./sqrt(2*M_PI);
-   constexpr double one_over_sqrt2pi = 0.5*M_2_SQRTPI*M_SQRT1_2;
+//--------------------------------------------------------------------
+   static const double Ngauss = 1./sqrt(2*M_PI);
 
    // integrand lambda function
    auto Lint = [m,Eee,p,idx](double t) -> double{
       // t == (X'-X)/sigma
       double x = m+t*p[2];
-      vector<double> Fun = IntfrBWAR(x, Eee, p[0],p[1],p[3],p[4],p[5]);
+      vector<double> Fun = IntfrBWAR(x,Eee,p[0],p[1],p[3],p[4],p[5]);
       return exp(-0.5*t*t) * Fun[idx];
    };
+
    rmath_fun< decltype(Lint) > Fint(Lint);
 
    // desired errors:                abs    rel
    ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-6, 1000);
    double result = gsl_int.Integral(Fint,-5.,+5.);
 
-   return one_over_sqrt2pi * result;
+   return Ngauss * result;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 double IntfrBWARGN( double m, double Eee,
-                    const double p[], //{mphi,gphi,sigma,A,F,Ang}
-                    int idx = 0       // what to return
-                  ) {
-//----------------------------------------------------------------------
+      const double p[], //{mphi,gphi,sigma,A,F,Ang}
+      int idx = 0       // what to return
+      ) {
+//--------------------------------------------------------------------
 // Numerical normalisation to one for range [dL,dU]
-   constexpr double Mk    = 0.493677; // 493.677  +/- 0.016 MeV
-   constexpr double dL = 2*Mk; // the left cutoff = 0.987354
-   constexpr double dU = 1.08; // upper limit
 
    // cash parameters: Eee is the constant
-
    static double cacheN = 0;
-   constexpr int nP = 6;
-   static double cP[nP]; // cache p[]
+   constexpr int npar = 6;
+   static double cP[npar]; // cache p[]
 
    double norm = cacheN;
    bool need_to_calc = !(cacheN > 0);
    if ( !need_to_calc ) {
-      for (int i = 0; i < nP; ++i) {
+      for (int i = 0; i < npar; ++i) {
          if ( p[i] != cP[i] ) { // are parameters the same?
             need_to_calc = true;
             break;
@@ -620,28 +698,28 @@ double IntfrBWARGN( double m, double Eee,
 
       // save to cache
       cacheN = norm;
-      for (int i = 0; i < nP; ++i) {
+      for (int i = 0; i < npar; ++i) {
          cP[i] = p[i];
       }
+   }
+
+   // 'idx == 100' means to return normalization only
+   if ( idx == 100 ) {
+      return norm;
    }
 
    return IntfrBWARG(m,Eee,p,idx) / norm;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void test_Intfr() {
-//-------------------------------------------------------------------------
-   constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
-   constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
-
-   constexpr double dL = 0.98;
-   constexpr double dU = 1.08;
-
+//--------------------------------------------------------------------
    double Eee = 3.097; // ~ M(J/Psi)
-   // ---------------------------------------------------------------------
-   // create Unuran 1D distribution object
+
+   // Create Unuran 1D distribution object
    auto Lgen = [Eee](const double* x,const double* p) -> double {
-      vector<double> res = IntfrBWAR( x[0], Eee, p[0],p[1],p[2],p[3],p[4] );
+      vector<double> res =
+         IntfrBWAR( x[0], Eee, p[0],p[1],p[2],p[3],p[4] );
       return res[0];
    };
    TF1* fgen = new TF1("fgen", Lgen, dL,dU, 5);
@@ -666,8 +744,7 @@ void test_Intfr() {
       exit(0);
    }
 
-   // ---------------------------------------------------------------------
-   // generate
+   // Generate
    TH1D* h1 = new TH1D("h1Intfr","", 100,dL,dU);
    h1 -> SetLineWidth(2);
    h1 -> SetLineColor(kBlack);
@@ -679,13 +756,12 @@ void test_Intfr() {
       h1 -> Fill(x);
    }
 
-   // ---------------------------------------------------------------------
-   // to draw
+   // Draw
    double Wb = Ngen * (dU-dL) / h1 -> GetNbinsX();
    double mphi = Mphi, gphi = Gphi;
    auto Lintfr = [Eee,Wb,mphi,gphi,ag,Fg,Ang](double* x, double* p)
       -> double {
-      vector<double> res = IntfrBWAR( x[0], Eee, mphi,gphi,ag,Fg,Ang );
+      vector<double> res = IntfrBWAR( x[0],Eee,mphi,gphi,ag,Fg,Ang );
       return Wb*res[int(p[0])];
    };
 
@@ -730,101 +806,34 @@ void test_Intfr() {
    c1->Update();
 }
 
-// {{{1  Data
-//-------------------------------------------------------------------------
- vector<double> get_mkk_hist( string fname, string hname,
-                              TH1D* hst[], int type = 0 ) {
-//-------------------------------------------------------------------------
-#include "cuts.h"
+// {{{1 Fitting without interference: BWG + Argus background
+*/
+//--------------------------------------------------------------------
+void do_fit(string fname, double Eee, bool bkgfit,
+      string title, string pdf="") {
+//--------------------------------------------------------------------
+   // Use binned data
+   TH1D* hst = Subtract(fname); // subtract side-band
+   double ndat = hst->Integral();
 
-   constexpr double dL = 0.98;
-   constexpr double dU = 1.08;
-   constexpr int Nbins = 50;
-   constexpr double bW = (dU-dL)/Nbins; // bin width
-
-   // name of folder with root files
-   static string dir("Ntpls/");
-   fname = dir + fname;
-   TFile* froot = TFile::Open(fname.c_str(),"READ");
-   if( froot == 0 ) {
-      cerr << "can not open " << fname << endl;
-      exit(0);
-   }
-
-   froot -> cd("SelectKKgg");
-   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
-
-   TCut c_here = c_chi2;
-   c_here += TCut(Form("%f<=Mkk&&Mkk<%f",dL,dU));
-   if ( type == 0 ) {        // central part
-      c_here += c_cpgg;
-   } else if ( type == 1 ) { // side-band
-      c_here += c_sbgg;
-   }
-   int n = a4c -> Draw("Mkk", c_here, "goff");
-//    cout << " n= " << n << endl;
-   double* buffer = a4c -> GetVal(0);
-   vector<double> mkk(buffer, buffer+n);
-
-   string title(";M^{ inv}_{ K^{+}K^{-}} , GeV/c^{2}");
-   int ibW = int(bW*1e5);
-   title += string(";Entries / ") +
-      ( (ibW%10 == 0) ? string(Form("%.0f MeV/c^{2}",bW*1e3))
-                      : string(Form("%.2f MeV/c^{2}",bW*1e3)) );
-   hst[0] = new TH1D(hname.c_str(),title.c_str(),Nbins,dL,dU);
-
-   hst[0] -> Sumw2(true);
-   for ( const auto& mk : mkk ) {
-      hst[0] -> Fill(mk);
-   }
-   return mkk;
-}
-
-//-------------------------------------------------------------------------
-TH1D* get_mkk_hist( string fname, string hname, int type = 0 ) {
-//-------------------------------------------------------------------------
-   TH1D* hist[1];
-   get_mkk_hist( fname, hname, hist, type );
-   return hist[0];
-}
-
-// {{{1  Fit BW + flat bkg
-//-------------------------------------------------------------------------
-void do_fit(string fname, double Eee, string title, string pdf="") {
-//-------------------------------------------------------------------------
-   constexpr double Mphi  = 1.019461; //1019.461  +/- 0.019 MeV
-   constexpr double Gphi  = 4.247e-3; //   4.247  +/- 0.016 MeV
-
-   constexpr double dL = 0.98;
-   constexpr double dU = 1.08;
-   const double Wul = 1./(dU-dL);
-
-   // Get un-binned data
-   TH1D* hist[1];
-   vector<double> mkk = get_mkk_hist( fname, "mkk", hist );
-   TH1D* hst = hist[0];
-   int Nb = hst -> GetNbinsX();
-   double bW = (dU-dL)/Nb; // bin width
-
-   int n = mkk.size();
+   ROOT::Fit::DataOptions opt;
+   // use integral of bin content instead of bin center (def: false)
+   opt.fIntegral = true;
+   // opt.fIntegral = false;
    ROOT::Fit::DataRange dr(dL, dU);
-   ROOT::Fit::UnBinData Sig(dr, n);
-   for ( int i = 0; i < n; ++i ) {
-      Sig.Add(mkk[i]);
-   }
-//    cout << " n= " << n << " Integral= " << hist[0]->Integral() << endl;
+   ROOT::Fit::BinData Dat(opt,dr);
+   ROOT::Fit::FillData(Dat, hst);
 
-   //-----------------------------------------------------------------------
-   // Fit signal MC(phi,eta) by Breit-Wigner convoluted with Gauss
-   // function represents the total number of events (extended LH)
-   auto Lfit = [Eee,Wul](const double* x,const double* p) -> double {
-      return p[3] * BreitWignerGaussN(x[0],Eee,p[0],p[1],p[2])
-             + p[4] * Wul;
+   // Fit by Breit-Wigner convoluted with Gauss + Argus bkg
+   auto Lfit = [Eee](const double* x,const double* p) -> double {
+      return bW * ( p[4]*BreitWignerGaussN(x[0],Eee,p[0],p[1],p[2])
+            + p[5]*RevArgusN(x[0],p[3],Eee) );
    };
 
-   vector<string> par_name { "Mphi", "Gphi", "Sigma", "Nphi", "Nbg" };
-   vector<double> par_ini  {  Mphi,   Gphi,   1.0e-3, 0.99*n, 0.01*n };
-
+   vector<string> par_name {"Mphi","Gphi","Sigma","Ar",
+      "Nphi","Nbg"};
+   vector<double> par_ini { Mphi, Gphi, 1.5e-3, 0.,
+      0.97*ndat, 0.03*ndat};
    const unsigned int Npar = par_name.size(); // number of parameters
    TF1* Ffit = new TF1("Ffit", Lfit, dL, dU, Npar);
 
@@ -832,60 +841,81 @@ void do_fit(string fname, double Eee, string title, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    ROOT::Math::WrappedTF1 Wfit( *Ffit );
-   fitter.SetFunction( Wfit, false); // false == no parameter derivatives
+   fitter.SetFunction(Wfit,false); // false=no parameter derivatives
 
-   fitter.Config().SetParamsSettings(Npar,par_ini.data()); // must be first
+   // Set parameters, data must come before names
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( unsigned int i = 0; i < Npar; ++i ) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
    }
 
    // fix/limit/step for parameters
-//    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
-   fitter.Config().ParSettings(0).SetValue(1.01952); // like MC-sig
+   //-----------------------------------------------------------------
+   // fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
+   fitter.Config().ParSettings(0).SetValue(MphiMC); // like MC
    fitter.Config().ParSettings(0).Fix();
 
-//    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
+   // fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3,Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();
 
-//    fitter.Config().ParSettings(2).SetValue(1e-3);
+   // fitter.Config().ParSettings(2).SetValue(1e-3);
    fitter.Config().ParSettings(2).SetLimits(0.1e-3, 3e-3); // Sigma
 
-   fitter.Config().ParSettings(3).SetLimits(0.8*n,1.2*n); // Nphi
-   fitter.Config().ParSettings(4).SetLimits(0.,0.2*n);    // Nbg
+   fitter.Config().ParSettings(3).SetValue(0.); // Ar
+   fitter.Config().ParSettings(3).Fix();
 
-   fitter.LikelihoodFit( Sig, true ); // true == extended likelihood fit
+   fitter.Config().ParSettings(4).SetLimits(0.8*ndat,1.2*ndat);// Nphi
+
+   if ( bkgfit ) {
+      fitter.Config().ParSettings(5).SetLimits(0.,0.2*ndat); // Nbg
+   } else {
+      fitter.Config().ParSettings(5).SetValue(0.);
+      fitter.Config().ParSettings(5).Fix();
+   }
+
+   // Fit
+   //-----------------------------------------------------------------
+   fitter.LikelihoodFit( Dat );
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
    res.Print(cout);
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
+   ParAndErr PE(res,0.1); // ignore 10% upper/lower errors
    vector<double>& Fpar = PE.Fpar;
 
-   //-----------------------------------------------------------------------
-   // "Goodness of fit" using K-S test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto Lgof = [Lfit,Fpar](double x) -> double {
-      return Lfit(&x,Fpar.data());
-   };
-   rmath_fun< decltype(Lgof) > ftest(Lgof);
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
+   // Chi2 recalculated for final fit
+   double chi2 = res.Chi2();
+   unsigned int Ndf = res.Ndf();
+   // printf("Lmin=%g, chi2=%g, Ndof=%u\n", Lmin,chi2,Ndf);
 
-   //-----------------------------------------------------------------------
+   // do it yourself -> the same!
+   // double ch2 = 0;
+   // int ndof = -res.NFreeParameters();
+   // for ( int ib = 1; ib <= hst->GetNbinsX(); ++ib ) {
+      // double vd = hst->GetBinContent(ib);
+      // // if ( vd < 1.e-6 ) continue;
+      // double ed = hst->GetBinError(ib);
+      // if ( fabs(ed) < 1.e-1 ) continue;
+      // double bc[] { hst->GetBinCenter(ib) };
+      // double fd = Lfit(bc,Fpar.data());
+      // ch2 += SQ((vd-fd)/ed);
+      // ndof += 1;
+   // }
+   // printf("my ch2 / Ndof =%g / %d\n",ch2,ndof);
+
+   //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [Lfit,Fpar,bW](double* x,double* p) -> double {
-      return bW * Lfit(x,Fpar.data());
+   auto Ldr = [Lfit,Fpar](double* x,double* p) -> double {
+      return Lfit(x,Fpar.data());
    };
    TF1* fdr = new TF1("fdr", Ldr, dL, dU, 0);
    fdr -> SetLineWidth(2);
    fdr -> SetLineColor(kRed);
    fdr -> SetNpx(500);
 
-   auto Lbkg = [Fpar,Wul,bW](double* x,double* p) -> double {
-      return bW * Fpar[4] * Wul;
+   auto Lbkg = [Fpar,Eee](double* x,double* p) -> double {
+      return bW * Fpar[5] * RevArgusN(x[0],Fpar[3],Eee);
    };
    TF1* fbkg = new TF1("fbkg", Lbkg, dL, dU, 0);
    fbkg -> SetLineWidth(2);
@@ -896,7 +926,7 @@ void do_fit(string fname, double Eee, string title, string pdf="") {
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1 -> cd();
    gPad -> SetGrid();
-//    gPad -> SetLogy();
+   // gPad -> SetLogy(true);
 
    SetHstFace(hst);
    hst -> GetYaxis() -> SetMaxDigits(3);
@@ -908,41 +938,47 @@ void do_fit(string fname, double Eee, string title, string pdf="") {
    hst -> Draw("EP");
    fdr -> Draw("SAME");
 
-   TLegend* leg = new TLegend(0.60,0.79,0.89,0.89);
+   TLegend* leg = new TLegend(0.60,0.77,0.89,0.89);
    leg -> AddEntry(hst,title.c_str(),"LEP");
    leg -> AddEntry(fdr,"BW #otimes Gauss","L");
-   if ( Fpar[4] > 1 ) { // Nbg > 1
+   if ( bkgfit ) {
       fbkg -> Draw("SAME");
       leg -> AddEntry(fbkg,"flat background","L");
    }
    leg -> Draw();
 
-   TPaveText* pt = new TPaveText(0.60,0.57,0.89,0.79,"NDC");
+   TPaveText* pt = new TPaveText(0.60,0.55,0.89,0.77,"NDC");
    pt -> SetTextAlign(12);
    pt -> SetTextFont(42);
-   pt -> AddText( Form("#it{p-value(K-S) = %.3f}",pvalueKS) );
+   pt -> AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
    pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+            PE.Eform(1,".3f",1e3)) );
    pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("N_{#phi}= %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("N_{bkg}= %s",PE.Eform(4,".1f")) );
+   pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
+   if ( bkgfit ) {
+      pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
+      pt -> AddText( Form("N_{bkg}= %s",PE.Eform(5,".1f")) );
+   }
    pt -> Draw();
 
    gPad -> RedrawAxis();
    c1 -> Update();
    if ( !pdf.empty() ) {
-      pdf = string("mkk_pict/") + pdf + ".pdf";
+      // pdf = pdf + ".pdf";
+      pdf = "mkk_pict/" + pdf + (bkgfit ? "_bg" : "") + ".pdf";
       c1 -> Print(pdf.c_str());
    }
 
-   // print for table
-   printf("%s\n no interference: p(KS)= %.3f\n"
-          " sigma= %s MeV  Nphi= %s  Nbg= %s\n",
-         title.c_str(), pvalueKS,
-         PE.Tform(2,".2f",1e3),
-         PE.Tform(3,".1f"), PE.Tform(4,".1f") );
+   // print Table
+   printf("%s\n no interference: Ndat= %.1f\n",title.c_str(),ndat);
+   printf(" chi^2 / Ndf = %.2f/%u, sigma= %s MeV\n",
+         chi2, Ndf, PE.Tform(2,".2f",1e3) );
+   printf(" Nphi= %s, Nbg= %s\n",
+         PE.Tform(4,".1f"), PE.Tform(5,".1f") );
 }
 
+/*
 // {{{1  Fit Interference(BW + RevArgus)
 //----------------------------------------------------------------------
 ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
@@ -1248,57 +1284,62 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
 }
 
 // {{{1 MAIN:
-//-------------------------------------------------------------------------
+*/
+//--------------------------------------------------------------------
 void mass_KK_fit() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    gROOT -> Reset();
    gStyle -> SetOptStat(0);
    gStyle -> SetOptFit(111); // do not print fixed parameters!
-//    gStyle -> SetOptFit(112); // print all parameters (fixed)
+   // gStyle -> SetOptFit(112); // print all parameters (fixed)
    gStyle -> SetStatFont(62);
    gStyle -> SetLegendFont(42);
 
-//    gStyle->SetStatH(0.25);
-//    gStyle->SetStatW(0.23);
+   // gStyle->SetStatH(0.25);
+   // gStyle->SetStatW(0.23);
 
-   //-------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // = define GSL error handler which does nothing =
-   gsl_set_error_handler_off();
+   // gsl_set_error_handler_off();
 
-   //--------------------------------------------
-//    test_BreitWigner();
-//    test_RevAgrus();
-//    test_Intfr();
+   //-----------------------------------------------------------------
+   // -> test functions
+   // test_BreitWigner();
+   // test_RevArgus();
+   //--    test_Intfr();
 
-   //--------------------------------------------
-   // Fit: BW + flat background
-   //--------------------------------------------
-//    do_fit( "ntpl_2900_rs.root", 2.90,
-//            "R-scan: 2900MeV","mkk_2900_rs");
+   //-----------------------------------------------------------------
+   // Fitting without interference: BWG + Argus background
+   // parfit: 0
+   //-----------------------------------------------------------------
+   bool bkgfit=true;
 
-//    do_fit( "ntpl_3080_rs.root", 3.08,
-//            "R-scan: 3080MeV","mkk_3080_rs");
+   // do_fit( "ntpl_2900_rs.root", 2.90, !bkgfit,
+           // "R-scan: 2900MeV","mkk_2900_rs");
 
-//    do_fit( "ntpl_3080_2019.root", 3.08,
-//            "2019: 3080MeV","mkk_3080_2019");
+   // do_fit( "ntpl_3080_rs.root", 3.08, !bkgfit,
+           // "R-scan: 3080MeV","mkk_3080_rs");
 
-//    do_fit( "ntpl_J1.root", 3.087659,
-//            "2018: 3087.659MeV","mkk_3087.659" );
+   // do_fit( "ntpl_3080_2019.root", 3.08, bkgfit,
+           // "2019: 3080MeV","mkk_3080_2019");
 
-//    do_fit( "ntpl_3090.root", 3.088868,
-//            "2012: 3088.868MeV","mkk_3088.868" );
+   do_fit( "ntpl_J1.root", 3.087659, bkgfit,
+           "2018: 3087.659MeV","mkk_3087.659" ); // ~8ev ?
 
-//    do_fit( "ntpl_3093.root", 3.091774,
-//            "2012: 3091.774MeV","mkk_3091.774" );
+//    do_fit( "ntpl_3090.root", 3.088868, bkgfit,
+//            "2012: 3088.868MeV","mkk_3088.868" ); // ~30ev
 
-//    do_fit( "ntpl_3094.root", 3.094711,
-//            "2012: 3094.711MeV","mkk_3094.711" );
+//    do_fit( "ntpl_3093.root", 3.091774, bkgfit,
+//            "2012: 3091.774MeV","mkk_3091.774" ); // ~30ev
 
-//    do_fit( "ntpl_3095.root", 3.095444,
-//            "2012: 3095.444MeV","mkk_3095.444" );
+//    do_fit( "ntpl_3094.root", 3.094711, bkgfit,
+//            "2012: 3094.711MeV","mkk_3094.711" ); // ~30ev
 
-//    do_fit( "ntpl_J2.root", 3.095726,
-//            "2018: 3095.726MeV","mkk_3095.726" );
+   // do_fit( "ntpl_3095.root", 3.095444,
+           // "2012: 3095.444MeV","mkk_3095_444" ); // ~100
+
+   // do_fit( "ntpl_J2.root", 3.095726,
+           // "2018: 3095.726MeV","mkk_3095_726_bg" ); // ~300
 
 //    do_fit( "ntpl_3096.root", 3.095840,
 //            "2012: 3095.840MeV","mkk_3095.840" );
@@ -1306,14 +1347,14 @@ void mass_KK_fit() {
 //    do_fit( "ntpl_J3.root", 3.096203,
 //            "2018: 3096.203MeV","mkk_3096.203" );
 
-//    do_fit( "ntpl_J4.root", 3.096986,
-//            "2018: 3096.986MeV","mkk_3096.986" );
+   // do_fit( "ntpl_J4.root", 3.096986,
+           // "2018: 3096.986MeV","mkk_3096_986_bg" ); // ~800
 
 //    do_fit( "ntpl_J5.root", 3.097226,
 //            "2018: 3097.226MeV","mkk_3097.226");
 
-//    do_fit( "ntpl_3097.root", 3.097227,
-//            "2012: 3097.227MeV","mkk_3097.227" );
+   // do_fit( "ntpl_3097.root", 3.097227,
+           // "2012: 3097.227MeV","mkk_3097_227_bg" ); // ~550
 
 //    do_fit( "ntpl_J6.root", 3.097654,
 //            "2018: 3097.654MeV","mkk_3097.654");
@@ -1333,9 +1374,9 @@ void mass_KK_fit() {
 //    do_fit( "ntpl_3112.root", 3.112065,
 //            "2012: 3112.065MeV","mkk_3112.065" );
 
-   //--------------------------------------------
+   //-----------------------------------------------------------------
    // Fit: Interference(BW + RevArgus)
-   //--------------------------------------------
+   //-----------------------------------------------------------------
 //    do_fitI( "ntpl_2900_rs.root", 2.90,
 //             "R-scan: 2900MeV","mkkI_2900_rsF");
 
@@ -1345,8 +1386,8 @@ void mass_KK_fit() {
 //    do_fitI( "ntpl_3080_2019.root", 3.08,
 //             "2019: 3080MeV","mkkI_3080_2019F");
 
-   do_fitI( "ntpl_3090.root", 3.088868,
-            "2012: 3088.868MeV","mkkI_3088.868" );
+   // do_fitI( "ntpl_3090.root", 3.088868,
+            // "2012: 3088.868MeV","mkkI_3088.868" );
 
 //    do_fitI( "ntpl_3093.root", 3.091774,
 //             "2012: 3091.774MeV","mkkI_3091.774" );
@@ -1392,4 +1433,5 @@ void mass_KK_fit() {
 
 //    do_fitI( "ntpl_3112.root", 3.112065,
 //             "2012: 3112.065MeV","mkkI_3112.065" );
+
 }
