@@ -141,7 +141,7 @@ void prtTable( FILE* fp, string title, const vector<double>& e,
          "   Cross Section(nb)\n");
    for ( int i = 0; i < n; ++i ) {
       fprintf(fp,
-            " %-10.6f %8.6g   %4.0f +/- %4.1f   %6.2f"
+            " %-10.6f %8.6g  %5.1f +/- %4.1f   %6.2f"
             "    %6.4f +/- %6.4f\n",
             e[i]*1e-3,lumi[i],nd[0][i],nd[1][i],eff[i]*100,
             cs[0][i]*1e-3,cs[1][i]*1e-3);
@@ -291,6 +291,79 @@ void getCrossSection( const vector<string>& names,
 
       Nd[0][i] = nd;
       Nd[1][i] = err_nd;
+      CS[0][i] = cs;
+      CS[1][i] = err_cs;
+   }
+}
+
+//--------------------------------------------------------------------
+void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
+//--------------------------------------------------------------------
+   int N = names.size();
+   Nd[0].resize(N,0.);
+   Nd[1].resize(N,0.);
+   for ( int i = 0; i < N; ++i ) {
+      string fname = "mkk_inter/mkk_" + names[i] + ".txt";
+      FILE* fmkk = fopen(fname.c_str(),"r");
+      if ( !fmkk ) {
+         cout << " can not open file " << fname << endl;
+         exit(1);
+      }
+      fseek(fmkk, 0, SEEK_END);
+      auto pos = ftell(fmkk);
+      int count = 0;
+      while ( pos ) { // search for \n
+         fseek(fmkk, --pos, SEEK_SET);
+         if (fgetc(fmkk) == '\n') {
+            if (count++ == 1) break;
+         }
+      }
+      // gets last line
+      char line[100];
+      while ( fgets(line, sizeof(line), fmkk ) != NULL ) {
+        string sl(line);
+        if ( sl.find("Nphi") != string::npos ) {
+           double Nphi = 0, err_Nphi = 0;
+           int ret =
+              sscanf(line, "Nphi = %lf +/- %lf", &Nphi,&err_Nphi);
+           if ( ret != 2 ) {
+              cout << "-- ERR: " << sl << endl;
+              exit(1);
+           }
+           // cout << fname << " ++OK Nphi= " << Nphi << endl;
+           Nd[0][i] = Nphi;
+           Nd[1][i] = err_Nphi;
+           break;
+        } else {
+           cout << "- ERR: " << sl << endl;
+           exit(1);
+        }
+      }
+      fclose(fmkk);
+   }
+}
+
+//--------------------------------------------------------------------
+void CrossSection( const vector<double> Nd[],
+      const vector<double>& lumi, const vector<double>& eff,
+      vector<double> CS[] ) {
+//--------------------------------------------------------------------
+   // calculate cross sections
+   const double Br_phiKK = 0.492; // PDG2018: phi->K+K-   (49.2±0.5)%
+   // PDG2018: eta->2gamma (39.41±0.20)%
+   // MC generated decay of eta
+
+   int N = Nd[0].size();
+   CS[0].resize(N,0.);
+   CS[1].resize(N,0.);
+
+   for ( int i = 0; i < N; ++i ) {
+      double nd      = Nd[0][i];
+      double err_nd  = Nd[1][i];
+      double cs      = nd / (lumi[i]*eff[i]*Br_phiKK);
+      double err_cs  = cs * (err_nd/nd);
+      // cout << " cross section: " << cs << " +/- " << err_cs << endl;
+
       CS[0][i] = cs;
       CS[1][i] = err_cs;
    }
@@ -651,6 +724,8 @@ void get_cross_section( string pdfeff="eff", string pdfcs="cs",
    vector<double> SigR[2],  NdR[2];
    vector<TH1D*> HisD12, HisD18, HisDR;
 
+   // OLD just side-band
+   /*
    getCrossSection( name12,lumi12,Eff12[0], Sig12,Nd12,HisD12);
    getCrossSection( name18,lumi18,Eff18[0], Sig18,Nd18,HisD18);
    getCrossSection( nameR, lumiR, EffR[0],  SigR, NdR, HisDR);
@@ -665,6 +740,25 @@ void get_cross_section( string pdfeff="eff", string pdfcs="cs",
       drawHstRes( cs12, ebeam12, HisD12, false, Sig12 );
       drawHstRes( cs18, ebeam18, HisD18, false, Sig18 );
       drawHstRes( csR,  ebeamR,  HisDR,  false, SigR );
+      vector<TGraphErrors*> gcs {
+         get_graph( ebeam12, false, Sig12 ),
+         get_graph( ebeam18, false, Sig18 ),
+         get_graph( ebeamR,  false, SigR )
+      };
+      drawGraph( csall, gcs, false );
+   }
+   */
+
+   // NEW:
+   read_mkk_file(name12,Nd12);
+   read_mkk_file(name18,Nd18);
+   read_mkk_file(nameR, NdR);
+   CrossSection( Nd12,lumi12,Eff12[0], Sig12 );
+   CrossSection( Nd18,lumi18,Eff18[0], Sig18 );
+   CrossSection( NdR, lumiR, EffR[0],  SigR );
+   if ( !pdfcs.empty() ) {
+      // draw cross-section
+      string csall= pdfcs + "_all.pdf";
       vector<TGraphErrors*> gcs {
          get_graph( ebeam12, false, Sig12 ),
          get_graph( ebeam18, false, Sig18 ),
