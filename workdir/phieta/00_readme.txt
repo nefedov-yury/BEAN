@@ -56,7 +56,6 @@ jpsi_incl.cc:
 > purity for ch2<80 is 95.43%
 
 //--------------------------------------------------------------------
-//--------------------------------------------------------------------
 Efficiency && Cross section
 //--------------------------------------------------------------------
 xisr_Pr.cc:
@@ -75,20 +74,23 @@ eff_MC.cc:
 // fit it by a straight line
 // -> eff_sig.pdf
 
+mass_KK_fit.cc
+// fit distributions M(K+K-) for data
+// NOTE: see also PsipJpsiPhiEta/mass_kk_fit.cc and mkk_fitch2.cc
+// -> outputs:
+//    'mkk_inter/' for interference model BW with Argus
+//    'mkk_noint/' for model with sum BW + Argus
+
 cross_section.cpp:
-// estimating the cross-section values from the data after subtracting
-// the side-band events
-//  1) efficiency of phi-eta selection (on the base of MCGPJ)
-//     -> eff_12/18/R/all.pdf in
-//  2) cross-section for each energy point
+// estimating the cross-section values from the data:
+// I ) sinple subtraction of the side-band
+// II) after mass_KK_fit.cc
+//  *) plot efficiency of phi-eta selection on the base of MCGPJ
+//     -> eff_12/18/R/all.pdf
+//  *) plot/print cross-section for each energy point
 //    -> cp_12/18/R/all.pdf
 //    -> cs_results.h   : cpp-code with cross-section and energies
 //    -> cs_results.txt : final tables
-
-
-
-mass_KK_fit.cc
-
 
 //--------------------------------------------------------------------
 Study of uncertainties

@@ -1,8 +1,9 @@
-// estimating the cross-section values from the data after subtracting
-// the side-band events
-//  1) efficiency of phi-eta selection (on the base of MCGPJ)
-//     -> eff_12/18/R/all.pdf in
-//  2) cross-section for each energy point
+// estimating the cross-section values from the data:
+// I ) sinple subtraction of the side-band
+// II) after mass_KK_fit.cc
+//  *) plot efficiency of phi-eta selection on the base of MCGPJ
+//     -> eff_12/18/R/all.pdf
+//  *) plot/print cross-section for each energy point
 //    -> cp_12/18/R/all.pdf
 //    -> cs_results.h   : cpp-code with cross-section and energies
 //    -> cs_results.txt : final tables

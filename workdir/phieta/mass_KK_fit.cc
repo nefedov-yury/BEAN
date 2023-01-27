@@ -1,9 +1,8 @@
-// fit distributions  M(K+K-)
-// / see also PsipJpsiPhiEta/mass_kk_fit.cc and mkk_fitch2.cc /
-// -> Mkk_fit.pdf
-//
-// BATCH:
-// for ((i=0;i<=30;i++)); do root -b -q "mass_KK_fit.cc($i)"; done
+// fit distributions M(K+K-) for data
+// NOTE: see also PsipJpsiPhiEta/mass_kk_fit.cc and mkk_fitch2.cc
+// -> outputs:
+//    'mkk_inter/' for interference model BW with Argus
+//    'mkk_noint/' for model with sum BW + Argus
 
 
 #include "gsl/gsl_errno.h" // GSL error handler
@@ -237,8 +236,10 @@ TH1D* Subtract(string fname) {
    // calculate bins with negative content
    int Nneg = 0;
    for ( int ib = 1; ib <= sub->GetNbinsX(); ++ib ) {
-      if ( sub -> GetBinContent(ib) < 0. ) {
-         // sub -> SetBinContent(0.);
+      if ( sub -> GetBinContent(ib) < 1e-3 ) {
+         // force LH to ignore such bins
+         // sub->SetBinContent(ib, 0.);
+         // sub->SetBinError(ib, 0.);
          Nneg+=1;
       }
    }
@@ -1000,6 +1001,10 @@ void do_fit(string fname, double Eee, bool bkgfit,
 //--------------------------------------------------------------------
 void do_fitI(string fname, double Eee, string title, string pdf="") {
 //--------------------------------------------------------------------
+   bool is2012 = (title.find("2012") != string::npos);
+   bool is2018 = (title.find("2018") != string::npos);
+   bool isR = (title.find("R-scan") != string::npos);
+
    // Use binned data
    TH1D* hst = Subtract(fname); // subtract side-band
    double ndat = hst->Integral();
@@ -1020,9 +1025,9 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    };
 
    vector<string> par_name
-      { "Mphi", "Gphi", "Sigma", "Ar", "F", "vartheta", "Nphi" };
+      { "Mphi", "Gphi", "Sigma", "Ar", "F", "vartheta", "NKK" };
    vector<double> par_ini
-      {  Mphi,  Gphi, 0.5e-3,    0.0, 0.7, 0., ndat };
+      {  Mphi,   Gphi,   1e-3,    0.,   1.,  0.,         ndat };
 
    // bool neg_pos = par_ini[5] > 0; // true for negative interference
 
@@ -1050,7 +1055,7 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    // fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3,Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();
 
-   fitter.Config().ParSettings(2).SetLimits(0.1e-3, 3e-3);  // Sigma
+   fitter.Config().ParSettings(2).SetLimits(0.1e-3, 10e-3); // Sigma
 
    fitter.Config().ParSettings(3).SetValue(0.);             // Ar
    fitter.Config().ParSettings(3).Fix();
@@ -1061,7 +1066,33 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    fitter.Config().ParSettings(5).SetValue(0.); // MEMO
    fitter.Config().ParSettings(5).Fix();
 
-   fitter.Config().ParSettings(6).SetLimits(0.5*ndat,1.5*ndat);// Nphi
+   if ( ndat < 33 ) { // NetaKK limits
+      fitter.Config().ParSettings(6).SetLimits(1.,50.);
+   } else {
+      fitter.Config().ParSettings(6).SetLimits(0.5*ndat,1.5*ndat);
+   }
+
+   if ( isR && ndat < 50 ) {
+      // sigma = 2.2e-3 for 3.08 and 1.9e-3 for 2.9
+      fitter.Config().ParSettings(2).SetValue(2e-3);
+      fitter.Config().ParSettings(2).Fix();
+   }
+
+   if ( is2018 && ndat < 10 ) { //
+      // just for J1: sigma = 0.6e-3 for J2 and 1e-3 for J3
+      fitter.Config().ParSettings(2).SetValue(1e-3);
+      fitter.Config().ParSettings(2).Fix();
+   }
+
+   if ( is2012 && ndat < 101 ) {
+      // sigma ~ 1e-3
+      fitter.Config().ParSettings(2).SetValue(1e-3);
+      fitter.Config().ParSettings(2).Fix(); // sigma
+      if ( ndat < 5 ) { // just 3 events: fix F = 0
+         fitter.Config().ParSettings(4).SetValue(0.);
+         fitter.Config().ParSettings(4).Fix(); // F
+      }
+   }
 
    // Fit
    //-----------------------------------------------------------------
@@ -1087,8 +1118,10 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    ValErr Integ = CalcIntEr( res, Eee, 1 ); // BW
    double Nphi = Integ.val;
    double err_Nphi = fabs(Integ.err);
-   if ( SQ(err_Nphi) < Nphi ) { // TODO
-      err_Nphi = 0.1*ceil(10*sqrt(Nphi));
+   if ( SQ(err_Nphi) < Nphi ) {
+      printf(" WARNING: Too small error of Nphi: %.1f +/- %.1f\n",
+            Nphi, err_Nphi);
+      err_Nphi = sqrt( Nphi );
    }
 
    //-----------------------------------------------------------------
@@ -1106,7 +1139,12 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    fdr->SetParameter(0, 3);   // interference
    double hmin = fdr->GetMinimum(1.,Mphi); // min in [1,Mphi]
    if ( hmin < -0.1 && hmin < hst->GetMinimum() ) {
-      hmin = 5*(int(hmin)/5-1);
+      if ( hst->GetMaximum() > 40 ) {
+         double hmin1 = 5.*(int(hmin)/5-1);
+         hmin = ( fabs(hmin1-hmin) > 1 ) ? hmin1 : hmin1-5;
+      } else {
+         hmin = int(hmin) - 2.;
+      }
       hst -> SetMinimum(hmin);
    }
 
@@ -1225,6 +1263,11 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
          << err_num << endl;
    }
 
+   // DEBUG:
+   // double errD = 0;
+   // double IntD = FC.IntegralOneDim(1.01,1.03,eps_rel,eps_abs, errD);
+   // printf("++ IntD[%u]= %g, relD= %g\n",idx,IntD,errD);
+
    // 2) calculate error of this integral
    TMatrixDSym covMatrix(Npar);
    covMatrix.Use(Npar,cov_m.data());
@@ -1265,7 +1308,7 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
 
 // {{{1 MAIN:
 //--------------------------------------------------------------------
-void mass_KK_fit(int batch=-1) {
+void mass_KK_fit(int interference=1) {
 //--------------------------------------------------------------------
    gROOT -> Reset();
    gStyle -> SetOptStat(0);
@@ -1291,109 +1334,128 @@ void mass_KK_fit(int batch=-1) {
    //-----------------------------------------------------------------
    // structure with data description
    //-----------------------------------------------------------------
-   struct FunctionPar {
-      string Filename;  // name of ntuple in Ntpls/
+   struct DataDescription {
+      string Basename;
       double Energy;    // GeV
       string Title;
-      string Pdfname;
    };
-   FunctionPar FP[] {
+   const vector<DataDescription> DD {
       // -- 2019 3080 no lum! 0
-      {"ntpl_3080_2019.root",3.08,"2019: 3080MeV","mkk_3080_2019"},
+      {"3080_2019",3.08,"2019: 3080MeV"},
       //-- R-scan 2015: 1-6
-      {"ntpl_2900_rs.root",2.90, "R-scan: 2900MeV","mkk_2900_rs"},
-      {"ntpl_2950_rs.root",2.95, "R-scan: 2950MeV","mkk_2950_rs"},
-      {"ntpl_2981_rs.root",2.981,"R-scan: 2981MeV","mkk_2981_rs"},
-      {"ntpl_3000_rs.root",3.0,  "R-scan: 3000MeV","mkk_3000_rs"},
-      {"ntpl_3020_rs.root",3.02, "R-scan: 3020MeV","mkk_3020_rs"},
-      {"ntpl_3080_rs.root",3.08, "R-scan: 3080MeV","mkk_3080_rs"},
+      {"2900_rs",2.90, "R-scan: 2900MeV"},
+      {"2950_rs",2.95, "R-scan: 2950MeV"},
+      {"2981_rs",2.981,"R-scan: 2981MeV"},
+      {"3000_rs",3.0,  "R-scan: 3000MeV"},
+      {"3020_rs",3.02, "R-scan: 3020MeV"},
+      {"3080_rs",3.08, "R-scan: 3080MeV"},
       //-- tau-scan 2018: 7-14
-      {"ntpl_J1.root", 3.087659, "2018: 3087.659MeV","mkk_J1"},
-      {"ntpl_J2.root", 3.095726, "2018: 3095.726MeV","mkk_J2"},
-      {"ntpl_J3.root", 3.096203, "2018: 3096.203MeV","mkk_J3"},
-      {"ntpl_J4.root", 3.096986, "2018: 3096.986MeV","mkk_J4"},
-      {"ntpl_J5.root", 3.097226, "2018: 3097.226MeV","mkk_J5"},
-      {"ntpl_J6.root", 3.097654, "2018: 3097.654MeV","mkk_J6"},
-      {"ntpl_J7.root", 3.098728, "2018: 3098.728MeV","mkk_J7"},
-      {"ntpl_J8.root", 3.104,    "2018: 3104.000MeV","mkk_J8"},
+      {"J1", 3.087659, "2018: 3087.659MeV"},
+      {"J2", 3.095726, "2018: 3095.726MeV"},
+      {"J3", 3.096203, "2018: 3096.203MeV"},
+      {"J4", 3.096986, "2018: 3096.986MeV"},
+      {"J5", 3.097226, "2018: 3097.226MeV"},
+      {"J6", 3.097654, "2018: 3097.654MeV"},
+      {"J7", 3.098728, "2018: 3098.728MeV"},
+      {"J8", 3.104,    "2018: 3104.000MeV"},
       //-- J/Psi-scan 2012: 15-30
-      {"ntpl_3050.root",3.049663,"2012: 3049.663MeV","mkk_3050"},
-      {"ntpl_3060.root",3.058707,"2012: 3058.707MeV","mkk_3060"},
-      {"ntpl_3080.root",3.079645,"2012: 3079.645MeV","mkk_3080"},
-      {"ntpl_3083.root",3.082510,"2012: 3082.510MeV","mkk_3083"},
-      {"ntpl_3090.root",3.088868,"2012: 3088.868MeV","mkk_3090"},
-      {"ntpl_3093.root",3.091774,"2012: 3091.774MeV","mkk_3093"},
-      {"ntpl_3094.root",3.094711,"2012: 3094.711MeV","mkk_3094"},
-      {"ntpl_3095.root",3.095444,"2012: 3095.444MeV","mkk_3095"},
-      {"ntpl_3096.root",3.095840,"2012: 3095.840MeV","mkk_3096"},
-      {"ntpl_3097.root",3.097227,"2012: 3097.227MeV","mkk_3097"},
-      {"ntpl_3098.root",3.098354,"2012: 3098.354MeV","mkk_3098"},
-      {"ntpl_3099.root",3.099056,"2012: 3099.056MeV","mkk_3099"},
-      {"ntpl_3102.root",3.101373,"2012: 3101.373MeV","mkk_3102"},
-      {"ntpl_3106.root",3.105594,"2012: 3105.594MeV","mkk_3106"},
-      {"ntpl_3112.root",3.112065,"2012: 3112.065MeV","mkk_3112"},
-      {"ntpl_3120.root",3.119892,"2012: 3119.892MeV","mkk_3120"},
+      {"3050",3.049663,"2012: 3049.663MeV"},
+      {"3060",3.058707,"2012: 3058.707MeV"},
+      {"3080",3.079645,"2012: 3079.645MeV"},
+      {"3083",3.082510,"2012: 3082.510MeV"},
+      {"3090",3.088868,"2012: 3088.868MeV"},
+      {"3093",3.091774,"2012: 3091.774MeV"},
+      {"3094",3.094711,"2012: 3094.711MeV"},
+      {"3095",3.095444,"2012: 3095.444MeV"},
+      {"3096",3.095840,"2012: 3095.840MeV"},
+      {"3097",3.097227,"2012: 3097.227MeV"},
+      {"3098",3.098354,"2012: 3098.354MeV"},
+      {"3099",3.099056,"2012: 3099.056MeV"},
+      {"3102",3.101373,"2012: 3101.373MeV"},
+      {"3106",3.105594,"2012: 3105.594MeV"},
+      {"3112",3.112065,"2012: 3112.065MeV"},
+      {"3120",3.119892,"2012: 3119.892MeV"},
    };
-
-   bool interference=true;
-
-   //-----------------------------------------------------------------
-   // Fitting without interference: BWG + Argus background
-   //-----------------------------------------------------------------
-   if ( !interference ) {
-      bool bkgfit=true;
-
-      if ( batch < 0 ) {
-         //-- 2019 3080 no lum!
-         do_fit( "ntpl_3080_2019.root", 3.08, bkgfit,
-               "2019: 3080MeV","mkk_3080_2019"); // 159
-         // do_fit( "ntpl_3080_rs.root", 3.08, bkgfit,
-               // "R-scan: 3080MeV","mkk_3080_rs"); // 224
-         return;
-      }
-
-      FunctionPar& fp = FP[batch];
-      string outdir("mkk_noint/");
-      string pdfout = outdir + fp.Pdfname; // + ".pdf" in func
-      string txtout = outdir + fp.Pdfname + ".txt";
-      // redirection stdout,stderr -> file
-      FILE* fout = freopen(txtout.c_str(),"w",stdout);
-      if ( -1 == dup2(fileno(fout), fileno(stderr)) ) {
-         perror("ERROR of redirection\n");
-      }
-      do_fit( fp.Filename, fp.Energy, bkgfit, fp.Title, pdfout );
-      fclose(fout);
-      return;
-   } else {
 
    //-----------------------------------------------------------------
    // Fit: Interference(BW + RevArgus)
    //-----------------------------------------------------------------
-      if ( batch < 0 ) {
-         // do_fitI( "ntpl_3097.root", 3.097227,
-               // "2012: 3097.227MeV","Imkk_3097.227" ); // 559
-         // do_fitI( "ntpl_J3.root", 3.096203,
-               // "2018: 3096.203MeV","Imkk_J3_3096" ); // 985
-         do_fitI( "ntpl_J4.root", 3.096986,
-               "2018: 3096.986MeV","Imkk_J4_3096" ); // 866
-         // do_fitI( "ntpl_3080_rs.root", 3.08,
-               // "R-scan: 3080MeV","Imkk_3080_rs");     // 224
-         // do_fitI( "ntpl_3080_2019.root", 3.08,
-               // "2019: 3080MeV","Imkk_3080_2019"); // 159
-         return;
+   if ( interference == 1 ) {
+      for ( const auto& dd : DD ) {
+         string Filename = "ntpl_" + dd.Basename + ".root";
+         string outdir("mkk_inter/");
+         string pdfout = outdir + "mkk_" + dd.Basename; //+".pdf"
+         string txtout = outdir + "mkk_" + dd.Basename + ".txt";
+         fflush(stdout);
+         // save fd
+         int fd_save1 = dup( fileno(stdout) );
+         int fd_save2 = dup( fileno(stderr) );
+         // redirection stdout,stderr -> file
+         freopen(txtout.c_str(),"w",stdout);
+         if ( -1 == dup2(fileno(stdout), fileno(stderr)) ) {
+            perror("ERROR of redirection\n");
+         }
+         do_fitI( Filename, dd.Energy, dd.Title, pdfout );
+         fflush(stdout); // do not close!
+         // restore stdout, stderr
+         dup2(fd_save1, fileno(stdout));
+         close(fd_save1);
+         dup2(fd_save2, fileno(stderr));
+         close(fd_save2);
+         printf(" The end of %s\n", dd.Basename.c_str());
       }
+      return;
 
-      FunctionPar& fp = FP[batch];
-      string outdir("mkk_inter/");
-      string pdfout = outdir + fp.Pdfname; // + ".pdf" in func
-      string txtout = outdir + fp.Pdfname + ".txt";
-      // redirection stdout,stderr -> file
-      FILE* fout = freopen(txtout.c_str(),"w",stdout);
-      if ( -1 == dup2(fileno(fout), fileno(stderr)) ) {
-         perror("ERROR of redirection\n");
+   //-----------------------------------------------------------------
+   // Fitting without interference: BWG + Argus background
+   //-----------------------------------------------------------------
+   } else if ( interference == 0 ) {
+      bool bkgfit=true;
+
+      for ( const auto& dd : DD ) {
+         string Filename = "ntpl_" + dd.Basename + ".root";
+         string outdir("mkk_noint/");
+         string pdfout = outdir + "mkk_" + dd.Basename; //+".pdf"
+         string txtout = outdir + "mkk_" + dd.Basename + ".txt";
+         // redirection stdout,stderr -> file
+         FILE* fout = freopen(txtout.c_str(),"w",stdout);
+         if ( -1 == dup2(fileno(fout), fileno(stderr)) ) {
+            perror("ERROR of redirection\n");
+         }
+         do_fit( Filename, dd.Energy, bkgfit, dd.Title, pdfout );
+         fclose(fout);
+         printf(" The end of %s\n", dd.Basename.c_str());
       }
-      do_fitI( fp.Filename, fp.Energy, fp.Title, pdfout );
-      fclose(fout);
       return;
    }
+
+   //-----------------------------------------------------------------
+   // Debug: outputs in stdout, pdf in the curent dir
+   //-----------------------------------------------------------------
+   // do_fit( "ntpl_3080_2019.root", 3.08, bkgfit,
+         // "2019: 3080MeV","mkk_3080_2019"); // 159
+   // do_fit( "ntpl_3080_rs.root", 3.08, bkgfit,
+         // "R-scan: 3080MeV","mkk_3080_rs"); // 224
+
+
+   // do_fitI( "ntpl_3080_rs.root", 3.08,
+         // "R-scan: 3080MeV","mkk_3080_rs");     // 224
+
+   // do_fitI( "ntpl_J1.root", 3.087659,
+         // "2018: 3087.659MeV","mkk_J1" ); // 8
+   // do_fitI( "ntpl_J3.root", 3.096203,
+         // "2018: 3096.203MeV","mkk_J3" ); // 985
+   // do_fitI( "ntpl_J4.root", 3.096986,
+         // "2018: 3096.986MeV","mkk_J4" ); // 866
+
+   // do_fitI( "ntpl_3050.root", 3.049663,
+         // "2012: 3049.663MeV","mkk_3050" ); // 22
+   // do_fitI( "ntpl_3095.root", 3.095444,
+         // "2012: 3095.444MeV","mkk_3095" ); // 100
+   // do_fitI( "ntpl_3097.root", 3.097227,
+         // "2012: 3097.227MeV","mkk_3097" ); // 559
+   // do_fitI( "ntpl_3099.root", 3.099056,
+         // "2012: 3099.056MeV","mkk_3099" ); // 24
+   do_fitI( "ntpl_3106.root", 3.105594,
+         "2012: 3105.594MeV","mkk_3106" ); // 13
 }
