@@ -1097,6 +1097,7 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    // Fit
    //-----------------------------------------------------------------
    fitter.LikelihoodFit( Dat );
+   fitter.CalculateHessErrors(); // for err_Nphi
    fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
