@@ -123,23 +123,59 @@ void PlotDataMc(string name, string title) {
    int Ncp = Dhst[0] -> GetEntries();
    int Nsb = Dhst[1] -> GetEntries();
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
-   c1->cd();
-   gPad->SetGrid();
+   // TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   // c1->cd();
+   // gPad->SetGrid();
 
-   c1->Print((pdf+"[").c_str()); // just open pdf-file
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1100,500);
+   c1->Divide(3,2);
 
-   TLegend* leg = new TLegend(0.12,0.75,0.52,0.92);
-   string head = string("Data vs MC ") + title;
+   // c1->Print((pdf+"[").c_str()); // just open pdf-file
+
+   // TLegend* leg = new TLegend(0.12,0.75,0.52,0.92);
+   TLegend* leg = new TLegend(0.12,0.65,0.52,0.92);
+   // string head = string("Data vs MC ") + title;
+   string head(Form("#bf{Data vs MC %s}",title.c_str()));
    leg->SetHeader(head.c_str(),"C");
    leg->AddEntry(Dhst[0],Form("Data: %i events",Ncp),"EP");
    leg->AddEntry(Dhst[1],Form("Side-band: %i events",Nsb),"F");
    leg->AddEntry(Mhst[0],"MC signal #phi#eta","L");
 
+   vector<int> npad { 1, 2, 4, 5, 3, 6 };
+   vector<TPaveText*> pt(6,nullptr);
+   for ( int i = 0; i < 6; ++i ) {
+      pt[i] = new TPaveText(0.80,0.77,0.89,0.89,"NDC");
+      pt[i]->SetTextAlign(12);
+      pt[i]->SetTextFont(42);
+      if ( i%3 == 0 ) {
+         pt[i]->AddText(Form("#color[%i]{#bf{K^{#plus}}}",kRed+1));
+      } else if ( i%3 == 1 ) {
+         pt[i]->AddText(Form("#color[%i]{#bf{K^{#minus}}}",kRed+1));
+      } else if ( i%3 == 2 ) {
+         pt[i]->AddText(Form("#color[%i]{#bf{ #eta}}",kRed+1));
+      }
+   }
+   vector<double> Hmax;
+   if ( name == "3080_rs" ) {
+         Hmax = { 37, 37, 16, 16, 83, 16 };
+   } else if ( name == "3097" ) {
+         Hmax = { 70, 70, 30, 30, 175, 30 };
+   } else if ( name == "J4" ) {
+         Hmax = { 105, 105, 40, 40, 300, 40 };
+   }
+
    int Nhst = Dhst.size();
    for ( int j = 0; j < Nhst; j += 2 ) {
-      Dhst[j]->SetMarkerStyle(21);
+      int np = npad[j/2];
+      c1->cd(np);
+      gPad->SetGrid();
+      Dhst[j]->SetMarkerStyle(20);
+      Dhst[j]->SetMarkerSize(0.7);
       Dhst[j]->SetMarkerColor(kBlue+2);
+      if ( !Hmax.empty() ) {
+         Dhst[j]->SetMaximum( Hmax[j/2] );
+      }
+      SetHstFace(Dhst[j]);
       Dhst[j]->Draw("E1,P");
 
       Dhst[j+1]->SetLineColor(kRed);
@@ -151,13 +187,22 @@ void PlotDataMc(string name, string title) {
       Mhst[j]->SetLineColor(kGreen+2);
       Mhst[j]->DrawCopy("HIST SAME");
 
-      leg->Draw();
+      if ( np == 1 ) {
+         leg->Draw();
+      }
+      pt[np-1]->Draw();
 
       c1->Update();
-      c1->Print(pdf.c_str()); // add to pdf-file
+      // c1->Print(pdf.c_str()); // add to pdf-file
+      // string pdf = "data_vs_mc_"+name+"_"+to_string(j/2)+".pdf";
+      // c1->Print(pdf.c_str());
    }
 
-   c1->Print((pdf+"]").c_str()); // just close pdf-file
+   // c1->Print((pdf+"]").c_str()); // just close pdf-file
+
+   c1->cd();
+   c1->Update();
+   c1->Print(pdf.c_str());
 }
 
 //--------------------------------------------------------------------
@@ -165,11 +210,13 @@ void plot_data_mc() {
 //--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
+   gStyle -> SetLegendFont(42);
 //    gStyle->SetOptStat(111110);
 //    gStyle->SetOptFit(0);
 
-//    PlotDataMc("3097","3097 MeV");
-//    PlotDataMc("J4","3097 MeV (2018)");
-//    PlotDataMc("3080_rs","3080 MeV (R-scan)");
+   // PlotDataMc("3080_rs","3080 MeV (R-scan)");
+   // PlotDataMc("3097","3097 MeV");
+   PlotDataMc("J4","3097 MeV (2018)");
+
 //    PlotDataMc("3080_2019","3080 MeV (2019)");
 }

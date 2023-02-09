@@ -1,6 +1,6 @@
 // after 4C kinematic fit and chi^2 cut:
 // 1) plot M(gamma,gamma) vs M(K+K-)
-//    -> Mass2D_XXXX.pdf; 
+//    -> Mass2D_XXXX.pdf;
 //
 // 2) Dalitz plots ( for >=prod-2 )
 //    type = 1 M^2(K-eta) vs M^2(K+eta)
@@ -211,7 +211,7 @@ void mass_2D() {
       "MCGPJ #phi#epa at 3097MeV",     // BOSS-664
       "MC #phi#epa at 3097MeV",        // BOSS-704
 
-      "MC J/#Psi inclusive",           // iset = 8 BOSS-664
+      "MC J/#Psi inclusive",           // iset = 9 BOSS-664
       "KKMC at 3080MeV",               // BOSS-664
       "MCGPJ non-#phi KK#eta at 3080", // Mkk < 1.082 in MC
       "MCGPJ non-#phi KK#eta at 3080", // Mkk < 1.082 in MC
@@ -236,7 +236,7 @@ void mass_2D() {
    };
 
    bool Mass2D = true;          // <--- Mass2D/Dalitz
-   vector<int> list {0,1,5,6};
+   vector<int> list {0,1,5,6,9};
    for (int iset : list) {
       string fn = fnames.at(iset);
       string fname = "Ntpls/" + fn;

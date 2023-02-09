@@ -860,9 +860,9 @@ void do_fit(string fname, double Eee, bool bkgfit,
 
    // fix/limit/step for parameters
    //-----------------------------------------------------------------
-   // fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    fitter.Config().ParSettings(0).SetValue(MphiMC); // like MC
    fitter.Config().ParSettings(0).Fix();
+   // fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
 
    // fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3,Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();
@@ -1411,7 +1411,8 @@ void mass_KK_fit(int interference=1) {
    // Fitting without interference: BWG + Argus background
    //-----------------------------------------------------------------
    } else if ( interference == 0 ) {
-      bool bkgfit=true;
+      // bool bkgfit=true;
+      bool bkgfit = false;
 
       for ( const auto& dd : DD ) {
          string Filename = "ntpl_" + dd.Basename + ".root";
@@ -1433,6 +1434,11 @@ void mass_KK_fit(int interference=1) {
    //-----------------------------------------------------------------
    // Debug: outputs in stdout, pdf in the curent dir
    //-----------------------------------------------------------------
+   bool bkgfit = false;
+   do_fit( "ntpl_J4.root", 3.096986, bkgfit,
+         "2018: 3096.986MeV","mkk_J4_M" ); // 866
+   // do_fit( "ntpl_3097.root", 3.097227, bkgfit,
+         // "2012: 3097.227MeV","mkk_3097" ); // 559
    // do_fit( "ntpl_3080_2019.root", 3.08, bkgfit,
          // "2019: 3080MeV","mkk_3080_2019"); // 159
    // do_fit( "ntpl_3080_rs.root", 3.08, bkgfit,
@@ -1457,6 +1463,6 @@ void mass_KK_fit(int interference=1) {
          // "2012: 3097.227MeV","mkk_3097" ); // 559
    // do_fitI( "ntpl_3099.root", 3.099056,
          // "2012: 3099.056MeV","mkk_3099" ); // 24
-   do_fitI( "ntpl_3106.root", 3.105594,
-         "2012: 3105.594MeV","mkk_3106" ); // 13
+   // do_fitI( "ntpl_3106.root", 3.105594,
+         // "2012: 3105.594MeV","mkk_3106" ); // 13
 }

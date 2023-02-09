@@ -92,32 +92,34 @@ void plot_mass_eta() {
    // get histos
    vector<string> fnames = {
         "ntpl_3080_rs.root",
-        "ntpl_mcgpj_3080_rs.root",
-        "ntpl_3080_2019.root",
         "ntpl_3097.root",
+        "ntpl_J4.root",
+        "ntpl_mcgpj_3080_rs.root",
         "ntpl_mcgpj_3097.root",
-        "ntpl_J4.root"
+        "ntpl_mcgpj_J4.root",
    };
-//         "ntpl_mcgpj_3080_2019.root",
-//         "ntpl_jpsi_incl.root",
+        // "ntpl_3080_2019.root",
+        // "ntpl_mcgpj_3080_2019.root",
+        // "ntpl_jpsi_incl.root",
 
    vector<string> titles = {
       "3080MeV R-scan",
-      "3080MeV MC #phi#eta",
-      "3080MeV (2019)",
       "3097MeV J/#Psi-scan",
+      "3097MeV (2018)",
+      "3080MeV MC #phi#eta",
       "3097MeV MC #phi#eta",
-      "3097MeV (2018)"
+      "3097MeV MC #phi#eta 2018",
    };
-//       "3080MeV MC(2019) #phi#eta",
-//       "J/#Psi inclusive MC",
+      // "3080MeV (2019)",
+      // "3080MeV MC(2019) #phi#eta",
+      // "J/#Psi inclusive MC",
 
    int Nhst = fnames.size();
    vector<TH1D*> mgg( Nhst, nullptr );
    for ( int i = 0; i < Nhst; ++i ) {
       string hn = string("mgg_") + to_string(i);
-//       bool isMC = (i%2 == 1); // for Nhst = 8
-      bool isMC = (i%3 == 1); // for Nhst = 6
+      // bool isMC = (i%3 == 1); // for Nhst = 6
+      bool isMC = (i > 2); // for Nhst = 4
       mgg[i] = get_mass_hist(fnames[i],hn,isMC);
 
       SetHstFace(mgg[i]);
@@ -148,7 +150,7 @@ void plot_mass_eta() {
 //    TCanvas* c1 = new TCanvas("c1","...",0,0,800,1000);
 //    int nx = 2;
 //    int ny = 4;
-   TCanvas* c1 = new TCanvas("c1","PR",0,0,1200,500); // presentation
+   TCanvas* c1 = new TCanvas("c1","PR",0,0,1100,500); // presentation
    int ny = 2;
    int nx = Nhst/ny;
    c1 -> Divide(nx,ny);

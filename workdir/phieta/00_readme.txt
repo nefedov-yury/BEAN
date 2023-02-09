@@ -92,6 +92,9 @@ cross_section.cpp:
 //    -> cs_results.h   : cpp-code with cross-section and energies
 //    -> cs_results.txt : final tables
 
+29Jan23: KK_fit, latest MC
+05Feb23: just side-band subtraction, latest MC
+
 //--------------------------------------------------------------------
 Study of uncertainties
 //--------------------------------------------------------------------

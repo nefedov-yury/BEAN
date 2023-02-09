@@ -290,26 +290,31 @@ void plot_mass_phi() {
    // get histos
    vector<string> fnames = {
         "ntpl_3080_rs.root",
-        "ntpl_mcgpj_3080_rs.root",
-        "ntpl_3080_2019.root",
         "ntpl_3097.root",
+        "ntpl_J4.root",
+        "ntpl_mcgpj_3080_rs.root",
         "ntpl_mcgpj_3097.root",
-        "ntpl_J4.root"
+        "ntpl_mcgpj_J4.root",
    };
-//         "ntpl_mcgpj_3080_2019.root",
-//         "ntpl_jpsi_incl.root",
+        // "ntpl_3080_2019.root",
+        // "ntpl_mcgpj_3080_2019.root",
+        // "ntpl_jpsi_incl.root",
 
    vector<string> titles = {
       "3080MeV R-scan",
+      "3097MeV (2012)",
+      "3097MeV (2018)",
       "3080MeV MC #phi#eta",
-      "3080MeV (2019)",
-      "3097MeV J/#Psi-scan",
       "3097MeV MC #phi#eta",
-      "3097MeV (2018)"
+      "3097MeV MC #phi#eta 2018",
    };
-//       "3080MeV MC(2019) #phi#eta",
-//       "J/#Psi inclusive MC",
-
+      // "3080MeV (2019)",
+      // "3080MeV MC(2019) #phi#eta",
+      // "J/#Psi inclusive MC",
+      // "3080MeV MC #phi#eta",
+      // "3097MeV MC #phi#eta",
+      // "3097MeV MC #phi#eta 2018",
+      // "3097MeV J/#Psi-scan",
 
    int Nhst = 2*fnames.size(); // cp & sb
    vector<TH1D*> mkk( Nhst, nullptr );
@@ -321,18 +326,23 @@ void plot_mass_phi() {
          SetHstFace(mkk[i]);
          mkk[i] -> GetYaxis() -> SetMaxDigits(3);
          mkk[i] -> GetXaxis() -> SetTitleOffset(1.1);
-         mkk[i] -> SetLineWidth(1);
-         mkk[i] -> SetLineColor(kBlack);
-         if ( i%4 == 0 ) { // data
+         if ( i/2 < 3 ) { // data
+            mkk[i] -> SetLineWidth(1);
+            mkk[i] -> SetLineColor(kBlack);
             mkk[i] -> SetOption("E");
             mkk[i] -> SetMarkerStyle(20);
             mkk[i] -> SetMarkerSize(0.5);
+         } else { // MC
+            mkk[i] -> SetLineWidth(1);
+            mkk[i] -> SetLineColor(kGreen+2);
          }
       } else { // sideband
+         // auto kCol = kBlue+2;
+         auto kCol = kRed; // the same as data vs MC
          mkk[i] -> SetLineWidth(1);
-         mkk[i] -> SetLineColor(kBlue+2);
+         mkk[i] -> SetLineColor(kCol);
          mkk[i] -> SetFillStyle(3001);
-         mkk[i] -> SetFillColor(kBlue+2);
+         mkk[i] -> SetFillColor(kCol);
       }
    }
 
@@ -348,7 +358,6 @@ void plot_mass_phi() {
 
    // line for BG
    TF1* pl0 = (TF1*)gROOT -> GetFunction("pol0")->Clone();
-//    pl0 -> SetRange(Mphi-5*Gphi,Mphi+5*Gphi);
    pl0 -> SetRange(2*Mk,1.08);
    pl0 -> SetLineWidth(1);
    pl0 -> SetLineColor(kBlue);
@@ -371,12 +380,11 @@ void plot_mass_phi() {
 
    //-----------------------------------------------------------------
    // Draw
-//    TCanvas* c1 = new TCanvas("c1","...",0,0,850,1000);
-//    int nx = 2;
-//    int ny = 4;
-   TCanvas* c1 = new TCanvas("c1","PR",0,0,1200,500); // presentation
-   int ny = 2;
-   int nx = Nhst/2/ny;
+   // TCanvas* c1 = new TCanvas("c1","PR",0,0,1100,500); // presentation
+   TCanvas* c1 = new TCanvas("c1","PR",0,0,1100,350); // presentation
+   int ny = 1;
+   // int nx = Nhst/2/ny;
+   int nx = 3;
 
    c1 -> Divide(nx,ny);
    gStyle -> SetOptFit(0);
@@ -388,7 +396,8 @@ void plot_mass_phi() {
 //    gStyle -> SetStatH(0.22);
 //    gStyle -> SetFitFormat(".3g");
 
-   vector<TPaveText*> pt( Nhst/2, nullptr );
+   // vector<TPaveText*> pt( Nhst/2, nullptr );
+   vector<TLegend*> leg( nx, nullptr );
 
    int ih = 0;
    for ( int y = 0; y < ny; ++y ) {
@@ -397,24 +406,33 @@ void plot_mass_phi() {
          int i = y*nx+x;
          c1->cd(i+1);
          mkk[ih] -> Draw("EP");
-//          mkk[ih] -> Fit("bwg","LE","",Mphi-5*Gphi,Mphi+5*Gphi);
-         mkk[ih] -> Fit("bwg","QLE","",2*Mk,1.08);
+         // mkk[ih] -> Fit("bwg","QLE","",2*Mk,1.08);
 
          mkk[ih+1] -> Draw("SAME HIST"); // side-band
 
-         // background 
+         double Ncp = mkk[ih]->GetEntries();
+         double Nsb = mkk[ih+1]->GetEntries();
+
+         // normalize MC on data and draw
+         int imc = ih + 6;
+         double Ndat = Ncp - Nsb;
+         double Nmc = mkk[imc]->GetEntries();
+         // -mkk[imc+1]->GetEntries();
+         double scale = Ndat/Nmc;
+         mkk[imc]->Scale(scale);
+         mkk[imc]->Draw("SAME HIST"); // MC
+
+
+         /* for fit only
+         // background
 //          pl0 -> SetParameter( 0, bwg -> GetParameter(4) );
 //          pl0 -> DrawCopy("SAME");
 
-//          pt[i] = new TPaveText(0.53,0.79,0.89,0.89,"NDC NB");
-//          pt[i] = new TPaveText(0.52,0.44,0.89,0.89,"NDC");// all
          pt[i] = new TPaveText(0.52,0.59,0.89,0.89,"NDC,NB");
          pt[i] -> SetTextAlign(12);
          pt[i] -> SetTextFont(42);
          pt[i] -> AddText( Form("#scale[1.2]{%s}",
                   titles[i].c_str()) );
-         double Ncp = mkk[ih]->GetEntries();
-         double Nsb = mkk[ih+1]->GetEntries();
          double Nphi = Ncp - Nsb;
          double eNphi = sqrt(Ncp + Nsb);
          if ( x==1 ) { // MC
@@ -443,6 +461,17 @@ void plot_mass_phi() {
 //          pt[i] -> AddText( Form("Bkg= %.2g #pm %.2g",
 //                   bwg->GetParameter(4),bwg->GetParError(4)) );
          pt[i] -> Draw();
+         */
+
+         leg[i] = new TLegend(0.52,0.69,0.89,0.89);
+         string head(Form("#scale[1.2]{#bf{%s}}",titles[i].c_str()));
+         leg[i]->SetHeader(head.c_str(),"C");
+         leg[i]->AddEntry(mkk[ih],
+               Form("Data: %.0f events",Ncp),"EP");
+         leg[i]->AddEntry(mkk[ih+1],
+               Form("Side-band: %.0f events",Nsb),"F");
+         leg[i]->AddEntry(mkk[ih+6],"MC signal #phi#eta","L");
+         leg[i]->Draw();
 
          gPad -> RedrawAxis();
 
