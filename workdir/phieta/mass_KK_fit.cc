@@ -225,30 +225,28 @@ TH1D* plot_Mkk( string fname, string hname, int type = 0 ) {
 }
 
 //--------------------------------------------------------------------
-TH1D* Subtract(string fname) {
+tuple<TH1D*,int,double> Subtract(string fname) {
 //--------------------------------------------------------------------
-// Side-band subtraction
+// Side-band subtraction: return resulting histogram, number of bins
+// with nonzero error and total number of events (integral)
    TH1D* hst1 = plot_Mkk(fname,string("mkk_data_cp"),0);
    TH1D* hst2 = plot_Mkk(fname,string("mkk_data_sb"),1);
    TH1D* sub = (TH1D*)hst1->Clone("sub");
    sub->Add(hst1,hst2,1.,-1.);
 
-   // calculate bins with negative content
-   int Nneg = 0;
-   for ( int ib = 1; ib <= sub->GetNbinsX(); ++ib ) {
-      if ( sub -> GetBinContent(ib) < 1e-3 ) {
-         // force LH to ignore such bins
-         // sub->SetBinContent(ib, 0.);
-         // sub->SetBinError(ib, 0.);
-         Nneg+=1;
+   int Nbin = 0;
+   double Nev = 0;
+   size_t nbx = sub->GetNbinsX();
+   for ( int ib = 1; ib <= nbx; ++ib ) {
+      double bc = sub->GetBinContent(ib);
+      Nev += bc;
+      double be = sub->GetBinError(ib);
+      if ( fabs(be) > 1e-3 ) {
+         Nbin += 1;
       }
    }
 
-   if ( Nneg > 0 ) {
-      printf("fname: %s, Nneg=%i\n",fname.c_str(),Nneg);
-   }
-
-   return sub;
+   return make_tuple(sub,Nbin,Nev);
 }
 
 // {{{1 Breigt Wigner for phi -> KK
@@ -822,8 +820,10 @@ void do_fit(string fname, double Eee, bool bkgfit,
       string title, string pdf="") {
 //--------------------------------------------------------------------
    // Use binned data
-   TH1D* hst = Subtract(fname); // subtract side-band
-   double ndat = hst->Integral();
+   TH1D* hst = nullptr;
+   int Nbin = 0;
+   double Nev = 0;
+   tie(hst,Nbin,Nev) = Subtract(fname); // subtract side-band
 
    ROOT::Fit::DataOptions opt;
    // use integral of bin content instead of bin center (def: false)
@@ -839,10 +839,8 @@ void do_fit(string fname, double Eee, bool bkgfit,
             + p[5]*RevArgusN(x[0],p[3],Eee) );
    };
 
-   vector<string> par_name
-      {"Mphi","Gphi","Sigma","Ar", "Nphi","Nbg"};
-   vector<double> par_ini
-      { Mphi, Gphi, 1.5e-3, 0., 0.97*ndat, 0.03*ndat};
+   vector<string> par_name {"Mphi","Gphi","Sigma","Ar","Nphi","Nbg"};
+   vector<double> par_ini  {Mphi,Gphi,1.5e-3, 0., 0.97*Nev,0.03*Nev};
    const unsigned int Npar = par_name.size(); // number of parameters
    TF1* Ffit = new TF1("Ffit", Lfit, dL, dU, Npar);
 
@@ -873,10 +871,10 @@ void do_fit(string fname, double Eee, bool bkgfit,
    fitter.Config().ParSettings(3).SetValue(0.); // Ar
    fitter.Config().ParSettings(3).Fix();
 
-   fitter.Config().ParSettings(4).SetLimits(0.8*ndat,1.2*ndat);// Nphi
+   fitter.Config().ParSettings(4).SetLimits(0.8*Nev,1.2*Nev);// Nphi
 
    if ( bkgfit ) {
-      fitter.Config().ParSettings(5).SetLimits(0.,0.2*ndat); // Nbg
+      fitter.Config().ParSettings(5).SetLimits(0.,0.2*Nev); // Nbg
    } else {
       fitter.Config().ParSettings(5).SetValue(0.);
       fitter.Config().ParSettings(5).Fix();
@@ -990,7 +988,7 @@ void do_fit(string fname, double Eee, bool bkgfit,
    }
 
    // print Table
-   printf("%s\n no interference: Ndat= %.1f\n",title.c_str(),ndat);
+   printf("%s\n no interference: Ndat= %.1f\n",title.c_str(),Nev);
    printf(" chi^2 / Ndf = %.2f/%u, sigma= %s MeV\n",
          chi2, Ndf, PE.Tform(2,".2f",1e3) );
    printf(" Nphi= %s, Nbg= %s\n",
@@ -998,6 +996,98 @@ void do_fit(string fname, double Eee, bool bkgfit,
 }
 
 // {{{1  Fit Interference(BW + RevArgus)
+// {{{2 class chi^2 for root fitter
+//--------------------------------------------------------------------
+class myChi2 {
+   public:
+      bool prtchi = false;
+      //--------------------------------------------------------------
+      myChi2(const TH1D* hst, TF1* f): func(f) {
+      //--------------------------------------------------------------
+         // save bins with nonzero error
+         size_t Nb = hst->GetNbinsX();
+         Hbc.reserve(Nb);
+         Hbe.reserve(Nb);
+         Hx1.reserve(Nb);
+         Hx2.reserve(Nb);
+         for ( int ib = 1; ib <= Nb; ++ib ) {
+            double bx = hst->GetBinCenter(ib);
+            if ( bx < dL || bx > dU ) {
+               continue;
+            }
+            double bw = hst->GetBinWidth(ib);
+            double bc = hst->GetBinContent(ib);
+            double be = hst->GetBinError(ib);
+            if ( fabs(be) > 1e-3 ) {
+               Hbc.push_back(bc);
+               Hbe.push_back(be);
+               Hx1.push_back(bx-0.5*bw);
+               Hx2.push_back(bx+0.5*bw);
+               printf("myChi2: bc=%g, be=%g, bx=%g\n", bc,be,bx);
+            } else {
+               // debug print
+               if ( fabs(bc) > 1e-3 ) {
+                  printf("myChi2::ERROR: bc=%g, be=%g, bx=%g\n",
+                        bc,be,bx);
+               }
+            }
+         }
+      }
+
+      size_t Size() const {
+         return Hbc.size();
+      }
+
+      // chi^2 - function
+      // the signature of this operator() MUST be exactly this:
+      //--------------------------------------------------------------
+      double operator() (const double* p) {
+      //--------------------------------------------------------------
+         const double maxResValue = DBL_MAX / 1000;
+         const double epsrel = 1e-6;
+
+         func->SetParameters(p);
+
+         double chi2 = 0;
+         size_t Nb = Size();
+         for ( int i = 0; i < Nb; ++i ) {
+            double bc = Hbc[i];
+            double be = Hbe[i];
+            double x1 = Hx1[i];
+            double x2 = Hx2[i];
+
+            // integral over bin
+            double err_int = 0;
+            double fval = func->IntegralOneDim( x1, x2,
+                  epsrel, be*1e-1, err_int ) / (x2-x1);
+
+            double resval = SQ( (bc-fval) / be );
+
+            if ( prtchi ) {
+               printf("chi2(x=%.3f)=%.1f  [%.2f, %.2f]/{%.2f}\n",
+                     0.5*(x1+x2),resval, bc,fval, be);
+            }
+
+            // avoid inifinity or nan in chi2
+            if( resval < maxResValue ) {
+               chi2 += resval;
+            } else {
+               chi2 += maxResValue;
+            }
+         }
+
+         return chi2;
+      }
+
+   private:
+      TF1* func;
+      vector<double> Hbc;
+      vector<double> Hbe;
+      vector<double> Hx1;
+      vector<double> Hx2;
+};
+
+// {{{2 do_fitI
 //--------------------------------------------------------------------
 void do_fitI(string fname, double Eee, string title, string pdf="") {
 //--------------------------------------------------------------------
@@ -1006,8 +1096,10 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    bool isR = (title.find("R-scan") != string::npos);
 
    // Use binned data
-   TH1D* hst = Subtract(fname); // subtract side-band
-   double ndat = hst->Integral();
+   TH1D* hst = nullptr;
+   int Nbin = 0;
+   double Nev = 0;
+   tie(hst,Nbin,Nev) = Subtract(fname); // subtract side-band
 
    ROOT::Fit::DataOptions opt;
    // use integral of bin content instead of bin center (def: false)
@@ -1027,7 +1119,7 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    vector<string> par_name
       { "Mphi", "Gphi", "Sigma", "Ar", "F", "vartheta", "NKK" };
    vector<double> par_ini
-      {  Mphi,   Gphi,   1e-3,    0.,   1.,  0.,         ndat };
+      {  Mphi,   Gphi,   1e-3,    0.,   0.7,  0.,        Nev };
 
    // bool neg_pos = par_ini[5] > 0; // true for negative interference
 
@@ -1055,47 +1147,42 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    // fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3,Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();
 
-   fitter.Config().ParSettings(2).SetLimits(0.1e-3, 10e-3); // Sigma
+   fitter.Config().ParSettings(2).SetLimits(0.2e-3, 5e-3); // Sigma
 
    fitter.Config().ParSettings(3).SetValue(0.);             // Ar
    fitter.Config().ParSettings(3).Fix();
 
-   fitter.Config().ParSettings(4).SetLimits(0., 10.);       // F
+   fitter.Config().ParSettings(4).SetLimits(0., 5.);       // F
 
    // fitter.Config().ParSettings(5).SetLimits(-M_PI,M_PI);//vartheta
    fitter.Config().ParSettings(5).SetValue(0.); // MEMO
    fitter.Config().ParSettings(5).Fix();
 
-   if ( ndat < 33 ) { // NetaKK limits
+   // NetaKK limits
+   if ( Nev < 33 ) {
       fitter.Config().ParSettings(6).SetLimits(1.,50.);
    } else {
-      fitter.Config().ParSettings(6).SetLimits(0.5*ndat,1.5*ndat);
+      fitter.Config().ParSettings(6).SetLimits(0.5*Nev,1.5*Nev);
    }
 
-   if ( isR && ndat < 50 ) {
-      // sigma = 2.2e-3 for 3.08 and 1.9e-3 for 2.9
-      fitter.Config().ParSettings(2).SetValue(2e-3);
-      fitter.Config().ParSettings(2).Fix();
-   }
-
-   if ( is2018 && ndat < 10 ) { //
-      // just for J1: sigma = 0.6e-3 for J2 and 1e-3 for J3
+   // Fix sigma for small number of events
+   if ( Nev < 15 ) { // fix sigma ~ 1e-3
       fitter.Config().ParSettings(2).SetValue(1e-3);
       fitter.Config().ParSettings(2).Fix();
-   }
-
-   if ( is2012 && ndat < 101 ) {
-      // sigma ~ 1e-3
-      fitter.Config().ParSettings(2).SetValue(1e-3);
-      fitter.Config().ParSettings(2).Fix(); // sigma
-      if ( ndat < 5 ) { // just 3 events: fix F = 0
+      if ( Nbin < 3 ) { // fix F to 0
          fitter.Config().ParSettings(4).SetValue(0.);
-         fitter.Config().ParSettings(4).Fix(); // F
+         fitter.Config().ParSettings(4).Fix();
       }
    }
 
    // Fit
    //-----------------------------------------------------------------
+   // minimization 'function' == LeastSquareFit( Dat )
+   // myChi2 chi2_fit( hst, Ffit);
+   // int Nd = chi2_fit.Size();
+   // fitter.FitFCN(Npar, chi2_fit, nullptr, Nd, true);
+
+   // fitter.LeastSquareFit( Dat );
    fitter.LikelihoodFit( Dat );
    fitter.CalculateHessErrors(); // for err_Nphi
    fitter.CalculateMinosErrors();
@@ -1110,6 +1197,14 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    // "Goodness of fit" evaluated by Chi2
    double chi2 = res.Chi2();
    unsigned int Ndf = res.Ndf();
+
+   //-----------------------------------------------------------------
+   // print chi^2 point by point
+   // printf("\n");
+   // chi2_fit.prtchi = true;
+   // chi2_fit( PE.Fpar.data() );
+   // chi2_fit.prtchi = false;
+   // printf("\n");
 
    //-----------------------------------------------------------------
    // Calculate Nphi with error
@@ -1215,7 +1310,7 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    }
 
    // print for table
-   printf("%s\n Interference: Ndat= %.1f\n",title.c_str(),ndat);
+   printf("%s\n Interference: Ndat= %.1f\n",title.c_str(),Nev);
    printf(" chi^2 / Ndf = %.2f/%u, sigma= %s MeV, F= %s\n",
          chi2, Ndf, PE.Tform(2,".2f",1e3), PE.Tform(4,".2f") );
    printf("Nphi = %.1f +/- %.1f (N_etaKK= %s)\n",
@@ -1325,6 +1420,10 @@ void mass_KK_fit(int interference=1) {
    // = define GSL error handler which does nothing =
    // gsl_set_error_handler_off();
 
+   // set integrator: ROOT::Math::GSLIntegrator adaptive method (QAG)
+   ROOT::Math::IntegratorOneDimOptions::SetDefaultIntegrator("Adaptive");
+   ROOT::Math::IntegratorOneDimOptions::SetDefaultRelTolerance(1e-9);
+
    //-----------------------------------------------------------------
    // -> test functions
    // test_BreitWigner();
@@ -1342,7 +1441,7 @@ void mass_KK_fit(int interference=1) {
    };
    const vector<DataDescription> DD {
       // -- 2019 3080 no lum! 0
-      {"3080_2019",3.08,"2019: 3080MeV"},
+      // {"3080_2019",3.08,"2019: 3080MeV"},
       //-- R-scan 2015: 1-6
       {"2900_rs",2.90, "R-scan: 2900MeV"},
       {"2950_rs",2.95, "R-scan: 2950MeV"},
@@ -1435,8 +1534,8 @@ void mass_KK_fit(int interference=1) {
    // Debug: outputs in stdout, pdf in the curent dir
    //-----------------------------------------------------------------
    bool bkgfit = false;
-   do_fit( "ntpl_J4.root", 3.096986, bkgfit,
-         "2018: 3096.986MeV","mkk_J4_M" ); // 866
+   // do_fit( "ntpl_J4.root", 3.096986, bkgfit,
+         // "2018: 3096.986MeV","mkk_J4_M" ); // 866
    // do_fit( "ntpl_3097.root", 3.097227, bkgfit,
          // "2012: 3097.227MeV","mkk_3097" ); // 559
    // do_fit( "ntpl_3080_2019.root", 3.08, bkgfit,
@@ -1445,8 +1544,10 @@ void mass_KK_fit(int interference=1) {
          // "R-scan: 3080MeV","mkk_3080_rs"); // 224
 
 
-   // do_fitI( "ntpl_3080_rs.root", 3.08,
-         // "R-scan: 3080MeV","mkk_3080_rs");     // 224
+   do_fitI( "ntpl_3080_rs.root", 3.08,
+         "R-scan: 3080MeV","mkk_3080_rs");     // 224
+   // do_fitI( "ntpl_3080.root", 3.079645,
+         // "2012: 3079.645MeV", "mkk_3080");     // 43
 
    // do_fitI( "ntpl_J1.root", 3.087659,
          // "2018: 3087.659MeV","mkk_J1" ); // 8
