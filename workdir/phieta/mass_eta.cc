@@ -47,7 +47,8 @@ TH1D* get_mass_hist(string fname, string hname, bool isMC=false) {
    froot -> cd("SelectKKgg");
    TTree* a4c = (TTree*)gDirectory -> Get("a4c");
 
-   TCut c_here = c_chi2 + c_phi;
+   // TCut c_here = c_chi2 + c_phi;
+   TCut c_here = c_chi2 + c_phiT;
    if (isMC) {
       c_here += c_xisr + c_MCmkk; // X_isr>0.9 && mc_Mkk<1.08
    }
@@ -191,7 +192,7 @@ void plot_mass_eta() {
    }
 
    c1 -> Update();
-   string pdf("mass_eta_PR.pdf");
+   string pdf("mass_eta_PR_T.pdf");
    c1->Print(pdf.c_str());
 }
 

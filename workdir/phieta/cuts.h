@@ -38,7 +38,11 @@
    auto f_sbgg = [=](double Mgg) -> bool{return
       (fabs(Mgg-Meta)>shift_eta && fabs(Mgg-Meta)<shift_eta+weta);};
 
-   // Mphi cut: [2*Mk, 1.08GeV] 
+   // Mphi: window like in Psi(2S): [2*Mk, 1.08GeV]
    TCut c_phi( Form("Mkk>%.6f&&Mkk<1.08",2*Mk) );
    auto f_phi = [=](double Mkk)->bool{return(Mkk>2*Mk && Mkk<1.08);};
+
+   // Mphi: tight cut: [1.01, 1.03GeV]
+   TCut c_phiT( "Mkk>1.01&&Mkk<1.03" );
+   auto f_phiT = [](double Mkk)->bool{return(Mkk>1.01 && Mkk<1.03);};
 //--------------------------------------------------------------------

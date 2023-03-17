@@ -1,5 +1,6 @@
 // plot chi2 of the kinematic fit
-// data vs signal MC in the window for M(K+K-) and M(gg)
+// data (window for Mkk is used) for signal ans side-band events
+// versus signal MC (plus another MC if any):
 // -> chi2_sb_XXXXX.pdf
 
 static double chi2_cut = 0.; // to keep value from cuts.h file
@@ -59,7 +60,8 @@ TH1D* get_chi2(string fname, string hname, int icuts=1) {
       } else if ( abs(icuts) == 2 ) { // side-band
          c_here += c_sbgg;
       }
-      c_here += c_phi; // Mkk in [2*Mk, 1.08GeV]
+      // c_here += c_phi; // Mkk in [2*Mk, 1.08GeV]
+      c_here += c_phiT; // Mkk in [1.01, 1.03GeV]
    }
 
    TH1D* chi2 = new TH1D(hname.c_str(),
@@ -81,31 +83,31 @@ void chi2_SB( string stype ) {
       Dname = string("ntpl_3080_rs.root");
       MCname= string("ntpl_mcgpj_3080_rs.root");
       Tleg  = string("#chi^{2}(4C): R-scan at 3080MeV");
-      pdf   = string("chi2_sb_3080_rs.pdf");
+      pdf   = string("chi2_sb_3080_rs");
       MCqq  = string("ntpl_qq_kkmc_3080.root");
    } else if( stype == "3080_2019" ) {
       Dname = string("ntpl_3080_2019.root");
       MCname= string("ntpl_mcgpj_3080_2019.root");
       Tleg  = string("#chi^{2}(4C): 3080MeV in 2019");
-      pdf   = string("chi2_sb_3080_2019.pdf");
+      pdf   = string("chi2_sb_3080_2019");
       MCqq  = string("ntpl_qq_kkmc_3080.root");
    } else if ( stype == "3097" ) {
       Dname = string("ntpl_3097.root");
       MCname= string("ntpl_mcgpj_3097.root");
       Tleg  = string("#chi^{2}(4C): J/#Psi-scan at 3097MeV");
-      pdf   = string("chi2_sb_3097.pdf");
+      pdf   = string("chi2_sb_3097");
       MCinc = string("ntpl_jpsi_incl.root");
-   } else if ( stype == "3097_2018" ) {
+   } else if ( stype == "3097J" ) {
       Dname = string("ntpl_J4.root");
       MCname= string("ntpl_mcgpj_J4.root");
       Tleg  = string("#chi^{2}(4C): 3097MeV in 2018");
-      pdf   = string("chi2_sb_3097J.pdf");
+      pdf   = string("chi2_sb_3097J");
       MCinc = string("ntpl_jpsi_incl.root");
    } else if ( stype == "2900_rs" ) {
       Dname = string("ntpl_2900_rs.root");
       MCname= string("ntpl_mcgpj_2900_rs.root");
       Tleg  = string("#chi^{2}(4C): R-scan at 2900MeV");
-      pdf   = string("chi2_sb_2900_rs.pdf");
+      pdf   = string("chi2_sb_2900_rs");
    }
 
    TH1D* chi2cp = get_chi2(Dname,"chi2cp",1);
@@ -202,6 +204,8 @@ void chi2_SB( string stype ) {
 
    gPad -> RedrawAxis();
    c1 -> Update();
+   // pdf += ".pdf";
+   pdf += "_T.pdf";  // for tight Mkk cut
    c1 -> Print(pdf.c_str());
 }
 
@@ -212,12 +216,12 @@ void chi2_Pr() {
    gStyle -> SetOptStat(0);
    gStyle -> SetLegendFont(42);
 
-//    chi2_SB("2900_rs");
-//    chi2_SB("3080_rs");
-//    chi2_SB("3080_2019");
-//    chi2_SB("3097");
-//    chi2_SB("3097_2018"); // J4
+   // chi2_SB("3080_rs");
+   // chi2_SB("3097J"); // J4
+   // chi2_SB("3097");
 
+//    chi2_SB("2900_rs");
+//    chi2_SB("3080_2019");
 //    chi2_SB("");
 
 }

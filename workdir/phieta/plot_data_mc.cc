@@ -78,7 +78,8 @@ vector<TH1D*> get_hists(string name, string var, bool isMC) {
    if (isMC) {
       c_here += c_xisr + c_MCmkk; // X_isr>0.9 && mc_Mkk<1.08
    }
-   c_here += c_phi;               // Mkk in [2*Mk, 1.08GeV]
+   // c_here += c_phi;               // Mkk in [2*Mk, 1.08GeV]
+   c_here += c_phiT;               // Mkk in [1.01, 1.03GeV]
 //    c_here += c_cpgg;              // central part of Mgg
 //    c_here += c_sbgg;              // side-band
 
@@ -116,7 +117,8 @@ void fill_hists(string name,vector<TH1D*>& Dhst,vector<TH1D*>& Mhst) {
 //--------------------------------------------------------------------
 void PlotDataMc(string name, string title) {
 //--------------------------------------------------------------------
-   string pdf = "data_vs_mc_" + name +".pdf";
+   // string pdf = "data_vs_mc_" + name +".pdf";
+   string pdf = "data_vs_mc_" + name +"_T.pdf"; // tight Mkk cut
 
    vector<TH1D*> Dhst, Mhst;
    fill_hists(name,Dhst,Mhst);
@@ -215,8 +217,8 @@ void plot_data_mc() {
 //    gStyle->SetOptFit(0);
 
    // PlotDataMc("3080_rs","3080 MeV (R-scan)");
-   // PlotDataMc("3097","3097 MeV");
-   PlotDataMc("J4","3097 MeV (2018)");
+   PlotDataMc("3097","3097 MeV");
+   // PlotDataMc("J4","3097 MeV (2018)");
 
 //    PlotDataMc("3080_2019","3080 MeV (2019)");
 }
