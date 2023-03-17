@@ -6,7 +6,7 @@
 //  *) plot/print cross-section for each energy point
 //    -> cp_12/18/R/all.pdf
 //    -> cs_results.h   : cpp-code with cross-section and energies
-//    -> cs_results.txt : final tables
+//    -> cs_results.tex or .txt : final tables in TeX format
 
 #include <cstdio>
 #include <time.h>   // see man strftime
@@ -64,10 +64,11 @@ void print_eff( const vector<double>& eff, string title ) {
 }
 
 //--------------------------------------------------------------------
-void prtXcpp( FILE* fp ) {
+void prtXcpp( FILE* fp, string Tinfo ) {
 //--------------------------------------------------------------------
 #include "cuts.h"
    const char* shift = "   "; // shift = 3 spaces
+   fprintf(fp,"%s// %s",shift,Tinfo.c_str());
    fprintf(fp,"\n");
    fprintf(fp,"%sXisr_min = %.3f;\n", shift,Xisr_min);
 }
@@ -130,11 +131,11 @@ void prtCScpp( FILE* fp, string title, string suf,
 }
 
 //--------------------------------------------------------------------
-void prtTable( FILE* fp, string title, const vector<double>& e,
-      const vector<double>& lumi, const vector<double>& eff,
+void prtTable( FILE* fp, bool TeX, string title,
+      const vector<double>& e, const vector<double>& lumi,
+      const vector<double>& eff,
       const vector<double> nd[], const vector<double> cs[] ) {
 //--------------------------------------------------------------------
-   bool TeX = true;
    string pm = ((TeX) ? "$\\pm$" : " +/- ");
    auto cpm = pm.c_str();
    string amp = ((TeX) ? "&" : " ");
@@ -222,7 +223,8 @@ tuple<double,double> getNumHst( string fname,string hname,bool isMC,
    if ( isMC ) {
       c_here += c_xisr + c_MCmkk; // X_isr>0.9 && mc_Mkk<1.08
    }
-   c_here += c_phi;
+   c_here += c_phi;     // [2*Mk, 1.08GeV]
+   // c_here += c_phiT;     // [1.01, 1.03GeV]
 
    // binning
    double dU = 1.08;
@@ -314,11 +316,12 @@ void getCrossSection( const vector<string>& names,
 //--------------------------------------------------------------------
 void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
 //--------------------------------------------------------------------
+   const string DIR("mkk_inter/"); // directory to read files
    int N = names.size();
    Nd[0].resize(N,0.);
    Nd[1].resize(N,0.);
    for ( int i = 0; i < N; ++i ) {
-      string fname = "mkk_inter/mkk_" + names[i] + ".txt";
+      string fname = DIR + "mkk_" + names[i] + ".txt";
       FILE* fmkk = fopen(fname.c_str(),"r");
       if ( !fmkk ) {
          cout << " can not open file " << fname << endl;
@@ -511,8 +514,8 @@ void drawGraph( string pdf, vector<TGraphErrors*>& g, bool isMC ) {
 
    g[0] -> GetXaxis() -> SetLimits(2880.,3140.);
    if ( isMC ) {
-      g[0] -> SetMinimum(0.14);
-      g[0] -> SetMaximum(0.18);
+      // g[0] -> SetMinimum(0.14);
+      // g[0] -> SetMaximum(0.18);
       g[0] -> GetYaxis() -> SetNdivisions(1005);
       g[0] -> GetYaxis() -> SetTitleOffset(1.3);
    } else {
@@ -693,7 +696,8 @@ void setRscan15( vector<string>& names, vector<double>& ebeam,
 // {{{1 MAIN:
 //--------------------------------------------------------------------
 void get_cross_section( bool UseFitMkk,
-      string pdfeff="eff", string pdfcs="cs", string prtCS="cs" ) {
+      string pdfeff="eff", string pdfcs="cs", string prtCS="cs",
+      bool TeX = false ) {
 //--------------------------------------------------------------------
    // set names, energies and lumi
    vector<string> name12,  name18,  nameR;
@@ -716,14 +720,14 @@ void get_cross_section( bool UseFitMkk,
 
    if ( !pdfeff.empty() ) {
       // draw efficiency
-      string eff12 = pdfeff + "_12.pdf";
-      string eff18 = pdfeff + "_18.pdf";
-      string effR  = pdfeff + "_R.pdf";
-      string effall= pdfeff + "_all.pdf";
+      // string eff12 = pdfeff + "_12.pdf";
+      // string eff18 = pdfeff + "_18.pdf";
+      // string effR  = pdfeff + "_R.pdf";
+      // drawHstRes( eff12, ebeam12, HstMc12, true, Eff12 );
+      // drawHstRes( eff18, ebeam18, HstMc18, true, Eff18 );
+      // drawHstRes( effR,  ebeamR,  HstMcR,  true, EffR );
 
-      drawHstRes( eff12, ebeam12, HstMc12, true, Eff12 );
-      drawHstRes( eff18, ebeam18, HstMc18, true, Eff18 );
-      drawHstRes( effR,  ebeamR,  HstMcR,  true, EffR );
+      string effall= pdfeff + "_all.pdf";
       vector<TGraphErrors*> geff {
          get_graph( ebeam12, true, Eff12 ),
          get_graph( ebeam18, true, Eff18 ),
@@ -775,12 +779,16 @@ void get_cross_section( bool UseFitMkk,
    }
 
    // print tables with cross-section
+   string Tinfo("Side-Band subtruction only");
+   if ( UseFitMkk ) {
+      Tinfo="Fitting the Mkk distributions";
+   }
    string t12("J/Psi scan 2012, Note: 0.55MeV is already subtracted");
    string t18("scan 2018");
    string tR("R-scan 2015");
    FILE* fp = stdout;                       // by default
    if ( !prtCS.empty() ) {
-      string ftxt = prtCS + ".txt"; // to file
+      string ftxt = prtCS + ((TeX) ? ".tex" : ".txt"); // to file
       fp = fopen(ftxt.c_str(),"w");
       if ( !fp ) {
          printf("Error open file %s\n",ftxt.c_str());
@@ -793,9 +801,10 @@ void get_cross_section( bool UseFitMkk,
       strftime(Cdate,sizeof(Cdate),"%B %d %Y",timeptr);
       printf("\nResults obtained on %s\n",Cdate);
    }
-   prtTable( fp, t12, ebeam12, lumi12, Eff12[0], Nd12, Sig12 );
-   prtTable( fp ,t18, ebeam18, lumi18, Eff18[0], Nd18, Sig18 );
-   prtTable( fp ,tR,  ebeamR,  lumiR,  EffR[0],  NdR,  SigR );
+   fprintf(fp,"\n  %s\n", Tinfo.c_str());
+   prtTable( fp, TeX, t12, ebeam12, lumi12, Eff12[0], Nd12, Sig12 );
+   prtTable( fp, TeX, t18, ebeam18, lumi18, Eff18[0], Nd18, Sig18 );
+   prtTable( fp, TeX, tR,  ebeamR,  lumiR,  EffR[0],  NdR,  SigR );
    if ( fp != stdout ) {
       fclose(fp);
    }
@@ -808,7 +817,7 @@ void get_cross_section( bool UseFitMkk,
          printf("Error open file %s\n", fcpp.c_str());
          fp = stdout;
       }
-      prtXcpp( fp );
+      prtXcpp( fp, Tinfo );
       prtCScpp( fp, t12, "12", ebeam12, er_eb12, Sig12 );
       prtCScpp( fp, t18, "18", ebeam18, er_eb18, Sig18 );
       prtCScpp( fp, tR,  "R",  ebeamR,  er_ebR,   SigR  );
@@ -834,8 +843,9 @@ void cross_section() {
    string dat(buf);
 
    bool UseFitMkk = true;
+   bool TeX = true;
 
-   // get_cross_section(UseFitMkk, "eff_"+dat,"cs_"+dat,"cs_"+dat);
+   get_cross_section(UseFitMkk, "eff_"+dat,"cs_"+dat,"cs_"+dat);
 
-   get_cross_section(UseFitMkk, "","","cs_"+dat); // tables only
+   // get_cross_section(UseFitMkk, "","","cs_"+dat,false);
 }
