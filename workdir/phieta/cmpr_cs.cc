@@ -1,6 +1,9 @@
 // compare cross-sections
 //   -> cmpr_cs_XXXX.pdf
 
+#include <cstdio>
+#include <time.h>   // see man strftime
+
 // {{{1~ container for measured energies and cross sections
 //--------------------------------------------------------------------
 struct Data {
@@ -38,6 +41,9 @@ struct Data {
    std::vector<double> Sig;    // pb
    std::vector<double> ErrEbeam;
    std::vector<double> ErrSig;
+
+   // numbers of energy points for 2012, 2018 and R-scan data
+   std::vector<size_t> Ndate;
 };
 
 // 29Jan23: KK_fit, latest MC : -> old
@@ -51,6 +57,10 @@ void SetData29J(Data& dt) {
    dt.Xisr_min = Xisr_min;
 
    int imR = 5; // imR=0: all, 1: skip 2900, etc...
+
+   dt.Ndate.push_back(Ebeam12.size());
+   dt.Ndate.push_back(Ebeam18.size());
+   dt.Ndate.push_back(EbeamR.size()-imR);
 
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam12), end(Ebeam12));
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam18), end(Ebeam18));
@@ -86,6 +96,10 @@ void SetData17M(Data& dt) {
 
    int imR = 5; // imR=0: all, 1: skip 2900, etc...
 
+   dt.Ndate.push_back(Ebeam12.size());
+   dt.Ndate.push_back(Ebeam18.size());
+   dt.Ndate.push_back(EbeamR.size()-imR);
+
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam12), end(Ebeam12));
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam18), end(Ebeam18));
    dt.Ebeam.insert(end(dt.Ebeam), begin(EbeamR)+imR, end(EbeamR));
@@ -119,6 +133,10 @@ void SetData05F(Data& dt) {
    dt.Xisr_min = Xisr_min;
 
    int imR = 5; // imR=0: all, 1: skip 2900, etc...
+
+   dt.Ndate.push_back(Ebeam12.size());
+   dt.Ndate.push_back(Ebeam18.size());
+   dt.Ndate.push_back(EbeamR.size()-imR);
 
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam12), end(Ebeam12));
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam18), end(Ebeam18));
@@ -154,6 +172,10 @@ void SetData10F(Data& dt) {
 
    int imR = 5; // imR=0: all, 1: skip 2900, etc...
 
+   dt.Ndate.push_back(Ebeam12.size());
+   dt.Ndate.push_back(Ebeam18.size());
+   dt.Ndate.push_back(EbeamR.size()-imR);
+
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam12), end(Ebeam12));
    dt.Ebeam.insert(end(dt.Ebeam), begin(Ebeam18), end(Ebeam18));
    dt.Ebeam.insert(end(dt.Ebeam), begin(EbeamR)+imR, end(EbeamR));
@@ -174,6 +196,51 @@ void SetData10F(Data& dt) {
    dt.ErrSig.insert(end(dt.ErrSig), begin(ErrSigR)+imR, end(ErrSigR));
 
    dt.CheckConsistensy();
+}
+
+// {{{1~ print relative error for cross-section
+//--------------------------------------------------------------------
+void prtSysCS( string title, const vector<size_t>& Ndate,
+      const vector<double>& Rat ) {
+//--------------------------------------------------------------------
+   const char* shift = "   "; // shift = 3 spaces
+   const char* comma = ", ";
+   if ( size(Ndate) != 3 ) {
+      cerr << " FATAL ERROR: prtErrCs: size(Ndate)= "
+         << size(Ndate) << endl;
+      exit(1);
+   }
+
+   time_t temp = time(NULL);
+   struct tm * timeptr = localtime(&temp);
+   char buf[32];
+   strftime(buf,sizeof(buf),"%d%b%y",timeptr);
+   string dat(buf);
+   string filename = "cmpr_cs_" + dat + ".h";
+   FILE* fp = fopen(filename.c_str(),"w");
+   if ( !fp ) {
+      cerr << "Error open file " << filename << endl;
+      fp = stdout;
+   }
+
+   fprintf(fp,"\n");
+   fprintf(fp,"%s// %s\n",shift,title.c_str());
+   string sufs[] {"12","18","R"};
+   for ( int k = 0, l = 0; k < 3; k++) {
+      int n =  Ndate[k];
+      const string& suf = sufs[k];
+      fprintf(fp,"%svector<double> RelSysCS%s = {\n",
+            shift,suf.c_str());
+      for(int i = 0; i < n; i += 5) {
+         fprintf(fp,"%s%s",shift,shift);
+         for(int j = i; j < (i+5<n ? i+5 : n); j++) {
+            fprintf(fp,"%.2e%s",Rat[l+j], (j!=n-1) ? comma : "" );
+         }
+         fprintf(fp,"\n");
+      }
+      l += n;
+      fprintf(fp,"%s};\n",shift);
+   }
 }
 
 // {{{1~ Main
@@ -216,11 +283,14 @@ void cmpr_cs() {
       exit(EXIT_FAILURE);
    }
 
-   vector<double> R(Nd);
-   double Rmax=10., Rmin=-50.;
-   vector<double> Ro(Nd);
+   // Rat - relative error
+   // R - percent
+   // Ro - under and over [Rmin,Rmax]
+   vector<double> Rat(Nd), R(Nd), Ro(Nd);
+   double Rmax=40., Rmin=-10.;
    for(unsigned int i = 0; i < Nd; i++) {
-      R[i] = 100*(1-dt[0].Sig[i]/dt[1].Sig[i]);
+      Rat[i] = 1. - dt[1].Sig[i] / dt[0].Sig[i];
+      R[i] = 100*Rat[i];
       if ( R[i] > Rmax ) {
          Ro[i] = Rmax-0.1;
       } else if ( R[i] < Rmin ) {
@@ -229,12 +299,14 @@ void cmpr_cs() {
          Ro[i] = 1e3; // something invisible
       }
    }
+   string titleH = dt[0].version + " vs " + dt[1].version;
+   prtSysCS(titleH, dt[0].Ndate, Rat);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
 
    c1->Print((pdf+"[").c_str()); // just open pdf-file
 
-   // 1) crosssections on one graph
+   // 1) cross-sections on one graph
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy();
@@ -254,9 +326,10 @@ void cmpr_cs() {
    gr->GetYaxis()->CenterTitle();
    gr->GetXaxis()->SetTitleSize(0.04);
    gr->GetYaxis()->SetTitleSize(0.04);
-   // gr->GetXaxis()->SetTitleOffset(1.1);
    gr->GetXaxis()->SetLabelSize(0.03);
    gr->GetYaxis()->SetLabelSize(0.03);
+   // gr->GetXaxis()->SetTitleOffset(1.1);
+   gr->GetYaxis()->SetTitleOffset(1.1);
 
    gr->SetMaximum(1e4);
    gr->SetMinimum(5.);
@@ -300,12 +373,13 @@ void cmpr_cs() {
    gr->GetYaxis()->CenterTitle();
    gr->GetXaxis()->SetTitleSize(0.04);
    gr->GetYaxis()->SetTitleSize(0.04);
-   // gr->GetYaxis()->SetTitleOffset(1);
    gr->GetXaxis()->SetLabelSize(0.03);
    gr->GetYaxis()->SetLabelSize(0.03);
+   // gr->GetXaxis()->SetTitleOffset(1.1);
+   gr->GetYaxis()->SetTitleOffset(1.1);
 
-   rat->SetMaximum(10.);
-   rat->SetMinimum(-50.);
+   rat->SetMaximum(Rmax);
+   rat->SetMinimum(Rmin);
 
    gr->SetMarkerStyle(20);
    gr->SetMarkerColor(kBlue);

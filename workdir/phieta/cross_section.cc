@@ -89,7 +89,7 @@ void prtCScpp( FILE* fp, string title, string suf,
    for(int i = 0; i < n; i += 5) {
       fprintf(fp,"%s%s",shift,shift);
       for(int j = i; j < (i+5<n ? i+5 : n); j++) {
-         fprintf(fp,"%.6f%s",E[j]*1e-3, (j!=n) ? comma : "" );
+         fprintf(fp,"%.6f%s",E[j]*1e-3, (j!=n-1) ? comma : "" );
       }
       fprintf(fp,"\n");
    }
@@ -100,7 +100,7 @@ void prtCScpp( FILE* fp, string title, string suf,
    for(int i = 0; i < n; i += 5) {
       fprintf(fp,"%s%s",shift,shift);
       for(int j = i; j < (i+5<n ? i+5 : n); j++) {
-         fprintf(fp,"%.6f%s",erE[j]*1e-3, (j!=n) ? comma : "" );
+         fprintf(fp,"%.6f%s",erE[j]*1e-3, (j!=n-1) ? comma : "" );
       }
       fprintf(fp,"\n");
    }
@@ -111,7 +111,7 @@ void prtCScpp( FILE* fp, string title, string suf,
    for(int i = 0; i < n; i += 5) {
       fprintf(fp,"%s%s",shift,shift);
       for(int j = i; j < (i+5<n ? i+5 : n); j++) {
-         fprintf(fp,"%.5e%s",cs[0][j], (j!=n) ? comma : "" );
+         fprintf(fp,"%.5e%s",cs[0][j], (j!=n-1) ? comma : "" );
       }
       fprintf(fp,"\n");
    }
@@ -122,7 +122,7 @@ void prtCScpp( FILE* fp, string title, string suf,
    for(int i = 0; i < n; i += 5) {
       fprintf(fp,"%s%s",shift,shift);
       for(int j = i; j < (i+5<n ? i+5 : n); j++) {
-         fprintf(fp,"%.5e%s",cs[1][j], (j!=n) ? comma : "" );
+         fprintf(fp,"%.5e%s",cs[1][j], (j!=n-1) ? comma : "" );
       }
       fprintf(fp,"\n");
    }
