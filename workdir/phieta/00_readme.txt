@@ -93,11 +93,12 @@ cross_section.cpp:
 //    -> cs_results.h   : cpp-code with cross-section and energies
 //    -> cs_results.tex or .txt : final tables in TeX format
 
-29Jan23: KK_fit, latest MC : -> old
-05Feb23: just side-band subtraction, latest MC : -> old
-
 10Feb23: side-band subtraction, tight cut: 1.01 < Mkk < 1.03 GeV
-17Mar23: mass_KK_fit (LH), more accurate parameters 
+17Mar23: mass_KK_fit (LH), more accurate fit parameters
+
+New parameters in MCGPJ (see fit results of 22Mar23)
+25Mar23:    mass_KK_fit (LH)
+SB_25Mar23: side-band subtraction: 1.01 < Mkk < 1.03 GeV
 
 //--------------------------------------------------------------------
 Study of uncertainties
@@ -106,3 +107,16 @@ cmpr_cs.cc
 // compare cross-sections
 //   -> cmpr_cs_XXXX.pdf
 
+-> cmpr_cs_21Mar23: Mkk_fit vs side-band(narrow) OLD MCGPJ
+-> cmpr_cs_25Mar23: Mkk_fit vs side-band(narrow)
+
+sys_lumi.py
+# systematic uncertainties for luminosity (pb-1)
+-> sys_lumi.h
+
+sys_mcgpj.cc
+// study of systematic uncertainties in efficiency due to the
+// variation of parameters A and phi within their errors
+// in MCGPJ generator
+//    -> sys_mcgpj_DATE.pdf
+-> sys_mcgpj_27Mar23.h

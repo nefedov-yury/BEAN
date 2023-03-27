@@ -20,13 +20,14 @@
 //--------------------------------------------------------------------
    // chi^2 cut:
    double chi2M = 80;  // std: 40 in Psi(2S)
+   // double chi2M = 100;  // systematic uncertainties: 60 && 100
    TCut c_chi2( Form("ch2<%f",chi2M) );
    auto f_chi2 = [chi2M](double ch2)->bool{return ch2<chi2M;};
 
    // Meta; central part
    const double seta = 0.008;
-   const double weta = 3*seta; // standard
-                               // uncertainties study: 2x, 4x
+   const double weta = 3*seta; // std
+   // const double weta = 4*seta; // systematic uncertainties: 2x,4x
    TCut c_cpgg( Form("abs(Mgg-%.6f)<%.6f",Meta,weta) );
    auto f_cpgg = [=](double Mgg)->bool{return fabs(Mgg-Meta)<weta;};
 

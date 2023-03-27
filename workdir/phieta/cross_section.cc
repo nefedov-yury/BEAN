@@ -203,8 +203,8 @@ double getMCini(string fname) {
 }
 
 //--------------------------------------------------------------------
-tuple<double,double> getNumHst( string fname,string hname,bool isMC,
-      TH1D* hst[] ) {
+tuple<double,double> getNumHst( string fname, string hname,
+      bool isMC, bool UseFitMkk, TH1D* hst[] ) {
 //--------------------------------------------------------------------
 // fill Mkk histograms for the central and side-band regions and
 // return number of events in them
@@ -223,8 +223,11 @@ tuple<double,double> getNumHst( string fname,string hname,bool isMC,
    if ( isMC ) {
       c_here += c_xisr + c_MCmkk; // X_isr>0.9 && mc_Mkk<1.08
    }
-   c_here += c_phi;     // [2*Mk, 1.08GeV]
-   // c_here += c_phiT;     // [1.01, 1.03GeV]
+   if ( UseFitMkk ) {
+      c_here += c_phi;     // [2*Mk, 1.08GeV]
+   } else {
+      c_here += c_phiT;     // [1.01, 1.03GeV]
+   }
 
    // binning
    double dU = 1.08;
@@ -251,7 +254,7 @@ tuple<double,double> getNumHst( string fname,string hname,bool isMC,
 }
 
 //--------------------------------------------------------------------
-void getEfficiency( const vector<string>& names,
+void getEfficiency( bool UseFitMkk, const vector<string>& names,
       vector<double> Eff[], vector<TH1D*>& HstMc ) {
 //--------------------------------------------------------------------
    // calculate efficiency and fill Nmc & mkk
@@ -266,7 +269,8 @@ void getEfficiency( const vector<string>& names,
 
       string hname = "mkk_mc_" + names[i];
       double Ncp = 0, Nsb = 0;
-      tie(Ncp,Nsb) = getNumHst(fname,hname,true, &HstMc[2*i]);
+      tie(Ncp,Nsb) = getNumHst( fname, hname,
+            true, UseFitMkk, &HstMc[2*i]);
 
       double eff = (Ncp - Nsb) / Nini;
       double err = eff*sqrt( (Ncp+Nsb)/SQ(Ncp-Nsb) + 1./Nini);
@@ -298,7 +302,8 @@ void getCrossSection( const vector<string>& names,
       string fname = "Ntpls/ntpl_" + names[i] + ".root";
       string hname = "mkk_dat_" + names[i];
       double Ncp = 0, Nsb = 0;
-      tie(Ncp,Nsb) = getNumHst(fname,hname,false, &HstD[2*i]);
+      // getCrossSection() called for SB so UseFitMkk is false
+      tie(Ncp,Nsb) = getNumHst(fname,hname,false,false,&HstD[2*i]);
 
       double nd      = Ncp - Nsb;
       double err_nd  = sqrt( Ncp + Nsb );
@@ -714,9 +719,9 @@ void get_cross_section( bool UseFitMkk,
    vector<double> Eff12[2], Eff18[2], EffR[2];
    vector<TH1D*> HstMc12, HstMc18, HstMcR;
 
-   getEfficiency( name12, Eff12, HstMc12 );
-   getEfficiency( name18, Eff18, HstMc18 );
-   getEfficiency( nameR,  EffR,  HstMcR );
+   getEfficiency( UseFitMkk, name12, Eff12, HstMc12 );
+   getEfficiency( UseFitMkk, name18, Eff18, HstMc18 );
+   getEfficiency( UseFitMkk, nameR,  EffR,  HstMcR );
 
    if ( !pdfeff.empty() ) {
       // draw efficiency
@@ -842,10 +847,22 @@ void cross_section() {
    strftime(buf,sizeof(buf),"%d%b%y",timeptr);
    string dat(buf);
 
-   bool UseFitMkk = true;
+   // bool UseFitMkk = true;
+   bool UseFitMkk = false;  // SB only
    bool TeX = true;
+
+   if ( !UseFitMkk ) {
+      dat="SB_"+dat;
+   }
 
    get_cross_section(UseFitMkk, "eff_"+dat,"cs_"+dat,"cs_"+dat);
 
+   // systematic: tables only, txt format, variation param in name
+   // dat="ch2_60";
+   // dat="ch2_100";
+   //
+   // dat="weta_2";
+   // dat="weta_4";
+   //
    // get_cross_section(UseFitMkk, "","","cs_"+dat,false);
 }
