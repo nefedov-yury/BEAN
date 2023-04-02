@@ -1,0 +1,15 @@
+MCGPJ: version 02
+   // +++ 22Mar2023 fit: J/Psi scan, tau-scan, R-scan 3080
+   constexpr double A = 2.8;    // 2.79 [-0.42,+0.43]
+   constexpr double Phi = 2.35; // 2.33 [-0.27,+0.34]
+   Energy spread = 0.88 MeV
+   BW for phi with cut Minv(K+K-) < 1083 MeV
+   Xisr - no cut
+
+   variation of MCGPJ parameters: 
+dir='un_pm'  # phi -> 2.33 - 0.27 = 2.05
+#  dir='un_pp'  # phi -> 2.33 + 0.34 = 2.65
+#  dir='un_am'     # A -> 2.79-0.42 = 2.4
+#  dir='un_ap'     # A -> 2.79+0.43 = 3.2
+
+   Xisr - no cut!

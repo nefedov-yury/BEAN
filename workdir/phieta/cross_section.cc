@@ -321,6 +321,7 @@ void getCrossSection( const vector<string>& names,
 //--------------------------------------------------------------------
 void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
 //--------------------------------------------------------------------
+   // const string DIR("mkk_inter/LH_std/"); // directory to read files
    const string DIR("mkk_inter/"); // directory to read files
    int N = names.size();
    Nd[0].resize(N,0.);
@@ -348,7 +349,7 @@ void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
         if ( sl.find("Nphi") != string::npos ) {
            double Nphi = 0, err_Nphi = 0;
            int ret =
-              sscanf(line, "Nphi = %lf +/- %lf", &Nphi,&err_Nphi);
+              sscanf(line,"      Nphi= %lf \\pm %lf",&Nphi,&err_Nphi);
            if ( ret != 2 ) {
               cout << "-- ERR: " << sl << endl;
               exit(1);
@@ -847,22 +848,27 @@ void cross_section() {
    strftime(buf,sizeof(buf),"%d%b%y",timeptr);
    string dat(buf);
 
-   // bool UseFitMkk = true;
-   bool UseFitMkk = false;  // SB only
+   bool UseFitMkk = true;
+   // bool UseFitMkk = false;  // SB only
    bool TeX = true;
 
    if ( !UseFitMkk ) {
       dat="SB_"+dat;
    }
 
-   get_cross_section(UseFitMkk, "eff_"+dat,"cs_"+dat,"cs_"+dat);
+   // get_cross_section(UseFitMkk, "eff_"+dat,"cs_"+dat,"cs_"+dat);
 
    // systematic: tables only, txt format, variation param in name
+   dat="test";
+
+   // dat="angP";
+   // dat="angM";
+
    // dat="ch2_60";
    // dat="ch2_100";
-   //
+
    // dat="weta_2";
    // dat="weta_4";
-   //
-   // get_cross_section(UseFitMkk, "","","cs_"+dat,false);
+
+   get_cross_section(UseFitMkk, "","","cs_"+dat,false);
 }
