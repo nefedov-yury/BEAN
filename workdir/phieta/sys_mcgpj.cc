@@ -342,6 +342,7 @@ void PlotAllGraph(string pdf, string header) {
 //--------------------------------------------------------------------
 
    // phi+sigma(phi) A+sigma(A), phi-sigma(phi), A-sigma(A)
+   string DIR="MCGPJ_01/";
    vector<string> dirs { "un_pp", "un_ap", "un_pm", "un_am" };
    int mrks[]          {  22,      26,       23,      32    };
    int clrs[]          { kRed+1,  kGreen+2, kRed+1, kGreen+2};
@@ -349,7 +350,7 @@ void PlotAllGraph(string pdf, string header) {
 
    TGraphErrors* gr[4];
    for ( int i = 0; i < 4; ++i ) {
-      gr[i] = getGraph(dirs[i],"");
+      gr[i] = getGraph(DIR+dirs[i],"");
       gr[i] -> SetMarkerStyle(mrks[i]);
       gr[i] -> SetMarkerColor(clrs[i]);
       gr[i] -> SetLineColor(clrs[i]);
@@ -412,11 +413,12 @@ void sys_mcgpj() {
    // gStyle->SetLegendTextSize(0.05);
 
    // plot each variation separatly
-   // getGraph("un_0", "sys_mcgpj_un_0.pdf"); // no variation
-   // getGraph("un_am", "sys_mcgpj_un_am.pdf");
-   // getGraph("un_ap", "sys_mcgpj_un_ap.pdf");
-   // getGraph("un_pm", "sys_mcgpj_un_pm.pdf");
-   // getGraph("un_pp", "sys_mcgpj_un_pp.pdf");
+   string DIR="MCGPJ_01/";
+   // getGraph(DIR+"un_0", "sys_mcgpj_un_0.pdf"); // no variation
+   // getGraph(DIR+"un_am", "sys_mcgpj_un_am.pdf");
+   // getGraph(DIR+"un_ap", "sys_mcgpj_un_ap.pdf");
+   // getGraph(DIR+"un_pm", "sys_mcgpj_un_pm.pdf");
+   // getGraph(DIR+"un_pp", "sys_mcgpj_un_pp.pdf");
 
    time_t temp = time(NULL);
    struct tm * timeptr = localtime(&temp);

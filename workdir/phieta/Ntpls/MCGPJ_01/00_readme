@@ -6,4 +6,15 @@ MCGPJ: version 01
    BW for phi with cut Minv(K+K-) < 1083 MeV
    Xisr > 0.75
 
-   variation of MCGPJ parameters: not yet done
+   variation of MCGPJ parameters:
+   A   [2.83, 3.56]
+   phi [2.30, pi]
+   delta = 0.850 +/- 0.027
+
+    constexpr double A = 3.3; // gen
+    // constexpr double A = 2.83; // un_am
+    // constexpr double A = 3.56; // un_ap
+    constexpr double Phi = 2.5; // gen
+    // constexpr double Phi = 2.30;  // un_pm
+    // constexpr double Phi = 3.14;  // un_pp
+

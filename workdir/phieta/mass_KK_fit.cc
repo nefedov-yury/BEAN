@@ -866,7 +866,9 @@ void do_fit(string fname, double Eee, bool bkgfit,
    ROOT::Fit::DataOptions opt;
    // use integral of bin content instead of bin center (def: false)
    opt.fIntegral = true;
-   // opt.fIntegral = false;
+   // use empty bins (default is false) with a fixed error of 1
+   opt.fUseEmpty = true; // for LH ?
+
    ROOT::Fit::DataRange dr(dL, dU);
    ROOT::Fit::BinData Dat(opt,dr);
    ROOT::Fit::FillData(Dat, hst);
@@ -1146,7 +1148,7 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    opt.fIntegral = true;
    // use empty bins (default is false) with a fixed error of 1
    opt.fUseEmpty = true; // for LH ?
-   // opt.fIntegral = false;
+
    ROOT::Fit::DataRange dr(dL, dU);
    ROOT::Fit::BinData Dat(opt,dr);
    ROOT::Fit::FillData(Dat, hst);
