@@ -96,36 +96,48 @@ cross_section.cpp:
 CS_OLD/10Feb23: side-band subtraction, tight cut: 1.01 < Mkk < 1.03 GeV
 CS_OLD/17Mar23: mass_KK_fit (LH), more accurate fit parameters
 
-New parameters in MCGPJ (see fit results of 22Mar23)
+MCGPJ_02 parameters (see fit results of 22Mar23)
 CS_OLD/25Mar23:    mass_KK_fit (LH)
 CS_OLD/SB_25Mar23: side-band subtraction: 1.01<Mkk<1.03 GeV
 
 Fix bug: include zero bins in likelihood fitting
-01Apr23_02: mass_KK_fit (LH MCGPJ_02)
+CS_OLD/01Apr23_02: mass_KK_fit (LH MCGPJ_02)
 
-Old parameters is close to result: go to MCGPJ_01
+MCGPJ_01 parameters is close to result:
 01Apr23: mass_KK_fit (LH MCGPJ_01)
 SB_01Apr23: side-band subtraction: 1.01<Mkk<1.03 GeV (MCGPJ_01)
 
 //--------------------------------------------------------------------
 Study of uncertainties
 //--------------------------------------------------------------------
+sys_lumi.py
+# systematic uncertainties for luminosity (pb-1)
+-> sys_lumi.h
+
+
 cmpr_cs.cc
 // compare cross-sections
 //   -> cmpr_cs_XXXX.pdf
 
-- CS_OLD/cmpr_cs_25Mar23: Mkk_fit vs side-band(narrow) OLD (with bug)
-+ cmpr_cs_01Apr23.h
+CS_OLD/cmpr_cs_25Mar23: Mkk_fit vs side-band(narrow) OLD (with bug)
+-> cmpr_cs_01Apr23.h
 
+-> sys_ANGL_01Apr23: theta= +/- 0.58 - results show strong
+   correlations errors with value of theta
 
+->   const double SysChi = 0.022; // variation chi2 cut [60,100]
+->   const double SysWeta = 0.034; // variation Mgg window
 
-sys_lumi.py
-# systematic uncertainties for luminosity (pb-1)
--> sys_lumi.h
 
 sys_mcgpj.cc
 // study of systematic uncertainties in efficiency due to the
 // variation of parameters A and phi within their errors
 // in MCGPJ generator
 //    -> sys_mcgpj_DATE.pdf
+
+MCGPJ_02: A 2.8 [2.40,3.20],  phi 2.35 [2.05,2.65]
 -> sys_mcgpj_27Mar23.h
+
+MCGPJ_01: A 3.3 [2.83,3.56] phi 2.5 [2.30,3.14]
+-> sys_mcgpj_03Apr23.h
+
