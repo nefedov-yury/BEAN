@@ -484,7 +484,8 @@ void cmpr_cs_FIT() {
    SetData01A(dt[0]); // mass_KK_fit (LH)
    dt[0].version = "LH-fit of M_{KK} with interference";
    SetDataSB_01A(dt[1]); // SB: 1.01 < Mkk < 1.03 GeV
-   dt[1].version = "Side-band subtraction";
+   dt[1].version = "Counting events";
+   // dt[1].version = "Side-band subtraction";
    double Rmax=15., Rmin=-15.;
    string fname = "sys_FIT";
    string pdf = fname + "_01Apr23.pdf";
@@ -551,19 +552,19 @@ void cmpr_cs_FIT() {
    gr->SetMaximum(1e4);
    gr->SetMinimum(5.);
 
-   gr->SetMarkerStyle(22);
-   gr->SetMarkerColor(kRed+1);
+   gr->SetMarkerStyle(21);
+   gr->SetMarkerColor(kRed);
    // gr->SetMarkerSize(0.7);
    gr->Draw("AP");
 
    gr = cs[1];
-   gr->SetMarkerStyle(23);
-   gr->SetMarkerColor(kBlue+1);
+   gr->SetMarkerStyle(20);
+   gr->SetMarkerColor(kBlue);
    // gr->SetMarkerSize(0.7);
    gr->Draw("P"); // on top of pict
 
 
-   TLegend* leg = new TLegend(0.12,0.72,0.50,0.88);
+   TLegend* leg = new TLegend(0.12,0.81,0.56,0.89);
    leg->AddEntry( cs[0],
          Form("%s",dt[0].version.c_str()), "EP");
          // Form("cross-section %s",dt[0].version.c_str()), "EP");
@@ -688,16 +689,15 @@ void cmpr_cs_SYSANGL() {
    gr->SetMaximum(1e4);
    gr->SetMinimum(5.);
 
-   gr->SetMarkerStyle(20);
-   gr->SetMarkerColor(kRed+1);
-   // gr->SetMarkerSize(0.7);
+   gr->SetMarkerStyle(21);
+   gr->SetMarkerColor(kRed);
    gr->Draw("AP");
 
    cs[1]->SetMarkerStyle(23);
-   cs[1]->SetMarkerColor(kBlue+1);
+   cs[1]->SetMarkerColor(kBlue);
    cs[1]->Draw("P"); // on top of pict
    cs[2]->SetMarkerStyle(22);
-   cs[2]->SetMarkerColor(kGreen-1);
+   cs[2]->SetMarkerColor(kGreen+1);
    cs[2]->Draw("P"); // on top of pict
 
 
@@ -735,13 +735,13 @@ void cmpr_cs_SYSANGL() {
    rat1->SetMinimum(Rmin);
 
    gr->SetMarkerStyle(23);
-   gr->SetMarkerColor(kBlue+1);
+   gr->SetMarkerColor(kBlue);
    // gr->SetMarkerSize(0.9);
    gr->Draw("AP");
 
    TGraph* rat2 = new TGraph( Nd, dt[0].Ebeam.data(), R2.data() );
    rat2->SetMarkerStyle(22);
-   rat2->SetMarkerColor(kGreen-1);
+   rat2->SetMarkerColor(kGreen+1);
    rat2->Draw("P"); // on top of pict
 
    TLegend* legD = new TLegend(0.12,0.80,0.52,0.88);
@@ -765,13 +765,13 @@ void cmpr_cs_SYSCH2() {
    Data dt[3];
 
    SetData01A(dt[0]); // mass_KK_fit (LH)
-   dt[0].version = "std: #chi^{2} < 80";
+   dt[0].version = "std: #chi^{2}(4C) < 80";
    SetDataCh2MIN(dt[1]);
    // dt[1].version = "#chi^{2}<70";
-   dt[1].version = "#chi^{2} < 60";
+   dt[1].version = "#chi^{2}(4C) < 60";
    SetDataCh2MAX(dt[2]);
    // dt[2].version = "#chi^{2} < 90";
-   dt[2].version = "#chi^{2} < 100";
+   dt[2].version = "#chi^{2}(4C) < 100";
    string pdf( "sys_CH_01apr23.pdf" ); // <- PDF
 
    int Nd = dt[0].Size();
@@ -845,16 +845,15 @@ void cmpr_cs_SYSCH2() {
    gr->SetMaximum(1e4);
    gr->SetMinimum(5.);
 
-   gr->SetMarkerStyle(20);
-   gr->SetMarkerColor(kRed+1);
-   // gr->SetMarkerSize(0.7);
+   gr->SetMarkerStyle(21);
+   gr->SetMarkerColor(kRed);
    gr->Draw("AP");
 
    cs[1]->SetMarkerStyle(23);
-   cs[1]->SetMarkerColor(kBlue+1);
+   cs[1]->SetMarkerColor(kBlue);
    cs[1]->Draw("P"); // on top of pict
    cs[2]->SetMarkerStyle(22);
-   cs[2]->SetMarkerColor(kGreen-1);
+   cs[2]->SetMarkerColor(kGreen+1);
    cs[2]->Draw("P"); // on top of pict
 
 
@@ -892,27 +891,27 @@ void cmpr_cs_SYSCH2() {
    rat1->SetMinimum(Rmin);
 
    gr->SetMarkerStyle(23);
-   gr->SetMarkerColor(kBlue+1);
-   // gr->SetMarkerSize(0.9);
+   gr->SetMarkerColor(kBlue);
    gr->Draw("AP");
 
    TGraph* rat2 = new TGraph( Nd, dt[0].Ebeam.data(), R2.data() );
    rat2->SetMarkerStyle(22);
-   rat2->SetMarkerColor(kGreen-1);
+   rat2->SetMarkerColor(kGreen+1);
    rat2->Draw("P"); // on top of pict
 
    TGraph* rat3 = new TGraph( Ems.size(), Ems.data(), Rms.data() );
-   rat3->SetMarkerStyle(41);
-   // rat3->SetMarkerSize(0.4);
+   // rat3->SetMarkerStyle(41);
+   rat3->SetMarkerStyle(24);
+   rat3->SetMarkerSize(1.1);
    rat3->SetMarkerColor(kRed);
    rat3->Draw("P"); // on top of pict
 
    TLegend* legD = new TLegend(0.35,0.74,0.88,0.88);
-   legD->SetHeader("variation of #chi^{2} cut:","C");
-   legD->AddEntry( rat1, "1 #minus "
-         "#sigma(#chi^{2} < 60) / #sigma(#chi^{2} < 80)", "EP" );
-   legD->AddEntry( rat2, "1 #minus "
-         "#sigma(#chi^{2} < 100) / #sigma(#chi^{2} < 80)", "EP" );
+   legD->SetHeader("variation of #chi^{2}(4C)","C");
+   legD->AddEntry( rat1, "1 #minus #sigma(#chi^{2}<60)"
+         "#lower[0.2]{#scale[1.2]{/}}#sigma(#chi^{2}<80)", "EP" );
+   legD->AddEntry( rat2, "1 #minus #sigma(#chi^{2}<100)"
+         "#lower[0.2]{#scale[1.2]{/}}#sigma(#chi^{2}<80)", "EP" );
    legD->Draw();
 
    gPad -> RedrawAxis();
@@ -931,9 +930,9 @@ void cmpr_cs_SYSWETA() {
    SetData01A(dt[0]); // mass_KK_fit (LH)
    dt[0].version = "std: |M(#gamma#gamma) #minus M(#eta)| < 24 MeV";
    SetDataWETAMIN(dt[1]);
-   dt[1].version = "|M(#gamma#gamma) #minus M(#eta)| < 16 MeV";
+   dt[1].version = "tight: |M(#gamma#gamma) #minus M(#eta)| < 16 MeV";
    SetDataWETAMAX(dt[2]);
-   dt[2].version = "|M(#gamma#gamma) #minus M(#eta)| < 32 MeV";
+   dt[2].version = "loose: |M(#gamma#gamma) #minus M(#eta)| < 32 MeV";
    string pdf( "sys_Weta_01apr23.pdf" ); // <- PDF
 
    int Nd = dt[0].Size();
@@ -1007,20 +1006,19 @@ void cmpr_cs_SYSWETA() {
    gr->SetMaximum(1e4);
    gr->SetMinimum(5.);
 
-   gr->SetMarkerStyle(20);
-   gr->SetMarkerColor(kRed+1);
-   // gr->SetMarkerSize(0.7);
+   gr->SetMarkerStyle(21);
+   gr->SetMarkerColor(kRed);
    gr->Draw("AP");
 
    cs[1]->SetMarkerStyle(23);
-   cs[1]->SetMarkerColor(kBlue+1);
+   cs[1]->SetMarkerColor(kBlue);
    cs[1]->Draw("P"); // on top of pict
    cs[2]->SetMarkerStyle(22);
-   cs[2]->SetMarkerColor(kGreen-1);
+   cs[2]->SetMarkerColor(kGreen+1);
    cs[2]->Draw("P"); // on top of pict
 
 
-   TLegend* leg = new TLegend(0.12,0.72,0.50,0.88);
+   TLegend* leg = new TLegend(0.12,0.75,0.55,0.88);
    for ( int i = 0; i < 3; ++i ) {
       leg->AddEntry( cs[i],
             Form("%s",dt[i].version.c_str()), "EP");
@@ -1054,27 +1052,26 @@ void cmpr_cs_SYSWETA() {
    rat1->SetMinimum(Rmin);
 
    gr->SetMarkerStyle(23);
-   gr->SetMarkerColor(kBlue+1);
-   // gr->SetMarkerSize(0.9);
+   gr->SetMarkerColor(kBlue);
    gr->Draw("AP");
 
    TGraph* rat2 = new TGraph( Nd, dt[0].Ebeam.data(), R2.data() );
    rat2->SetMarkerStyle(22);
-   rat2->SetMarkerColor(kGreen-1);
+   rat2->SetMarkerColor(kGreen+1);
    rat2->Draw("P"); // on top of pict
 
    TGraph* rat3 = new TGraph( Ems.size(), Ems.data(), Rms.data() );
-   rat3->SetMarkerStyle(41);
-   // rat3->SetMarkerSize(0.4);
+   rat3->SetMarkerStyle(24);
+   rat3->SetMarkerSize(1.1);
    rat3->SetMarkerColor(kRed);
    rat3->Draw("P"); // on top of pict
 
-   TLegend* legD = new TLegend(0.35,0.74,0.88,0.88);
+   TLegend* legD = new TLegend(0.39,0.77,0.89,0.89);
    legD->SetHeader("variation of M(#gamma#gamma) window","C");
-   legD->AddEntry( rat1, "1 #minus "
-         "#sigma(tight cut) / #sigma(std)", "EP" );
-   legD->AddEntry( rat2, "1 #minus "
-         "#sigma(loose cut) / #sigma(std)", "EP" );
+   legD->AddEntry( rat1, "1 #minus #sigma(tight)"
+         "#lower[0.2]{#scale[1.2]{/}}#sigma(nominal)", "EP" );
+   legD->AddEntry( rat2, "1 #minus #sigma(loose)"
+         "#lower[0.2]{#scale[1.2]{/}}#sigma(nominal)", "EP" );
    legD->Draw();
 
    gPad -> RedrawAxis();
