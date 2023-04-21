@@ -44,8 +44,8 @@ void DecayTable::Add() {
 //====================================================================
 void DecayTable::Print(double min_percent) {
 //====================================================================
-   // print sorted by values; min_percent is the minimal % for
-   // printing of decays
+   // print sorted by values (in decreasing order of decay frequency)
+   // min_percent is the minimal % for printing of decays
    vector<pair<string,int>>
       vprt( decays.begin(),decays.end() );
    sort( vprt.begin(), vprt.end(),
@@ -55,17 +55,21 @@ void DecayTable::Print(double min_percent) {
        );
    double R = 100./double( ntot );
    size_t sum_ev = 0;
-   for ( const auto& p : vprt ) {
+   size_t vsize = vprt.size();
+   for ( size_t i = 0; i < vsize; ++i ) {
+      const auto& p = vprt[i];
       string name = p.first;
       size_t ev = p.second;
       double pc = R*ev;
-      if( pc > min_percent ) {
+      // there is no point to print 'others' if it is only one case
+      bool print_other = (pc < min_percent) && (i != vsize-1);
+      if( !print_other ) {
          sum_ev += ev;
          printf(" %-35.35s %9zi (%10.4f %%)\n", name.c_str(),ev,pc);
       } else {
          ev = ntot - sum_ev;
          pc = R*ev;
-         printf(" %-35.35s %9zi (%9.4f %%)\n", "other decays",ev,pc);
+         printf(" %-35.35s %9zi (%10.4f %%)\n", "other decays",ev,pc);
          break;
       }
    }
