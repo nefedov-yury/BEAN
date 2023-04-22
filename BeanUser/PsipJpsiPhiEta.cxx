@@ -12,13 +12,14 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <string>
 #include <map>
 #include <algorithm>
 
 #include <TH1.h>
 #include <TH2.h>
 #include <TF1.h>
-#include <TNtupleD.h>
+#include <TTree.h>
 #include <TDatabasePDG.h>
 
 // #include "CLHEP/Units/PhysicalConstants.h"
@@ -124,8 +125,9 @@ struct Select_PsipJpsiPhiEta {
 typedef Select_PsipJpsiPhiEta Select;
 
 //--------------------------------------------------------------------
-// {{{1 Structure for tree
+// {{{1 Structures for root-trees
 //--------------------------------------------------------------------
+// pi+ pi- J/Psi selection
 struct Xnt1 {
    float Mrs;            // recoil mass of true signal pi+pi- for
                          // decPsip==64
@@ -146,10 +148,45 @@ struct Xnt1 {
    float mccosT;         // true cosT
 } xnt1;
 
-//    float cosPM;          // cos(Theta(pi+ pi-)) for best
-//    float invPM;          // invariant mass of (pi+, pi-) for best
-//    float Ppls;           // momentum of pi+ for best
-//    float Pmns;           // momentum of pi- for best
+// phi eta after kinematic fit
+struct Xnt2 {
+   double Mrec;              // recoil mass as in 'nt1'
+   double ch2,chsq3g;        // chi^2 of 5C fit, chi^2 of 3gammas
+   double Ppip,Cpip,phipip;  // P,cos(Theta),phi of pi+
+   double Ppim,Cpim,phipim;  // P,cos(Theta),phi of pi-
+   double Pkp,Ckp,phikp;     // P,cos(Theta),phi of K+
+   double Pkm,Ckm,phikm;     // P,cos(Theta),phi of K-
+   double Eg1,Cg1,phig1;     // E,cos(Theta),phi of gamma-1
+   double Eg2,Cg2,phig2;     // E,cos(Theta),phi of gamma-2
+   double Pkk,Ckk,phikk;     // P,cos(Theta),phi of K+K-
+   double Pgg,Cgg,phigg;     // P,cos(Theta),phi of gamma,gamma
+   double Pj,Cj,phij;        // P,cos(Theta),phi of J/Psi
+   double Mkk,Mgg;           // invariant masses of K+K- and 2gammas
+   double M2kpeta,M2kmeta;   // M_inv^2( K(+/-) eta )
+   // MC
+   int    dec,decj;          // MC: decay codes of Psi(2S) and J/Psi
+   double mcmkk;             // MCtrue: inv. mass of K+K-
+   double mcmkpet;           // MCtrue: inv. mass of K+eta
+   double mccosT;            // MCtrue: cosT
+   string sdecp;             // MC: deca string of Psi(2S)
+   string sdecj;             // MC: deca string of J/Psi
+} xnt2;
+
+// eta reconstruction efficiency
+struct Xnt3 {
+   double Pkk,Ckk;      // P and cos(Theta) of K+K-
+   double Peta,Ceta;    // P and cos(Theta) of eta
+   double Eg1,Cg1;      // E and cos(Theta) of rec gamma
+   double Eg2,Cg2;      // E and cos(Theta) of rec gamma
+   double Egr,Cgr;      // E and cos(Theta) of found gamma (fl>0)
+   int    fl;           // 0/1/2 - only predicted/gamma/eta-found
+   double rE,dTh;       // predicted/found relation
+   double m2fr,m2rl;    // final recoil M^2 predicted/found
+   double mggpr,mggf;   // mass(eta) predicted/fitted
+   int    decj;         // MC: decay codes of J/Psi
+   int    deta;         // MC: 1 if eta decay to 2 gamma
+   string sdecj;        // MC: deca string of J/Psi
+} xnt3;
 
 //--------------------------------------------------------------------
 // {{{1 Global variables
@@ -157,42 +194,40 @@ struct Xnt1 {
 static const double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV) from PDG:
-static const double mpsip  = 3.686097; // 3686.097  +/- 0.025   MeV
-static const double mjpsi  = 3.096916; // 3096.916  +/- 0.011   MeV
-static const double mpi    = 0.13957;  // 139.57018 +/- 0.00035 MeV
-static const double mpi0   = 0.13498;  // 134.9766  +/- 0.0006  MeV
+static const double mpsip  = 3.68610;  // 3686.10   +/- 0.06    MeV
+static const double mjpsi  = 3.096900; // 3096.900  +/- 0.006   MeV
+static const double mpi    = 0.13957;  // 139.57039 +/- 0.00018 MeV
+static const double mpi0   = 0.13498;  // 134.9768  +/- 0.0005  MeV
 static const double meta   = 0.547862; // 547.862   +/- 0.017   MeV
 static const double momega = 0.78265;  // 782.65    +/- 0.12    MeV
 static const double mk     = 0.493677; // 493.677   +/- 0.016   MeV
 static const double mk0    = 0.497611; // 497.611   +/- 0.013   MeV
-static const double mphi   = 1.019461; //1019.461   +/- 0.019   MeV
+static const double mphi   = 1.019461; //1019.461   +/- 0.016   MeV
 
 static AbsCor* m_abscor = 0;
 static EventTagSvc* m_EventTagSvc = 0;
 
-// histograms
+// histograms and root-trees
 static vector<TH1*> hst;
-static vector<TNtupleD*> m_tuple;
 static TTree* m_nt1 = nullptr;
+static TTree* m_nt2 = nullptr;
+static TTree* m_nt3 = nullptr;
 
 // decays classification
 static DecayTable PsipTbl;  // narrow window [3.092, 3.102]
 static DecayTable PsipTbl2; // wide window [3.055, 3.145]
-static DecayTable PsipTbl4C;// side-band for 4C KF
 static DecayTable JpsiTbl;  // final phi-eta selection
-static DecayTable JpsiTblE; // for effitiency selection
 
 // container for warnings
 static map<string,int> warning_msg;
 
 // expect one data taking period for all events
 static int DataPeriod = 0;
+static bool isMC = false;
 
 // helix corrections for MC
-static TrackCorrection* helix_cor = nullptr;
 static const bool make_hc = true;
-
-static bool isMC = false;
+static TrackCorrection* helix_cor = nullptr;
 
 //--------------------------------------------------------------------
 // {{{1 Functions: use C-linkage names
@@ -253,6 +288,9 @@ static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
    static const vector<double> pi12 {0.9851,0.032};
 
    double W = 1.;
+   if ( DataPeriod != 2009 && DataPeriod != 2012 ) {
+      return W;
+   }
 
    if ( Kp == 1 ) {             // kaons
       const double Ptmin = 0.1, Ptmax = 1.4;
@@ -309,7 +347,6 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    }
 
    hst.resize(500,nullptr);
-   m_tuple.resize(10,nullptr);
 
    // initialize Absorption Correction -------------------------------
    m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
@@ -364,7 +401,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   // Book histograms --------- --------------------------------------
+   // Book histograms ------------------------------------------------
 
    hst[1] = new TH1D("All_cuts","selections cuts", 20,-0.5,19.5);
 
@@ -646,74 +683,104 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 
    // TTree for pi+ pi- J/Psi selection:
    m_nt1 = new TTree("nt1","pi+ pi- J/Psi selection");
-   m_nt1->Branch("Mrs",&xnt1.Mrs);
-   m_nt1->Branch("mdp",&xnt1.Mrs_mindp);
-   m_nt1->Branch("MrsW",&xnt1.MrsW);
-   m_nt1->Branch("Mrec",&xnt1.Mrec);
-   m_nt1->Branch("Mrb",&xnt1.Mrbest);
-   m_nt1->Branch("Ptp",&xnt1.Ptp);
-   m_nt1->Branch("Cpls",&xnt1.Cpls);
-   m_nt1->Branch("Ptm",&xnt1.Ptm);
-   m_nt1->Branch("Cmns",&xnt1.Cmns);
-   m_nt1->Branch("nch",&xnt1.nch);
-   m_nt1->Branch("Nm",&xnt1.Nm);  // just for convenience,
-   m_nt1->Branch("dec",&xnt1.decPsip);
-   m_nt1->Branch("mcmkk",&xnt1.mcmkk);
-   m_nt1->Branch("mcmkpet",&xnt1.mcmkpet);
-   m_nt1->Branch("mccosT",&xnt1.mccosT);
+   m_nt1->Branch("Mrs"     , &xnt1.Mrs       );
+   m_nt1->Branch("mdp"     , &xnt1.Mrs_mindp );
+   m_nt1->Branch("MrsW"    , &xnt1.MrsW      );
+   m_nt1->Branch("Mrec"    , &xnt1.Mrec      );
+   m_nt1->Branch("Mrb"     , &xnt1.Mrbest    );
+   m_nt1->Branch("Ptp"     , &xnt1.Ptp       );
+   m_nt1->Branch("Cpls"    , &xnt1.Cpls      );
+   m_nt1->Branch("Ptm"     , &xnt1.Ptm       );
+   m_nt1->Branch("Cmns"    , &xnt1.Cmns      );
+   m_nt1->Branch("nch"     , &xnt1.nch       );
+   m_nt1->Branch("Nm"      , &xnt1.Nm        );
+   m_nt1->Branch("dec"     , &xnt1.decPsip   );
+   m_nt1->Branch("mcmkk"   , &xnt1.mcmkk     );
+   m_nt1->Branch("mcmkpet" , &xnt1.mcmkpet   );
+   m_nt1->Branch("mccosT"  , &xnt1.mccosT    );
 
-   // final ntuple for
+   // final TTree for
    //   Psi(2S) -> pi+ pi- J/Psi
    //                      J/Psi -> phi eta
    //                               phi -> K+ K-
    //                                   eta -> 2gamma
-   m_tuple[1] = new TNtupleD("a4c","after 4C kinematic fit",
-         "Mrec:"              // recoil mass as in 'nt1'
-         "ch2:chsq3g:"        // chi^2 of 5C fit, chi^2 of 3gammas
-         "Ppip:Cpip:phipip:"  // P,cos(Theta),phi of pi+
-         "Ppim:Cpim:phipim:"  // P,cos(Theta),phi of pi-
-         "Pkp:Ckp:phikp:"     // P,cos(Theta),phi of K+
-         "Pkm:Ckm:phikm:"     // P,cos(Theta),phi of K-
-         "Eg1:Cg1:phig1:"     // E,cos(Theta),phi of gamma-1
-         "Eg2:Cg2:phig2:"     // E,cos(Theta),phi of gamma-2
-         "Pkk:Ckk:phikk:"     // P,cos(Theta),phi of K+K-
-         "Pgg:Cgg:phigg:"     // P,cos(Theta),phi of gamma,gamma
-         "Pj:Cj:phij:"        // P,cos(Theta),phi of J/Psi
-         "Mkk:Mgg:"           // invariant masses of K+K- and 2gammas
-         "M2kpeta:M2kmeta:"   // M_inv^2( K(+/-) eta )
-         "Ptpip:Ptpim:Ptkp:Ptkm:Ptgg" // for compatibility
-         ":dec:decj"          // MC: decay codes of Psi(2S) and J/Psi
-         ":mcmkk"             // MCtrue: inv. mass of K+K-
-         ":mcmkpet"           // MCtrue: inv. mass of K+eta
-         ":mccosT"            // MCtrue: cosT
-         );
+   m_nt2 = new TTree("a4c","phi eta after kinematic fit");
+   m_nt2->Branch("Mrec"    , &xnt2.Mrec    );
+   m_nt2->Branch("ch2"     , &xnt2.ch2     );
+   m_nt2->Branch("chsq3g"  , &xnt2.chsq3g  );
+   m_nt2->Branch("Ppip"    , &xnt2.Ppip    );
+   m_nt2->Branch("Cpip"    , &xnt2.Cpip    );
+   m_nt2->Branch("phipip"  , &xnt2.phipip  );
+   m_nt2->Branch("Ppim"    , &xnt2.Ppim    );
+   m_nt2->Branch("Cpim"    , &xnt2.Cpim    );
+   m_nt2->Branch("phipim"  , &xnt2.phipim  );
+   m_nt2->Branch("Pkp"     , &xnt2.Pkp     );
+   m_nt2->Branch("Ckp"     , &xnt2.Ckp     );
+   m_nt2->Branch("phikp"   , &xnt2.phikp   );
+   m_nt2->Branch("Pkm"     , &xnt2.Pkm     );
+   m_nt2->Branch("Ckm"     , &xnt2.Ckm     );
+   m_nt2->Branch("phikm"   , &xnt2.phikm   );
+   m_nt2->Branch("Eg1"     , &xnt2.Eg1     );
+   m_nt2->Branch("Cg1"     , &xnt2.Cg1     );
+   m_nt2->Branch("phig1"   , &xnt2.phig1   );
+   m_nt2->Branch("Eg2"     , &xnt2.Eg2     );
+   m_nt2->Branch("Cg2"     , &xnt2.Cg2     );
+   m_nt2->Branch("phig2"   , &xnt2.phig2   );
+   m_nt2->Branch("Pkk"     , &xnt2.Pkk     );
+   m_nt2->Branch("Ckk"     , &xnt2.Ckk     );
+   m_nt2->Branch("phikk"   , &xnt2.phikk   );
+   m_nt2->Branch("Pgg"     , &xnt2.Pgg     );
+   m_nt2->Branch("Cgg"     , &xnt2.Cgg     );
+   m_nt2->Branch("phigg"   , &xnt2.phigg   );
+   m_nt2->Branch("Pj"      , &xnt2.Pj      );
+   m_nt2->Branch("Cj"      , &xnt2.Cj      );
+   m_nt2->Branch("phij"    , &xnt2.phij    );
+   m_nt2->Branch("Mkk"     , &xnt2.Mkk     );
+   m_nt2->Branch("Mgg"     , &xnt2.Mgg     );
+   m_nt2->Branch("M2kpeta" , &xnt2.M2kpeta );
+   m_nt2->Branch("M2kmeta" , &xnt2.M2kmeta );
+   // MC
+   m_nt2->Branch("dec"     , &xnt2.dec     );
+   m_nt2->Branch("decj"    , &xnt2.decj    );
+   m_nt2->Branch("mcmkk"   , &xnt2.mcmkk   );
+   m_nt2->Branch("mcmkpet" , &xnt2.mcmkpet );
+   m_nt2->Branch("mccosT"  , &xnt2.mccosT  );
+   m_nt2->Branch("sdecp"   , &xnt2.sdecp   );
+   m_nt2->Branch("sdecj"   , &xnt2.sdecj   );
 
-   // ntuple for eta efficiency study
-   m_tuple[2] = new TNtupleD("eff_eta",
-         "eta reconstruction efficiency",
-         "Pkk:Ckk:"      // P and cos(Theta) of K+K-
-         "Peta:Ceta:"    // P and cos(Theta) of eta
-         "Eg1:Cg1:"      // E and cos(Theta) of rec gamma
-         "Eg2:Cg2:"      // E and cos(Theta) of rec gamma
-         "Egr:Cgr:"      // E and cos(Theta) of found gamma (fl>0)
-         "fl:"           // 0/1/2 - only predicted/gamma/eta-found
-         "rE:dTh:"       // predicted/found relation
-         "m2fr:m2rl:"    // final recoil M^2 predicted/found
-         "mggpr:mggf"    // mass(eta) predicted/fitted
-         ":decj"         // MC: decay codes of J/Psi
-         ":deta"         // MC: 1 if eta decay to 2 gamma
-         );
+   // Tree for eta efficiency study
+   m_nt3 = new TTree("eff_eta", "eta reconstruction efficiency");
+   m_nt3->Branch("Pkk"   , &xnt3.Pkk   );
+   m_nt3->Branch("Ckk"   , &xnt3.Ckk   );
+   m_nt3->Branch("Peta"  , &xnt3.Peta  );
+   m_nt3->Branch("Ceta"  , &xnt3.Ceta  );
+   m_nt3->Branch("Eg1"   , &xnt3.Eg1   );
+   m_nt3->Branch("Cg1"   , &xnt3.Cg1   );
+   m_nt3->Branch("Eg2"   , &xnt3.Eg2   );
+   m_nt3->Branch("Cg2"   , &xnt3.Cg2   );
+   m_nt3->Branch("Egr"   , &xnt3.Egr   );
+   m_nt3->Branch("Cgr"   , &xnt3.Cgr   );
+   m_nt3->Branch("fl"    , &xnt3.fl    );
+   m_nt3->Branch("rE"    , &xnt3.rE    );
+   m_nt3->Branch("dTh"   , &xnt3.dTh   );
+   m_nt3->Branch("m2fr"  , &xnt3.m2fr  );
+   m_nt3->Branch("m2rl"  , &xnt3.m2rl  );
+   m_nt3->Branch("mggpr" , &xnt3.mggpr );
+   m_nt3->Branch("mggf"  , &xnt3.mggf  );
+   m_nt3->Branch("decj"  , &xnt3.decj  );
+   m_nt3->Branch("deta"  , &xnt3.deta  );
+   m_nt3->Branch("sdecj" , &xnt3.sdecj );
 
    // register in selector to save in given directory
    const char* SaveDir = "PsipJpsiPhiEta";
    VecObj hsto(hst.begin(),hst.end());
    selector->RegInDir(hsto,SaveDir);
-   VecObj ntuples(m_tuple.begin(),m_tuple.end());
-   selector->RegInDir(ntuples,SaveDir);
 
-   VecObj tt;
-   tt.push_back(m_nt1);
-   selector->RegInDir(tt,SaveDir);
+   VecObj Vreg;
+   Vreg.push_back(m_nt1);
+   Vreg.push_back(m_nt2);
+   Vreg.push_back(m_nt3);
+   selector->RegInDir(Vreg,SaveDir);
 }
 
 // {{{1 getVertexOrigin()
@@ -731,18 +798,16 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    xorigin.set(0.,0.,0.);
    VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 
+#if (BOSS_VER > 700)
+   string BossVer("7.0.9");
+#else
+   string BossVer("6.6.4");
    int run = abs(runNo);
-   if (
-      (run >= 8093 && run <= 9025)  // 2009 Psi(2S)
-      ||  (run >= 9613 && run <= 9779)  // 2009 3650 data
-      ||  (run >= 33725 && run <= 33772)  // 2013 3650 data
-   ) {
-      vtxsvc->SetBossVer("6.6.4");
-   } else if (
-      (run >= 25338 && run <= 27090)  // 2012 Psi(2S)
-   ) {
-      vtxsvc->SetBossVer("6.6.4.p03");
+   if ( (run >= 25338 && run <= 27090)) {  // 2012 Psi(2S)
+      BossVer = "6.6.4.p03";
    }
+#endif
+   vtxsvc->SetBossVer(BossVer);
    vtxsvc->handle(runNo);
 
    if ( vtxsvc->isVertexValid() ) {
@@ -753,8 +818,8 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
       }
    } else {
       cout << " FATAL ERROR:"
-           " Cannot obtain vertex information for run#"
-           << runNo << endl;
+         " Cannot obtain vertex information for run#" << runNo
+         << endl;
       exit(1);
    }
 
@@ -763,9 +828,9 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
 }
 
 // {{{1 FillHistoMC()
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, Select& Slct) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -2103,54 +2168,61 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
 
    // HepLorentzVector.perp == HepLorentzVector.vect.rho
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
-   Double_t xfill[] = {
-      Slct.Mrec_best,
-      chisq, chisq_3g,
-      Ppip.rho(),  Ppip.cosTheta(),  Ppip.phi(),
-      Ppim.rho(),  Ppim.cosTheta(),  Ppim.phi(),
-      Pkp.rho(),   Pkp.cosTheta(),   Pkp.phi(),
-      Pkm.rho(),   Pkm.cosTheta(),   Pkm.phi(),
-      Pg1.e(),     Pg1.cosTheta(),   Pg1.phi(),
-      Pg2.e(),     Pg2.cosTheta(),   Pg2.phi(),
-      Pkk.rho(),   Pkk.cosTheta(),   Pkk.phi(),
-      Pgg.rho(),   Pgg.cosTheta(),   Pgg.phi(),
-      Pjpsi.rho(), Pjpsi.cosTheta(), Pjpsi.phi(),
-      Mkk, Mgg,
-      M2kpeta, M2kmeta,
-      Ppip.perp(), Ppim.perp(), Pkp.perp(), Pkm.perp(), Pgg.perp(),
-      double(Slct.decPsip), double(Slct.decJpsi),
-      Slct.mc_mkk, Slct.mc_mkpeta, Slct.mc_cosT
-   };
-//       Mrec_fit,cosPMfit,invPMfit,
-//       Mkk0, Mgg0,
-//       Pphi.cosTheta(),
-//       mang,
-//       M2kpg1,M2kpg2, M2kmg1,M2kmg2,
-   m_tuple[1]->Fill( xfill );
+   xnt2.Mrec   = Slct.Mrec_best;
+   xnt2.ch2    = chisq;
+   xnt2.chsq3g = chisq_3g;
+   xnt2.Ppip   = Ppip.rho();
+   xnt2.Cpip   = Ppip.cosTheta();
+   xnt2.phipip = Ppip.phi();
+   xnt2.Ppim   = Ppim.rho();
+   xnt2.Cpim   = Ppim.cosTheta();
+   xnt2.phipim = Ppim.phi();
+   xnt2.Pkp    = Pkp.rho();
+   xnt2.Ckp    = Pkp.cosTheta();
+   xnt2.phikp  = Pkp.phi();
+   xnt2.Pkm    = Pkm.rho();
+   xnt2.Ckm    = Pkm.cosTheta();
+   xnt2.phikm  = Pkm.phi();
+   xnt2.Eg1    = Pg1.e();
+   xnt2.Cg1    = Pg1.cosTheta();
+   xnt2.phig1  = Pg1.phi();
+   xnt2.Eg2    = Pg2.e();
+   xnt2.Cg2    = Pg2.cosTheta();
+   xnt2.phig2  = Pg2.phi();
+   xnt2.Pkk    = Pkk.rho();
+   xnt2.Ckk    = Pkk.cosTheta();
+   xnt2.phikk  = Pkk.phi();
+   xnt2.Pgg    = Pgg.rho();
+   xnt2.Cgg    = Pgg.cosTheta();
+   xnt2.phigg  = Pgg.phi();
+   xnt2.Pj     = Pjpsi.rho();
+   xnt2.Cj     = Pjpsi.cosTheta();
+   xnt2.phij   = Pjpsi.phi();
+   xnt2.Mkk    = Mkk;
+   xnt2.Mgg    = Mgg;
+   xnt2.M2kpeta = M2kpeta;
+   xnt2.M2kmeta = M2kmeta;
+   // MC
+   xnt2.dec     = Slct.decPsip;
+   xnt2.decj    = Slct.decJpsi;
+   xnt2.mcmkk   = Slct.mc_mkk;
+   xnt2.mcmkpet = Slct.mc_mkpeta;
+   xnt2.mccosT  = Slct.mc_cosT;
+   if ( isMC ) {
+      xnt2.sdecp = PsipTbl.StrDec();
+      xnt2.sdecj = JpsiTbl.StrDec();
+   }
+
+   m_nt2->Fill();
 
    if ( isMC ) {
       static const double seta = 0.008;
-
-      // fill decay table of Jpsi
-      if ( chisq < 60
-            && Mkk > 2*mk && Mkk < 1.08
-            && fabs(Mgg-meta) < 3*seta
-         ) {
-         if ( fabs(Slct.Mrec_best - 3.097) < 0.005 ) { // [3.092, 3.102]
-            JpsiTbl.Add();
-         }
-      }
-
-      if ( !do5C ) { // side-band for 4C
+      if ( !do5C ) { // 4C: debug print for side-band
          if (     (Slct.Mrec_best>3.0 && Slct.Mrec_best < 3.05)
                || (Slct.Mrec_best>3.144 && Slct.Mrec_best < 3.194) ) {
             if ( chisq < 60
                && fabs(Mgg-meta) < 3*seta
                && Mkk > 2*mk && Mkk < 1.08      ) {
-
-               // fill decay table of Psi(2S):
-               PsipTbl4C.vecdec = PsipTbl.vecdec; // propagate for 4C
-               PsipTbl4C.Add();
                cout << "<<< EVENT IN SIDE-BAND>>>"
                     << " Mrec= " << Slct.Mrec_best
                     << " Mgg= " << Mgg
@@ -2479,31 +2551,40 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
    // save momentum and angle of eta && photons in ntuple
    HepLorentzVector LVeta = LVg_min[0] + LVg_min[1];
    double Mgg_pred = LVeta.m();
-   Double_t xfill[] = {
-         LVkk.vect().mag(), LVkk.cosTheta(),
-         LVeta.vect().mag(), LVeta.cosTheta(),
-         LVg_min[0].e(), LVg_min[0].cosTheta(),
-         LVg_min[1].e(), LVg_min[1].cosTheta(),
-         LVg_min[2].e(), LVg_min[2].cosTheta(),
-         double(found),
-         rE_min,dTh_min,
-         M2fr_min, M2real_min,
-         Mgg_pred,Mgg_found,
-         double(Slct.decJpsi),
-         double(Slct.dec_eta)
-   };
-   m_tuple[2]->Fill( xfill );
 
+   xnt3.Pkk   = LVkk.vect().mag();
+   xnt3.Ckk   = LVkk.cosTheta();
+   xnt3.Peta  = LVeta.vect().mag();
+   xnt3.Ceta  = LVeta.cosTheta();
+   xnt3.Eg1   = LVg_min[0].e();
+   xnt3.Cg1   = LVg_min[0].cosTheta();
+   xnt3.Eg2   = LVg_min[1].e();
+   xnt3.Cg2   = LVg_min[1].cosTheta();
+   xnt3.Egr   = LVg_min[2].e();
+   xnt3.Cgr   = LVg_min[2].cosTheta();
+   xnt3.fl    = found;
+   xnt3.rE    = rE_min;
+   xnt3.dTh   = dTh_min;
+   xnt3.m2fr  = M2fr_min;
+   xnt3.m2rl  = M2real_min;
+   xnt3.mggpr = Mgg_pred;
+   xnt3.mggf  = Mgg_found;
+   xnt3.decj  = Slct.decJpsi;
+   xnt3.deta  = Slct.dec_eta;
    if ( isMC ) {
-      JpsiTblE.vecdec = JpsiTbl.vecdec; // propagate for Eff table
-      JpsiTblE.Add(); // save in table
-//       if ( Slct.decJpsi != 68 ) { // DEBUG
-//          cout << " CHECK-Eff: decJpsi= " << Slct.decJpsi
-//               << " JpsiTbl= :" << JpsiTbl.StrDec() << ":"
-//               << endl;
-//          selector->PrintMcDecayTree(-99,0);
-//       }
+      xnt3.sdecj = JpsiTbl.StrDec();
    }
+
+   m_nt3->Fill();
+
+   // if ( isMC ) {
+      // if ( Slct.decJpsi != 68 ) { // DEBUG
+         // cout << " CHECK-Eff: decJpsi= " << Slct.decJpsi
+            // << " JpsiTbl= :" << JpsiTbl.StrDec() << ":"
+            // << endl;
+         // selector->PrintMcDecayTree(-99,0);
+      // }
+   // }
 
 }
 
@@ -2522,8 +2603,6 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
       cout << " start " << __func__ << "()" << endl;
    }
 
-   m_abscor->AbsorptionCorrection(selector);
-
    Select Slct; // information for the current event
 
    //-----------------------------------------------------------------
@@ -2535,57 +2614,100 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
    Slct.event  = eventNo;
    hst[1]->Fill(0); // "cuts"
 
-   // define data taking period:
+   // define data taking period --------------------------------------
+   // ATTENTION: this part is calculated only once: we get constants
+   // that are the same in all events of one job
    if ( DataPeriod == 0 ) {
-      // expect one data taking period for all runs in job
+      int idx_ac = -1; // index for abscor
       int run = abs(runNo);
       if ( (run >= 8093 && run <= 9025)  ) {         // 2009 Psi(2S)
          DataPeriod = 2009;
+         idx_ac = 0;
       } else if ( (run >= 25338 && run <= 27090) ) { // 2012 Psi(2S)
          DataPeriod = 2012;
+         idx_ac = 1;
+      } else if ( (run >= 66257 && run <= 69292) ) { // 2021 Psi(2S)
+         DataPeriod = 2021;
+         idx_ac = 2;
+      } else if ( (run >= 9613 && run <= 9779) ) { // 3650 2009-data
+         DataPeriod = 3650;
+         idx_ac = 0;
+      } else if ( (run >= 33725 && run <= 33772) ) { // 3650 2012-data
+         DataPeriod = 3650;
+         idx_ac = 1;
+      } else if ( (run >= 69612 && run <= 70132) ) { // 3650 2021-data
+         DataPeriod = 3650;
+         idx_ac = 2;
       } else {
-         DataPeriod = -1;
-         cout << " WARNING: Data taking period undefined for runNo= "
+         cout << " FATAL: Data taking period undefined for runNo= "
               << runNo << endl;
-         Warning("Undefined data taking period");
+         exit(EXIT_FAILURE);
       }
-   }
+#if (BOSS_VER == 709)
+      string dir("Analysis/AbsCor/dat/00-00-41/");
+      vector<string> c3p {
+         "c3ptof2009Jpsi.txt",
+         "c3ptof2012Jpsi.txt",
+         "c3ptof2021psip.txt"
+      };
+      vector<string> evsetToF {
+         "evsetTofCorFunctionPar2009Jpsi.txt",
+         "evsetTofCorFunctionPar2012Jpsi.txt",
+         "evsetTofCorFunctionPar2021psip.txt"
+      };
+      string data_c3p = selector->AbsPath( dir+c3p[idx_ac] );
+      string cor_evsetTof = selector->AbsPath( dir+evsetToF[idx_ac] );
+      m_abscor->ReadDatac3p( data_c3p, true );
+      m_abscor->ReadCorFunpara( cor_evsetTof, true );
+#endif
+
+      isMC = (runNo < 0);
+      if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
+            ( !isMC &&
+              m_TMcEvent != 0 &&
+              !m_TMcEvent->getMcParticleCol()->IsEmpty() )
+         ) {
+         cout << " WARNING: something wrong: isMC= " << isMC
+            << " McParticles= "
+            << m_TMcEvent->getMcParticleCol()->GetEntries() << endl;
+         Warning("Incorrect number of MC particles");
+         exit(EXIT_FAILURE);
+      }
+
+      // set helix parameters corrections (helix_cor)
+      if ( isMC ) {
+         if ( make_hc && !helix_cor ) {
+            if ( DataPeriod >= 2009 && DataPeriod <= 2021 ) {
+               string period = to_string(DataPeriod) +
+#if (BOSS_VER < 700)
+                  "_v6.6.4";
+#else
+                  "_v7.0.9";
+#endif
+               helix_cor = new TrackCorrection(period);
+               const auto& w = helix_cor->Warning;
+               if ( !w.empty() ){
+                  cout << " WARNING: " << w << endl;
+                  Warning(w);
+               }
+               helix_cor->prt_table();
+            } else {
+               cout << " WARNING: no helix parameters corrections"
+                  " for DataPeriod=" << DataPeriod << endl;
+               Warning("No helix parameters corrections");
+            }
+         } // end of helix_cor
+      }
+   } // end of DataPeriod definition ---------------------------------
+
+   // call AbsCorr after reading c3p and cor_evsetTof files
+   m_abscor->AbsorptionCorrection(selector);
 
    double Ecms = 3.686; // (GeV) energy in center of mass system
+   if ( DataPeriod == 3650 ) {
+      Ecms = 3.650;
+   }
    Slct.LVcms = HepLorentzVector(Ecms*sin(beam_angle), 0, 0, Ecms);
-
-   isMC = (runNo < 0);
-   if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
-         ( !isMC &&
-           m_TMcEvent != 0 &&
-           !m_TMcEvent->getMcParticleCol()->IsEmpty() )
-      ) {
-      cout << " WARNING: something wrong: isMC= " << isMC
-         << " McParticles= "
-         << m_TMcEvent->getMcParticleCol()->GetEntries() << endl;
-      Warning("Incorrect number of MC particles");
-      return false;
-   }
-
-   // set helix_cor
-   if ( isMC ) {
-      if ( make_hc && !helix_cor && DataPeriod > 0 ) {
-         if ( DataPeriod == 2009 ) {
-            helix_cor = new TrackCorrection(0);
-         } else if ( DataPeriod == 2012 ) {
-            helix_cor = new TrackCorrection(1);
-         }
-      }
-      if ( !helix_cor ) {
-         static int nprt = 0;
-         if ( nprt < 1 ) {
-            cout << " WARNING: No helix corrections are made for MC"
-                 << endl;
-            nprt++;
-         }
-         Warning("No helix corrections are made for MC");
-      }
-   }
 
    FillHistoMC(selector,Slct); // MC histo
 
@@ -2644,36 +2766,6 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
            << PsipTbl2.ntot << " decays" << endl
            << "       size of table is " << PsipTbl2.Size() << endl;
       PsipTbl2.Print(0.1);
-      cout << "Enddecay" << endl << endl;
-
-      // FIXME: how to save cuts automatically?
-      string my_cuts(
-         " List of cuts for J/Psi -> phi eta:\n "
-         "      chisq<60 && 2*mk<Mkk<1.08 && abs(Mgg-meta)<3*seta"
-      );
-      cout << my_cuts << endl << endl;
-
-      cout << string(65,'#') << endl;
-      cout << "Decays of J/psi Main" << endl
-           << "       Mrec in [3.092, 3.102] "
-           << JpsiTbl.ntot << " decays" << endl
-           << "       size of table is " << JpsiTbl.Size() << endl;
-      JpsiTbl.Print(0.1);
-      cout << "Enddecay" << endl << endl;
-
-      cout << string(65,'#') << endl;
-      cout << "Decays of J/psi Eff Phi Eta" << endl
-           << "   reconstructed events " << JpsiTblE.ntot << endl
-           << "       size of table is " << JpsiTblE.Size() << endl;
-      JpsiTblE.Print(0.01); // do not print decays with P<0.01% of all
-      cout << "Enddecay" << endl << endl;
-
-      cout << string(65,'#') << endl;
-      cout << "Decays of Psi(2S) 4C" << endl
-           << "       Mrec in [3.00, 3.05] & [3.144, 3.194] "
-           << PsipTbl4C.ntot << " decays" << endl
-           << "       size of table is " << PsipTbl4C.Size() << endl;
-      PsipTbl4C.Print(0.01); //do not print decays with P<0.01% of all
       cout << "Enddecay" << endl << endl;
    }
 

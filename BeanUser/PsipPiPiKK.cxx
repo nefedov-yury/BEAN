@@ -1,12 +1,12 @@
-//======================================================================//
-//                                                                      //
-// PsipPiPiKK:                                                          //
-// Study of the track reconstruction efficiency for pi and K            //
-// in process:                                                          //
-//              e+ e- -> Psi(2S) -> pi+ pi- J/Psi                       //
-//                                           |-> pi+ pi- K+ K-          //
-//                                                                      //
-//======================================================================//
+//==================================================================//
+//                                                                  //
+// PsipPiPiKK:                                                      //
+// Study of the track reconstruction efficiency for pi and K        //
+// in process:                                                      //
+//              e+ e- -> Psi(2S) -> pi+ pi- J/Psi                   //
+//                                           |-> pi+ pi- K+ K-      //
+//                                                                  //
+//==================================================================//
 
 #include "DLLDefines.h"         // mandatory!
 
@@ -54,9 +54,9 @@ using CLHEP::HepLorentzVector;
 
 using namespace std;
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 // {{{1 Structure with job options
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct JobOption {
    int Hshift;                  // shift for histograms
    double Mrec_min, Mrec_max;   // Mrec(pi+pi-) range
@@ -67,17 +67,17 @@ struct JobOption {
    double M2Pisb;               // M^2(pi) side-band shift
 
    JobOption( int hshift,
-              double mrmin, double mrmax, double m2kw, double m2ksb,
-              double mimin, double mimax, double m2piw, double m2pisb ) :
+         double mrmin, double mrmax, double m2kw, double m2ksb,
+         double mimin, double mimax, double m2piw, double m2pisb ) :
       Hshift{hshift},
       Mrec_min{mrmin}, Mrec_max{mrmax}, M2Kwin{m2kw},   M2Ksb{m2ksb},
       Minv_min{mimin}, Minv_max{mimax}, M2Piwin{m2piw}, M2Pisb{m2pisb}
    {}
 };
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 // {{{1 Structure to save variables for a single event
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 struct PipPimKpKm {
    // Run-info
    int runNo;              // run-number
@@ -112,7 +112,7 @@ struct PipPimKpKm {
    // invariant masses of pi+pi-K+K- closest to M(J/Psi)
    double Minv;
    HepLorentzVector LVjpsi; // momentum of the best combination
-   vector<int> fpi;         // indexes of "free" pions (not used in LVjpsi)
+   vector<int> fpi;    // indexes of "free" pions (not used in LVjpsi
 
    PipPimKpKm() :
       decPsip{0}, decJpsi{0},
@@ -121,21 +121,21 @@ struct PipPimKpKm {
       Mrec{0.}, Minv{0.} {}
 };
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 // {{{1 Global variables
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
-static const double mpsip  = 3.686097; // 3686.097  +/- 0.025   MeV
-static const double mjpsi  = 3.096916; // 3096.916  +/- 0.011   MeV
-static const double mpi    = 0.13957;  // 139.57018 +/- 0.00035 MeV
-static const double mpi0   = 0.13498;  // 134.9766  +/- 0.0006  MeV
+static const double mpsip  = 3.68610;  // 3686.10   +/- 0.06    MeV
+static const double mjpsi  = 3.096900; // 3096.900  +/- 0.006   MeV
+static const double mpi    = 0.13957;  // 139.57039 +/- 0.00018 MeV
+static const double mpi0   = 0.13498;  // 134.9768  +/- 0.0005  MeV
 static const double meta   = 0.547862; // 547.862   +/- 0.017   MeV
 static const double momega = 0.78265;  // 782.65    +/- 0.12    MeV
 static const double mk     = 0.493677; // 493.677   +/- 0.016   MeV
 static const double mk0    = 0.497611; // 497.611   +/- 0.013   MeV
-static const double mphi   = 1.019461; //1019.461   +/- 0.019   MeV
+static const double mphi   = 1.019461; //1019.461   +/- 0.016   MeV
 
 static AbsCor* m_abscor = 0;
 static EventTagSvc* m_EventTagSvc = 0;
@@ -152,40 +152,40 @@ static map<string,int> warning_msg;
 
 // expect one data taking period for all events
 static int DataPeriod = 0;
-
-// helix corrections for MC
-static TrackCorrection* helix_cor = nullptr;
-
 static bool isMC = false;
 
-//-------------------------------------------------------------------------
+// helix corrections for MC
+static const bool make_hc = true;
+static TrackCorrection* helix_cor = nullptr;
+
+//--------------------------------------------------------------------
 // {{{1 Functions: use C-linkage names
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
 }
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static inline double RtoD(double ang) {
    return ang*180/M_PI;
 }
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static inline double SQ(double x) {
    return x*x;
 }
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static bool SelectPM(double cosPM, double invPM) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
    if ( (cosPM > 0.80) ||         // flying in one direction
@@ -197,12 +197,12 @@ static bool SelectPM(double cosPM, double invPM) {
 }
 
 // copy ReWeightTrkPid_11.h
-//----------------------------------------------------------------------
+//-----------------------------------------------------------------
 static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
-//----------------------------------------------------------------------
-// The corrections are based on production-11(helix corrections for MC).
-// They do not dependent of the sign of the particle and cos(Theta) of
-// the track. Input parameters are following.
+//-----------------------------------------------------------------
+// The corrections are based on production-11 (helix corrections
+// for MC). They do not dependent of the sign of the particle and
+// cos(Theta) of the track. Input parameters are following.
 // Kp is the type of the particle: 1 for kaon and 0 for pion.
 // Pt is the transverse momentum if the particle.
 // The return value is the weight of MC event with such a particle.
@@ -212,10 +212,14 @@ static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
    static const double K09_first = 0.922;
    static const vector<double> pi09 {0.9872,0.0243};
 
-   static const vector<double> K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
+   static const vector<double>
+      K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
    static const vector<double> pi12 {0.9851,0.032};
 
    double W = 1.;
+   if ( DataPeriod != 2009 && DataPeriod != 2012 ) {
+      return W;
+   }
 
    if ( Kp == 1 ) {             // kaons
       const double Ptmin = 0.1, Ptmax = 1.4;
@@ -263,9 +267,9 @@ static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
    return W;
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void CloneHistograms(int Hmin, int Hmax) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 // clone histograms in range [Hmin, Hmax] for all Jobs
 
    char ch = 'A'; // add underscore letter at end of cloned histogram
@@ -278,15 +282,18 @@ static void CloneHistograms(int Hmin, int Hmax) {
          int nh = ih + sh;
          if ( nh > int(hst.size()) ) {
             cout << " ERROR: CloneHistograms: nh= " << nh
-                 << " out of histo size: " << hst.size() << endl;
+               << " out of histo size: " << hst.size() << endl;
             cout << "        shift= " << sh << endl;
-            cout << "        Hrange= [" << Hmin << ", " << Hmax << "]\n";
+            cout << "        Hrange= [" << Hmin << ", " << Hmax
+               << "]\n";
             exit(1);
          }
 
          if ( hst[ih] ) {
-            string hname = string(hst[ih]->GetName()) + string("_") + ch;
-            hst[nh] = static_cast<TH1*>( hst[ih]->Clone(hname.c_str()) );
+            string hname = string(hst[ih]->GetName())
+               + string("_") + ch;
+            hst[nh] = static_cast<TH1*>(
+                  hst[ih]->Clone(hname.c_str()) );
          }
       }
       ch += 1; // next letter
@@ -294,9 +301,9 @@ static void CloneHistograms(int Hmin, int Hmax) {
 }
 
 // {{{1 StartJob, book histograms
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void PsipPiPiKKStartJob(ReadDst* selector) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
    }
@@ -320,21 +327,19 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst.resize(1000,nullptr);
    m_tuple.resize(10,nullptr);
 
-   // init Absorption Correction
+   // initialize Absorption Correction -------------------------------
    m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
 
-   // initialize EventTag
+   // initialize EventTag --------------------------------------------
    m_EventTagSvc = EventTagSvc::instance();
    if ( !m_EventTagSvc->IsInitialized() ) {
       // set paths to pdg & decayCodes files:
-      m_EventTagSvc->setPdtFile(
-         selector->AbsPath( "Analysis/EventTag/share/pdt_bean.table" )
-                               );
-      m_EventTagSvc->setDecayTabsFile(
-         selector->AbsPath(
-            "Analysis/EventTag/share/DecayCodes/dcode_charmonium.txt"
-         )                           );
-      m_EventTagSvc->setIgnorePhotons(false); // for "dcode_charmonium.txt"
+      string pdtFile("Analysis/EventTag/share/pdt_bean.table");
+      m_EventTagSvc->setPdtFile( selector->AbsPath(pdtFile) );
+      string dcFile("Analysis/EventTag/share/DecayCodes/"
+            "dcode_charmonium.txt");
+      m_EventTagSvc->setDecayTabsFile( selector->AbsPath(dcFile) );
+      m_EventTagSvc->setIgnorePhotons(false); // ignore ISR & FSR
       if ( selector->Verbose() ) {
          m_EventTagSvc->setVerbose(1);
       }
@@ -348,14 +353,15 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    m_EventTagSvc->setUserDecayTabsFile(
       selector->AbsPath( "BeanUser/mypsip_dec.codes" ) );
 
-   // We have to initialize DatabaseSvc -----------------------------------
+   // initialize DatabaseSvc -----------------------------------------
    DatabaseSvc* dbs = DatabaseSvc::instance();
    if ( (dbs->GetDBFilePath()).empty() ) {
       // set path to directory with databases:
-      dbs->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
+      dbs->SetDBFilePath(
+            selector->AbsPath("Analysis/DatabaseSvc/dat"));
    }
 
-   // We have to initialize Magnetic field --------------------------------
+   // initialize Magnetic field --------------------------------------
    MagneticFieldSvc* mf = MagneticFieldSvc::instance();
    if ( (mf->GetPath()).empty() ) {
       // set path to directory with magnetic fields tables
@@ -369,7 +375,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
       Warning("MagneticFieldSvc has already been initialized");
    }
 
-   // set path for ParticleID algorithm
+   // set path for ParticleID algorithm ------------------------------
    ParticleID* pid = ParticleID::instance();
 #if (BOSS_VER < 700)
    pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
@@ -377,7 +383,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   //--------- Book histograms --------------------------------------------
+   // Book histograms ------------------------------------------------
 
    // ChargedTracks:
    hst[1] = new TH1D("S1a_Npi","1A) N(#pi)", 10,-0.5,9.5);
@@ -393,7 +399,8 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[12] = new TH1D("S1b_Egm","1B) Eg(max)", 100,0.,1.);
    hst[13] = new TH1D("S1b_Egs","1B) Sum E(#gamma)", 100,0.,1.);
    hst[14] = new TH1D("S1b_Mg2","1B) M^2(#gamma#gamma)", 200,0.,0.04);
-   hst[19] = new TH1D("S1b_Mg2a","1B) M^2(#gamma#gamma) all", 500,0.,2.);
+   hst[19] = new TH1D("S1b_Mg2a","1B) M^2(#gamma#gamma) all",
+         500,0.,2.);
    hst[15] = new TH1D("S1b_Npi0","1B) Npi0", 10,-0.5,9.5);
 
 //    hst[16] = new TH2D("S1b_mapB","1B)barrel Z vs phi",
@@ -404,11 +411,16 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
 //                       40, 50.,90., 360,-180.,180.);
 
    // MrecPiPi:
-   hst[21] = new TH1D("S2_Mrec","2) Mrec(#pi^{+}#pi^{-})", 100,3.085,3.11);
-   hst[22] = new TH1D("S2_MrecZ","2) Mrec(#pi^{+}#pi^{-})", 100,3.,3.2);
-   hst[23] = new TH1D("S2_cos", "2) cos(Theta_pi+_pi-)", 100,-1.0,1.0);
-   hst[24] = new TH1D("S2_invM","2) Minv(pi+ pi-)", 500,0.25,0.75);
-   hst[25] = new TH1D("S2_Mrb", "2) best Mrec(pi+pi-)", 100,3.085,3.11);
+   hst[21] = new TH1D("S2_Mrec","2) Mrec(#pi^{+}#pi^{-})",
+         100,3.085,3.11);
+   hst[22] = new TH1D("S2_MrecZ","2) Mrec(#pi^{+}#pi^{-})",
+         100,3.,3.2);
+   hst[23] = new TH1D("S2_cos", "2) cos(Theta_pi+_pi-)",
+         100,-1.0,1.0);
+   hst[24] = new TH1D("S2_invM","2) Minv(pi+ pi-)",
+         500,0.25,0.75);
+   hst[25] = new TH1D("S2_Mrb", "2) best Mrec(pi+pi-)",
+         100,3.085,3.11);
 
    // KTrkRecEff:
    hst[31] = new TH1D("S3_M2K", "3) M^2rec(K)", 200,0.125,0.365);
@@ -424,29 +436,31 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[40] = new TH1D("S3_Ckm", "3) cos(#Theta) of K-", 100,-1.,1.);
 
    hst[41] = new TH2D("S3_Kp5","Pt vs cos(Theta) for K+ 5tracks",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[42] = new TH2D("S3_Km5","Pt vs cos(Theta) for K- 5tracks",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[43] = new TH2D("S3_Kp6","Pt vs cos(Theta) for K+ 6tracks",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[44] = new TH2D("S3_Km6","Pt vs cos(Theta) for K- 6tracks",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
 
    hst[45] = new TH2D("S6_Kp0","Pt vs cos(Theta) for K+ PID no",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[46] = new TH2D("S6_Km0","Pt vs cos(Theta) for K- PID no",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[47] = new TH2D("S6_Kp1","Pt vs cos(Theta) for K+ PID ok",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[48] = new TH2D("S6_Km1","Pt vs cos(Theta) for K- PID ok",
-                      18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    CloneHistograms(31, 49);
 
    // MinvPiPiKK:
    hst[51] = new TH1D("S4_MppKK", "4) M(pi+pi-K+K-)", 100,3.05,3.14);
    hst[52] = new TH1D("S4_MppKKZ","4) M(pi+pi-K+K-)", 100,3.,3.2);
-   hst[54] = new TH1D("S4_MppKKb","4) best M(pi+pi-K+K-)", 100,3.05,3.14);
-   hst[55] = new TH1D("S4_Ppi", "4) P(#pi) non J/Psi decay", 100,0.,1.0);
+   hst[54] = new TH1D("S4_MppKKb","4) best M(pi+pi-K+K-)",
+         100,3.05,3.14);
+   hst[55] = new TH1D("S4_Ppi", "4) P(#pi) non J/Psi decay",
+         100,0.,1.0);
 
    // PiTrkRecEff:
    hst[61] = new TH1D("S5_M2Pi", "5) M^2rec(#pi)", 200,-0.01,0.05);
@@ -457,85 +471,106 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
                        50,0.,20., 50,-0.1,0.1);
    hst[66] = new TH1D("S5_Ptpip","5) Pt(#pi^{+})", 100,0.,0.5);
    hst[67] = new TH1D("S5_Ptpim","5) Pt(#pi^{-})", 100,0.,0.5);
-   hst[68] = new TH1D("S5_Cpip", "5) cos(#Theta) of #pi+", 100,-1.,1.);
-   hst[69] = new TH1D("S5_Cpim", "5) cos(#Theta) of #pi-", 100,-1.,1.);
+   hst[68] = new TH1D("S5_Cpip", "5) cos(#Theta) of #pi+",
+         100,-1.,1.);
+   hst[69] = new TH1D("S5_Cpim", "5) cos(#Theta) of #pi-",
+         100,-1.,1.);
 
    hst[71] = new TH2D("S5_Pip5","Pt vs cos(Theta) for pi+ 5tracks",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[72] = new TH2D("S5_Pim5","Pt vs cos(Theta) for pi- 5tracks",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[73] = new TH2D("S5_Pip6","Pt vs cos(Theta) for pi+ 6tracks",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[74] = new TH2D("S5_Pim6","Pt vs cos(Theta) for pi- 6tracks",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
 
    hst[75] = new TH2D("S6_Pip0","Pt vs cos(Theta) for pi+ PID no",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[76] = new TH2D("S6_Pim0","Pt vs cos(Theta) for pi- PID no",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[77] = new TH2D("S6_Pip1","Pt vs cos(Theta) for pi+ PID ok",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[78] = new TH2D("S6_Pim1","Pt vs cos(Theta) for pi- PID ok",
-                      18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    CloneHistograms(61, 79);
 
    // Monte Carlo histograms:
    // FillHistoMC:
-   hst[101] = new TH1D("MC_decPsi", "dec Psi(2S) all",256,-0.5,255.5);
-   hst[105] = new TH1D("MC_decJpsi","dec J/psi all",256,-0.5,255.5);
+   hst[101] = new TH1D("MC_decPsi", "dec Psi(2S) all",
+         256,-0.5,255.5);
+   hst[105] = new TH1D("MC_decJpsi","dec J/psi all",
+         256,-0.5,255.5);
 
    // Psi(2S) -> J/Psi pi+ pi-
    hst[111] = new TH1D("MC_PsipPt", "Pt(#Psi(2S))", 100,0.,1.);
-   hst[112] = new TH1D("MC_PsipC", "cos(#Theta) of Psi(2S)", 100,-1.,1.);
+   hst[112] = new TH1D("MC_PsipC", "cos(#Theta) of Psi(2S)",
+         100,-1.,1.);
    hst[116] = new TH1D("MC_JpsiP", "P(J/#Psi)", 100,0.,1.);
    hst[117] = new TH1D("MC_JpsiPt","Pt(J/#Psi)", 100,0.,1.);
-   hst[118] = new TH1D("MC_JpsiC", "cos(#Theta) of J/#Psi", 100,-1.,1.);
+   hst[118] = new TH1D("MC_JpsiC", "cos(#Theta) of J/#Psi",
+         100,-1.,1.);
    hst[119] = new TH1D("MC_PipP", "P(#pi^{+})", 200,0.,1.);
-   hst[120] = new TH1D("MC_PipC", "cos(#Theta) of #pi^{+}", 100,-1.,1.);
+   hst[120] = new TH1D("MC_PipC", "cos(#Theta) of #pi^{+}",
+         100,-1.,1.);
    hst[121] = new TH1D("MC_PimP", "P(#pi^{-})", 200,0.,1.);
-   hst[122] = new TH1D("MC_PimC", "cos(#Theta) of #pi^{-}", 100,-1.,1.);
+   hst[122] = new TH1D("MC_PimC", "cos(#Theta) of #pi^{-}",
+         100,-1.,1.);
    hst[124] = new TH1D("MC_PgE", "E(#gamma) [-22]", 100,0.,0.2);
-   hst[125] = new TH1D("MC_PgC", "cos(#Theta) of #gamma [-22]", 100,-1.,1.);
+   hst[125] = new TH1D("MC_PgC", "cos(#Theta) of #gamma [-22]",
+         100,-1.,1.);
 
    // ISR photons
    hst[126] = new TH1D("MC_ISRE", "E(#gamma) ISR", 100,0.,0.05);
-   hst[127] = new TH1D("MC_ISRC", "cos(#Theta) of #gamma ISR", 100,-1.,1.);
+   hst[127] = new TH1D("MC_ISRC", "cos(#Theta) of #gamma ISR",
+         100,-1.,1.);
 
    // pi0 in decay chain
    hst[131] = new TH1D("MC_pi0N",  "N(#pi^{0})", 10,-0.5,9.5);
    hst[132] = new TH1D("MC_pi0dc1","pi0 dec Psi(2S)",256,-0.5,255.5);
    hst[133] = new TH1D("MC_pi0dc2","pi0 dec J/psi",256,-0.5,255.5);
-   hst[134] = new TH1D("MC_nopi0", "nopi0 dec Psi(2S)",256,-0.5,255.5);
+   hst[134] = new TH1D("MC_nopi0", "nopi0 dec Psi(2S)",
+         256,-0.5,255.5);
 
    // gamma in decay chain
    hst[141] = new TH1D("MC_gN", "N(#gamma)", 10,0.5,10.5);
    hst[142] = new TH1D("MC_gE", "E(#gamma) all", 100,0.,0.5);
    hst[143] = new TH1D("MC_gE1","E(#gamma) for 1#gamma", 100,0.,0.2);
-   hst[144] = new TH1D("MC_gC1","cos(#Theta) for 1#gamma", 100,-1.,1.);
+   hst[144] = new TH1D("MC_gC1","cos(#Theta) for 1#gamma",
+         100,-1.,1.);
 
    // Psi(2S) -> pi+ pi- pi+ pi- K+ K-
    hst[151] = new TH1D("MC_dPx","tag_ppppKK dPx", 100,-0.005,0.005);
    hst[152] = new TH1D("MC_dPy","tag_ppppKK dPy", 100,-0.005,0.005);
    hst[153] = new TH1D("MC_dPz","tag_ppppKK dPz", 100,-0.005,0.005);
-   hst[154] = new TH1D("MC_4p2kdc1", "4p2k good dec Psi(2S)",256,-0.5,255.5);
-   hst[155] = new TH1D("MC_4p2kdc2", "4p2k good dec J/psi",256,-0.5,255.5);
-   hst[156] = new TH1D("MC_4p2kdc3", "4p2k bad dec Psi(2S)",256,-0.5,255.5);
-   hst[157] = new TH1D("MC_4p2kdc4", "4p2k bad dec J/psi",256,-0.5,255.5);
+   hst[154] = new TH1D("MC_4p2kdc1", "4p2k good dec Psi(2S)",
+         256,-0.5,255.5);
+   hst[155] = new TH1D("MC_4p2kdc2", "4p2k good dec J/psi",
+         256,-0.5,255.5);
+   hst[156] = new TH1D("MC_4p2kdc3", "4p2k bad dec Psi(2S)",
+         256,-0.5,255.5);
+   hst[157] = new TH1D("MC_4p2kdc4", "4p2k bad dec J/psi",
+         256,-0.5,255.5);
 
    // 2(pi+pi-) K+K-
    hst[161] = new TH1D("MCG_Ppip","Pt of #pi^{+}", 200,0.,2.);
    hst[162] = new TH1D("MCG_Ppim","Pt of #pi^{-}", 200,0.,2.);
    hst[163] = new TH1D("MCG_Pkp", "Pt of K^{+}", 200,0.,2.);
    hst[164] = new TH1D("MCG_Pkm", "Pt of K^{-}", 200,0.,2.);
-   hst[165] = new TH1D("MCG_Cpip","cos(#Theta) of #pi^{+}", 100,-1.,1.);
-   hst[166] = new TH1D("MCG_Cpim","cos(#Theta) of #pi^{-}", 100,-1.,1.);
-   hst[167] = new TH1D("MCG_Ckp", "cos(#Theta) of K^{+}", 100,-1.,1.);
-   hst[168] = new TH1D("MCG_Ckm", "cos(#Theta) of K^{-}", 100,-1.,1.);
+   hst[165] = new TH1D("MCG_Cpip","cos(#Theta) of #pi^{+}",
+         100,-1.,1.);
+   hst[166] = new TH1D("MCG_Cpim","cos(#Theta) of #pi^{-}",
+         100,-1.,1.);
+   hst[167] = new TH1D("MCG_Ckp", "cos(#Theta) of K^{+}",
+         100,-1.,1.);
+   hst[168] = new TH1D("MCG_Ckm", "cos(#Theta) of K^{-}",
+         100,-1.,1.);
 
    // MC ChargedTracks:
    hst[201] = new TH1D("MC_1a1","1A)fin bad(0)/good(1)", 2,-0.5,1.5);
    hst[202] = new TH1D("MC_1a2","1A) dec Psi(2S)",256,-0.5,255.5);
-   hst[203] = new TH1D("MC_1a3","1A) dec J/Psi in pipiJ/Psi",256,-0.5,255.5);
+   hst[203] = new TH1D("MC_1a3","1A) dec J/Psi in pipiJ/Psi",
+         256,-0.5,255.5);
 
    // MC NeutralTracks:
    hst[211] = new TH1D("MC_NgF", "1B) Ng F", 10,-0.5,9.5);
@@ -548,27 +583,34 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[218] = new TH1D("MC_M2ggT","1B) M^2(gg) T", 200,0.,0.04);
    hst[219] = new TH1D("MC_Npi0F","1B) Npi0 F", 10,-0.5,9.5);
    hst[220] = new TH1D("MC_Npi0T","1B) Npi0 T", 10,-0.5,9.5);
-   hst[221] = new TH1D("MC_1b1","1B)pi0 rejected bad/good", 2,-0.5,1.5);
+   hst[221] = new TH1D("MC_1b1","1B)pi0 rejected bad/good",
+         2,-0.5,1.5);
    hst[222] = new TH1D("MC_1b2","1B) bad(0)/good(1)", 2,-0.5,1.5);
    hst[223] = new TH1D("MC_1b3","1B) dec Psi(2S)",256,-0.5,255.5);
-   hst[224] = new TH1D("MC_1b4","1B)dec J/Psi in pipiJ/Psi",256,-0.5,255.5);
+   hst[224] = new TH1D("MC_1b4","1B)dec J/Psi in pipiJ/Psi",
+         256,-0.5,255.5);
 
    // MC MrecPiPi:
-   hst[231] = new TH1D("MC_MrecF","2)nonpipiJ/Psi Mrec", 100,3.085,3.11);
-   hst[232] = new TH1D("MC_MrecT","2)   pipiJ/Psi Mrec", 100,3.085,3.11);
+   hst[231] = new TH1D("MC_MrecF","2)nonpipiJ/Psi Mrec",
+         100,3.085,3.11);
+   hst[232] = new TH1D("MC_MrecT","2)   pipiJ/Psi Mrec",
+         100,3.085,3.11);
 
    // MC KTrkRecEff:
    hst[241] = new TH1D("MC_M2KF", "3) M^2rec(K) F", 200,0.125,0.365);
    hst[242] = new TH1D("MC_M2KT", "3) M^2rec(K) T", 200,0.125,0.365);
    hst[243] = new TH1D("MC_dPK_F","3) #deltaP(K) F", 200,-0.2,0.2);
    hst[244] = new TH1D("MC_dPK_T","3) #deltaP(K) T", 200,-0.2,0.2);
-   hst[245] = new TH1D("MC_dThK_F","3) #delta#Theta(K) F", 100,0.,20.);
-   hst[246] = new TH1D("MC_dThK_T","3) #delta#Theta(K) T", 100,0.,20.);
+   hst[245] = new TH1D("MC_dThK_F","3) #delta#Theta(K) F",
+         100,0.,20.);
+   hst[246] = new TH1D("MC_dThK_T","3) #delta#Theta(K) T",
+         100,0.,20.);
    hst[247] = new TH2D("MC_2DK_F", "3) dP vs dTh (K) F;#Theta",
-                       50,0.,20., 50,-0.1,0.1);
+         50,0.,20., 50,-0.1,0.1);
    hst[248] = new TH2D("MC_2DK_T", "3) dP vs dTh (K) T;#Theta",
-                       50,0.,20., 50,-0.1,0.1);
-   hst[249] = new TH1D("MC_3_nm6","3) No mach for 6 tracks", 2,-0.5,1.5);
+         50,0.,20., 50,-0.1,0.1);
+   hst[249] = new TH1D("MC_3_nm6","3) No mach for 6 tracks",
+         2,-0.5,1.5);
 
    hst[251] = new TH1D("MC_3_1","3) bad(0)/good(1)", 2,-0.5,1.5);
    hst[252] = new TH1D("MC_3_2","3) dec Psi(2S)",256,-0.5,255.5);
@@ -576,34 +618,44 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[254] = new TH1D("MC_3_3T","3) dec J/psi T",256,-0.5,255.5);
 
    // re-weighted histograms for MC
-   hst[255] = new TH1D("MC_3_WK","all weights for kaons", 200, 0.9,1.1);
+   hst[255] = new TH1D("MC_3_WK","all weights for kaons",
+         200, 0.9,1.1);
    hst[256] = new TH2D("S6_Kp1W","Pt vs cos(Theta) for K+ PID ok",
-                       18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    hst[257] = new TH2D("S6_Km1W","Pt vs cos(Theta) for K- PID ok",
-                       18,-0.9,0.9, 13,0.1,1.4);
+         18,-0.9,0.9, 13,0.1,1.4);
    CloneHistograms(241, 259);
 
    // MC MinvPiPiKK:
-   hst[261] = new TH1D("MC_MppKK_F","4) M(pi+pi-K+K-) F", 100,3.05,3.14);
-   hst[262] = new TH1D("MC_MppKK_T","4) M(pi+pi-K+K-) T", 100,3.05,3.14);
-   hst[263] = new TH1D("MC_PpiF", "4) P(#pi) non J/Psi decay F", 100,0.,1.0);
-   hst[264] = new TH1D("MC_PpiT", "4) P(#pi) non J/Psi decay T", 100,0.,1.0);
+   hst[261] = new TH1D("MC_MppKK_F","4) M(pi+pi-K+K-) F",
+         100,3.05,3.14);
+   hst[262] = new TH1D("MC_MppKK_T","4) M(pi+pi-K+K-) T",
+         100,3.05,3.14);
+   hst[263] = new TH1D("MC_PpiF", "4) P(#pi) non J/Psi decay F",
+         100,0.,1.0);
+   hst[264] = new TH1D("MC_PpiT", "4) P(#pi) non J/Psi decay T",
+         100,0.,1.0);
 
    // MC PiTrkRecEff:
-   hst[271] = new TH1D("MC_M2piF", "5) M^2rec(pi) F", 200,-0.01,0.05);
-   hst[272] = new TH1D("MC_M2piT", "5) M^2rec(pi) T", 200,-0.01,0.05);
+   hst[271] = new TH1D("MC_M2piF", "5) M^2rec(pi) F",
+         200,-0.01,0.05);
+   hst[272] = new TH1D("MC_M2piT", "5) M^2rec(pi) T",
+         200,-0.01,0.05);
    hst[273] = new TH1D("MC_PplF", "5) P(#pi) lost F", 100,0.,1.0);
    hst[274] = new TH1D("MC_PplT", "5) P(#pi) lost T", 100,0.,1.0);
 
    hst[275] = new TH1D("MC_dPpi_F","5) #deltaP(pi) F", 200,-0.1,0.1);
    hst[276] = new TH1D("MC_dPpi_T","5) #deltaP(pi) T", 200,-0.1,0.1);
-   hst[277] = new TH1D("MC_dThPi_F","5) #delta#Theta(pi) F", 100,0.,20.);
-   hst[278] = new TH1D("MC_dThPi_T","5) #delta#Theta(pi) T", 100,0.,20.);
+   hst[277] = new TH1D("MC_dThPi_F","5) #delta#Theta(pi) F",
+         100,0.,20.);
+   hst[278] = new TH1D("MC_dThPi_T","5) #delta#Theta(pi) T",
+         100,0.,20.);
    hst[279] = new TH2D("MC_2DPi_F", "5) dP vs dTh (pi) F;#Theta",
-                       50,0.,20., 50,-0.1,0.1);
+         50,0.,20., 50,-0.1,0.1);
    hst[280] = new TH2D("MC_2DPi_T", "5) dP vs dTh (pi) T;#Theta",
-                       50,0.,20., 50,-0.1,0.1);
-   hst[281] = new TH1D("MC_5_nm6","5) No mach for 6 tracks", 2,-0.5,1.5);
+         50,0.,20., 50,-0.1,0.1);
+   hst[281] = new TH1D("MC_5_nm6","5) No mach for 6 tracks",
+         2,-0.5,1.5);
 
    hst[282] = new TH1D("MC_5_1","5) bad(0)/good(1)", 2,-0.5,1.5);
    hst[283] = new TH1D("MC_5_2","5) dec Psi(2S)",256,-0.5,255.5);
@@ -611,11 +663,12 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[285] = new TH1D("MC_5_3T","5) dec J/Psi T",256,-0.5,255.5);
 
    // re-weighted histograms for MC
-   hst[286] = new TH1D("MC_5_WPi","all weights for pions", 200, 0.9,1.1);
+   hst[286] = new TH1D("MC_5_WPi","all weights for pions",
+         200, 0.9,1.1);
    hst[287] = new TH2D("S6_Pip1W","Pt vs cos(Theta) for pi+ PID ok",
-                       18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    hst[288] = new TH2D("S6_Pim1W","Pt vs cos(Theta) for pi- PID ok",
-                       18,-0.9,0.9, 7,0.05,0.4);
+         18,-0.9,0.9, 7,0.05,0.4);
    CloneHistograms(271, 289);
 
 
@@ -623,24 +676,24 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
 
    // ntuples for K and pi reconstruction efficiency
    m_tuple[0] = new TNtupleD("eff_K","K reconstruction efficiency",
-                "Zk:Ptk:Ck:"      // Z, Pt and cos(Theta) of K
-                "fl:"             // 0/1/2 - only predicted/found/pidOK
-                "dP:dTh:"         // predicted/found relation
-                "Mrec:"           // recoil mass pi+pi-
-                "Mrk2:"           // recoil mass squared for predicted K
-                "Egsum:Egmax:"    // sum & max energy of photons in event
-                "good"            // MC: 1 for K+K- 2(pi+pi-)
-                            );
+         "Zk:Ptk:Ck:"      // Z, Pt and cos(Theta) of K
+         "fl:"             // 0/1/2 - only predicted/found/pidOK
+         "dP:dTh:"         // predicted/found relation
+         "Mrec:"           // recoil mass pi+pi-
+         "Mrk2:"           // recoil mass squared for predicted K
+         "Egsum:Egmax:"    // sum & max energy of photons in event
+         "good"            // MC: 1 for K+K- 2(pi+pi-)
+         );
 
    m_tuple[1] = new TNtupleD("eff_Pi","Pi reconstruction efficiency",
-                "Zpi:Ptpi:Cpi:"   // Z, Pt and cos(Theta) of pi
-                "fl:"             // 0/1/2 - only predicted/found/pidOK
-                "dP:dTh:"         // predicted/found relation
-                "MppKK:"          // invariant mass pi+pi-K+K-
-                "Mrpi2:"          // recoil mass squared for predicted Pi
-                "Egsum:Egmax:"    // sum & max energy of photons in event
-                "good"            // MC: 1 for K+K- 2(pi+pi-)
-                            );
+         "Zpi:Ptpi:Cpi:"   // Z, Pt and cos(Theta) of pi
+         "fl:"             // 0/1/2 - only predicted/found/pidOK
+         "dP:dTh:"         // predicted/found relation
+         "MppKK:"          // invariant mass pi+pi-K+K-
+         "Mrpi2:"          // recoil mass squared for predicted Pi
+         "Egsum:Egmax:"    // sum & max energy of photons in event
+         "good"            // MC: 1 for K+K- 2(pi+pi-)
+         );
 
    // register in selector to save in given directory
    const char* SaveDir = "PipPimKpKm";
@@ -648,13 +701,12 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    selector->RegInDir(hsto,SaveDir);
    VecObj ntuples(m_tuple.begin(),m_tuple.end());
    selector->RegInDir(ntuples,SaveDir);
-
 }
 
 // {{{1 getVertexOrigin()
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    static int save_runNo = 0;
    static Hep3Vector xorigin;
 
@@ -666,18 +718,16 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    xorigin.set(0.,0.,0.);
    VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 
+#if (BOSS_VER > 700)
+   string BossVer("7.0.9");
+#else
+   string BossVer("6.6.4");
    int run = abs(runNo);
-   if (
-      (run >= 8093 && run <= 9025)  // 2009 Psi(2S)
-      ||  (run >= 9613 && run <= 9779)  // 2009 3650 data
-      ||  (run >= 33725 && run <= 33772)  // 2013 3650 data
-   ) {
-      vtxsvc->SetBossVer("6.6.4");
-   } else if (
-      (run >= 25338 && run <= 27090)  // 2012 Psi(2S)
-   ) {
-      vtxsvc->SetBossVer("6.6.4.p03");
+   if ( (run >= 25338 && run <= 27090)) {  // 2012 Psi(2S)
+      BossVer = "6.6.4.p03";
    }
+#endif
+   vtxsvc->SetBossVer(BossVer);
    vtxsvc->handle(runNo);
 
    if ( vtxsvc->isVertexValid() ) {
@@ -688,7 +738,8 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
       }
    } else {
       cout << " FATAL ERROR:"
-           " Cannot obtain vertex information for run#" << runNo << endl;
+         " Cannot obtain vertex information for run#" << runNo
+         << endl;
       exit(1);
    }
 
@@ -697,9 +748,9 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
 }
 
 // {{{1 FillHistoMC()
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, PipPimKpKm& ppKK) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -783,8 +834,8 @@ static void FillHistoMC(const ReadDst* selector, PipPimKpKm& ppKK) {
       }
 
       // fill histograms only
-      if ( ppKK.decPsip == 64 ) {               // Psi(2S) -> pi+ pi- J/Psi
-         if ( p_mother == idx_psip ) {          // decays of Psi(2S)
+      if ( ppKK.decPsip == 64 ) {          // Psi(2S) -> pi+ pi- J/Psi
+         if ( p_mother == idx_psip ) {     // decays of Psi(2S)
             if ( p_pdg == 443 ) {               // J/Psi
                hst[116]->Fill(Vp.mag());
                hst[117]->Fill(Vp.rho());
@@ -899,16 +950,16 @@ static void FillHistoMC(const ReadDst* selector, PipPimKpKm& ppKK) {
 }
 
 // {{{1 1A) select pions, kaons and other charged tracks
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
 //    static const double cosTheta_max = 0.80;  // barrel only
    static const double cosTheta_max = 0.93;
 
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
-   const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
+   const TEvtRecEvent* evtRecEvent =m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
    ParticleID* pid = ParticleID::instance();
 
@@ -931,13 +982,14 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 
       HepVector a = mdcTrk->helix();
       HepSymMatrix Ea = mdcTrk->err();
-      HepPoint3D point0(0.,0.,0.);   // initial point for MDC recosntruction
+      HepPoint3D point0(0.,0.,0.);   // initial point for MDC rec.
       HepPoint3D IP(ppKK.xorig[0],ppKK.xorig[1],ppKK.xorig[2]);
       VFHelix helixip(point0,a,Ea);
       helixip.pivot(IP);
       HepVector vecipa = helixip.a();
-      double Rvxy0 = vecipa[0]; // the nearest distance to IP in xy plane
-      double Rvz0  = vecipa[3]; // ... in z direction
+      // the nearest distance to IP
+      double Rvxy0 = vecipa[0]; // in xy plane
+      double Rvz0  = vecipa[3]; // in z direction
 
       if( fabs(Rvxy0) >= Rvxy0_max ) {
          continue;
@@ -954,7 +1006,7 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       if ( !mdcKalTrk ) {
          continue;
       }
-      Hep3Vector Vkt(mdcKalTrk->px(), mdcKalTrk->py(), mdcKalTrk->pz());
+      Hep3Vector Vkt(mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz());
 
       // PID information
       pid->init();
@@ -1076,14 +1128,14 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 }
 
 // {{{1 1B) analysis of the neutral tracks
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static bool NeutralTracks(ReadDst* selector, PipPimKpKm& ppKK) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // parameters of reconstruction
    static const double min_angle = 10 * M_PI/180; // 10 grad
 
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
-   const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
+   const TEvtRecEvent* evtRecEvent =m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
 
    for ( int i = evtRecEvent->totalCharged();
@@ -1100,14 +1152,14 @@ static bool NeutralTracks(ReadDst* selector, PipPimKpKm& ppKK) {
          continue;
       }
 
-      // *) good EMC energy deposited in the barrel (endcap) part of EMC
+      // *) good EMC energy deposited in the barrel (endcap)
       double eraw = emcTrk->energy();
       double absCosTheta = fabs(  cos(emcTrk->theta()) );
 
       bool GoodCluster=false;
       if ( absCosTheta < 0.8 ) {  //barrel
          GoodCluster = eraw > 25E-3;
-      } else if ( absCosTheta > 0.85 && absCosTheta < 0.92 ) { //endcap
+      } else if ( absCosTheta > 0.85 && absCosTheta < 0.92 ) {//endcap
          GoodCluster = eraw > 50E-3;
       }
       if ( !GoodCluster ) {
@@ -1217,9 +1269,9 @@ static bool NeutralTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 }
 
 // {{{1 2) recoil masses of soft pi+ pi-
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void MrecPiPi(PipPimKpKm& ppKK) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    int Npi = ppKK.trk_Pi.size();
    if ( Npi != 4 ) {
       return;
@@ -1277,9 +1329,9 @@ static void MrecPiPi(PipPimKpKm& ppKK) {
 }
 
 // {{{1 3) Kaons track reconstruction efficiency
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if( ppKK.Mrec < job->Mrec_min || ppKK.Mrec > job->Mrec_max ) {
       return;
    }
@@ -1405,9 +1457,9 @@ static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
 }
 
 // {{{1 4) reconstruct invariant masses of pi+ pi- K+ K-
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void MinvPiPiKK(PipPimKpKm& ppKK) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    int Npi = ppKK.trk_Pi.size();
    int Nk  = ppKK.trk_K.size();
    if ( Nk != 2 ) {
@@ -1473,9 +1525,9 @@ static void MinvPiPiKK(PipPimKpKm& ppKK) {
 }
 
 // {{{1 5) Pions track reconstruction efficiency
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if( ppKK.Minv < job->Minv_min || ppKK.Minv > job->Minv_max ) {
       return;
    }
@@ -1587,7 +1639,8 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
                   double pt = ppKK.trk_Pi[j]->pxy();
                   double w  = ReWeightTrkPid(DataPeriod,0,pt);
                   hst[hs+286]->Fill(w);
-                  static_cast<TH2D*>(hst[hs+287+iz])->Fill(Cpi,Ptpi,w);
+                  static_cast<TH2D*>(hst[hs+287+iz])
+                     ->Fill(Cpi,Ptpi,w);
                   break;
                }
             }
@@ -1617,7 +1670,7 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
 }
 
 // {{{1 MAIN: Loop for each event
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 bool PsipPiPiKKEvent( ReadDst*       selector,
                       TEvtHeader*    m_TEvtHeader,
                       TDstEvent*     m_TDstEvent,
@@ -1626,63 +1679,115 @@ bool PsipPiPiKKEvent( ReadDst*       selector,
                       TTrigEvent*    m_TTrigEvent,
                       TDigiEvent*    m_TDigiEvent,
                       THltEvent*     m_THltEvent       ) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " start " << __func__ << "()" << endl;
    }
 
-   m_abscor->AbsorptionCorrection(selector);
-
    PipPimKpKm ppKK;
 
-   //----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    //-- Get event information --
-   //----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    int runNo   = m_TEvtHeader->getRunId();
    int eventNo = m_TEvtHeader->getEventId();
    ppKK.runNo  = runNo;
    ppKK.event  = eventNo;
 
-   // define data taking period:
+   // define data taking period --------------------------------------
+   // ATTENTION: this part is calculated only once: we get constants
+   // that are the same in all events of one job
    if ( DataPeriod == 0 ) {
-      // expect one data taking period for all runs in job
+      int idx_ac = -1; // index for abscor
       int run = abs(runNo);
       if ( (run >= 8093 && run <= 9025)  ) {         // 2009 Psi(2S)
          DataPeriod = 2009;
+         idx_ac = 0;
       } else if ( (run >= 25338 && run <= 27090) ) { // 2012 Psi(2S)
          DataPeriod = 2012;
+         idx_ac = 1;
+      } else if ( (run >= 66257 && run <= 69292) ) { // 2021 Psi(2S)
+         DataPeriod = 2021;
+         idx_ac = 2;
+      } else if ( (run >= 9613 && run <= 9779) ) { // 3650 2009-data
+         DataPeriod = 3650;
+         idx_ac = 0;
+      } else if ( (run >= 33725 && run <= 33772) ) { // 3650 2012-data
+         DataPeriod = 3650;
+         idx_ac = 1;
+      } else if ( (run >= 69612 && run <= 70132) ) { // 3650 2021-data
+         DataPeriod = 3650;
+         idx_ac = 2;
       } else {
-         DataPeriod = -1;
-         cout << " WARNING: Data taking period undefined for runNo= "
+         cout << " FATAL: Data taking period undefined for runNo= "
               << runNo << endl;
-         Warning("Undefined data taking period");
+         exit(EXIT_FAILURE);
       }
-   }
+#if (BOSS_VER == 709)
+      string dir("Analysis/AbsCor/dat/00-00-41/");
+      vector<string> c3p {
+         "c3ptof2009Jpsi.txt",
+         "c3ptof2012Jpsi.txt",
+         "c3ptof2021psip.txt"
+      };
+      vector<string> evsetToF {
+         "evsetTofCorFunctionPar2009Jpsi.txt",
+         "evsetTofCorFunctionPar2012Jpsi.txt",
+         "evsetTofCorFunctionPar2021psip.txt"
+      };
+      string data_c3p = selector->AbsPath( dir+c3p[idx_ac] );
+      string cor_evsetTof = selector->AbsPath( dir+evsetToF[idx_ac] );
+      m_abscor->ReadDatac3p( data_c3p, true );
+      m_abscor->ReadCorFunpara( cor_evsetTof, true );
+#endif
+
+      isMC = (runNo < 0);
+      if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
+            ( !isMC &&
+              m_TMcEvent != 0 &&
+              !m_TMcEvent->getMcParticleCol()->IsEmpty() )
+         ) {
+         cout << " WARNING: something wrong: isMC= " << isMC
+            << " McParticles= "
+            << m_TMcEvent->getMcParticleCol()->GetEntries() << endl;
+         Warning("Incorrect number of MC particles");
+         exit(EXIT_FAILURE);
+      }
+
+      // set helix parameters corrections (helix_cor)
+      if ( isMC ) {
+         if ( make_hc && !helix_cor ) {
+            if ( DataPeriod >= 2009 && DataPeriod <= 2021 ) {
+               string period = to_string(DataPeriod) +
+#if (BOSS_VER < 700)
+                  "_v6.6.4";
+#else
+                  "_v7.0.9";
+#endif
+               helix_cor = new TrackCorrection(period);
+               const auto& w = helix_cor->Warning;
+               if ( !w.empty() ){
+                  cout << " WARNING: " << w << endl;
+                  Warning(w);
+               }
+               helix_cor->prt_table();
+            } else {
+               cout << " WARNING: no helix parameters corrections"
+                  " for DataPeriod=" << DataPeriod << endl;
+               Warning("No helix parameters corrections");
+            }
+         } // end of helix_cor
+      }
+   } // end of DataPeriod definition ---------------------------------
+
+   // call AbsCorr after reading c3p and cor_evsetTof files
+   m_abscor->AbsorptionCorrection(selector);
 
    double Ecms = 3.686; // (GeV) energy in center of mass system
+   if ( DataPeriod == 3650 ) {
+      Ecms = 3.650;
+   }
    ppKK.LVcms = HepLorentzVector(Ecms*sin(beam_angle), 0, 0, Ecms);
-
-   isMC = (runNo < 0);
-   if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
-         ( !isMC &&
-           m_TMcEvent != 0 &&
-           !m_TMcEvent->getMcParticleCol()->IsEmpty() )
-      ) {
-      cout << " WARNING: something wrong: isMC= " << isMC
-           << " McParticles= " << m_TMcEvent->getMcParticleCol()->GetEntries()
-           << endl;
-      Warning("Incorrect number of MC particles");
-      return false;
-   }
-
-   // set helix_cor
-   if ( isMC && !helix_cor && DataPeriod > 0 ) {
-      if ( DataPeriod == 2009 ) {
-         helix_cor = new TrackCorrection(0);
-      } else if ( DataPeriod == 2012 ) {
-         helix_cor = new TrackCorrection(1);
-      }
-   }
 
    FillHistoMC(selector,ppKK); // MC histo
 
@@ -1711,9 +1816,9 @@ bool PsipPiPiKKEvent( ReadDst*       selector,
 }
 
 // {{{1 EndJob
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void PsipPiPiKKEndJob(ReadDst* selector) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << __func__ << "()" << endl;
    }
@@ -1724,13 +1829,14 @@ void PsipPiPiKKEndJob(ReadDst* selector) {
       cout << " There are no warnings in " << module << endl;
    } else {
       cout << " Check output for WARNINGS in " << module << endl;
-      for(auto it = warning_msg.begin(); it != warning_msg.end(); ++it) {
+      for(auto it = warning_msg.begin();
+            it != warning_msg.end(); ++it) {
          cout << it->first << " : " << it->second << endl;
       }
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif

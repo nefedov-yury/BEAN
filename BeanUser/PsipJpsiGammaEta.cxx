@@ -1,12 +1,12 @@
-//======================================================================//
-//                                                                      //
-// PsipJpsiGammaEta:                                                    //
-// Study of the eta (eta->2photons) detection efficiency in process:    //
-// e+ e- -> Psi(2S) -> pi+ pi- J/Psi                                    //
-//                             |-> gamma  eta                           //
-//                                         |-> 2gamma                   //
-//                                                                      //
-//======================================================================//
+//==================================================================//
+//                                                                  //
+// PsipJpsiGammaEta:                                                //
+// Study of the eta->2gammas detection efficiency in process:       //
+// e+ e- -> Psi(2S) -> pi+ pi- J/Psi                                //
+//                             |-> gamma  eta                       //
+//                                         |-> 2gamma               //
+//                                                                  //
+//==================================================================//
 
 #include "DLLDefines.h"         // mandatory!
 
@@ -49,15 +49,16 @@ using CLHEP::HepLorentzVector;
 #include "MagneticField/MagneticFieldSvc.h"
 #include "EventTag/EventTagSvc.h"
 #include "EventTag/DecayTable.h"
+#include "TrackCorrection/TrackCorrection.h"
 
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
 
 using namespace std;
 
-//-------------------------------------------------------------------------
-// Structure to save variables for a single event
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+// {{{1 Structure to save variables for a single event
+//--------------------------------------------------------------------
 struct PimPipGammas {
    // Run-info:
    int runNo;              // run-number
@@ -95,22 +96,22 @@ struct PimPipGammas {
    }
 };
 
-//-------------------------------------------------------------------------
-// Global variables
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+// {{{1 Global variables
+//--------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
 
 // masses of particles (GeV)           from PDG:
-static const double mpsip  = 3.686097; // 3686.097  +/- 0.025   MeV
-static const double mjpsi  = 3.096916; // 3096.916  +/- 0.011   MeV
-static const double mpi    = 0.13957;  // 139.57018 +/- 0.00035 MeV
-static const double mpi0   = 0.13498;  // 134.9766  +/- 0.0006  MeV
+static const double mpsip  = 3.68610;  // 3686.10   +/- 0.06    MeV
+static const double mjpsi  = 3.096900; // 3096.900  +/- 0.006   MeV
+static const double mpi    = 0.13957;  // 139.57039 +/- 0.00018 MeV
+static const double mpi0   = 0.13498;  // 134.9768  +/- 0.0005  MeV
 static const double meta   = 0.547862; // 547.862   +/- 0.017   MeV
 static const double momega = 0.78265;  // 782.65    +/- 0.12    MeV
 static const double mk     = 0.493677; // 493.677   +/- 0.016   MeV
 static const double mk0    = 0.497611; // 497.611   +/- 0.013   MeV
-static const double mphi   = 1.019461; //1019.461   +/- 0.019   MeV
-static const double Mn     = 0.939565; // 939.5654133 +/- 0.0000058 MeV
+static const double mphi   = 1.019461; //1019.461   +/- 0.016   MeV
+static const double Mn     = 0.939565; // 939.5654133+/-0.0000058 MeV
 
 static AbsCor* m_abscor = 0;
 static EventTagSvc* m_EventTagSvc = 0;
@@ -127,37 +128,40 @@ static map<string,int> warning_msg;
 
 // expect one data taking period for all events
 static int DataPeriod = 0;
-
 static bool isMC = false;
 
-//-------------------------------------------------------------------------
-// Functions: use C-linkage names
-//-------------------------------------------------------------------------
+// helix corrections for MC
+static const bool make_hc = true;
+static TrackCorrection* helix_cor = nullptr;
+
+//--------------------------------------------------------------------
+// {{{1 Functions: use C-linkage names
+//--------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
 }
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static inline double RtoD(double ang) {
    return ang*180/M_PI;
 }
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static inline double SQ(double x) {
    return x*x;
 }
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static bool SelectPM(double cosPM, double invPM) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
    if ( (cosPM > 0.80) ||         // flying in one direction
@@ -168,9 +172,10 @@ static bool SelectPM(double cosPM, double invPM) {
    return ret;
 }
 
-//-------------------------------------------------------------------------
+// {{{1 StartJob, book histograms
+//--------------------------------------------------------------------
 void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
    }
@@ -178,21 +183,19 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst.resize(300,nullptr);
    m_tuple.resize(5,nullptr);
 
-   // init Absorption Correction
+   // initialize Absorption Correction -------------------------------
    m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
 
-   // initialize EventTag
+   // initialize EventTag --------------------------------------------
    m_EventTagSvc = EventTagSvc::instance();
    if ( !m_EventTagSvc->IsInitialized() ) {
       // set paths to pdg & decayCodes files:
-      m_EventTagSvc->setPdtFile(
-         selector->AbsPath( "Analysis/EventTag/share/pdt_bean.table" )
-                               );
-      m_EventTagSvc->setDecayTabsFile(
-         selector->AbsPath(
-            "Analysis/EventTag/share/DecayCodes/dcode_charmonium.txt"
-         )                           );
-      m_EventTagSvc->setIgnorePhotons(false); // for "dcode_charmonium.txt"
+      string pdtFile("Analysis/EventTag/share/pdt_bean.table");
+      m_EventTagSvc->setPdtFile( selector->AbsPath(pdtFile) );
+      string dcFile("Analysis/EventTag/share/DecayCodes/"
+            "dcode_charmonium.txt");
+      m_EventTagSvc->setDecayTabsFile( selector->AbsPath(dcFile) );
+      m_EventTagSvc->setIgnorePhotons(false); // ignore ISR & FSR
       if ( selector->Verbose() ) {
          m_EventTagSvc->setVerbose(1);
       }
@@ -203,14 +206,15 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
       Warning("EventTagSvc has already been initialized");
    }
 
-   // We have to initialize DatabaseSvc -----------------------------------
+   // initialize DatabaseSvc -----------------------------------------
    DatabaseSvc* dbs = DatabaseSvc::instance();
    if ( (dbs->GetDBFilePath()).empty() ) {
       // set path to directory with databases:
-      dbs->SetDBFilePath(selector->AbsPath("Analysis/DatabaseSvc/dat"));
+      dbs->SetDBFilePath(
+            selector->AbsPath("Analysis/DatabaseSvc/dat"));
    }
 
-   // We have to initialize Magnetic field --------------------------------
+   // initialize Magnetic field --------------------------------------
    MagneticFieldSvc* mf = MagneticFieldSvc::instance();
    if ( (mf->GetPath()).empty() ) {
       // set path to directory with magnetic fields tables
@@ -220,11 +224,11 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    } else {
       cout << " WARNING:"
            << " MagneticFieldSvc has already been initialized" << endl
-           << "                         path = " << mf->GetPath() << endl;
+           << "          path = " << mf->GetPath() << endl;
       Warning("MagneticFieldSvc has already been initialized");
    }
 
-   // set path for ParticleID algorithm
+   // set path for ParticleID algorithm ------------------------------
    ParticleID* pid = ParticleID::instance();
 #if (BOSS_VER < 700)
    pid->set_path(selector->AbsPath("Analysis/ParticleID_boss6"));
@@ -232,7 +236,7 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    pid->set_path(selector->AbsPath("Analysis/ParticleID"));
 #endif
 
-   //--------- Book histograms --------------------------------------------
+   // Book histograms ------------------------------------------------
 
    hst[1] = new TH1D("All_cuts","selections cuts", 20,-0.5,19.5);
 
@@ -242,8 +246,10 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[13] = new TH1D("cos_theta","cos(#theta)", 200,-1.,1.);
    hst[14] = new TH1D("theta","#theta", 180,0.,180.);
    hst[15] = new TH1D("Pid_clpi","lg(CL_{#pi})", 100,-4.,0.);
-   hst[16] = new TH1D("Pid_ispi","1 - #pi, 0 - another particle", 2,-0.5,1.5);
-   hst[17] = new TH1D("noKalTrk", "0,1 - no/yes mdcKalTrk", 2,-0.5,1.5);
+   hst[16] = new TH1D("Pid_ispi","1 - #pi, 0 - another particle",
+         2,-0.5,1.5);
+   hst[17] = new TH1D("noKalTrk", "0,1 - no/yes mdcKalTrk",
+         2,-0.5,1.5);
    hst[18] = new TH1D("pi_QP","Charged momentum (Q*P)", 200,-1.,1.);
    hst[19] = new TH1D("pi_ct","soft pions cos(#theta)", 200,-1.,1.);
 
@@ -266,20 +272,23 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[46] = new TH1D("Pim_C","cos #Theta(#pi-)", 200,-1.0,1.0);
 
    // NeutralTracks:
-   hst[51] = new TH1D("n_ang","angle with closest chg.trk", 180,0.,180.);
+   hst[51] = new TH1D("n_ang","angle with closest chg.trk",
+         180,0.,180.);
    hst[52] = new TH1D("n_Ng","N_{#gamma} in event", 11,-0.5,10.5);
    hst[53] = new TH1D("n_Eg","E_{#gamma}", 200,0.,2.);
 
    // search for "hot" chanels in EMC
    hst[55] = new TH2D("mapB","3) barrel Z vs phi",
-                      270,-135.,+135., 360,-180.,180.);
+         270,-135.,+135., 360,-180.,180.);
    hst[56] = new TH2D("mapC1","3) endcap Z<0 rho vs phi",
-                      40, 50.,90., 360,-180.,180.);
+         40, 50.,90., 360,-180.,180.);
    hst[57] = new TH2D("mapC2","3) endcap Z>0 rho vs phi",
-                      40, 50.,90., 360,-180.,180.);
+         40, 50.,90., 360,-180.,180.);
 
-   hst[61] = new TH1D("Mrg2","M^{2}rec(#pi+,#pi-,#gamma)",200,-0.2,0.8);
-   hst[62] = new TH1D("Eg_jpsi","E#gamma in J/#Psi rest.sys.", 100,1.,2.);
+   hst[61] = new TH1D("Mrg2","M^{2}rec(#pi+,#pi-,#gamma)",
+         200,-0.2,0.8);
+   hst[62] = new TH1D("Eg_jpsi","E#gamma in J/#Psi rest.sys.",
+         100,1.,2.);
    hst[63] = new TH1D("Ngj","N#gamma selected", 5,-0.5,4.5);
 
    hst[71] = new TH1D("Mg2_pi0","M^2(#gamma#gamma)", 200,0.,0.04);
@@ -292,7 +301,7 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[85] = new TH1D("rE","Eg(pred)/Eg(rec)", 250,0.,2.5);
    hst[86] = new TH1D("dTh","#delta#Theta (pred-rec)", 100,0.,20.);
    hst[87] = new TH2D("mch2D","ratE vs dTheta;#Theta",
-                      50,0.,20.,50,0.5,2.0);
+         50,0.,20.,50,0.5,2.0);
 
    hst[91] = new TH1D("M2rl_min","M^2(real) min", 200,-0.02,0.02);
    hst[92] = new TH1D("Mgg2_rl","M^{2}(2#gamma) real", 200,0.,0.6);
@@ -315,122 +324,167 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[109] = new TH1D("mc_dcj5", "dec J/psi cut#5",300,-0.5,299.5);
 
    // FillHistoMC:
-   hst[111] = new TH1D("mc_pdg", "PDG codes of all particles",
-                       2001,-1000.5,1000.5);
-   hst[112] = new TH1D("mc_pdg0", "PDG of particles from primary vertex",
-                       2001,-1000.5,1000.5);
+   hst[111] = new TH1D("mc_pdg",
+         "PDG codes of all particles", 2001,-1000.5,1000.5);
+   hst[112] = new TH1D("mc_pdg0",
+         "PDG of particles from primary vertex", 2001,-1000.5,1000.5);
 
    hst[121] = new TH1D("mc_PsipPt", "Pt of #Psi(2S)", 100,0.,1.);
-   hst[122] = new TH1D("mc_PsipC", "cos(#Theta) of Psi(2S)", 100,-1.,1.);
+   hst[122] = new TH1D("mc_PsipC", "cos(#Theta) of Psi(2S)",
+         100,-1.,1.);
 
    hst[123] = new TH1D("mc_JpsiP", "Momentum of J/#Psi", 100,0.,1.);
    hst[124] = new TH1D("mc_JpsiPt","Pt of J/#Psi", 100,0.,1.);
-   hst[125] = new TH1D("mc_JpsiC", "cos(#Theta) of J/#Psi", 100,-1.,1.);
+   hst[125] = new TH1D("mc_JpsiC", "cos(#Theta) of J/#Psi",
+         100,-1.,1.);
 
    hst[126] = new TH1D("mc_PipP", "Momentum of #pi^{+}", 100,0.,1.);
-   hst[127] = new TH1D("mc_PipC", "cos(#Theta) of #pi^{+}", 100,-1.,1.);
+   hst[127] = new TH1D("mc_PipC", "cos(#Theta) of #pi^{+}",
+         100,-1.,1.);
    hst[128] = new TH1D("mc_PimP", "Momentum of #pi^{-}", 100,0.,1.);
-   hst[129] = new TH1D("mc_PimC", "cos(#Theta) of #pi^{-}", 100,-1.,1.);
+   hst[129] = new TH1D("mc_PimC", "cos(#Theta) of #pi^{-}",
+         100,-1.,1.);
 
    hst[131] = new TH1D("mc_EtaP", "Momentum of #eta", 100,1.,2.);
    hst[132] = new TH1D("mc_EtaC", "cos(#Theta) of #eta", 100,-1.,1.);
    hst[133] = new TH1D("mc_GamE", "E(#gamma)", 100,1.,2.);
-   hst[134] = new TH1D("mc_GamC", "cos(#Theta) of #gamma", 100,-1.,1.);
+   hst[134] = new TH1D("mc_GamC", "cos(#Theta) of #gamma",
+         100,-1.,1.);
 
-   hst[135] = new TH1D("mc_EtaPrc", "P(#eta) in J/#Psi RS", 100,1.4,1.6);
-   hst[136] = new TH1D("mc_EtaCrc", "cos(#eta) in J/#Psi RS", 100,-1.,1.);
-   hst[137] = new TH1D("mc_GamPrc", "P(#gamma) in J/#Psi RS", 100,1.4,1.6);
-   hst[138] = new TH1D("mc_GamCrc", "cos(#gamma) in J/#Psi RS", 100,-1.,1.);
+   hst[135] = new TH1D("mc_EtaPrc", "P(#eta) in J/#Psi RS",
+         100,1.4,1.6);
+   hst[136] = new TH1D("mc_EtaCrc", "cos(#eta) in J/#Psi RS",
+         100,-1.,1.);
+   hst[137] = new TH1D("mc_GamPrc", "P(#gamma) in J/#Psi RS",
+         100,1.4,1.6);
+   hst[138] = new TH1D("mc_GamCrc", "cos(#gamma) in J/#Psi RS",
+         100,-1.,1.);
    hst[139] = new TH1D("mc_A_EtaG",
          "angle(#eta,#gamma) in J/#Psi RS", 100,179.005,181.005);
-   hst[140] = new TH1D("mc_GamEtaE","E(#gamma) from #eta decay", 200,0.,2.);
-   hst[141] = new TH1D("mc_GamEtaEirc","E(g) from #eta dec. RS", 200,0.,2.);
+   hst[140] = new TH1D("mc_GamEtaE","E(#gamma) from #eta decay",
+         200,0.,2.);
+   hst[141] = new TH1D("mc_GamEtaEirc","E(g) from #eta dec. RS",
+         200,0.,2.);
    hst[142] = new TH1D("mc_GamEtaAng","Angle(g1,g2)", 180,0.,180.);
 
    // MC ChargedTracks:
-   hst[151] = new TH1D("mc_dPjpsi","dP(J/#Psi) mc-rec", 100,-0.1,0.1);
-   hst[152] = new TH1D("mc_dAjpsi","dAngle(J/#Psi) mc-rec",100,0.,0.2);
+   hst[151] = new TH1D("mc_dPjpsi","dP(J/#Psi) mc-rec",
+         100,-0.1,0.1);
+   hst[152] = new TH1D("mc_dAjpsi","dAngle(J/#Psi) mc-rec",
+         100,0.,0.2);
 
    // MatchGammaMC:
-   hst[161] = new TH1D("mc_dPx_g","MC-REC dPx #gamma", 120,-0.06,0.06);
-   hst[162] = new TH1D("mc_dPy_g","MC-REC dPy #gamma", 120,-0.06,0.06);
-   hst[163] = new TH1D("mc_dPz_g","MC-REC dPz #gamma", 120,-0.06,0.06);
-   hst[164] = new TH1D("mc_dPa_g","MC-REC dAngle #gamma", 100,0.,0.1);
-//    hst[165] = new TH1D("mc_dEm_g","MC-REC min dE #gamma", 200,-0.1,0.1);
+   hst[161] = new TH1D("mc_dPx_g","MC-REC dPx #gamma",
+         120,-0.06,0.06);
+   hst[162] = new TH1D("mc_dPy_g","MC-REC dPy #gamma",
+         120,-0.06,0.06);
+   hst[163] = new TH1D("mc_dPz_g","MC-REC dPz #gamma",
+         120,-0.06,0.06);
+   hst[164] = new TH1D("mc_dPa_g","MC-REC dAngle #gamma",
+         100,0.,0.1);
+   // hst[165] = new TH1D("mc_dEm_g","MC-REC min dE #gamma",
+         // 200,-0.1,0.1);
    hst[166] = new TH1D("mc_dEg","dE(#gamma) mc-rec", 100,-0.2,0.2);
    hst[167] = new TH1D("mc_dAg","dAngle(#gamma) mc-rec",100,0.,0.1);
    hst[168] = new TH1D("mc_EgF","no MC-REC E(#gamma) ", 100,1.,2.);
    hst[169] = new TH1D("mc_CgF","no MC-REC cos(#gamma)",100,-1.,1.);
 
    // MC NeutralTracks:
-   hst[171] = new TH1D("mcMrg2T","M^{2}rec(#pi+,#pi-,#gamma) T", 200,-.2,.8);
-   hst[172] = new TH1D("mcMrg2F","M^{2}rec(#pi+,#pi-,#gamma) F", 200,-.2,.8);
-   hst[173] = new TH1D("mcMrg2TT","M^{2}rec(#pi+,#pi-,#gamma) TT",200,-.2,.8);
-   hst[174] = new TH1D("mcMrg2TE","M^{2}rec(#pi+,#pi-,#gamma) TE",200,-.2,.8);
-   hst[176] = new TH1D("mcEg_jpsiT","E#gamma in J/#Psi RS T", 100,1.,2.);
-   hst[177] = new TH1D("mcEg_jpsiF","E#gamma in J/#Psi RS F", 100,1.,2.);
-   hst[178] = new TH1D("mcEg_jpsiTT","E#gamma in J/#Psi RS TT",100,1.,2.);
-   hst[179] = new TH1D("mcEg_jpsiTF","E#gamma in J/#Psi RS TF",100,1.,2.);
+   hst[171] = new TH1D("mcMrg2T","M^{2}rec(#pi+,#pi-,#gamma) T",
+         200,-.2,.8);
+   hst[172] = new TH1D("mcMrg2F","M^{2}rec(#pi+,#pi-,#gamma) F",
+         200,-.2,.8);
+   hst[173] = new TH1D("mcMrg2TT","M^{2}rec(#pi+,#pi-,#gamma) TT",
+         200,-.2,.8);
+   hst[174] = new TH1D("mcMrg2TE","M^{2}rec(#pi+,#pi-,#gamma) TE",
+         200,-.2,.8);
+   hst[176] = new TH1D("mcEg_jpsiT","E#gamma in J/#Psi RS T",
+         100,1.,2.);
+   hst[177] = new TH1D("mcEg_jpsiF","E#gamma in J/#Psi RS F",
+         100,1.,2.);
+   hst[178] = new TH1D("mcEg_jpsiTT","E#gamma in J/#Psi RS TT",
+         100,1.,2.);
+   hst[179] = new TH1D("mcEg_jpsiTF","E#gamma in J/#Psi RS TF",
+         100,1.,2.);
 
-   hst[181] = new TH1D("mcEg_jpsiST","E#gamma in J/#Psi RS ST", 100,1.3,1.7);
-   hst[182] = new TH1D("mcEg_jpsiSF","E#gamma in J/#Psi RS SF", 100,1.3,1.7);
+   hst[181] = new TH1D("mcEg_jpsiST","E#gamma in J/#Psi RS ST",
+         100,1.3,1.7);
+   hst[182] = new TH1D("mcEg_jpsiSF","E#gamma in J/#Psi RS SF",
+         100,1.3,1.7);
    hst[185] = new TH1D("mcNgjT","N#gamma selected T", 5,-0.5,4.5);
    hst[186] = new TH1D("mcNgjF","N#gamma selected F", 5,-0.5,4.5);
    hst[187] = new TH1D("mcNgjTT","N#gamma selected TT", 5,-0.5,4.5);
 
-   hst[191] = new TH1D("mcMg2_pi0T","M^2(#gamma#gamma) T", 200,0.,0.04);
-   hst[192] = new TH1D("mcMg2_pi0F","M^2(#gamma#gamma) F", 200,0.,0.04);
-   hst[193] = new TH1D("mcMg2_pi0TE","M^2(#gamma#gamma) TE", 200,0.,0.04);
+   hst[191] = new TH1D("mcMg2_pi0T","M^2(#gamma#gamma) T",
+         200,0.,0.04);
+   hst[192] = new TH1D("mcMg2_pi0F","M^2(#gamma#gamma) F",
+         200,0.,0.04);
+   hst[193] = new TH1D("mcMg2_pi0TE","M^2(#gamma#gamma) TE",
+         200,0.,0.04);
 
-   hst[195] = new TH1D("mc_dcjPi0", "dec J/psi Npi0>0",300,-0.5,299.5);
+   hst[195] = new TH1D("mc_dcjPi0", "dec J/psi Npi0>0",
+         300,-0.5,299.5);
    hst[196] = new TH1D("mcNpi0T","N(#pi^{0}) T", 5,-0.5,4.5);
    hst[197] = new TH1D("mcNpi0F","N(#pi^{0}) F", 5,-0.5,4.5);
    hst[198] = new TH1D("mcNpi0TE","N(#pi^{0}) TE", 5,-0.5,4.5);
 
    // MC EtaEff:
-   hst[201] = new TH1D("mcMgg2_aT","M^{2}(2#gamma) all T", 200,0.,0.6);
-   hst[202] = new TH1D("mcMgg2_aTT","M^{2}(2#gamma) all TT", 200,0.,0.6);
-   hst[203] = new TH1D("mcMgg2_aF","M^{2}(2#gamma) all F", 200,0.,0.6);
-   hst[204] = new TH1D("mcMgg2_aTE","M^{2}(2#gamma) all TE", 200,0.,0.6);
-   hst[205] = new TH1D("mcM2fr_minT","M^2(fr) minimal T", 100,0.,0.02);
-   hst[206] = new TH1D("mcM2fr_minTT","M^2(fr) minimal TT", 100,0.,0.02);
-   hst[207] = new TH1D("mcM2fr_minF","M^2(fr) minimal F", 100,0.,0.02);
-   hst[208] = new TH1D("mcM2fr_minTE","M^2(fr) minimal TE", 100,0.,0.02);
+   hst[201] = new TH1D("mcMgg2_aT","M^{2}(2#gamma) all T",
+         200,0.,0.6);
+   hst[202] = new TH1D("mcMgg2_aTT","M^{2}(2#gamma) all TT",
+         200,0.,0.6);
+   hst[203] = new TH1D("mcMgg2_aF","M^{2}(2#gamma) all F",
+         200,0.,0.6);
+   hst[204] = new TH1D("mcMgg2_aTE","M^{2}(2#gamma) all TE",
+         200,0.,0.6);
+   hst[205] = new TH1D("mcM2fr_minT","M^2(fr) minimal T",
+         100,0.,0.02);
+   hst[206] = new TH1D("mcM2fr_minTT","M^2(fr) minimal TT",
+         100,0.,0.02);
+   hst[207] = new TH1D("mcM2fr_minF","M^2(fr) minimal F",
+         100,0.,0.02);
+   hst[208] = new TH1D("mcM2fr_minTE","M^2(fr) minimal TE",
+         100,0.,0.02);
 
    hst[211] = new TH1D("mcrET","Eg(pred)/Eg(rec) T", 250,0.,2.5);
-   hst[212] = new TH1D("mcdThT","#delta#Theta (pred-rec) T",100,0.,20.);
+   hst[212] = new TH1D("mcdThT","#delta#Theta (pred-rec) T",
+         100,0.,20.);
    hst[213] = new TH1D("mcrEF","Eg(pred)/Eg(rec) F", 250,0.,2.5);
-   hst[214] = new TH1D("mcdThF","#delta#Theta (pred-rec) F",100,0.,20.);
+   hst[214] = new TH1D("mcdThF","#delta#Theta (pred-rec) F",
+         100,0.,20.);
    hst[215] = new TH2D("mc_2DT","ratE vs dTheta T;#Theta",
-                      50,0.,20.,50,0.5,2.0);
+         50,0.,20.,50,0.5,2.0);
    hst[216] = new TH2D("mc_2DF","ratE vs dTheta F;#Theta",
-                      50,0.,20.,50,0.5,2.0);
+         50,0.,20.,50,0.5,2.0);
 
    hst[221] = new TH1D("mcM2rl_minT","M^2(real) T", 200,-0.02,0.02);
    hst[222] = new TH1D("mcM2rl_minTT","M^2(real) TT", 200,-0.02,0.02);
    hst[223] = new TH1D("mcM2rl_minF","M^2(real) F", 200,-0.02,0.02);
-   hst[224] = new TH1D("mcMgg2_rlT","M^{2}(2#gamma) real T", 200,0.,0.6);
-   hst[225] = new TH1D("mcMgg2_rlTT","M^{2}(2#gamma) real TT", 200,0.,0.6);
-   hst[226] = new TH1D("mcMgg2_rlF","M^{2}(2#gamma) real F", 200,0.,0.6);
+   hst[224] = new TH1D("mcMgg2_rlT","M^{2}(2#gamma) real T",
+         200,0.,0.6);
+   hst[225] = new TH1D("mcMgg2_rlTT","M^{2}(2#gamma) real TT",
+         200,0.,0.6);
+   hst[226] = new TH1D("mcMgg2_rlF","M^{2}(2#gamma) real F",
+         200,0.,0.6);
    hst[228] = new TH1D("mcMgg_fitT","M(2#gamma) fit T", 100,0.5,0.6);
    hst[229] = new TH1D("mcMgg_fitF","M(2#gamma) fit F", 100,0.5,0.6);
 
 
    // ntuple for eta efficiency study
-   m_tuple[0] = new TNtupleD("eff_eta","eta reconstruction efficiency",
-                "Eg0:Cg0:"      // E and cos(Theta) of separated gamma
-                "Peta:Ceta:"    // P and cos(Theta) of eta
-                "Eg1:Cg1:"      // E and cos(Theta) of rec gamma
-                "Eg2:Cg2:"      // E and cos(Theta) of predicted gamma
-                "Egr:Cgr:"      // E and cos(Theta) of found gamma (fl>0)
-                "fl:"           // 0/1/2 - only predicted/gamma/eta-found
-                "rE:dTh:"       // predicted/found relation
-                "m2fr:m2rl:"    // total recoil mass^2 predicted/found
-                "mggpr:mggf:"   // mass(eta) predicted/fitted
-                "decj"          // MC: decay codes of J/Psi
-                ":dgam"         // MC: 1 if gamma from J/Psi decay
-                ":deta"         // MC: 1 if eta decay to 2 gamma
-                            );
+   m_tuple[0]= new TNtupleD("eff_eta","eta reconstruction efficiency",
+         "Eg0:Cg0:"      // E and cos(Theta) of separated gamma
+         "Peta:Ceta:"    // P and cos(Theta) of eta
+         "Eg1:Cg1:"      // E and cos(Theta) of rec gamma
+         "Eg2:Cg2:"      // E and cos(Theta) of predicted gamma
+         "Egr:Cgr:"      // E and cos(Theta) of found gamma (fl>0)
+         "fl:"           // 0/1/2 - only predicted/gamma/eta-found
+         "rE:dTh:"       // predicted/found relation
+         "m2fr:m2rl:"    // total recoil mass^2 predicted/found
+         "mggpr:mggf:"   // mass(eta) predicted/fitted
+         "decj"          // MC: decay codes of J/Psi
+         ":dgam"         // MC: 1 if gamma from J/Psi decay
+         ":deta"         // MC: 1 if eta decay to 2 gamma
+         );
 
    // register in selector to save in given directory
    const char* SaveDir = "PsipJpsiGammaEta";
@@ -438,12 +492,12 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    selector->RegInDir(hsto,SaveDir);
    VecObj ntuples(m_tuple.begin(),m_tuple.end());
    selector->RegInDir(ntuples,SaveDir);
-
 }
 
-//-------------------------------------------------------------------------
+// {{{1 getVertexOrigin()
+//--------------------------------------------------------------------
 static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    static int save_runNo = 0;
    static Hep3Vector xorigin;
 
@@ -455,18 +509,16 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    xorigin.set(0.,0.,0.);
    VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 
+#if (BOSS_VER > 700)
+   string BossVer("7.0.9");
+#else
+   string BossVer("6.6.4");
    int run = abs(runNo);
-   if (
-      (run >= 8093 && run <= 9025)  // 2009 Psi(2S)
-      ||  (run >= 9613 && run <= 9779)  // 2009 3650 data
-      ||  (run >= 33725 && run <= 33772)  // 2013 3650 data
-   ) {
-      vtxsvc->SetBossVer("6.6.4");
-   } else if (
-      (run >= 25338 && run <= 27090)  // 2012 Psi(2S)
-   ) {
-      vtxsvc->SetBossVer("6.6.4.p03");
+   if ( (run >= 25338 && run <= 27090)) {  // 2012 Psi(2S)
+      BossVer = "6.6.4.p03";
    }
+#endif
+   vtxsvc->SetBossVer(BossVer);
    vtxsvc->handle(runNo);
 
    if ( vtxsvc->isVertexValid() ) {
@@ -477,7 +529,8 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
       }
    } else {
       cout << " FATAL ERROR:"
-           " Cannot obtain vertex information for run#" << runNo << endl;
+         " Cannot obtain vertex information for run#" << runNo
+         << endl;
       exit(1);
    }
 
@@ -485,9 +538,10 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    return xorigin;
 }
 
-//-------------------------------------------------------------------------
+// {{{1 FillHistoMC()
+//--------------------------------------------------------------------
 static void FillHistoMC(const ReadDst* selector, PimPipGammas& ppg) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -557,7 +611,8 @@ static void FillHistoMC(const ReadDst* selector, PimPipGammas& ppg) {
                hst[124]->Fill(Vp.rho());
                hst[125]->Fill(Vp.cosTheta());
                idx_jpsi = part->getTrackIndex();
-               HepLorentzVector LVjpsi( Vp, sqrt(Vp.mag2() + SQ(mjpsi)) );
+               HepLorentzVector LVjpsi( Vp,
+                     sqrt(Vp.mag2() + SQ(mjpsi)) );
                ppg.mcLVjpsi = LVjpsi;
                beta_jpsi = LVjpsi.boostVector();
             } else if ( part_pdg == 211 ) {         // pi+
@@ -575,7 +630,7 @@ static void FillHistoMC(const ReadDst* selector, PimPipGammas& ppg) {
          JpsiTbl.vecdec.push_back(part_pdg);
       }
 
-      if ( decJpsi == 22 ) {                       // J/Psi -> eta gamma
+      if ( decJpsi == 22 ) {                     // J/Psi -> eta gamma
          if ( part->getMother() == idx_jpsi ) {
             if ( part_pdg == 221 ) {               // eta
                idx_eta = part->getTrackIndex();
@@ -636,11 +691,12 @@ static void FillHistoMC(const ReadDst* selector, PimPipGammas& ppg) {
    }
 }
 
+// {{{1 MatchGammaMC()
 // find the reconstructed gamma that best matches the gamma
 // in decay of J/Psi -> gamma eta (decJpsi=22)
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static void MatchGammaMC(PimPipGammas& ppg) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( !isMC ) {
       return;
    }
@@ -689,20 +745,19 @@ static void MatchGammaMC(PimPipGammas& ppg) {
    }
 }
 
-
-// 1) select events with:
+// {{{1 Charged tracks
 //    - two soft pions with recoil mass of M(J/psi)
 //    - no other charged tracks
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
 //    static const double cosTheta_max = 0.80;  // barrel only
    static const double cosTheta_max = 0.93;
 
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
-   const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
+   const TEvtRecEvent* evtRecEvent =m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
    ParticleID* pid = ParticleID::instance();
 
@@ -727,13 +782,14 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
 
       HepVector a = mdcTrk->helix();
       HepSymMatrix Ea = mdcTrk->err();
-      HepPoint3D point0(0.,0.,0.);   // initial point for MDC recosntruction
+      HepPoint3D point0(0.,0.,0.);   // initial point for MDC rec.
       HepPoint3D IP(ppg.xorig[0],ppg.xorig[1],ppg.xorig[2]);
       VFHelix helixip(point0,a,Ea);
       helixip.pivot(IP);
       HepVector vecipa = helixip.a();
-      double Rvxy0 = vecipa[0]; // the nearest distance to IP in xy plane
-      double Rvz0  = vecipa[3]; // ... in z direction
+      // the nearest distance to IP
+      double Rvxy0 = vecipa[0]; // in xy plane
+      double Rvz0  = vecipa[3]; // in z direction
 
       hst[11]->Fill(Rvxy0);
       hst[12]->Fill(Rvz0);
@@ -800,6 +856,11 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
          continue;
       }
       mdcKalTrk->setPidType(RecMdcKalTrack::pion);
+
+      // apply helix corrections for MC tracks
+      if ( isMC && helix_cor ) {
+         helix_cor -> calibration( mdcKalTrk );
+      }
 
       hst[18]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
       hst[19]->Fill( cos(mdcKalTrk->theta()) );
@@ -884,7 +945,8 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
    if ( isMC ) {
       if ( ppg.decPsip == 64 ) {
          // diff. J/Psi momentum true and rec.
-         double dP = ppg.mcLVjpsi.vect().mag() - ppg.LVjpsi.vect().mag();
+         double dP = ppg.mcLVjpsi.vect().mag()
+            - ppg.LVjpsi.vect().mag();
          double dA = ppg.mcLVjpsi.angle(ppg.LVjpsi.vect());
          hst[151]->Fill(dP);
          hst[152]->Fill(dA);
@@ -894,19 +956,19 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
    return true;
 }
 
-// 2) neutral tracks:
+// {{{1 select neutral tracks
 //    - collect good photons
 //    - search for photons from J/Psi->gamma X decay with recoil mass
 //      close to mass of eta-particle
 //    - remove events with gammas from pi0 decays
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // parameters of reconstruction
    static const double min_angle = 10 * M_PI/180; // 10 grad
 
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
-   const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
+   const TEvtRecEvent* evtRecEvent =m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
 
    for ( int i = evtRecEvent->totalCharged();
@@ -923,14 +985,14 @@ static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
          continue;
       }
 
-      // *) good EMC energy deposited in the barrel (endcap) part of EMC
+      // *) good EMC energy deposited in the barrel (endcap)
       double eraw = emcTrk->energy();
       double absCosTheta = fabs(  cos(emcTrk->theta()) );
 
       bool GoodCluster=false;
       if ( absCosTheta < 0.8 ) {  //barrel
          GoodCluster = eraw > 25E-3;
-      } else if ( absCosTheta > 0.85 && absCosTheta < 0.92 ) { //endcap
+      } else if ( absCosTheta > 0.85 && absCosTheta < 0.92 ) {//endcap
          GoodCluster = eraw > 50E-3;
       }
       if ( !GoodCluster ) {
@@ -998,7 +1060,7 @@ static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
    // =========================================================
    // Recoil mass square of gamma in J/Psi->gamma+X decay
    // should be in region: Meta^2 +/- 0.2
-   // this is corresponds E_gamma(in J/Psi rest system) [1.45,1.55] GeV
+   // this is corresponds E_gamma(in J/Psi rest system) [1.45,1.55]GeV
    // M^2rec = M^2(J/Psi)-2*M(J/Psi)*E_gamma(in J/Psi RS)
 
    Hep3Vector beta_jpsi = ppg.LVjpsi.boostVector();
@@ -1126,10 +1188,10 @@ static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
    return true;
 }
 
-
-//-------------------------------------------------------------------------
+// {{{1 Eta reconstruction efficiency
+//--------------------------------------------------------------------
 static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    // window for selection of eta: see cuts.h (in PsipJpsiPhiEta)
    static const double seta = 0.008;
    static const double weta = 3*seta; // standard
@@ -1332,7 +1394,8 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
 
          // Kinematik fit
          vtxfit->BuildVirtualParticle(0);
-         vtxfit->Swim(0); // translate parameters of tracks to the vertex# 0
+         // translate parameters of tracks to the vertex# 0
+         vtxfit->Swim(0);
          for(int k = 0; k < 2; k++) {
             wp[k] = vtxfit->wtrk(k);
          }
@@ -1402,9 +1465,8 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
 
 }
 
-
-// Loop for each event
-//-------------------------------------------------------------------------
+// {{{1 MAIN: Loop for each event
+//--------------------------------------------------------------------
 bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
                             TEvtHeader*    m_TEvtHeader,
                             TDstEvent*     m_TDstEvent,
@@ -1413,55 +1475,116 @@ bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
                             TTrigEvent*    m_TTrigEvent,
                             TDigiEvent*    m_TDigiEvent,
                             THltEvent*     m_THltEvent      ) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " start " << __func__ << "()" << endl;
    }
 
-   m_abscor->AbsorptionCorrection(selector);
-
    PimPipGammas ppg; // information for the current event
 
-   //----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    //-- Get event information --
-   //----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    int runNo   = m_TEvtHeader->getRunId();
    int eventNo = m_TEvtHeader->getEventId();
    ppg.runNo = runNo;
    ppg.event  = eventNo;
    hst[1]->Fill(0); // "cuts"
 
-   // define data taking period:
+   // define data taking period --------------------------------------
+   // ATTENTION: this part is calculated only once: we get constants
+   // that are the same in all events of one job
    if ( DataPeriod == 0 ) {
-      // expect one data taking period for all runs in job
+      int idx_ac = -1; // index for abscor
       int run = abs(runNo);
       if ( (run >= 8093 && run <= 9025)  ) {         // 2009 Psi(2S)
          DataPeriod = 2009;
+         idx_ac = 0;
       } else if ( (run >= 25338 && run <= 27090) ) { // 2012 Psi(2S)
          DataPeriod = 2012;
+         idx_ac = 1;
+      } else if ( (run >= 66257 && run <= 69292) ) { // 2021 Psi(2S)
+         DataPeriod = 2021;
+         idx_ac = 2;
+      } else if ( (run >= 9613 && run <= 9779) ) { // 3650 2009-data
+         DataPeriod = 3650;
+         idx_ac = 0;
+      } else if ( (run >= 33725 && run <= 33772) ) { // 3650 2012-data
+         DataPeriod = 3650;
+         idx_ac = 1;
+      } else if ( (run >= 69612 && run <= 70132) ) { // 3650 2021-data
+         DataPeriod = 3650;
+         idx_ac = 2;
       } else {
-         DataPeriod = -1;
-         cout << " WARNING: Data taking period undefined for runNo= "
+         cout << " FATAL: Data taking period undefined for runNo= "
               << runNo << endl;
-         Warning("Undefined data taking period");
+         exit(EXIT_FAILURE);
       }
-   }
+#if (BOSS_VER == 709)
+      string dir("Analysis/AbsCor/dat/00-00-41/");
+      vector<string> c3p {
+         "c3ptof2009Jpsi.txt",
+         "c3ptof2012Jpsi.txt",
+         "c3ptof2021psip.txt"
+      };
+      vector<string> evsetToF {
+         "evsetTofCorFunctionPar2009Jpsi.txt",
+         "evsetTofCorFunctionPar2012Jpsi.txt",
+         "evsetTofCorFunctionPar2021psip.txt"
+      };
+      string data_c3p = selector->AbsPath( dir+c3p[idx_ac] );
+      string cor_evsetTof = selector->AbsPath( dir+evsetToF[idx_ac] );
+      m_abscor->ReadDatac3p( data_c3p, true );
+      m_abscor->ReadCorFunpara( cor_evsetTof, true );
+#endif
+
+      isMC = (runNo < 0);
+      if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
+            ( !isMC &&
+              m_TMcEvent != 0 &&
+              !m_TMcEvent->getMcParticleCol()->IsEmpty() )
+         ) {
+         cout << " WARNING: something wrong: isMC= " << isMC
+            << " McParticles= "
+            << m_TMcEvent->getMcParticleCol()->GetEntries() << endl;
+         Warning("Incorrect number of MC particles");
+         exit(EXIT_FAILURE);
+      }
+
+      // set helix parameters corrections (helix_cor)
+      if ( isMC ) {
+         if ( make_hc && !helix_cor ) {
+            if ( DataPeriod >= 2009 && DataPeriod <= 2021 ) {
+               string period = to_string(DataPeriod) +
+#if (BOSS_VER < 700)
+                  "_v6.6.4";
+#else
+                  "_v7.0.9";
+#endif
+               helix_cor = new TrackCorrection(period);
+               const auto& w = helix_cor->Warning;
+               if ( !w.empty() ){
+                  cout << " WARNING: " << w << endl;
+                  Warning(w);
+               }
+               helix_cor->prt_table();
+            } else {
+               cout << " WARNING: no helix parameters corrections"
+                  " for DataPeriod=" << DataPeriod << endl;
+               Warning("No helix parameters corrections");
+            }
+         } // end of helix_cor
+      }
+   } // end of DataPeriod definition ---------------------------------
+
+   // call AbsCorr after reading c3p and cor_evsetTof files
+   m_abscor->AbsorptionCorrection(selector);
 
    double Ecms = 3.686; // (GeV) energy in center of mass system
-   ppg.LVcms = HepLorentzVector(Ecms*sin(beam_angle), 0, 0, Ecms);
-
-   isMC = (runNo < 0);
-   if ( (isMC && m_TMcEvent->getMcParticleCol()->IsEmpty() ) ||
-         ( !isMC &&
-           m_TMcEvent != 0 &&
-           !m_TMcEvent->getMcParticleCol()->IsEmpty() )
-      ) {
-      cout << " WARNING: something wrong: isMC= " << isMC
-           << " McParticles= " << m_TMcEvent->getMcParticleCol()->GetEntries()
-           << endl;
-      Warning("Incorrect number of MC particles");
-      return false;
+   if ( DataPeriod == 3650 ) {
+      Ecms = 3.650;
    }
+   ppg.LVcms = HepLorentzVector(Ecms*sin(beam_angle), 0, 0, Ecms);
 
    FillHistoMC(selector,ppg); // MC histo
 
@@ -1481,9 +1604,10 @@ bool PsipJpsiGammaEtaEvent( ReadDst*       selector,
    return true;
 }
 
-//-------------------------------------------------------------------------
+// {{{1 EndJob
+//--------------------------------------------------------------------
 void PsipJpsiGammaEtaEndJob(ReadDst* selector) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << __func__ << "()" << endl;
    }
@@ -1504,13 +1628,14 @@ void PsipJpsiGammaEtaEndJob(ReadDst* selector) {
       cout << " There are no warnings in " << module << endl;
    } else {
       cout << " Check output for WARNINGS in " << module << endl;
-      for(auto it = warning_msg.begin(); it != warning_msg.end(); ++it) {
+      for(auto it = warning_msg.begin();
+            it != warning_msg.end(); ++it) {
          cout << it->first << " : " << it->second << endl;
       }
    }
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif
