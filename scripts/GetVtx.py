@@ -109,7 +109,6 @@ r = RunInfo()
 
 # Psi(2S) 2009 : run8093-run9025
 #  r.GetVtx(8093)
-#  r.bossver = "6.6.4"
 #  r.bossver = "7.0.9"
 #  r.GetSftVer(8093,9025)
 
@@ -118,11 +117,12 @@ r = RunInfo()
 #  r.GetSftVer(25338,27090)
 
 # Psi(2S) 2021: run66257-run69292
-r.GetVtx(66257)
-r.bossver = "7.0.9"
-r.GetSftVer(66257,69292)
+#  r.GetVtx(66257)
+#  r.bossver = "7.0.9"
+#  r.GetSftVer(66257,69292)
 
-# 3650 data: run9613-9779 , run33725-33772
+# 3650 data: run9613-9779 , run33725-33772, run69612-run70132
 #  r.GetVtx(9613)
 #  r.GetVtx(33725)
+#  r.GetVtx(69612)
 
