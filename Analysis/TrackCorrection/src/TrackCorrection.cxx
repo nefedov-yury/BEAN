@@ -19,9 +19,9 @@ using namespace std;
 #undef DEBUGPRT
 
 // Helper functions
-//-------------------------------------------------------------------------
-inline double SQ(double x) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+static inline double SQ(double x) {
+//--------------------------------------------------------------------
    return x*x;
 }
 
@@ -30,9 +30,9 @@ inline double SQ(double x) {
 // *****************************************************************
 
 // corset(): sets up the generation by calculating C from V
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static HepMatrix corset(const HepSymMatrix& V) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    int n = V.num_row();
    HepMatrix C(n,n,0);
 
@@ -60,9 +60,9 @@ static HepMatrix corset(const HepSymMatrix& V) {
 
 // corgen(): generates a set of n random numbers Gaussian-distributed
 // with covariance matrix V (V = C*C') and mean values zero
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 static HepVector corgen(const HepMatrix& C) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    int n = C.num_row();
    HepVector x(n,0);
 
@@ -84,62 +84,115 @@ static HepVector corgen(const HepMatrix& C) {
 }
 
 // class functions
-//-------------------------------------------------------------------------
-TrackCorrection::TrackCorrection(int period) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
+TrackCorrection::TrackCorrection(std::string period) {
+//--------------------------------------------------------------------
 // see
 // docbes3.ihep.ac.cn/~charmoniumgroup/index.php/File:Helix_zhangjielei.pdf
 // for Psi' -> K+ K− pi+ pi− in 2009 (TABLE VI) and 2012(TABLE V)
 
-   if ( period == 0 ) {
-      cout << "INFO: TrackCorrection for Psi' -> K+K-pi+pi- (2009)"
-           << endl;
-      pip_mu  = {0.04,  0.12, 0.49}; // pi+
-      pip_sig = {1.17,  1.20, 1.14};
-      pim_mu  = {0.03, -0.10, 0.49}; // pi-
-      pim_sig = {1.17,  1.20, 1.14};
-      Kp_mu   = {0.01,  0.12, 0.53}; // K+
-      Kp_sig  = {1.17,  1.18, 1.14};
-      Km_mu   = {0.06, -0.07, 0.53}; // K-
-      Km_sig  = {1.18,  1.18, 1.12};
-   } else if ( period == 1 ) {
-      cout << "INFO: TrackCorrection for Psi' -> K+K-pi+pi- (2012)"
-           << endl;
-      pip_mu  = {-0.02,  0.30, -0.06}; // pi+
-      pip_sig = { 1.18,  1.21,  1.13};
-      pim_mu  = { 0.01, -0.31, -0.07}; // pi-
-      pim_sig = { 1.18,  1.21,  1.12};
-      Kp_mu   = {-0.05,  0.31, -0.07}; // K+
-      Kp_sig  = { 1.20,  1.21,  1.14};
-      Km_mu   = { 0.05, -0.30, -0.06}; // K-
-      Km_sig  = { 1.20,  1.21,  1.14};
+   Info = "Helix paraneters corrections";
+   if ( period == "2009_v6.6.4" ) {
+      Info += " for 2009 BOSS-6.6.4";
+      pip_mu  = { 0.04,  0.12, 0.49 }; // pi+
+      pip_sig = { 1.17,  1.20, 1.14 };
+      pim_mu  = { 0.03, -0.10, 0.49 }; // pi-
+      pim_sig = { 1.17,  1.20, 1.14 };
+      Kp_mu   = { 0.01,  0.12, 0.53 }; // K+
+      Kp_sig  = { 1.17,  1.18, 1.14 };
+      Km_mu   = { 0.06, -0.07, 0.53 }; // K-
+      Km_sig  = { 1.18,  1.18, 1.12 };
+   } else if ( period == "2009_v7.0.9" ) {
+      Info += " for 2009 BOSS-7.0.9";
+      pip_mu  = { 0.087,  0.186, 0.470 }; // pi+
+      pip_sig = { 1.164,  1.171, 1.169 };
+      pim_mu  = { 0.100, -0.036, 0.456 }; // pi-
+      pim_sig = { 1.165,  1.207, 1.166 };
+      Kp_mu   = { 0.10,   0.13,  0.48  }; // K+
+      Kp_sig  = { 1.10,   1.17,  1.18  };
+      Km_mu   = { 0.09,   0.06,  0.47  }; // K-
+      Km_sig  = { 1.13,   1.18,  1.26  };
+   } else if ( period == "2012_v6.6.4" ) {
+      Info += " for 2012 BOSS-6.6.4p03";
+      pip_mu  = { -0.02,  0.30, -0.06 }; // pi+
+      pip_sig = {  1.18,  1.21,  1.13 };
+      pim_mu  = {  0.01, -0.31, -0.07 }; // pi-
+      pim_sig = {  1.18,  1.21,  1.12 };
+      Kp_mu   = { -0.05,  0.31, -0.07 }; // K+
+      Kp_sig  = {  1.20,  1.21,  1.14 };
+      Km_mu   = {  0.05, -0.30, -0.06 }; // K-
+      Km_sig  = {  1.20,  1.21,  1.14 };
+   } else if ( period == "2012_v7.0.9" ) {
+      Info += " for 2012 BOSS-7.0.9";
+      pip_mu  = { 0.082,  0.284, -0.0537 }; // pi+
+      pip_sig = { 1.211,  1.164,  1.180  };
+      pim_mu  = { 0.105, -0.122, -0.064  }; // pi-
+      pim_sig = { 1.206,  1.199,  1.119  };
+      Kp_mu   = { 0.08,   0.31,  -0.03   }; // K+
+      Kp_sig  = { 1.23,   1.19,   1.08   };
+      Km_mu   = { 0.21,  -0.14,  -0.04   }; // K-
+      Km_sig  = { 1.18,   1.18,   1.07   };
+   } else if ( period == "2021_v7.0.9" ) {
+      Info += " for 2021 BOSS-7.0.9";
+      pip_mu  = { 0.094,  0.206, 0.109 }; // pi+
+      pip_sig = { 1.167,  1.169, 1.185 };
+      pim_mu  = { 0.102, -0.060, 0.097 }; // pi-
+      pim_sig = { 1.171,  1.178, 1.165 };
+      Kp_mu   = { 0.11,   0.17,  0.23  }; // K+
+      Kp_sig  = { 1.15,   1.17,  1.14  };
+      Km_mu   = { 0.11,   0.003, 0.21  }; // K-
+      Km_sig  = { 1.15,   1.16,  1.15  };
    } else {
       cout << "FATAL ERROR in TrackCorrection:: period= "
-           << period << " is not defined yet" << endl;
+         << period << " is not defined yet" << endl;
+      cout << " You can use the following periods: " << endl;
+      cout << "2009_v6.6.4" << endl;
+      cout << "2012_v6.6.4" << endl;
+      cout << "2009_v7.0.9" << endl;
+      cout << "2012_v7.0.9" << endl;
+      cout << "2021_v7.0.9" << endl;
       exit(EXIT_FAILURE);
    }
 
-   // print table
+   // routh checking that the period matches the BOSS version
+   // here BOSS_VER
+   bool isOK = false;
+   if ( period.find("v7.0.9") != string::npos) {
+      isOK = ( BOSS_VER == 709 );
+   } else {
+      isOK = ( BOSS_VER == 664 );
+   }
+   if ( !isOK ) {
+      Warning = "mismatch period '" + period + 
+         "' and BOSS-version: " + to_string(BOSS_VER);
+   }
+}
+
+//--------------------------------------------------------------------
+void TrackCorrection::prt_table() const {
+//--------------------------------------------------------------------
+// print table
    auto prtline = [](string name,const vector<double>& mean,
                                  const vector<double>& sig) -> void {
-      string fmt = "%5s %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n"; 
-      printf( fmt.c_str(), name.c_str(), 
+      string fmt = "%5s %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f\n";
+      printf( fmt.c_str(), name.c_str(),
               mean[0],sig[0], mean[1],sig[1], mean[2],sig[2] );
    };
+   string l(48,'-');
+   printf("\n%s\n",Info.c_str());
+   printf("%s\n",l.c_str());
+   printf("%15s %14s %16s\n","phi0","kappa","tg(lambda)");
+   printf("%s\n",l.c_str());
    prtline("pi+",pip_mu,pip_sig);
    prtline("pi-",pim_mu,pim_sig);
    prtline(" K+",Kp_mu, Kp_sig);
    prtline(" K-",Km_mu, Km_sig);
+   printf("%s\n",l.c_str());
 }
 
-//-------------------------------------------------------------------------
-TrackCorrection::~TrackCorrection() {}
-//-------------------------------------------------------------------------
-
-
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void TrackCorrection::calibration(RecMdcKalTrack* trk) const {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    int pid = trk -> getPidType();
 
    const vector<double> *mean = nullptr, *sigma = nullptr;
@@ -167,7 +220,8 @@ void TrackCorrection::calibration(RecMdcKalTrack* trk) const {
 
    HepSymMatrix h_zerr = trk -> getZError(pid);
 
-   // order of helix parameters: d0, phi0, kappa = 1/Pt, dz, tan(lambda)
+   // order of helix parameters:
+   //   d0, phi0, kappa = 1/Pt, dz, tan(lambda)
    // i=0,1,2 -> j=1,2,4 : j = i+1+i/2;
    HepSymMatrix h_zcal(3,0);
    h_zcal[0][0] = (SQ((*sigma)[0])-1) * h_zerr[1][1]; // phi0
