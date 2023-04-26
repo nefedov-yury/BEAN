@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// class BMdcKalTrack; // == RecMdcKalTrack in bean
+#include "DstEvtRecTracks.h"   // for RecMdcKalTrack
 
 class TrackCorrection {
    public:

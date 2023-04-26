@@ -6,8 +6,6 @@
 #include "CLHEP/Matrix/Matrix.h"
 #include "CLHEP/Matrix/SymMatrix.h"
 
-#include "DstEvtRecTracks.h"   // for RecMdcKalTrack
-
 #include "TrackCorrection/TrackCorrection.h"
 
 using CLHEP::HepVector;
@@ -130,7 +128,7 @@ TrackCorrection::TrackCorrection(std::string period) {
       pim_sig = { 1.206,  1.199,  1.119  };
       Kp_mu   = { 0.08,   0.31,  -0.03   }; // K+
       Kp_sig  = { 1.23,   1.19,   1.08   };
-      Km_mu   = { 0.21,  -0.14,  -0.04   }; // K-
+      Km_mu   = { 0.12,  -0.14,  -0.04   }; // K-
       Km_sig  = { 1.18,   1.18,   1.07   };
    } else if ( period == "2021_v7.0.9" ) {
       Info += " for 2021 BOSS-7.0.9";
@@ -163,7 +161,7 @@ TrackCorrection::TrackCorrection(std::string period) {
       isOK = ( BOSS_VER == 664 );
    }
    if ( !isOK ) {
-      Warning = "mismatch period '" + period + 
+      Warning = "mismatch period '" + period +
          "' and BOSS-version: " + to_string(BOSS_VER);
    }
 }
@@ -251,4 +249,3 @@ void TrackCorrection::calibration(RecMdcKalTrack* trk) const {
    cout << " after corrections: zhelix= " << zhelix << endl;
 #endif
 }
-
