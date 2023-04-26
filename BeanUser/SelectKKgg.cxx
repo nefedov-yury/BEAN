@@ -2,7 +2,6 @@
 //                                                                  //
 // SelectKKgg - search for e+ e- -> K+ K- 2gammas                   //
 //                                                                  //
-// TODO: helix corrections for MC?
 //==================================================================//
 
 #include "DLLDefines.h"         // mandatory!
@@ -118,10 +117,6 @@ static DecayTable JpsiTbl;
 
 // container for warnings
 static map<string,int> warning_msg;
-
-// helix corrections for MC
-// static TrackCorrection* helix_cor = nullptr;
-// static const bool make_hc = false;
 
 static bool isMC = false;
 
@@ -305,7 +300,7 @@ void SelectKKggStartJob(ReadDst* selector) {
    hst[142] = new TH1D("mc_KCp","cos(#Theta) of K^{+}", 100,-1.,1.);
    hst[143] = new TH1D("mc_Km", "Momentum of K^{-}", 1000,0.,2.);
    hst[144] = new TH1D("mc_KCm","cos(#Theta) of K^{-}", 100,-1.,1.);
-   
+
    hst[146] = new TH1D("mc_Mkk", "Minv(K^{+}K^{-})", 140,0.98,1.12);
    hst[147] = new TH1D("mc_Mkpeta", "Minv(K^{+}eta)", 140,1.8,2.5);
    hst[148] = new TH2D("mc_M1M2", "Minv2(K+K-) vs Minv2(K+ eta)",

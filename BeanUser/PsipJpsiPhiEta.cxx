@@ -49,7 +49,6 @@ using CLHEP::HepLorentzVector;
 #include "MagneticField/MagneticFieldSvc.h"
 #include "EventTag/EventTagSvc.h"
 #include "EventTag/DecayTable.h"
-#include "TrackCorrection/TrackCorrection.h"
 
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
@@ -224,10 +223,6 @@ static map<string,int> warning_msg;
 // expect one data taking period for all events
 static int DataPeriod = 0;
 static bool isMC = false;
-
-// helix corrections for MC
-static const bool make_hc = true;
-static TrackCorrection* helix_cor = nullptr;
 
 //--------------------------------------------------------------------
 // {{{1 Functions: use C-linkage names
@@ -562,11 +557,6 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[182] = new TH2D("mc_M1M2", "Minv2(K+K-) vs Minv2(K+ eta)",
          140,0.,7.,140,0.,7.);
    hst[183] = new TH1D("mc_cosT", "MC truth cosT", 100,-1.,1.);
-
-   hst[185] = new TH1D("mc_pi_QP0","Q*P(pi) before helix corr.",
-         200,-1.,1.);
-   hst[186] = new TH1D("mc_K_QP0","Q*P(K) before helix corr.",
-         300,-1.5,1.5);
 
    // MatchRecMcTrks:
    hst[151] = new TH1D("mc_mdp_p","REC-MC ok min dP #pi^{+}",
@@ -1464,12 +1454,6 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       }
       mdcKalTrk->setPidType(RecMdcKalTrack::pion);
 
-      // apply helix corrections for MC tracks
-      if ( isMC && helix_cor ) {
-         hst[185]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
-         helix_cor -> calibration( mdcKalTrk );
-      }
-
       hst[18]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
       hst[19]->Fill( cos(mdcKalTrk->theta()) );
       if( mdcKalTrk->p() > 0.45 ) {
@@ -1756,12 +1740,6 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       }
 
       mdcKalTrk->setPidType(RecMdcKalTrack::kaon);
-
-      // apply helix corrections for MC tracks
-      if ( isMC && helix_cor ) {
-         hst[186]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
-         helix_cor -> calibration( mdcKalTrk );
-      }
 
       hst[43]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
       if( mdcKalTrk->charge() > 0 ) {
@@ -2659,6 +2637,8 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
       string cor_evsetTof = selector->AbsPath( dir+evsetToF[idx_ac] );
       m_abscor->ReadDatac3p( data_c3p, true );
       m_abscor->ReadCorFunpara( cor_evsetTof, true );
+#else
+      (void)idx_ac; // suppres warning about unused var
 #endif
 
       isMC = (runNo < 0);
@@ -2673,34 +2653,10 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
          Warning("Incorrect number of MC particles");
          exit(EXIT_FAILURE);
       }
-
-      // set helix parameters corrections (helix_cor)
-      if ( isMC ) {
-         if ( make_hc && !helix_cor ) {
-            if ( DataPeriod >= 2009 && DataPeriod <= 2021 ) {
-               string period = to_string(DataPeriod) +
-#if (BOSS_VER < 700)
-                  "_v6.6.4";
-#else
-                  "_v7.0.9";
-#endif
-               helix_cor = new TrackCorrection(period);
-               const auto& w = helix_cor->Warning;
-               if ( !w.empty() ){
-                  cout << " WARNING: " << w << endl;
-                  Warning(w);
-               }
-               helix_cor->prt_table();
-            } else {
-               cout << " WARNING: no helix parameters corrections"
-                  " for DataPeriod=" << DataPeriod << endl;
-               Warning("No helix parameters corrections");
-            }
-         } // end of helix_cor
-      }
    } // end of DataPeriod definition ---------------------------------
 
-   // call AbsCorr after reading c3p and cor_evsetTof files
+   // call AbsCorr after reading c3p and cor_evsetTof files:
+   // second call AbsCorr() is possible, the result does not change
    m_abscor->AbsorptionCorrection(selector);
 
    double Ecms = 3.686; // (GeV) energy in center of mass system
@@ -2757,7 +2713,7 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
            << "       Mrec in [3.092, 3.102] "
            << PsipTbl.ntot << " decays" << endl
            << "       size of table is " << PsipTbl.Size() << endl;
-      PsipTbl.Print(0.1); // do not print decays with P<0.1% of all
+      PsipTbl.Print(0.01); // do not print decays with P<0.01% of all
       cout << "Enddecay" << endl << endl;
 
       cout << string(65,'#') << endl;
@@ -2765,20 +2721,17 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
            << "       Mrec in [3.055, 3.145] "
            << PsipTbl2.ntot << " decays" << endl
            << "       size of table is " << PsipTbl2.Size() << endl;
-      PsipTbl2.Print(0.1);
+      PsipTbl2.Print(0.01);
       cout << "Enddecay" << endl << endl;
    }
 
    string module = string(__func__);
    module = module.substr(0,module.size()-6);
-   if ( warning_msg.empty() ) {
-      cout << " There are no warnings in " << module << endl;
-   } else {
-      cout << " Check output for WARNINGS in " << module << endl;
-      for(auto it = warning_msg.begin();
-            it != warning_msg.end(); ++it) {
-         cout << it->first << " : " << it->second << endl;
-      }
+   int nw = warning_msg.size();
+   string tw = (nw > 0) ? to_string(nw)+" WARNINGS" : "no warnings";
+   printf(" There are %s in %s\n",tw.c_str(),module.c_str());
+   for(auto it = warning_msg.begin(); it != warning_msg.end(); ++it) {
+      cout << it->first << " : " << it->second << endl;
    }
 }
 
