@@ -47,7 +47,6 @@ using CLHEP::HepLorentzVector;
 #include "ParticleID/ParticleID.h"
 #include "MagneticField/MagneticFieldSvc.h"
 #include "EventTag/EventTagSvc.h"
-#include "TrackCorrection/TrackCorrection.h"
 
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
@@ -153,10 +152,6 @@ static map<string,int> warning_msg;
 // expect one data taking period for all events
 static int DataPeriod = 0;
 static bool isMC = false;
-
-// helix corrections for MC
-static const bool make_hc = true;
-static TrackCorrection* helix_cor = nullptr;
 
 //--------------------------------------------------------------------
 // {{{1 Functions: use C-linkage names
@@ -1038,11 +1033,6 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
             flag_pik = 1;
             mdcKalTrk->setPidType(RecMdcKalTrack::pion);
 
-            // apply helix corrections for MC tracks
-            if ( isMC && helix_cor ) {
-               helix_cor -> calibration( mdcKalTrk );
-            }
-
             ppKK.trk_Pi.push_back(mdcKalTrk);
             Nzpi += mdcKalTrk->charge();
             ppKK.LVpi.push_back(
@@ -1056,11 +1046,6 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
                ) {
                flag_pik = 2;
                mdcKalTrk->setPidType(RecMdcKalTrack::kaon);
-
-               // apply helix corrections for MC tracks
-               if ( isMC && helix_cor ) {
-                  helix_cor -> calibration( mdcKalTrk );
-               }
 
                ppKK.trk_K.push_back(mdcKalTrk);
                Nzk += mdcKalTrk->charge();
@@ -1739,6 +1724,8 @@ bool PsipPiPiKKEvent( ReadDst*       selector,
       string cor_evsetTof = selector->AbsPath( dir+evsetToF[idx_ac] );
       m_abscor->ReadDatac3p( data_c3p, true );
       m_abscor->ReadCorFunpara( cor_evsetTof, true );
+#else
+      (void)idx_ac; // suppres warning about unused var
 #endif
 
       isMC = (runNo < 0);
@@ -1753,34 +1740,10 @@ bool PsipPiPiKKEvent( ReadDst*       selector,
          Warning("Incorrect number of MC particles");
          exit(EXIT_FAILURE);
       }
-
-      // set helix parameters corrections (helix_cor)
-      if ( isMC ) {
-         if ( make_hc && !helix_cor ) {
-            if ( DataPeriod >= 2009 && DataPeriod <= 2021 ) {
-               string period = to_string(DataPeriod) +
-#if (BOSS_VER < 700)
-                  "_v6.6.4";
-#else
-                  "_v7.0.9";
-#endif
-               helix_cor = new TrackCorrection(period);
-               const auto& w = helix_cor->Warning;
-               if ( !w.empty() ){
-                  cout << " WARNING: " << w << endl;
-                  Warning(w);
-               }
-               helix_cor->prt_table();
-            } else {
-               cout << " WARNING: no helix parameters corrections"
-                  " for DataPeriod=" << DataPeriod << endl;
-               Warning("No helix parameters corrections");
-            }
-         } // end of helix_cor
-      }
    } // end of DataPeriod definition ---------------------------------
 
-   // call AbsCorr after reading c3p and cor_evsetTof files
+   // call AbsCorr after reading c3p and cor_evsetTof files:
+   // second call AbsCorr() is possible, the result does not change
    m_abscor->AbsorptionCorrection(selector);
 
    double Ecms = 3.686; // (GeV) energy in center of mass system
@@ -1825,14 +1788,11 @@ void PsipPiPiKKEndJob(ReadDst* selector) {
 
    string module = string(__func__);
    module = module.substr(0,module.size()-6);
-   if ( warning_msg.empty() ) {
-      cout << " There are no warnings in " << module << endl;
-   } else {
-      cout << " Check output for WARNINGS in " << module << endl;
-      for(auto it = warning_msg.begin();
-            it != warning_msg.end(); ++it) {
-         cout << it->first << " : " << it->second << endl;
-      }
+   int nw = warning_msg.size();
+   string tw = (nw > 0) ? to_string(nw)+" WARNINGS" : "no warnings";
+   printf(" There are %s in %s\n",tw.c_str(),module.c_str());
+   for(auto it = warning_msg.begin(); it != warning_msg.end(); ++it) {
+      cout << it->first << " : " << it->second << endl;
    }
 }
 
