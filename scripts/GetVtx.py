@@ -108,7 +108,7 @@ r = RunInfo()
 #  r.GetSftVer(59016, 59141)
 
 # Psi(2S) 2009 : run8093-run9025
-#  r.GetVtx(8093)
+r.GetVtx(8093)
 #  r.bossver = "7.0.9"
 #  r.GetSftVer(8093,9025)
 

@@ -31,7 +31,7 @@ fi
 ######################## SIGNAL MC ########################
 # MCGPJ: e+ e- --> phi eta --> K+K- eta
 #
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   # J/Psi 2012 MCGPJ:
   BDIR="${BDIR_MCGPJ}/MCGPJ_PhiEta"
   DSTS="3050 3060 3080 3083 3090 3093 3094 3095 "
@@ -45,11 +45,10 @@ if [ 0 -eq 1 ]; then
             > ${ODIR}/mcgpj_{}.out 2>&1"
 fi
 
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   # Rscan 2015 MCGPJ
-#665   BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R"
-  BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R_704"
-  DSTRS="2900 3000 3080"
+  BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R"
+  DSTRS="2900 2950 2981 3000 3020 3080"
   printf "${DSTRS}" | \
     xargs --delimiter=" " --max-procs=4 -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
@@ -136,10 +135,9 @@ if [ 0 -eq 1 ]; then
 fi
 
 ######################## BACKGROUND MC ########################
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   # +++ inclusive J/Psi
-#    printf "00 01 02 03 04 05 06 07" | \
-  printf "04 06" | \
+  printf "00 01 02 03 04 05 06 07" | \
     xargs --delimiter=" " --max-procs=4 -I{} \
     sh -c "${BEAN6} -u SelectKKgg \
         -L phieta/Lists/JPsi_664_{}.list \

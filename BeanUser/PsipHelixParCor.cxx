@@ -190,10 +190,19 @@ bool PsipHelixParCorEvent( ReadDst* selector,
       if( !itTrk->isMdcTrackValid() ) {
          continue;
       }
+      if( !itTrk->isMdcKalTrackValid() ) {
+         continue;
+      }
 
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
       if ( !mdcKalTrk ) {
+         continue;
+      }
+      if ( std::isnan(mdcKalTrk->px()) 
+            || std::isnan(mdcKalTrk->py())
+            || std::isnan(mdcKalTrk->pz()) ) {
+         Warning("Nan Kalman track");
          continue;
       }
 

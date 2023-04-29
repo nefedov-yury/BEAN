@@ -11,7 +11,6 @@
 #include "DLLDefines.h"         // mandatory!
 
 #include <iostream>
-#include <cmath>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -342,7 +341,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    } else {
       cout << " WARNING in " << __func__ << ": "
            << "EventTagSvc has already been initialized" << endl;
-      Warning("EventTagSvc has already been initialized");
+      // Warning("EventTagSvc has already been initialized");
    }
    // nef: psi' decays TODO
    m_EventTagSvc->setUserDecayTabsFile(
@@ -367,7 +366,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
       cout << " WARNING:"
            << " MagneticFieldSvc has already been initialized" << endl
            << "          path = " << mf->GetPath() << endl;
-      Warning("MagneticFieldSvc has already been initialized");
+      // Warning("MagneticFieldSvc has already been initialized");
    }
 
    // set path for ParticleID algorithm ------------------------------
@@ -969,6 +968,9 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       if( !itTrk->isMdcTrackValid() ) {
          continue;
       }
+      if( !itTrk->isMdcKalTrackValid() ) {
+         continue;
+      }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
 
@@ -999,6 +1001,11 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
       if ( !mdcKalTrk ) {
+         continue;
+      }
+      if ( std::isnan(mdcKalTrk->px()) 
+            || std::isnan(mdcKalTrk->py())
+            || std::isnan(mdcKalTrk->pz()) ) {
          continue;
       }
       Hep3Vector Vkt(mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz());

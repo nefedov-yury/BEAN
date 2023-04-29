@@ -11,7 +11,6 @@
 #include "DLLDefines.h"         // mandatory!
 
 #include <iostream>
-#include <cmath>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -198,7 +197,7 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    } else {
       cout << " WARNING in " << __func__ << ": "
            << "EventTagSvc has already been initialized" << endl;
-      Warning("EventTagSvc has already been initialized");
+      // Warning("EventTagSvc has already been initialized");
    }
 
    // initialize DatabaseSvc -----------------------------------------
@@ -220,7 +219,7 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
       cout << " WARNING:"
            << " MagneticFieldSvc has already been initialized" << endl
            << "          path = " << mf->GetPath() << endl;
-      Warning("MagneticFieldSvc has already been initialized");
+      // Warning("MagneticFieldSvc has already been initialized");
    }
 
    // set path for ParticleID algorithm ------------------------------
@@ -242,8 +241,6 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[14] = new TH1D("theta","#theta", 180,0.,180.);
    hst[15] = new TH1D("Pid_clpi","lg(CL_{#pi})", 100,-4.,0.);
    hst[16] = new TH1D("Pid_ispi","1 - #pi, 0 - another particle",
-         2,-0.5,1.5);
-   hst[17] = new TH1D("noKalTrk", "0,1 - no/yes mdcKalTrk",
          2,-0.5,1.5);
    hst[18] = new TH1D("pi_QP","Charged momentum (Q*P)", 200,-1.,1.);
    hst[19] = new TH1D("pi_ct","soft pions cos(#theta)", 200,-1.,1.);
@@ -769,6 +766,9 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
       if( !itTrk->isMdcTrackValid() ) {
          continue;
       }
+      if( !itTrk->isMdcKalTrackValid() ) {
+         continue;
+      }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
 
@@ -846,8 +846,12 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
 
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
-      hst[17]->Fill( double(mdcKalTrk != 0) );
       if ( !mdcKalTrk ) {
+         continue;
+      }
+      if ( std::isnan(mdcKalTrk->px()) 
+            || std::isnan(mdcKalTrk->py())
+            || std::isnan(mdcKalTrk->pz()) ) {
          continue;
       }
       mdcKalTrk->setPidType(RecMdcKalTrack::pion);
@@ -1583,12 +1587,20 @@ void PsipJpsiGammaEtaEndJob(ReadDst* selector) {
    if ( isMC ) {
       // print tables of decays
       cout << string(65,'#') << endl;
-      cout << "Decays of J/psi PsipJpsiGammaEta" << endl
-           << "   search for EtaGamma: "
+      cout << "Decays of J/psi in PsipJpsiGammaEta" << endl
+           << "   search for Eta-Gamma: "
            << JpsiTbl.ntot << " events" << endl
            << "       size of table is " << JpsiTbl.Size() << endl;
-      JpsiTbl.Print(0.01); // do not print decays with P<0.01% of all
+      JpsiTbl.Print(0.1); // do not print decays with P<0.1% of all
       cout << "Enddecay" << endl << endl;
+
+      // test size of table
+      size_t sum = 0;
+      for ( auto p : JpsiTbl.decays ) {
+         sum += p.first.size();
+         sum += sizeof(size_t);
+      }
+      cout << " Total size of JpsiTbl is " << sum <<  endl;
    }
 
    string module = string(__func__);

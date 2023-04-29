@@ -10,7 +10,6 @@
 #include "DLLDefines.h"         // mandatory!
 
 #include <iostream>
-#include <cmath>
 #include <vector>
 #include <string>
 #include <map>
@@ -363,7 +362,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    } else {
       cout << " WARNING in " << __func__ << ": "
            << "EventTagSvc has already been initialized" << endl;
-      Warning("EventTagSvc has already been initialized");
+      // Warning("EventTagSvc has already been initialized");
    }
 
    // initialize DatabaseSvc -----------------------------------------
@@ -385,7 +384,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
       cout << " WARNING:"
            << " MagneticFieldSvc has already been initialized" << endl
            << "          path = " << mf->GetPath() << endl;
-      Warning("MagneticFieldSvc has already been initialized");
+      // Warning("MagneticFieldSvc has already been initialized");
    }
 
    // set path for ParticleID algorithm ------------------------------
@@ -407,8 +406,6 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[14] = new TH1D("theta","#theta", 180,0.,180.);
    hst[15] = new TH1D("Pid_clpi","lg(CL_{#pi})", 100,-4.,0.);
    hst[16] = new TH1D("Pid_ispi","1 - #pi, 0 - another particle",
-         2,-0.5,1.5);
-   hst[17] = new TH1D("noKalTrk", "0,1 - no/yes mdcKalTrk",
          2,-0.5,1.5);
    hst[18] = new TH1D("pi_QP","Charged momentum (Q*P) for pi",
          200,-1.,1.);
@@ -1263,7 +1260,6 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
       hst[165]->Fill( mindp_pip );
    } else {
       hst[171]->Fill( mcPip_mag );
-//       hst[172]->Fill( RtoD(Slct.mcPip.theta()) );
       hst[172]->Fill( Slct.mcPip.cosTheta() );
    }
 
@@ -1290,7 +1286,6 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
       hst[170]->Fill( mindp_pim );
    } else {
       hst[173]->Fill( mcPim_mag );
-//       hst[174]->Fill( RtoD(Slct.mcPim.theta()) );
       hst[174]->Fill( Slct.mcPim.cosTheta() );
    }
 
@@ -1366,6 +1361,9 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       DstEvtRecTracks* itTrk =
          static_cast<DstEvtRecTracks*>(evtRecTrkCol->At(i));
       if( !itTrk->isMdcTrackValid() ) {
+         continue;
+      }
+      if( !itTrk->isMdcKalTrackValid() ) {
          continue;
       }
 
@@ -1445,13 +1443,16 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
-      hst[17]->Fill( double(mdcKalTrk != 0) );
       if ( !mdcKalTrk ) {
-         cout << " WARNING: No Kalman track! EventNo= "
-              << Slct.event << endl;
-         Warning("No Kalman track");
          continue;
       }
+      if ( std::isnan(mdcKalTrk->px()) 
+            || std::isnan(mdcKalTrk->py())
+            || std::isnan(mdcKalTrk->pz()) ) {
+         Warning("Nan Kalman track");
+         continue;
+      }
+
       mdcKalTrk->setPidType(RecMdcKalTrack::pion);
 
       hst[18]->Fill( mdcKalTrk->charge()*mdcKalTrk->p() );
@@ -1492,6 +1493,12 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
             continue;
          }
          double Mrec = sqrt(Mrec2);
+         if ( std::isnan(Mrec) ) {
+            printf("DEBUG: run# %i, ev# %i -> Mrec= %f Mrec2= %f)\n",
+               Slct.runNo, Slct.event, Mrec, Mrec2 );
+            cout << " LVm= " << LVm << " LVp= " << LVp << endl;
+            Warning("Nan Mrec track");
+         }
          if( Mrec <= 3.0 || Mrec >= 3.2 ) { // preselection
             continue;
          }
@@ -1531,6 +1538,12 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 
    hst[27]->Fill( Slct.Mrec.size() );
    if( Slct.Mrec.size() == 0 ) {
+      return false;
+   }
+   if ( Slct.trk_Pip == nullptr || Slct.trk_Pim == nullptr ) {
+      printf("DEBUG: run# %i, ev# %i Mrec(best)= %f"
+            " -> NULL trk_Pip(m)\n",
+            Slct.runNo, Slct.event, Slct.Mrec_best );
       return false;
    }
    hst[1]->Fill(2); // "cuts"
@@ -1660,6 +1673,9 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       if( !itTrk->isMdcTrackValid() ) {
          continue;
       }
+      if( !itTrk->isMdcKalTrackValid() ) {
+         continue;
+      }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
 
@@ -1690,6 +1706,11 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
       if ( !mdcKalTrk ) {
+         continue;
+      }
+      if ( std::isnan(mdcKalTrk->px()) 
+            || std::isnan(mdcKalTrk->py())
+            || std::isnan(mdcKalTrk->pz()) ) {
          continue;
       }
       // skip pi+ pi- candiadate
@@ -2713,16 +2734,32 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
            << "       Mrec in [3.092, 3.102] "
            << PsipTbl.ntot << " decays" << endl
            << "       size of table is " << PsipTbl.Size() << endl;
-      PsipTbl.Print(0.01); // do not print decays with P<0.01% of all
+      PsipTbl.Print(0.1); // do not print decays with P<0.1% of all
       cout << "Enddecay" << endl << endl;
+
+      // test size of table
+      size_t sum = 0;
+      for ( auto p : PsipTbl.decays ) {
+         sum += p.first.size();
+         sum += sizeof(size_t);
+      }
+      cout << " Total size of PsipTbl is " << sum <<  endl;
 
       cout << string(65,'#') << endl;
       cout << "Decays of Psi(2S) 2" << endl
            << "       Mrec in [3.055, 3.145] "
            << PsipTbl2.ntot << " decays" << endl
            << "       size of table is " << PsipTbl2.Size() << endl;
-      PsipTbl2.Print(0.01);
+      PsipTbl2.Print(0.1);
       cout << "Enddecay" << endl << endl;
+
+      // test size of table
+      sum = 0;
+      for ( auto p : PsipTbl2.decays ) {
+         sum += p.first.size();
+         sum += sizeof(size_t);
+      }
+      cout << " Total size of PsipTbl2 is " << sum <<  endl;
    }
 
    string module = string(__func__);
