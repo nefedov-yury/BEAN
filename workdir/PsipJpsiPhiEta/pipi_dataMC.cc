@@ -5,11 +5,12 @@
 // pointer on function wich fill one histo
 typedef TH1D* (*FILL_H)(string, string, string);
 
-// {{{1 global name of folder with root files
+// {{{1 helper functions and constants
+//--------------------------------------------------------------------
+// global name of folder with root files
 // static string dir("prod-11/");
 string dir("prod_v709/");
 
-// {{{1 helper functions
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -64,28 +65,26 @@ void get_hist(int date, string hname, TH1D* hst[]) {
 //--------------------------------------------------------------------
 #include "norm.h"
 
-   string datname( Form("data_%02ipsip_all.root",date%100) );
-   string mcname( Form("mcinc_%02ipsip_all.root",date%100) );
+   string datafile( Form("data_%02ipsip_all.root",date%100) );
+   string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
-   hst[0]=get_hst(datname, hname);
+   hst[0]=get_hst(datafile, hname);
    hst[0]->SetMarkerStyle(20);
    hst[0]->SetMarkerSize(0.7);
    hst[0]->GetYaxis()->SetMaxDigits(3);
-   cout << " Integral(data)= " << hst[0]->Integral() << endl;
+   // cout << " Integral(data)= " << hst[0]->Integral() << endl;
 
    hst[1]=get_hst("data_3650_all.root", hname);
-   map<int,int> CtoDat {{2009,Cto09},{2012,Cto12},{2021,Cto21}};
-   // hst[1]->Scale(CtoDat[date]);
+   hst[1]->Scale(C_Dat.at(date));
    hst[1]->SetLineColor(kBlue+1);
    hst[1]->SetLineWidth(2);
-   cout << " Integral(3650)= " << hst[1]->Integral() << endl;
+   // cout << " Integral(3650)= " << hst[1]->Integral() << endl;
 
-   hst[2]=get_hst(mcname, hname);
-   map<int,int> ItoDat {{2009,Ito09},{2012,Ito12},{2021,Ito21}};
-   // hst[2]->Scale(ItoDat[date]);
+   hst[2]=get_hst(mcincfile, hname);
+   hst[2]->Scale(MC_Dat.at(date));
    hst[2]->SetLineColor(kRed+1);
    hst[2]->SetLineWidth(1);
-   cout << " Integral(mc)= " << hst[2]->Integral() << endl;
+   // cout << " Integral(mc)= " << hst[2]->Integral() << endl;
 }
 
 //--------------------------------------------------------------------
@@ -439,11 +438,11 @@ void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[]) {
 //--------------------------------------------------------------------
 #include "norm.h"
 
-   string datname( Form("data_%02ipsip_all.root",date%100) );
-   string mcname( Form("mcinc_%02ipsip_all.root",date%100) );
+   string datafile( Form("data_%02ipsip_all.root",date%100) );
+   string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
    string hn0 = var + string(Form("_%02i",date%100));
-   hst[0]=fill_h(datname, hn0, "");
+   hst[0]=fill_h(datafile, hn0, "");
    hst[0]->SetMarkerStyle(20);
    hst[0]->SetMarkerSize(0.7);
    hst[0]->GetYaxis()->SetMaxDigits(3);
@@ -451,23 +450,21 @@ void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[]) {
 
    string hn1 = var + string("_3650");
    hst[1]=fill_h("data_3650_all.root", hn1, "");
-   map<int,int> CtoDat {{2009,Cto09},{2012,Cto12},{2021,Cto21}};
-   // hst[1]->Scale(CtoDat[date]);
+   hst[1]->Scale(C_Dat.at(date));
    hst[1]->SetLineColor(kBlue+1);
    hst[1]->SetLineWidth(2);
    cout << " Integral(3650)= " << hst[1]->Integral() << endl;
 
    string hn2 = var + string(Form("_%02iMC",date%100));
-   hst[2]=fill_h(mcname, hn2, "");
-   map<int,int> ItoDat {{2009,Ito09},{2012,Ito12},{2021,Ito21}};
-   // hst[2]->Scale(ItoDat[date]);
+   hst[2]=fill_h(mcincfile, hn2, "");
+   hst[2]->Scale(MC_Dat.at(date));
    hst[2]->SetLineColor(kRed+1);
    hst[2]->SetLineWidth(1);
    cout << " Integral(mc)= " << hst[2]->Integral() << endl;
 
    string hn3 = hn2 + "bg";
-   hst[3]=fill_h(mcname, hn3, "dec!=64");
-   // hst[3]->Scale(ItoDat[date]);
+   hst[3]=fill_h(mcincfile, hn3, "dec!=64");
+   hst[3]->Scale(MC_Dat.at(date));
    hst[3]->SetLineColor(kMagenta+1);
    hst[3]->SetLineWidth(2);
    cout << " Integral(mcbg)= " << hst[3]->Integral() << endl;

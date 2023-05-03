@@ -6,8 +6,8 @@ Scripts for Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
 masses.h   -> masses of particles (GeV) from PDG 2021
 
-norm.h     -> normalization constants for inclusive MC and for
-              non-resonance data.
+-- norm.h     -> normalization constants for inclusive MC and for
+              non-resonance data. v709 ?
 
 cuts.h     -> List of cuts for
               1) Psi' -> J/Psi pi+ pi-
@@ -35,6 +35,14 @@ MrecFitSB.cc - Calculate number of Psi(2S) -> J/Psi pi+ pi- decays
                in data using side-band method.
                MrecDraw() -> Mrec_YEAR.pdf
                DoFitSB()  -> Mrec_YEAR_fsb.pdf
+// parameters for V6.6.4
+if ( Npol == 3 ) {
+  if ( date == 2009 ) {
+    par_ini = { 1.0343, 0.0069, 0.0083, 0.0011 };
+  } else if ( date == 2012 ) {
+    par_ini = { 1.0478, 0.0044, 0.0076, 0.0008 };
+  }
+}
 
 MrecFit.cc - FOR MC AFTER HELIX CORRECTIONS
              (archive/MrecFit.cc - version before helix corrections)
