@@ -1003,7 +1003,7 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       if ( !mdcKalTrk ) {
          continue;
       }
-      if ( std::isnan(mdcKalTrk->px()) 
+      if ( std::isnan(mdcKalTrk->px())
             || std::isnan(mdcKalTrk->py())
             || std::isnan(mdcKalTrk->pz()) ) {
          continue;

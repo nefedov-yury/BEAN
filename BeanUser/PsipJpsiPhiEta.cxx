@@ -1446,7 +1446,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       if ( !mdcKalTrk ) {
          continue;
       }
-      if ( std::isnan(mdcKalTrk->px()) 
+      if ( std::isnan(mdcKalTrk->px())
             || std::isnan(mdcKalTrk->py())
             || std::isnan(mdcKalTrk->pz()) ) {
          Warning("Nan Kalman track");
@@ -1708,7 +1708,7 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       if ( !mdcKalTrk ) {
          continue;
       }
-      if ( std::isnan(mdcKalTrk->px()) 
+      if ( std::isnan(mdcKalTrk->px())
             || std::isnan(mdcKalTrk->py())
             || std::isnan(mdcKalTrk->pz()) ) {
          continue;
@@ -2737,14 +2737,6 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
       PsipTbl.Print(0.1); // do not print decays with P<0.1% of all
       cout << "Enddecay" << endl << endl;
 
-      // test size of table
-      size_t sum = 0;
-      for ( auto p : PsipTbl.decays ) {
-         sum += p.first.size();
-         sum += sizeof(size_t);
-      }
-      cout << " Total size of PsipTbl is " << sum <<  endl;
-
       cout << string(65,'#') << endl;
       cout << "Decays of Psi(2S) 2" << endl
            << "       Mrec in [3.055, 3.145] "
@@ -2752,14 +2744,6 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
            << "       size of table is " << PsipTbl2.Size() << endl;
       PsipTbl2.Print(0.1);
       cout << "Enddecay" << endl << endl;
-
-      // test size of table
-      sum = 0;
-      for ( auto p : PsipTbl2.decays ) {
-         sum += p.first.size();
-         sum += sizeof(size_t);
-      }
-      cout << " Total size of PsipTbl2 is " << sum <<  endl;
    }
 
    string module = string(__func__);

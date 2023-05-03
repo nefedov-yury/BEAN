@@ -199,7 +199,7 @@ bool PsipHelixParCorEvent( ReadDst* selector,
       if ( !mdcKalTrk ) {
          continue;
       }
-      if ( std::isnan(mdcKalTrk->px()) 
+      if ( std::isnan(mdcKalTrk->px())
             || std::isnan(mdcKalTrk->py())
             || std::isnan(mdcKalTrk->pz()) ) {
          Warning("Nan Kalman track");

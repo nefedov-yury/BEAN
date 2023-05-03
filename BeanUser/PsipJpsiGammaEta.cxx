@@ -849,7 +849,7 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
       if ( !mdcKalTrk ) {
          continue;
       }
-      if ( std::isnan(mdcKalTrk->px()) 
+      if ( std::isnan(mdcKalTrk->px())
             || std::isnan(mdcKalTrk->py())
             || std::isnan(mdcKalTrk->pz()) ) {
          continue;
@@ -1593,14 +1593,6 @@ void PsipJpsiGammaEtaEndJob(ReadDst* selector) {
            << "       size of table is " << JpsiTbl.Size() << endl;
       JpsiTbl.Print(0.1); // do not print decays with P<0.1% of all
       cout << "Enddecay" << endl << endl;
-
-      // test size of table
-      size_t sum = 0;
-      for ( auto p : JpsiTbl.decays ) {
-         sum += p.first.size();
-         sum += sizeof(size_t);
-      }
-      cout << " Total size of JpsiTbl is " << sum <<  endl;
    }
 
    string module = string(__func__);

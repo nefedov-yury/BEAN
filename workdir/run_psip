@@ -9,7 +9,7 @@ PROD="local"
 ######################## MC SIGNAL: PHI ETA ########################
 # save in prod-dir
 
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   printf "run mcsig_kkmc_09\n"
   ${BEAN7} \
     -u PsipHelixParCor \
@@ -19,7 +19,7 @@ if [ 1 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mcsig_kkmc_09.out 2>&1 &
 fi
 
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   printf "run mcsig_kkmc_12\n"
   ${BEAN7} \
     -u PsipHelixParCor \
@@ -29,7 +29,7 @@ if [ 1 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mcsig_kkmc_12.out 2>&1 &
 fi
 
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   printf "run mcsig_kkmc_21\n"
   ${BEAN7} \
     -u PsipHelixParCor \
@@ -132,15 +132,15 @@ if [ 0 -eq 1 ]; then
     > PsipJpsiPhiEta/local/mcinc_12psip.out 2>&1 &
 fi
 
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   printf "run local mcinc_21\n"
   ${BEAN7} \
-    -u PsipHelixParCor \
     -u PsipJpsiPhiEta \
+    -u PsipHelixParCor \
     -u PsipPiPiKK \
     -u PsipJpsiGammaEta\
     -h PsipJpsiPhiEta/local/mcinc_21psip.root \
-    -L PsipJpsiPhiEta/local/Lists/mcincl_21_664.list \
+    -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
     > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &
 fi
     #  ${DSTDIR}/psip2021_stream001_run66839_file3.dst \
