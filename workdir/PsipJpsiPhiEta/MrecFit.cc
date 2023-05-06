@@ -13,7 +13,8 @@
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
-static const string dir("prod-12/");  // must be the same as prod-11
+// static const string dir("prod-12/");
+string dir("prod_v709/");
 
 //--------------------------------------------------------------------
 constexpr double SQ(double x) {
@@ -48,110 +49,91 @@ void SetHstFace(TH1* hst) {
 }
 
 //--------------------------------------------------------------------
-void set_draw_opt(TH1D* hst[]) {
+void set_draw_opt(vector<TH1D*>& hst) {
 //--------------------------------------------------------------------
-// data
+   // data
    hst[0]->SetMarkerStyle(20);
    hst[0]->SetMarkerSize(0.7);
-// data 3650
+   // data 3650
    hst[1]->SetLineColor(kBlue+1);
    hst[1]->SetLineWidth(2);
-// MC signal
+   // MC signal
    hst[2]->SetLineColor(kGreen+3);
    hst[2]->SetLineWidth(1);
-// MC bg from pi+pi-J/Psi
+   // MC bg from pi+pi-J/Psi
    hst[3]->SetLineColor(kBlue+3);
    hst[3]->SetLineWidth(2);
-// MC bg not pi+pi-J/Psi
+   // MC bg not pi+pi-J/Psi
    hst[4]->SetLineColor(kMagenta+1);
    hst[4]->SetLineWidth(2);
 }
 
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
-TH1D* fill_mrec(string fname,string hname,int type=0,double shift=0.){
+TH1D* fill_mrec(string fname, string hname, int type=0,
+      double shift=0.) {
 //--------------------------------------------------------------------
    // type = 0 all recoil masses (default)
    // type = 1 recoil mass of true pi+pi- pair (MC)
    // type = 2 background for dec==64 (pi+pi-J/Psi)
    // type = 3 background for dec!=64 (other Psi' decays)
+   // type = 11 the same as type=1 but without helix corrections
 
-   fname = dir + fname;
+   if ( type == 11 ) {
+      fname = dir + "NoHC/" + fname;
+   } else {
+      fname = dir + fname;
+   }
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {
       cerr << "ERROR in "<< __func__
-           << ": can not open " << fname << endl;
-      exit(0);
+         << ": can not open " << fname << endl;
+      exit(EXIT_FAILURE);
    }
 
    froot->cd("PsipJpsiPhiEta");
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
    if ( !nt1 ) {
       cerr << "ERROR in "<< __func__
-           << " can not find nt1" << endl;
-      exit(0);
+         << " can not find nt1" << endl;
+      exit(EXIT_FAILURE);
    }
-
-   //Declaration of leaves types
-   Float_t         Mrs;
-   Float_t         MrsW;
-   Float_t         Mrb;
-   Float_t         Ptp;
-   Float_t         Ptm;
-   UShort_t        dec;
-   // Set branch addresses.
-   nt1->SetBranchAddress("Mrs",&Mrs);
-   nt1->SetBranchAddress("MrsW",&MrsW);
-   nt1->SetBranchAddress("Mrb",&Mrb);
-   nt1->SetBranchAddress("Ptp",&Ptp);
-   nt1->SetBranchAddress("Ptm",&Ptm);
-   nt1->SetBranchAddress("dec",&dec);
 
    TH1D* hst = new TH1D(hname.c_str(),
          ";M^{rec}_{#pi^{#plus}#pi^{#minus }}, GeV/c^{2}"
-         ";Entries/0.0001 GeV/c^{2}",
+         ";Entries/0.1 MeV/c^{2}",
          2000,3.0,3.2 // 1bin = 0.1MeV
          );
    hst->Sumw2(true);
 
-   string dr = string("Mrec>>") + hname;
+   string dr("Mrec");
    TCut cut;
-   if ( type == 1 ) {
-      dr = string("Mrs>>") + hname;
-      cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
-
-      /* prod-11
-      bool is2009 = (fname.find("_09") != string::npos);
-      int date = (is2009) ? 2009 : 2012;
-
-      Long64_t nentries = nt1 -> GetEntries();
-      for (Long64_t i=0; i<nentries;i++) {
-         nt1 -> GetEntry(i);
-
-         if ( dec != 64 ) continue;
-         if ( Mrs < 3.0 || Mrs > 3.2 ) continue;
-
-         // correction for pi+,pi- eff:
-         double wp = ReWeightTrkPid(date,0,Ptp);
-         double wm = ReWeightTrkPid(date,0,Ptm);
-         double W = wp*wm;
-         hst -> Fill(shift+Mrs,W);
-      }
-      return hst;
-      */
-   } else if ( type == 2 ) {
-      cut = TCut("dec==64");
-   } else if ( type == 3 ) {
-      cut = TCut("dec!=64");
+   switch ( type ) {
+      case 0:
+         break;
+      case 1:
+      case 11:
+         dr = string("Mrs");
+         cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
+         break;
+      case 2:
+         cut = TCut("dec==64");
+         break;
+      case 3:
+         cut = TCut("dec!=64");
+         break;
+      default:
+         cerr << "ERROR in "<< __func__
+            << ": unknown type= " << type << endl;
+         exit(EXIT_FAILURE);
    }
 
    // only for MC: small energy shift
-   if ( type > 0 && fabs(shift) > 1e-5 ) {
-      dr = to_string(shift) + string("+") + dr;
+   if ( type > 0 && fabs(shift) > 1e-6 ) {
+      dr = string(Form("(%.6f+%s)",shift,dr.c_str())); // shift+dr
    }
-   // to_string() converts only 6 digits after the point,
-   // check output!
+   dr += string( Form(">>%s",hname.c_str()) );
    cout << " fill_mrec::INFO dr= " << dr << endl;
 
    nt1->Draw(dr.c_str(),cut,"goff");
@@ -159,292 +141,77 @@ TH1D* fill_mrec(string fname,string hname,int type=0,double shift=0.){
    return hst;
 }
 
-// fill recoil masses of MC-true pi+pi- pairs without helix corrections
-//-------------------------------------------------------------------------
-TH1D* fill_mrec_nohc(string fname, string hname, double shift=0.) {
-//-------------------------------------------------------------------------
-   fname = string("prod-9/") + fname;
-   cout << " file: " << fname << endl;
-   TFile* froot = TFile::Open(fname.c_str(),"READ");
-   if ( froot == 0 ) {
-      cerr << "ERROR in "<< __func__
-           << ": can not open " << fname << endl;
-      exit(0);
+//--------------------------------------------------------------------
+vector<TH1D*> fill_hist(int date, bool NoHC=false) {
+//--------------------------------------------------------------------
+#include "norm.h"
+   double shift = 0.0;
+   if ( date == 2021 ) {
+      shift = 0.0004;
    }
 
-   froot->cd("PsipJpsiPhiEta");
-   TTree* nt1 = (TTree*)gDirectory->Get("nt1");
-   if ( !nt1 ) {
-      cerr << "ERROR in "<< __func__
-           << " can not find nt1" << endl;
-      exit(0);
+   string sd(Form("%02i",date%100));
+   vector<string> hname = {
+      "data"+sd, "data3650_"+sd,
+      "mc"+sd+"sig", "mc"+sd+"bg1", "mc"+sd+"bg2",
+      "mc"+sd+"sig10"
+   };
+
+   vector<TH1D*> hst(hname.size(),nullptr);
+
+   // read from cache file
+   string cachef = dir + string(Form("MrecFit_%i",date));
+   if ( NoHC ) {
+      cachef += "_nohc";
+   }
+   if ( fabs(shift) > 1e-7 ) {
+      cachef += ((shift<0) ? "_m" : "_")
+         + to_string(int(fabs(shift*1e6)));
    }
 
-   // copy 'hst' from fill_mrec()
-   TH1D* hst = new TH1D(hname.c_str(),
-         ";M^{rec}_{#pi^{#plus}#pi^{#minus }}, GeV/c^{2}"
-         ";Entries/0.0001 GeV/c^{2}",
-         2000,3.0,3.2 // 1bin = 0.1MeV
-         );
-   hst->Sumw2(true);
-
-   string dr = string("Mrs>>") + hname;
-   TCut cut("MrsW*(dec==64)");
-   // only for MC: small energy shift
-   if ( fabs(shift) > 1e-5 ) {
-      dr = to_string(shift) + string("+") + dr;
+   cachef += ".root";
+   if ( std::filesystem::exists( cachef )  ) {
+      TFile* froot = TFile::Open(cachef.c_str(),"READ");
+      if ( !froot ) {
+         cerr << "ERROR in "<< __func__
+            << ": unreadeble file: " << cachef << endl;
+         exit(EXIT_FAILURE);
+      }
+      for ( size_t i = 0; i < hname.size(); ++i ) {
+         hst[i]=(TH1D*)froot->Get(hname[i].c_str());
+      }
+      return hst;
    }
-   // to_string() converts only 6 digits after the point,
-   // check output!
-   cout << __func__ << "::INFO dr= " << dr << endl;
 
-   nt1->Draw(dr.c_str(),cut,"goff");
+   string datafile( Form("data_%02ipsip_all.root",date%100) );
+   string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
+   hst[0]=fill_mrec(datafile, hname[0]);
+
+   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
+   hst[1]->Scale(C_Dat.at(date));
+
+   int type1 = ( !NoHC ) ? 1 : 11 ;
+   hst[2]=fill_mrec(mcincfile,hname[2],type1,shift);
+   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
+   hst[2]->Scale(MC_Dat.at(date));
+
+   hst[3]=fill_mrec(mcincfile,hname[3],2,shift);
+   hst[3]->Scale(MC_Dat.at(date));
+
+   hst[4]=fill_mrec(mcincfile,hname[4],3,shift);
+   hst[4]->Scale(MC_Dat.at(date));
+
+   // save histos in cache file
+   TFile* froot = TFile::Open(cachef.c_str(),"NEW");
+   for ( const auto& h : hst ) {
+      h->Write();
+   }
+   froot->Close();
    return hst;
 }
 
-//--------------------------------------------------------------------
-void fill_hist2009(TH1D* hst[]) {
-//--------------------------------------------------------------------
-#include "norm.h"
-
-   // optimization of Mrec shift(data-MC) !after helix corrections!
-   const double shift = 0.000026; //   100 iterations
-                                  // MeV      chi^2(3M,fix-bg)
-                                  //  0.        9214.39
-                                  // +0.024     8139.61   6204.53
-                                  // +0.025     8057.32   6122.76
-                                  // +0.026**   8048.78   6113.98
-                                  // +0.027     8126.97   6194.08
-
-   vector<string> hname {
-      "data09", "data3650_09",
-      "mc09sig", "mc09bg1", "mc09bg2",
-      "mc09sig10"
-   };
-
-   // check cache file
-   string cachef = dir + string("MrecFit_2009");
-   const bool use_cache = true;
-   if ( use_cache ) {
-      cachef += (shift<0) ? "_m" : "_";
-      cachef += to_string(int(fabs(shift*1e6))) + ".root";
-      cout << " INFO: cachef= " << cachef << endl;
-      TFile* froot = TFile::Open(cachef.c_str(),"READ");
-      if ( froot != 0 ) {
-         for ( unsigned int i = 0; i < hname.size(); ++i ) {
-            hst[i]=(TH1D*)froot->Get(hname[i].c_str());
-         }
-         return;
-      }
-   }
-
-   hst[0]=fill_mrec("data_09psip_all.root", hname[0]);
-
-   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
-   hst[1]->Scale(Cto09);
-
-   hst[2]=fill_mrec("mcinc_09psip_all.root",hname[2],1,shift);
-   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
-   hst[2]->Scale(Ito09);
-
-   hst[3]=fill_mrec("mcinc_09psip_all.root",hname[3],2,shift);
-   hst[3]->Scale(Ito09);
-
-   hst[4]=fill_mrec("mcinc_09psip_all.root",hname[4],3,shift);
-   hst[4]->Scale(Ito09);
-
-   // save histos in cache file
-   if ( use_cache ) {
-      TFile* froot = TFile::Open(cachef.c_str(),"NEW");
-      for ( unsigned int i = 0; i < hname.size(); ++i ) {
-         hst[i]->Write();
-      }
-      froot->Close();
-   }
-}
-
-//--------------------------------------------------------------------
-void fill_hist2012(TH1D* hst[]) {
-//--------------------------------------------------------------------
-#include "norm.h"
-
-   // optimization of Mrec shift(data-MC) !after helix corrections!
-   const double shift =-0.000201; //  100 iterations
-                                  //   MeV    chi^2(M1,fix-bg)
-                                  //  0.      221199
-                                  // -0.160    49651.3 <data>=<MC>
-                                  // -0.199    42361     33334.1
-                                  // -0.200    42191.5   33157.6
-                                  // -0.201**  42092.1   33055.3
-                                  // -0.202    42250.4   33208.9
-   vector<string> hname {
-      "data12", "data3650_12",
-      "mc12sig", "mc12bg1", "mc12bg2",
-      "mc12sig10"
-   };
-
-   // check cache file
-   string cachef =  dir + string("MrecFit_2012");
-   const bool use_cache = true;
-   if ( use_cache ) {
-      cachef += (shift<0) ? "_m" : "_";
-      cachef += to_string(int(fabs(shift*1e6))) + ".root";
-      cout << " INFO: cachef= " << cachef << endl;
-      TFile* froot = TFile::Open(cachef.c_str(),"READ");
-      if ( froot != 0 ) {
-         for ( unsigned int i = 0; i < hname.size(); ++i ) {
-            hst[i]=(TH1D*)froot->Get(hname[i].c_str());
-         }
-         return;
-      }
-   }
-
-   hst[0]=fill_mrec("data_12psip_all.root", hname[0]);
-
-   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
-   hst[1]->Scale(Cto12);
-
-   hst[2]=fill_mrec("mcinc_12psip_all.root",hname[2],1,shift);
-   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
-   hst[2]->Scale(Ito12);
-
-   hst[3]=fill_mrec("mcinc_12psip_all.root",hname[3],2,shift);
-   hst[3]->Scale(Ito12);
-
-   hst[4]=fill_mrec("mcinc_12psip_all.root",hname[4],3,shift);
-   hst[4]->Scale(Ito12);
-
-   // save histos in cache file
-   if ( use_cache ) {
-      TFile* froot = TFile::Open(cachef.c_str(),"NEW");
-      for ( unsigned int i = 0; i < hname.size(); ++i ) {
-         hst[i]->Write();
-      }
-      froot->Close();
-   }
-}
-
-// fill MC-true shape from prod-10 (no helix corrections)
-//--------------------------------------------------------------------
-void fill_hist2009_nohc(TH1D* hst[]) {
-//--------------------------------------------------------------------
-#include "norm.h"
-
-   // optimization of Mrec shift(data-MC)
-   const double shift = 0.000222; //  MeV   chi^2
-                                  // 0.220   3717.3
-                                  // 0.221   3709.4
-                                  // 0.222   3705.6 *
-                                  // 0.223   3705.7
-                                  // 0.224   3709.2
-
-   vector<string> hname {
-      "data09", "data3650_09",
-      "mc09sig", "mc09bg1", "mc09bg2",
-      "mc09sig10"
-   };
-
-   // check cache file
-   string cachef = dir + string("MrecFit_2009_nohc");
-   const bool use_cache = true;
-   if ( use_cache ) {
-      cachef += (shift<0) ? "_m" : "_";
-      cachef += to_string(int(fabs(shift*1e6))) + ".root";
-      cout << " INFO: cachef= " << cachef << endl;
-      TFile* froot = TFile::Open(cachef.c_str(),"READ");
-      if ( froot != 0 ) {
-         for ( unsigned int i = 0; i < hname.size(); ++i ) {
-            hst[i]=(TH1D*)froot->Get(hname[i].c_str());
-         }
-         return;
-      }
-   }
-
-   hst[0]=fill_mrec("data_09psip_all.root", hname[0]);
-
-   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
-   hst[1]->Scale(Cto09);
-
-   hst[2]=fill_mrec_nohc("mcinc_09psip_all.root",hname[2],shift);
-   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
-   hst[2]->Scale(Ito09);
-
-   hst[3]=fill_mrec("mcinc_09psip_all.root",hname[3],2);
-   hst[3]->Scale(Ito09);
-
-   hst[4]=fill_mrec("mcinc_09psip_all.root",hname[4],3);
-   hst[4]->Scale(Ito09);
-
-   // save histos in cache file
-   if ( use_cache ) {
-      TFile* froot = TFile::Open(cachef.c_str(),"NEW");
-      for ( unsigned int i = 0; i < hname.size(); ++i ) {
-         hst[i]->Write();
-      }
-      froot->Close();
-   }
-}
-
-//--------------------------------------------------------------------
-void fill_hist2012_nohc(TH1D* hst[]) {
-//--------------------------------------------------------------------
-#include "norm.h"
-
-   // optimization of Mrec shift(data-MC)
-   const double shift = 0.000379; //  MeV   chi^2
-                                  // 0.380  7208.3
-                                  // 0.379  7202.4 *
-                                  // 0.378  7205.3
-
-   vector<string> hname {
-      "data12", "data3650_12",
-      "mc12sig", "mc12bg1", "mc12bg2",
-      "mc12sig10"
-   };
-
-   // check cache file
-   string cachef =  dir + string("MrecFit_2012_nohc");
-   const bool use_cache = true;
-   if ( use_cache ) {
-      cachef += (shift<0) ? "_m" : "_";
-      cachef += to_string(int(fabs(shift*1e6))) + ".root";
-      cout << " INFO: cachef= " << cachef << endl;
-      TFile* froot = TFile::Open(cachef.c_str(),"READ");
-      if ( froot != 0 ) {
-         for ( unsigned int i = 0; i < hname.size(); ++i ) {
-            hst[i]=(TH1D*)froot->Get(hname[i].c_str());
-         }
-         return;
-      }
-   }
-
-   hst[0]=fill_mrec("data_12psip_all.root", hname[0]);
-
-   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
-   hst[1]->Scale(Cto12);
-
-   hst[2]=fill_mrec_nohc("mcinc_12psip_all.root",hname[2],shift);
-   hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
-   hst[2]->Scale(Ito12);
-
-   hst[3]=fill_mrec("mcinc_12psip_all.root",hname[3],2);
-   hst[3]->Scale(Ito12);
-
-   hst[4]=fill_mrec("mcinc_12psip_all.root",hname[4],3);
-   hst[4]->Scale(Ito12);
-
-   // save histos in cache file
-   if ( use_cache ) {
-      TFile* froot = TFile::Open(cachef.c_str(),"NEW");
-      for ( unsigned int i = 0; i < hname.size(); ++i ) {
-         hst[i]->Write();
-      }
-      froot->Close();
-   }
-}
-
-// {{{1 Function for fitting
+// {{{1 Functions for fitting
 //--------------------------------------------------------------------
 double ChebN(int nch, double Xmin, double Xmax, double x,
       const double* p) {
@@ -468,7 +235,6 @@ double ChebN(int nch, double Xmin, double Xmax, double x,
       T1 = Tmp;
    }
    return sum;
-
 }
 
 //--------------------------------------------------------------------
@@ -512,8 +278,8 @@ vector<double> dCDFnorm(double wbin, double sig) {
       erf0 = erf1;
    }
 
-//    printf(" DEBUG: gw.size= %zu, wsum-gw[0]= %.9f (must be 1)\n",
-//             gw.size(), wsum-gw[0]);
+   // printf(" DEBUG: gw.size= %zu, wsum-gw[0]= %.9f (must be 1)\n",
+            // gw.size(), wsum-gw[0]);
 
    int ngw = gw.size();
    vector<double> res(2*ngw-1); // result
@@ -524,11 +290,11 @@ vector<double> dCDFnorm(double wbin, double sig) {
    }
 
    // test: shift on one bin to right -> the same result!
-//    res.resize(2*ngw);
-//    for ( int i = 2*ngw-1; i > 0 ; --i ) {
-//       res[i] = res[i-1];
-//    }
-//    res[0] = 0;
+   // res.resize(2*ngw);
+   // for ( int i = 2*ngw-1; i > 0 ; --i ) {
+      // res[i] = res[i-1];
+   // }
+   // res[0] = 0;
 
    return res;
 }
@@ -569,8 +335,8 @@ vector<double> dCDFGnorm(double wbin, double alpha, double kappa) {
       cdf0 = cdf1;
    }
 
-//    printf(" DEBUG: res.size=%zu, wsum=%.9f(must be 1), res[0]=%g\n",
-//             res.size(), wsum, res[0]);
+   // printf(" DEBUG: res.size=%zu, wsum=%.9f(must be 1), res[0]=%g\n",
+            // res.size(), wsum, res[0]);
 
    return res;
 }
@@ -611,8 +377,8 @@ vector<double> dCDFnorm2(double wbin,double s1,double s2,double f) {
       erf02 = erf2;
    }
 
-//    printf(" DEBUG: gw.size= %zu, wsum-gw[0]= %.9f (must be 1)\n",
-//             gw.size(), wsum-gw[0]);
+   // printf(" DEBUG: gw.size= %zu, wsum-gw[0]= %.9f (must be 1)\n",
+            // gw.size(), wsum-gw[0]);
 
    int ngw = gw.size();
    vector<double> res(2*ngw-1); // result
@@ -628,10 +394,13 @@ vector<double> dCDFnorm2(double wbin,double s1,double s2,double f) {
 // convolution
 //--------------------------------------------------------------------
 bool conv_vec( vector<double>& vec, vector<double>& er2,
-               double wbin, double s1, double s2, double f ) {
+      double wbin, double s1, double s2, double f, int NG ) {
 //--------------------------------------------------------------------
-//    vector<double> res = dCDFnorm(wbin, s1); // 1-gauss
-   vector<double> res = dCDFnorm2(wbin, s1,s2,f);
+   vector<double> res = ( NG == 2 ) ?
+      dCDFnorm2(wbin, s1,s2,f) //two gausses
+      :
+      dCDFnorm(wbin, s1); // one gauss
+
    if ( res.empty() ) {
       return false;
    }
@@ -643,8 +412,8 @@ bool conv_vec( vector<double>& vec, vector<double>& er2,
    for ( int i = 0; i < n; ++i ) {
       double d = vec[i];
       double e = er2[i];
-//       int jmin = max(0,mres-i);
-//       int jmax = min(nres,n+mres-i);
+      // int jmin = max(0,mres-i);
+      // int jmax = min(nres,n+mres-i);
       for ( int j = 0; j < nres; ++j ) {
          int idx = i - mres + j;
          if ( idx < 0 ) continue; // j >= mres-i
@@ -664,7 +433,7 @@ bool conv_vec( vector<double>& vec, vector<double>& er2,
 // ATTENTION: er2 is sqares of errors
 //--------------------------------------------------------------------
 bool decon_vec( vector<double>& vec, vector<double>& er2,
-                double wbin, double sig) {
+      double wbin, double sig) {
 //--------------------------------------------------------------------
    vector<double> res = dCDFnorm(wbin, sig);
    if ( res.empty() ) {
@@ -678,13 +447,13 @@ bool decon_vec( vector<double>& vec, vector<double>& er2,
    double boost = 1.; // boosting coefficient
    static TSpectrum* s = new TSpectrum();
    const char* dec_err =
-   s -> Deconvolution(vec.data(), res.data(), n, niter,nrep,boost);
-//    s -> DeconvolutionRL(vec.data(), res.data(), n, niter,nrep,boost);
+      s->Deconvolution(vec.data(), res.data(), n, niter,nrep,boost);
+      // s->DeconvolutionRL(vec.data(), res.data(), n, niter,nrep,boost);
 
    if ( dec_err ) {
       cerr << " ERROR in decon_vec:  " << endl;
       cerr << " vec.size= " << vec.size() << " wbin= " << wbin
-           << " sig= " << sig << endl;
+         << " sig= " << sig << endl;
       cerr <<  dec_err << endl;
       return false;
    }
@@ -700,7 +469,7 @@ bool decon_vec( vector<double>& vec, vector<double>& er2,
 
 //--------------------------------------------------------------------
 bool deconG_vec( vector<double>& vec, vector<double>& er2,
-                 double wbin, double sigma, double kappa ) {
+      double wbin, double sigma, double kappa ) {
 //--------------------------------------------------------------------
    vector<double> res = dCDFGnorm(wbin, sigma, kappa);
    if ( res.empty() ) {
@@ -714,13 +483,13 @@ bool deconG_vec( vector<double>& vec, vector<double>& er2,
    double boost = 1.; // boosting coefficient
    static TSpectrum* s = new TSpectrum();
    const char* dec_err =
-   s -> Deconvolution(vec.data(), res.data(), n, niter,nrep,boost);
-//    s -> DeconvolutionRL(vec.data(), res.data(), n, niter,nrep,boost);
+      s->Deconvolution(vec.data(), res.data(), n, niter,nrep,boost);
+      // s->DeconvolutionRL(vec.data(), res.data(), n, niter,nrep,boost);
 
    if ( dec_err ) {
       cerr << " ERROR in deconG_vec:  " << endl;
       cerr << " vec.size= " << vec.size() << " wbin= " << wbin
-           << " sig= " << sigma << " kappa= " << kappa << endl;
+         << " sig= " << sigma << " kappa= " << kappa << endl;
       cerr <<  dec_err << endl;
       return false;
    }
@@ -734,10 +503,9 @@ bool deconG_vec( vector<double>& vec, vector<double>& er2,
    return true;
 }
 
-//
 //--------------------------------------------------------------------
 bool decon_vec2( vector<double>& vec, vector<double>& er2,
-                 double wbin, double s1, double s2, double f ) {
+      double wbin, double s1, double s2, double f ) {
 //--------------------------------------------------------------------
    vector<double> res = dCDFnorm2(wbin, s1,s2,f);
    if ( res.empty() ) {
@@ -751,13 +519,13 @@ bool decon_vec2( vector<double>& vec, vector<double>& er2,
    double boost = 1.; // boosting coefficient
    static TSpectrum* s = new TSpectrum();
    const char* dec_err =
-   s -> Deconvolution(vec.data(), res.data(), n, niter,nrep,boost);
-//    s -> DeconvolutionRL(vec.data(), res.data(), n, niter,nrep,boost);
+      s->Deconvolution(vec.data(), res.data(), n, niter,nrep,boost);
+      // s->DeconvolutionRL(vec.data(), res.data(), n, niter,nrep,boost);
 
    if ( dec_err ) {
       cerr << " ERROR in decon_vec2:  " << endl;
       cerr << " vec.size= " << vec.size() << " wbin= " << wbin
-           << " s1= " << s1 << " s2= " << s2 << " f= " << f << endl;
+         << " s1= " << s1 << " s2= " << s2 << " f= " << f << endl;
       cerr <<  dec_err << endl;
       return false;
    }
@@ -771,158 +539,49 @@ bool decon_vec2( vector<double>& vec, vector<double>& er2,
    return true;
 }
 
-//--------------------------------------------------------------------
-bool cor_sig( vector<double>& vec, vector<double>& er2, double wbin,
-              int model, double s1, double s2, double f ) {
-//--------------------------------------------------------------------
-   if ( model == 0 ) {
-      return conv_vec(vec,er2,wbin,s1,s2,f);
-   } else if ( model == 1 ) {
-      return decon_vec(vec,er2,wbin,s1);
-   } else if ( model == 2 ) {
-      return deconG_vec(vec,er2,wbin,s1,s2); // s2 = kappa
-   } else if ( model == 3 ) {
-      return decon_vec2(vec,er2,wbin,s1,s2,f);
-   }
-   return true;
-}
-
 // {{{1 Class for fitting
 //--------------------------------------------------------------------
 class myChi2 {
    public:
-      // ctor:
-      //--------------------------------------------------------------
-      myChi2(TH1D* hst[],double EMin,double EMax,bool use_nohc) :
-         Emin(EMin),Emax(EMax),use_nohc_signal_mc(use_nohc) {
-      //--------------------------------------------------------------
-         // ExMin/Max -> region to fit signal
+      myChi2(const vector<TH1D*>& hst, double EMin, double EMax);
 
-         Ndata = 0;
-         wbin = hst[0]->GetBinWidth(1);
+      // interface to convolution/deconvolution functions
+      bool cor_sig( vector<double>& vec, vector<double>& er2,
+            double s1, double s2, double f ) const;
 
-         int nbins = hst[0]->GetNbinsX();
-         en.reserve(nbins);
-         data.reserve(nbins);
-         er_data.reserve(nbins);
-         cont.reserve(nbins);
-         er_cont.reserve(nbins);
-         sig.reserve(nbins);
-         er_sig.reserve(nbins);
-         bg.reserve(nbins);
-         er_bg.reserve(nbins);
-         bgn.reserve(nbins);
-         er_bgn.reserve(nbins);
-         for ( int n = 1; n <= nbins; ++n ) {
-            double x = hst[0]->GetBinCenter(n);
-            en.push_back(x);
-            if(x >= Emin && x <= Emax) {
-               Ndata++;
-            }
+      // operator() => chi^2 function
+      double operator() (const double* p) { return Chi2(p); }
+      double Chi2(const double* p);
 
-            data.push_back(hst[0]->GetBinContent(n));
-            er_data.push_back(SQ(hst[0]->GetBinError(n)));
-
-            cont.push_back(hst[1]->GetBinContent(n));
-            er_cont.push_back(SQ(hst[1]->GetBinError(n)));
-
-            // MC signal: [2] - normalized, [5] - not normalized.
-            sig.push_back(hst[2]->GetBinContent(n));
-            er_sig.push_back(SQ(hst[2]->GetBinError(n)));
-
-            bg.push_back(hst[3]->GetBinContent(n));
-            er_bg.push_back(SQ(hst[3]->GetBinError(n)));
-
-            bgn.push_back(hst[4]->GetBinContent(n));
-            er_bgn.push_back(SQ(hst[4]->GetBinError(n)));
-         }
-      }
-
-      // Size function
-      //--------------------------------------------------------------
-      unsigned int Size() const {
-      //--------------------------------------------------------------
+      size_t Size() const {
          return Ndata;
       }
 
-      //--------------------------------------------------------------
+      void SetModel(int m) {
+         model = m;
+         switch ( model ) {
+            case 1: m_par = 2; break;
+            case 2: m_par = 4; break;
+            default:
+               cerr << "FATAL: SetModel: " << model << endl;
+               exit(EXIT_FAILURE);
+         }
+      }
+
+      int GetMPar() const {
+         return m_par;
+      }
+
       void SetNpol(int n) {
-      //--------------------------------------------------------------
          npol = n;
       }
 
-      //--------------------------------------------------------------
-      void SetModel(int m) {
-      //--------------------------------------------------------------
-         model = m;
-      }
-
-      // chi^2 - function
-      // the signature of this operator() MUST be exactly this:
-      //--------------------------------------------------------------
-      double operator() (const double* p) {
-      //--------------------------------------------------------------
-         static const double maxResValue = DBL_MAX / 1000;
-
-         double Sc = p[0];   // scale constant for signal
-         double Sc2 = SQ(Sc);
-         // correction of the MC-signal shape
-         double Gsig1 = p[1]; // sigma1 for deconvolution/convolution
-         double Gsig2 = p[2]; // kappa/sigma2
-         double frac =  p[3]; // fraction of the sigma2
-         vector<double> sig_n(sig), er_sig_n(er_sig);
-         int imod = (use_nohc_signal_mc) ? 0 : model;
-         if (!cor_sig(sig_n,er_sig_n,wbin, imod, Gsig1,Gsig2,frac)) {
-            cerr << "ERROR:: cor_sig failed: imod=" << imod
-               << " Gsig1=" << Gsig1 << " Gsig2=" << Gsig2
-               << " frac=" << frac << endl;
-            return maxResValue;
-         }
-
-         double chi2 = 0;
-         int nbins = en.size();
-         for ( int i = 0; i < nbins; i++ ) {
-            double x = en[i];
-            if ( x < Emin || x > Emax ) {
-               continue;
-            }
-
-            // re-weight MC background by polynomial
-            int ish = model+1;
-            double bgscl = ChebN(npol,Emin_chb,Emax_chb,x,&p[ish]);
-            double bgscl2 = bgscl*bgscl;
-
-            double dif = data[i] -
-                         ( Sc*sig_n[i] + cont[i] +
-                           bgscl * (bg[i] + bgn[i]) );
-//                            bgscl * bg[i] + bgn[i] );
-//                            bgscl * bgn[i] + bg[i] );
-            double er2 = er_data[i] +
-                         Sc2*er_sig_n[i] +
-                         er_cont[i] +
-                         bgscl2 * (er_bg[i] + er_bgn[i]);
-//                          bgscl2*er_bg[i] + er_bgn[i];
-//                          bgscl2*er_bgn[i] + er_bg[i];
-
-            double resval = dif*dif / er2;
-            // avoid inifinity or nan in chi2
-            if ( resval < maxResValue ) {
-               chi2 += resval;
-            } else {
-               chi2 += maxResValue;
-//                return maxResValue;
-            }
-         } // end of for()
-
-         return chi2;
-      }
-
    private:
-      double Emin, Emax;
-      int Ndata;
+      double Emin=3.01, Emax=3.19; // limits to fit signal
+      size_t Ndata=0;
 
-      double wbin;        // bin width
-      vector<double> en;  // energy
+      double wbin=0.;    // bin width
+      vector<double> en; // energy
       vector<double> data, er_data;
       vector<double> cont, er_cont;
       vector<double> sig, er_sig;
@@ -930,25 +589,143 @@ class myChi2 {
       vector<double> bgn, er_bgn;
 
       // models
-      bool use_nohc_signal_mc = false;
-
-      int model = 1;
+      int model = 1; // see cor_sig() function
+      int m_par = 2; // number parameters of the model
 
       int npol = 3;
       const double Emin_chb = 3.0, Emax_chb = 3.2;
 };
+
+// {{{2 ctor:
+//--------------------------------------------------------------------
+myChi2::myChi2(const vector<TH1D*>& hst, double EMin, double EMax) {
+//--------------------------------------------------------------------
+// Emin/Emax -> region to fit signal
+   Emin = EMin;
+   Emax = EMax;
+
+   wbin = hst[0]->GetBinWidth(1);
+
+   int nbins = hst[0]->GetNbinsX();
+   en.reserve(nbins);
+   data.reserve(nbins);
+   er_data.reserve(nbins);
+   cont.reserve(nbins);
+   er_cont.reserve(nbins);
+   sig.reserve(nbins);
+   er_sig.reserve(nbins);
+   bg.reserve(nbins);
+   er_bg.reserve(nbins);
+   bgn.reserve(nbins);
+   er_bgn.reserve(nbins);
+   for ( int n = 1; n <= nbins; ++n ) {
+      double x = hst[0]->GetBinCenter(n);
+      en.push_back(x);
+      if(x >= Emin && x <= Emax) {
+         Ndata++;
+      }
+
+      data.push_back(hst[0]->GetBinContent(n));
+      er_data.push_back(SQ(hst[0]->GetBinError(n)));
+
+      cont.push_back(hst[1]->GetBinContent(n));
+      er_cont.push_back(SQ(hst[1]->GetBinError(n)));
+
+      // MC signal: [2] - normalized, [5] - not normalized.
+      sig.push_back(hst[2]->GetBinContent(n));
+      er_sig.push_back(SQ(hst[2]->GetBinError(n)));
+
+      bg.push_back(hst[3]->GetBinContent(n));
+      er_bg.push_back(SQ(hst[3]->GetBinError(n)));
+
+      bgn.push_back(hst[4]->GetBinContent(n));
+      er_bgn.push_back(SQ(hst[4]->GetBinError(n)));
+   }
+}
+
+// {{{2 cor_sig(): wbin & model from class
+//--------------------------------------------------------------------
+bool myChi2::cor_sig( vector<double>& vec, vector<double>& er2,
+      double s1, double s2, double f ) const {
+//--------------------------------------------------------------------
+   switch ( model ) {
+      case 1:
+         return conv_vec(vec,er2,wbin,s1,s2,f,1); // gauss
+      case 2:
+         return conv_vec(vec,er2,wbin,s1,s2,f,2); // gauss(+)gauss
+      // case 1:
+         // return decon_vec(vec,er2,wbin,s1);
+      // case 2:
+         // return deconG_vec(vec,er2,wbin,s1,s2); // s2 = kappa
+      // case 3:
+         // return decon_vec2(vec,er2,wbin,s1,s2,f);
+   }
+   return true;
+}
+
+// {{{2 Chi2() function
+//--------------------------------------------------------------------
+double myChi2::Chi2(const double* p) {
+//--------------------------------------------------------------------
+   static const double maxResValue = DBL_MAX / 1000;
+
+   double Sc = p[0];   // scale constant for signal
+   double Sc2 = SQ(Sc);
+   // correction of the MC-signal shape
+   double Gsig1 = p[1]; // sigma1 for deconvolution/convolution
+   double Gsig2 = p[2]; // sigma2/(kappa)
+   double frac =  p[3]; // fraction of the sigma2
+   vector<double> sig_n(sig), er_sig_n(er_sig);
+   if ( !cor_sig(sig_n,er_sig_n, Gsig1,Gsig2,frac) ) {
+      cerr << "ERROR:: cor_sig failed: model=" << model
+         << " Gsig1=" << Gsig1 << " Gsig2=" << Gsig2
+         << " frac=" << frac << endl;
+      return maxResValue*Ndata;
+   }
+
+   double chi2 = 0;
+   int nbins = en.size();
+   for ( int i = 0; i < nbins; i++ ) {
+      double x = en[i];
+      if ( x < Emin || x > Emax ) {
+         continue;
+      }
+
+      // re-weight MC background by polynomial
+      double bgscl = ChebN(npol,Emin_chb,Emax_chb,x,&p[m_par]);
+      double bgscl2 = bgscl*bgscl;
+
+      double dif = data[i] -
+         ( Sc*sig_n[i] +
+           cont[i] +
+           bgscl * (bg[i] + bgn[i]) );
+      double er2 = er_data[i] +
+         Sc2*er_sig_n[i] +
+         er_cont[i] +
+         bgscl2 * (er_bg[i] + er_bgn[i]);
+
+      double resval = dif*dif / er2;
+      // avoid inifinity or nan in chi2
+      if ( resval < maxResValue ) {
+         chi2 += resval;
+      } else {
+         chi2 += maxResValue;
+      }
+   }
+   return chi2;
+}
+
 //--------------------------------------------------------------------
 
 // {{{1 Corrections for histograms and print final numbers
 //--------------------------------------------------------------------
-TH1D* cor_sig_hst(const TH1D* hst, int imod, const double* p) {
+TH1D* cor_sig_hst(const TH1D* hst, const myChi2& ch2,
+      const vector<double>& p) {
 //--------------------------------------------------------------------
-   // ignore over and underflow bins
-
    // create copy of hst
    string new_name = string(hst->GetName()) + string("_smear");
    TH1D* hst_n = (TH1D*)hst->Clone(new_name.c_str());
-//   return hst_n;
+   // return hst_n;
 
    int n = hst->GetNbinsX();
    double wbin = hst->GetBinWidth(1);
@@ -958,15 +735,15 @@ TH1D* cor_sig_hst(const TH1D* hst, int imod, const double* p) {
       er2[i] = SQ(hst->GetBinError(1+i));
    }
 
-   double Sc = p[0];   // scale constant for signal
-   double Gsig1 = p[1]; // sigma1 for deconvolution
+   double Sc = p[0];    // scale constant for signal
+   double Gsig1 = p[1]; // sigma1
    double Gsig2 = p[2]; // sigma2
    double frac =  p[3]; // fraction of the sigma2
-   if ( !cor_sig(sig,er2,wbin, imod, Gsig1,Gsig2,frac) ) {
+   if ( !ch2.cor_sig(sig,er2, Gsig1,Gsig2,frac) ) {
       return hst_n;
    }
 
-   // fill hst_n
+   // fill hst_n, ignore over and underflow bins
    for ( int i = 0; i < n; ++i ) {
       hst_n->SetBinContent(i+1,Sc*sig[i]);
       hst_n->SetBinError(i+1,Sc*sqrt(er2[i]));
@@ -975,19 +752,21 @@ TH1D* cor_sig_hst(const TH1D* hst, int imod, const double* p) {
 }
 
 //--------------------------------------------------------------------
-TH1D* rescale_bg( TH1D* hst, const double* p, int npol ) {
+TH1D* rescale_bg(const TH1D* hst, const vector<double>& par) {
 //--------------------------------------------------------------------
-   // rescale ignoring over and underflow bins
+   // polynomial parameters
    const double Emin_chb = 3.0, Emax_chb = 3.2;
+   int npol = par.size() - 1;
+   const double* p = par.data();
 
    // create copy of hst
-   string new_name = string(hst->GetName()) + string("_rescl");
+   string new_name = string(hst->GetName()) + string("_Rescaled");
    TH1D* hst_n = (TH1D*)hst->Clone(new_name.c_str());
 
    int nbins = hst->GetNbinsX();
-   for ( int n = 1; n <= nbins; ++n ) {
+   for(int n = 1; n <= nbins; ++n) {
       double x = hst->GetBinCenter(n);
-//       double w = PolN(x-3.1,p,npol);
+      // double w = PolN(x-3.1,p,npol);
       double w = ChebN(npol,Emin_chb,Emax_chb,x,p);
       double d = hst->GetBinContent(n);
       double e = hst->GetBinError(n);
@@ -998,12 +777,13 @@ TH1D* rescale_bg( TH1D* hst, const double* p, int npol ) {
 }
 
 //--------------------------------------------------------------------
-void print_Numbers(TH1D* hst[], double Emin, double Emax) {
+void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
+      const TH1D* SumBG, double Emin, double Emax) {
 //--------------------------------------------------------------------
    // ATTENTION: here I assume:
    // [0] - data
-   // [7] - CONT(norm to Lum_data) + BG(after rescale_bg)
-   // [12] - MC_signal(after cor_sig_hst)
+   // sumBG - CONT(norm to Lum_data) + BG(after rescale_bg)
+   // MCsig_cor - MC_signal(after cor_sig_hst)
 
    double ndata   = 0;
    double er_data = 0;
@@ -1029,10 +809,10 @@ void print_Numbers(TH1D* hst[], double Emin, double Emax) {
       }
       ndata   += hst[0] -> GetBinContent(n);
       er_data += SQ( hst[0] -> GetBinError(n) );
-      nsig    += hst[12] -> GetBinContent(n);
-      er_sig  += SQ( hst[12] -> GetBinError(n) );
-      nbg     += hst[7] -> GetBinContent(n);
-      er_bg   += SQ( hst[7] -> GetBinError(n) );
+      nsig    += MCsig_cor -> GetBinContent(n);
+      er_sig  += SQ( MCsig_cor -> GetBinError(n) );
+      nbg     += SumBG -> GetBinContent(n);
+      er_bg   += SQ( SumBG -> GetBinError(n) );
    }
 
    double n1   = ndata-nbg;
@@ -1052,6 +832,8 @@ void print_Numbers(TH1D* hst[], double Emin, double Emax) {
    printf("\n");
 }
 
+// {{{1 print efficiency and error on it
+/*
 //--------------------------------------------------------------------
 void print_eff(int date, int imod, TH1D* hst[],
       const ROOT::Fit::FitResult& res, double Emin, double Emax) {
@@ -1109,7 +891,7 @@ void print_eff(int date, int imod, TH1D* hst[],
       }
 
 //       TH1D* hMC = hst[5]; // debug
-      TH1D* hMC = cor_sig_hst(hst[5],imod,par1.data());
+      TH1D* hMC = cor_sig_hst(hst[5],?,par1.data());
       double Nmc = 0.;
       double er_Nmc = 0.;
 
@@ -1154,113 +936,97 @@ void print_eff(int date, int imod, TH1D* hst[],
          100*eff[0],100*err[0],100*sys_err);
    printf("\n");
 }
+*/
 
 // {{{1 Fit
 //--------------------------------------------------------------------
 void DoFit(int date) {
 //--------------------------------------------------------------------
-   bool USE_NOHC_SIGNAL_MC = true;
-   TH1D* hst[20];
-   if ( date==2009 ) {
-      if ( USE_NOHC_SIGNAL_MC ) {
-         fill_hist2009_nohc(hst);
-      } else {
-         fill_hist2009(hst);
-      }
-      hst[0]->SetMaximum(7.e5);
-      hst[0]->SetMinimum(0.99e4);
-   } else if(date==2012) {
-      if ( USE_NOHC_SIGNAL_MC ) {
-         fill_hist2012_nohc(hst);
-      } else {
-         fill_hist2012(hst);
-      }
-      hst[0]->SetMaximum(2.e6);
-      hst[0]->SetMinimum(3.e4);
-   }
+   bool USE_NOHC_SIGNAL_MC = false;
+   vector<TH1D*> hst = fill_hist(date, USE_NOHC_SIGNAL_MC);
 
-   // fit signal in region (ExMin; ExMax)
-   double ExMin = 3.01;
-   double ExMax = 3.19;
-   myChi2 chi2_fit(hst,ExMin,ExMax,USE_NOHC_SIGNAL_MC);
+   // limits for drawing, bin size ten times smaller than FitSB
+   double maxWin = 0, minWin = 0;
+   if ( date==2009 ) {
+      maxWin = 7.e5;
+      minWin = 0.99e4;
+   } else if(date==2012) {
+      maxWin = 2.e6;
+      minWin = 3e4;
+   } else if(date==2021) {
+      maxWin = 1.3e7;
+      minWin = 2e5;
+   }
+   hst[0]->SetMaximum(maxWin);
+   hst[0]->SetMinimum(minWin);
+
+   // fit signal in region (EMin; EMax)
+   double EMin = 3.01;
+   double EMax = 3.19;
+   myChi2 chi2_fit(hst,EMin,EMax);
+
+   // order of polynomial for background correction
+   const size_t Npol = 3;
+   chi2_fit.SetNpol(Npol);
+
+   // set type of corrections, see myChi2::cor_sig()
+   const int Model = 1;
+   chi2_fit.SetModel(Model);
+   const int m_par = chi2_fit.GetMPar();
 
    // ========================= Fit with ROOT ========================
    // == fit configuration
    ROOT::Fit::Fitter fitter;
-   // set parameters of fitter: (Minuit,Minuit2,Fumili,GSLMultiFit...)
    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit");
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
    // print the default minimizer option values
    ROOT::Math::MinimizerOptions min_opt;
    min_opt.Print();
 
-   // type of correction and the number of correction parameters
-   // in the function cor_sig()
-   unsigned int Model = 3;
-   if ( !USE_NOHC_SIGNAL_MC ) {
-      Model = (date == 2009) ? 3 : 1;
-   }
-   chi2_fit.SetModel(Model);
-
-   // order of polynomial for background correction
-   const unsigned int Npol = 3;
-   chi2_fit.SetNpol(Npol);
-
    // set names and start values for parameters
    vector<string> par_name;
-   if ( Model == 1 ) {
-      par_name = {"#it{N}","#sigma"};
-   } else if ( Model == 2 ) {
-      par_name = {"#it{N}","#sigma", "#kappa"};
-   } else if ( Model == 3 ) {
-      par_name = {"#it{N}","#sigma_{1}","#sigma_{2}","frac"};
-   } else {
-      cerr << " FATAL: Model= " << Model << endl;
-      return;
+   switch ( Model ) {
+      case 1:
+         par_name = {"#it{N}","#sigma"};
+         break;
+      case 2:
+         par_name = {"#it{N}","#sigma_{1}","#sigma_{2}","frac"};
+         break;
+      // case 3:
+         // par_name = {"#it{N}","#sigma", "#kappa"};
    }
-   for ( int i = 0; i <= Npol; ++i ) {
-      par_name.push_back( string("p") + to_string(i) );
+   for( size_t i = 0; i <= Npol; ++i ) {
+      par_name.push_back( string( Form("p%zu",i) ) );
    }
+   const size_t Npar = par_name.size(); // number of parameters
 
    vector<double> par_ini;
-   if ( !USE_NOHC_SIGNAL_MC ) {
-      if ( date == 2009 ) {
-         if ( Model == 1 ) {
-            par_ini = { 0.9823,0.862e-3,
-               1.0343,0.0069,0.0083,0.0011 }; // fix-bg
-         } else if ( Model == 2 ) {
-            par_ini = { 0.9786,0.873e-3,-0.0015,
-               1.0343,0.0069,0.0083,0.0011 };
-         } else if ( Model == 3 ) {
-            par_ini = { 0.9756, 1.24e-3, 0.44e-3, 0.48,
-               1.0340,0.0047,-0.0092,-0.0005 }; // final
-         }
-      } else if ( date == 2012 ) {
-         if ( Model == 1 ) {
-            par_ini = { 0.9824,0.627e-3,
-               1.0482,0.0015,-0.0135,-0.0030 }; // final
-         } else if ( Model == 2 ) {
-            par_ini = { 0.9874,0.610e-3,-0.0646,       // 40272.8 ???
-               1.0478,0.0044,0.0076,0.0008 }; // fix-bg
-         } else if ( Model == 3 ) {
-            par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
-               1.0478,0.0044,0.0076,0.0008 }; // == M1
-         }
+   if ( date == 2009 ) {
+      if ( Model == 1 ) {
+         par_ini = { 1.0,0.1e-3,
+            1.0937,0.0087,0.0050,0.0018 }; // sb
+      } else if ( Model == 2 ) {
+         par_ini = { 0.9756, 1.24e-3, 0.44e-3, 0.48,
+            1.0340,0.0047,-0.0092,-0.0005 };
       }
-   } else {
-      if ( date == 2009 ) {
-         par_ini = { 0.9828,6.47e-4,3.25e-3,0.132,
-            1.0342,0.0048,-0.0037,-0.0009 }; // 0.222MeV
-//             1.0343,0.0069,0.0083,0.0011 }; // fix-bg
-      } else if ( date == 2012 ) {
-         par_ini = { 0.9965,7.31e-4,3.47e-3,0.144,
-            1.0478,0.0007,-0.0031,-0.0040 }; // 0.379 MeV
-//             1.0478,0.0044,0.0076,0.0008 }; // fix-bg
+   } else if ( date == 2012 ) {
+      if ( Model == 1 ) {
+         par_ini = { 1.0,0.6e-3,
+            1.1178,0.0153,0.0061,0.0012 }; //sb
+      } else if ( Model == 2 ) {
+         par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
+            1.0478,0.0044,0.0076,0.0008 };
+      }
+   } else if ( date == 2021 ) {
+      if ( Model == 1 ) {
+         par_ini = { 1.,0.6-3,
+            1.0666,-0.0002,0.0074,0.0015 }; //sb
+      } else if ( Model == 2 ) {
+         par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
+            1.0478,0.0044,0.0076,0.0008 };
       }
    }
 
-   const unsigned int Npar = par_name.size(); // number of parameters
-   // must be first
    fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for(unsigned int i = 0; i < Npar; i++) {
       fitter.Config().ParSettings(i).SetName(par_name[i]);
@@ -1275,11 +1041,6 @@ void DoFit(int date) {
 //    fitter.Config().ParSettings(1).Fix();
 
    if ( Model == 2 ) {
-      fitter.Config().ParSettings(2).SetStepSize(1e-4); // kappa
-//       fitter.Config().ParSettings(2).Fix();
-   }
-
-   if ( Model == 3 ) {
       fitter.Config().ParSettings(2).SetStepSize(1e-4); // sig2
       fitter.Config().ParSettings(2).SetLimits(0.,1.e-1);
 //       fitter.Config().ParSettings(2).Fix();
@@ -1290,8 +1051,8 @@ void DoFit(int date) {
 
    bool fixbg = false;
    if ( fixbg ) {
-      for ( int i = 0; i <= Npol; ++i ) { // fix pars of background
-         int ii = 1 + Model + i;
+      for ( size_t i = 0; i <= Npol; ++i ) { // fix pars of background
+         int ii = m_par + i;
          fitter.Config().ParSettings(ii).Fix();
       }
    }
@@ -1300,8 +1061,8 @@ void DoFit(int date) {
    fitter.FitFCN(Npar, chi2_fit, nullptr, chi2_fit.Size(), true);
 
    // to obtain reliable errors:
-  fitter.CalculateMinosErrors();
-  fitter.CalculateHessErrors();
+   fitter.CalculateHessErrors();
+   // fitter.CalculateMinosErrors();
 
    // == Fit result
    ROOT::Fit::FitResult res = fitter.Result();
@@ -1311,14 +1072,9 @@ void DoFit(int date) {
    const vector<double> par    = res.Parameters();
    const vector<double> er_par = res.Errors();
 
-   // corrections for MC signal
-   int imod = (USE_NOHC_SIGNAL_MC) ? 0 : Model;
-   hst[12] = cor_sig_hst(hst[2], imod, par.data());
-
-   // corrections for background
-   int ish = 1 + Model;
-   hst[13] = rescale_bg( hst[3], &par[ish], Npol);
-   hst[14] = rescale_bg( hst[4], &par[ish], Npol);
+   // copy bg-params to a new vector for convenience
+   vector<double> par_bg(begin(par)+m_par, end(par));
+   vector<double> err_bg(begin(er_par)+m_par, end(er_par));
 
    // ========================= draw results ========================
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
@@ -1328,82 +1084,87 @@ void DoFit(int date) {
 
    set_draw_opt(hst);
    SetHstFace(hst[0]);
-   hst[0]->SetAxisRange(ExMin,ExMax,"X");
-//    hst[0]->SetAxisRange(3.085,3.11,"X");
+   hst[0]->SetAxisRange(EMin,EMax,"X");
    hst[0]->GetXaxis()->SetTitleOffset(1.1);
    hst[0]->GetYaxis()->SetTitleOffset(1.25);
 
    hst[0]->Draw("E"); // data
 
-   hst[7]=(TH1D*)hst[1]->Clone("SumBG");
-   hst[7]->Add(hst[13]);
-   hst[7]->Add(hst[14]);
-   hst[7]->Draw("SAME,HIST"); // SumBG
+   TH1D* SumBG = (TH1D*)hst[1]->Clone("SumBG"); // clone Continuum
+   // corrections for background
+   TH1D* hstBG1 = rescale_bg( hst[3], par_bg);
+   TH1D* hstBG2 = rescale_bg( hst[4], par_bg);
+   SumBG->Add(hstBG1);
+   SumBG->Add(hstBG2);
+   SumBG->Draw("SAME,HIST");
 
-   hst[8]=(TH1D*)hst[12]->Clone("SumAll");
-   hst[8]->Add(hst[7]);
-   hst[8]->SetLineColor(kRed+1);
-   hst[8]->Draw("SAME,HIST"); // Sum
+   // corrections for MC signal
+   TH1D* MCsig_cor = cor_sig_hst(hst[2], chi2_fit, par);
+   MCsig_cor->SetLineStyle(kDashed);
+   MCsig_cor->Draw("SAME,HIST");
 
-   hst[12]->SetLineStyle(kDashed);
-   hst[12]->Draw("SAME,HIST"); // signal
+   TH1D* SumMC =(TH1D*)MCsig_cor->Clone("SumMC");
+   SumMC->Add(SumBG);
+   SumMC->SetLineStyle(kSolid);
+   SumMC->SetLineColor(kRed+1);
+   SumMC->Draw("SAME,HIST");
 
-//    hst[14]->Draw("SAME,HIST"); // Rescaled Bg not pi+pi-J/Psi
+   // hstBG2->Draw("SAME,HIST"); // Rescaled Bg2
 
    TLegend* leg = new TLegend(0.60,0.70,0.89,0.89);
-//    leg->SetHeader("Recoil Mass of #pi^{#plus}#pi^{#minus}", "C");
-   leg->AddEntry(hst[0],
-         (string("Data ")+to_string(date)).c_str(), "EP");
-   leg->AddEntry(hst[8],
+   // leg->SetHeader("Recoil Mass of #pi^{#plus}#pi^{#minus}", "C");
+   leg->AddEntry(hst[0], Form("Data %i",date), "EP");
+   leg->AddEntry(SumMC,
          Form("#color[%i]{Sig + Bkg + Cont}",
-         hst[8]->GetLineColor() ),"L");
-   leg->AddEntry(hst[12],
+            SumMC->GetLineColor() ),"L");
+   leg->AddEntry(MCsig_cor,
          Form("#color[%i]{Sig}",
-         hst[12]->GetLineColor() ),"L");
-   leg->AddEntry(hst[7],
+            MCsig_cor->GetLineColor() ),"L");
+   leg->AddEntry(SumBG,
          Form("#color[%i]{Bkg + Cont}",
-         hst[7]->GetLineColor() ),"L");
+            SumBG->GetLineColor() ),"L");
 
-//    leg->AddEntry(hst[14],
-//          Form("#color[%i]{MC bg non #pi^{#plus}#pi^{#minus}J/#Psi}",
-//          hst[14]->GetLineColor() ),"L");
+   // leg->AddEntry(hstBG2,
+         // Form("#color[%i]{MC bg non #pi^{#plus}#pi^{#minus}J/#Psi}",
+         // hstBG2->GetLineColor() ),"L");
 
    leg->Draw();
 
    TPaveText* pt = new TPaveText(0.11,0.57,0.40,0.89,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
-//    pt->AddText( Form("#bf{Fit in [%.2f,%.2f]}",ExMin,ExMax) );
+   // pt->AddText( Form("#bf{Fit in [%.2f,%.2f]}",ExMin,ExMax) );
    pt->AddText( Form("#chi^{2}/ndf =  %.0f / %i",chi2,ndf) );
    pt->AddText( Form("%s = %.4f #pm %.4f",
-                par_name[0].c_str(),par[0],er_par[0]) );
+            par_name[0].c_str(),par[0],er_par[0]) );
    pt->AddText( Form("%s = %.3f #pm %.3f MeV ",
-                par_name[1].c_str(),1e3*par[1],1e3*er_par[1]) );
+            par_name[1].c_str(),1e3*par[1],1e3*er_par[1]) );
    if ( Model == 2 ) {
-      pt->AddText( Form("%s = %.4f #pm %.4f",
-                   par_name[2].c_str(),par[2],er_par[2]) );
-   }
-   if ( Model == 3 ) {
       pt->AddText( Form("%s = %.3f #pm %.3f MeV ",
-                   par_name[2].c_str(),1e3*par[2],1e3*er_par[2]) );
+               par_name[2].c_str(),1e3*par[2],1e3*er_par[2]) );
       pt->AddText( Form("%s = %.3f #pm %.3f",
-                   par_name[3].c_str(),par[3],er_par[3]) );
+               par_name[3].c_str(),par[3],er_par[3]) );
    }
-   for ( int i = 1+Model; i <= 1+Model+Npol; ++i ) {
+   for ( size_t i = 0; i <= Npol; ++i ) {
+      int ii = m_par + i;
       pt->AddText( Form("%s =  %.4f #pm %.4f",
-                   par_name[i].c_str(),par[i],er_par[i]) );
+               par_name[ii].c_str(),par_bg[i],err_bg[i]) );
    }
    pt->Draw();
    gPad->RedrawAxis();
 
    c1->Update();
-
-   string pdf = string("Mrec") + to_string(date) + "_fit" +
-      ( (USE_NOHC_SIGNAL_MC) ? "NOHC" :
-        (string("M") + to_string(Model)) ) +
-      ( (fixbg) ? "_fixbg" : "" ) + string(".pdf");
+   string pdf( Form("Mrec%d_fit_M%d",date,Model) );
+   if ( fixbg ) {
+      pdf += "_fixbg";
+   }
+   if ( USE_NOHC_SIGNAL_MC ) {
+      pdf += "_nohc";
+   }
+   pdf += ".pdf";
    c1->Print(pdf.c_str());
 
+   /*
    // diff data-MC_sum
    if ( !USE_NOHC_SIGNAL_MC ) {
       hst[17] = (TH1D*)hst[0] -> Clone("Diff");
@@ -1420,14 +1181,14 @@ void DoFit(int date) {
          +to_string(Model)+((fixbg) ? "_fixbg" : "")+string(".pdf");
       c2 -> Print(pdf2.c_str());
    }
-
+   */
 
    // numbers for E in [Emin,Emax]
-   print_Numbers(hst,3.092,3.102);// see cuts.h !
-   print_Numbers(hst,3.055,3.145);// BAM-42
+   print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
+   print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
 
-   print_eff(date,imod,hst,res,3.092,3.102);
-   print_eff(date,imod,hst,res,3.055,3.145);
+   // print_eff(date,imod,hst,res,3.092,3.102);
+   // print_eff(date,imod,hst,res,3.055,3.145);
 }
 
 // {{{1 Main
@@ -1438,11 +1199,11 @@ void MrecFit() {
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(112);
    gStyle->SetLegendFont(42);
-//    gStyle->SetFitFormat(".8g"); // DEBUG
+   // gStyle->SetFitFormat(".8g"); // DEBUG
 
-//    int date=2009;
-   int date=2012;
+   // int date=2009;
+   // int date=2012;
+   int date=2021;
 
    DoFit(date);
 }
-

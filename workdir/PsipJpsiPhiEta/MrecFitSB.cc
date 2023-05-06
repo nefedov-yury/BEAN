@@ -580,7 +580,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
    box->DrawBox(ExMin,minWin,ExMax,maxWin);
    hst[0]->Draw("E, SAME"); // data
 
-   TH1D* SumBG = (TH1D*)hst[1]->Clone("SumBG"); // Continuum
+   TH1D* SumBG = (TH1D*)hst[1]->Clone("SumBG"); // clone Continuum
    // rescale BG:
    TH1D* hstBG1 = rescale_bg( hst[3], par );
    TH1D* hstBG2 = rescale_bg( hst[4], par );
@@ -588,11 +588,11 @@ void DoFitSB(int date, bool isIOcheck = false) {
    SumBG->Add(hstBG2);
    SumBG->Draw("SAME,HIST");
 
-   TH1D* MCsig =(TH1D*)hst[2]->Clone("MCsig"); // MC Signal
+   TH1D* MCsig =(TH1D*)hst[2]->Clone("MCsig"); // clone MC Signal
    // rescale Signal
    MCsig->Scale(par[0]);
    MCsig->SetLineStyle(kDashed);
-   MCsig->Draw("SAME,HIST"); // MC Signal
+   MCsig->Draw("SAME,HIST");
 
    TH1D* SumMC =(TH1D*)MCsig->Clone("SumMC");
    SumMC->Add(SumBG);
@@ -759,9 +759,9 @@ void MrecFitSB() {
    gStyle->SetStatFont(62);
    gStyle->SetLegendFont(42);
 
-   // int date=2009;
+   int date=2009;
    // int date=2012;
-   int date=2021;
+   // int date=2021;
 
    bool zoom = true;
    // MrecDraw(date, !zoom);

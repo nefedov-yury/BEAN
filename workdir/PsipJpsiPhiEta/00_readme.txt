@@ -54,6 +54,35 @@ MrecFit.cc - FOR MC AFTER HELIX CORRECTIONS
              and efficiency of selection;
            - estimate systematic associated with a fit model
 
+   // optimization of Mrec shift(data-MC) !after helix corrections!
+   // V.6.6.4
+   double shift2009 = 0.000026;   //   100 iterations
+                                  // MeV      chi^2(3M,fix-bg)
+                                  //  0.        9214.39
+                                  // +0.024     8139.61   6204.53
+                                  // +0.025     8057.32   6122.76
+                                  // +0.026**   8048.78   6113.98
+                                  // +0.027     8126.97   6194.08
+   shift2009_nohc = 0.000222;     //  MeV   chi^2
+                                  // 0.220   3717.3
+                                  // 0.221   3709.4
+                                  // 0.222   3705.6 *
+                                  // 0.223   3705.7
+                                  // 0.224   3709.2
+
+   double shift2012 =-0.000201;   //  100 iterations
+                                  //   MeV    chi^2(M1,fix-bg)
+                                  //  0.      221199
+                                  // -0.160    49651.3 <data>=<MC>
+                                  // -0.199    42361     33334.1
+                                  // -0.200    42191.5   33157.6
+                                  // -0.201**  42092.1   33055.3
+                                  // -0.202    42250.4   33208.9
+   shift2012_nohc = 0.000379;     //  MeV   chi^2
+                                  // 0.380  7208.3
+                                  // 0.379  7202.4 *
+                                  // 0.378  7205.3
+
 //--------------------------------------------------------------------
 2) Selection Jpsi -> phi eta
 //           see ../phieta/ with such scripts for J/Psi scan data
