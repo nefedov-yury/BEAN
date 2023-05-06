@@ -938,6 +938,26 @@ void print_eff(int date, int imod, TH1D* hst[],
 }
 */
 
+// {{{1 diff data-MC_sum
+//--------------------------------------------------------------------
+void plot_diff(const TH1D* Data, const TH1D* SumMC,
+      TPaveText* pt, string pdf) {
+//--------------------------------------------------------------------
+   TH1D* Diff = (TH1D*)Data->Clone("Diff");
+   Diff->Add(SumMC,-1.);
+   Diff->SetAxisRange(3.08,3.12,"X");
+   Diff->GetYaxis()->SetTitle("#delta(data-MC)");
+   Diff->GetYaxis()->SetMaxDigits(3);
+   TCanvas* c2 = new TCanvas("diff","...",900,0,800,800);
+   c2 -> cd();
+   Diff->Draw("E");
+   pt->Draw();
+   gPad->RedrawAxis();
+
+   c2 -> Update();
+   c2 -> Print(pdf.c_str());
+}
+
 // {{{1 Fit
 //--------------------------------------------------------------------
 void DoFit(int date) {
@@ -1019,7 +1039,7 @@ void DoFit(int date) {
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
-         par_ini = { 1.,0.6-3,
+         par_ini = { 1.,0.6-2,
             1.0666,-0.0002,0.0074,0.0015 }; //sb
       } else if ( Model == 2 ) {
          par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
@@ -1164,24 +1184,7 @@ void DoFit(int date) {
    pdf += ".pdf";
    c1->Print(pdf.c_str());
 
-   /*
-   // diff data-MC_sum
-   if ( !USE_NOHC_SIGNAL_MC ) {
-      hst[17] = (TH1D*)hst[0] -> Clone("Diff");
-      hst[17] -> Add(hst[8],-1.);
-      hst[17] -> SetAxisRange(3.08,3.12,"X");
-      hst[17] -> GetYaxis() -> SetTitle("#delta(data-MC)");
-      hst[17] -> GetYaxis() -> SetMaxDigits(3);
-      TCanvas* c2 = new TCanvas("c2","...",900,0,800,800);
-      c2 -> cd();
-      hst[17] -> Draw("E");
-      gPad -> RedrawAxis();
-      c2 -> Update();
-      string pdf2 = string("diff")+to_string(date)+string("_m")
-         +to_string(Model)+((fixbg) ? "_fixbg" : "")+string(".pdf");
-      c2 -> Print(pdf2.c_str());
-   }
-   */
+   // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
 
    // numbers for E in [Emin,Emax]
    print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
