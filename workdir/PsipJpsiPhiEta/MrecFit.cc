@@ -728,7 +728,6 @@ TH1D* cor_sig_hst(const TH1D* hst, const myChi2& ch2,
    // return hst_n;
 
    int n = hst->GetNbinsX();
-   double wbin = hst->GetBinWidth(1);
    vector<double> sig(n),er2(n);
    for ( int i = 0; i < n; ++i ) {
       sig[i] = hst->GetBinContent(1+i);
@@ -833,82 +832,68 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
 }
 
 // {{{1 print efficiency and error on it
-/*
 //--------------------------------------------------------------------
-void print_eff(int date, int imod, TH1D* hst[],
-      const ROOT::Fit::FitResult& res, double Emin, double Emax) {
+void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
+      const vector<double>& par, const vector<double> er_par,
+      double Emin, double Emax) {
 //--------------------------------------------------------------------
 // calculate efficiency of the Psi' -> pi+ pi- J/Psi selection
    // ATTENTION: here I assume:
-   // [5] - MC(sig) without corrections and without normalization
+   // MCsig - MC(sig) without corrections and without normalization
 
-   static string fnames[] = {
-      "mcinc_09psip_all.root",
-      "mcinc_12psip_all.root"
-   };
+   string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
-   string fname = dir + fnames[(date > 2010)];
-//    cout << endl << " file: " << fname << endl;
+   string fname = dir + mcincfile;
+   cout << endl << " Eff file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
-      cerr << "can not open " << fname << endl;
-      exit(0);
+      cerr << "ERROR in "<< __func__
+         << ": can not open " << fname << endl;
+      exit(EXIT_FAILURE);
    }
-
-   froot -> cd("PsipJpsiPhiEta");
+   froot->cd("PsipJpsiPhiEta");
 
    // initial number of pi+ pi- J/Psi
    TH1D* MCdec = (TH1D*)gROOT -> FindObject("mc_dec0");
    if ( !MCdec ) {
-      cerr << " can not find mc_dec0" << endl;
-      exit(0);
+      cerr << "ERROR in "<< __func__
+         << " can not find mc_dec0" << endl;
+      exit(EXIT_FAILURE);
    }
-   double Nppj = MCdec -> GetBinContent(65);
+   double Nppj = MCdec->GetBinContent(65);
 
-   // to study systematic vary parameters of MC signal (Model)
+   // to study systematic vary 'model'-parameters of MC signal
    // on one sigma:
-   const vector<double> par = res.Parameters();
-   const vector<double> er_par = res.Errors();
-//    const int niter = 1 + 2*Model; // first is nominal parameters
-   const int niter = (imod==0) ? 7 : 1 + 2*imod;
+   const int m_par = ch2.GetMPar();
+   const int niter = 2*m_par-1;
    vector<double> eff(niter,0.), err(niter,0);
    double sys_err = 0;
-   for (int it = 0; it < niter; ++it ) {
+   for ( int it = 0; it < niter; ++it ) {
       vector<double> par1(par);
       par1[0] = 1.; // absolute scaling should be 1
       int ipar = it;
       if ( it != 0 ) {
          ipar = (it+1)/2; // 1,2 -> 1; 3,4 -> 2 ...
-         if ( res.HasMinosError(ipar) ) {
-            if ( it%2 ) {
-               par1[ipar] -= fabs(res.LowerError(ipar));
-            } else {
-               par1[ipar] += fabs(res.UpperError(ipar));
-            }
-         } else {
-            par1[ipar] += (1-2*(it%2))*er_par[ipar]; // -/+ err
-         }
+         par1[ipar] += (1-2*(it%2))*er_par[ipar]; // -/+ err
       }
+      TH1D* MCsig_cor = cor_sig_hst(MCsig, ch2, par1);
 
-//       TH1D* hMC = hst[5]; // debug
-      TH1D* hMC = cor_sig_hst(hst[5],?,par1.data());
       double Nmc = 0.;
       double er_Nmc = 0.;
-
-      int nbins = hMC -> GetNbinsX();
+      int nbins = MCsig_cor->GetNbinsX();
       for ( int n = 1; n <= nbins; ++n ) {
-         double x = hMC -> GetBinCenter(n);
+         double x = MCsig_cor->GetBinCenter(n);
          if( x < Emin ) { continue; }
          if( x > Emax ) { break; }
-         Nmc    += hMC -> GetBinContent(n);
-         er_Nmc += SQ( hMC -> GetBinError(n) );
+         Nmc    += MCsig_cor->GetBinContent(n);
+         er_Nmc += SQ( MCsig_cor->GetBinError(n) );
       }
       er_Nmc = sqrt(er_Nmc);
 
       eff[it] = Nmc / Nppj;
       err[it] = eff[it] * sqrt(SQ(er_Nmc/Nmc) + 1./Nppj);
-//       printf(" ipar=%i par=%g par1=%g -> eff: %.5f +/- %.5f\n",
-//             ipar, par[ipar], par1[ipar], eff[it], err[it]);
+      printf(" ipar=%i par=%g par1=%g -> eff: %.5f +/- %.5f\n",
+            ipar, par[ipar], par1[ipar], eff[it], err[it]);
 
       if ( it > 0 ) {
          double diff = fabs(eff[it]-eff[0]);
@@ -916,27 +901,14 @@ void print_eff(int date, int imod, TH1D* hst[],
       }
    }
 
-   // error on normalization constant
-   // MUST NOT BE INCLUDED!
-//    double sys_norm = 0;
-//    if ( res.HasMinosError(0) ) {
-//       sys_norm = max( fabs(res.LowerError(0)),
-//                       fabs(res.UpperError(0)) ) / par[0];
-
-//    } else {
-//       sys_norm = er_par[0]/par[0];
-//    }
-//    sys_err = sqrt(SQ(sys_err)+SQ(eff[0]*sys_norm));
-
    printf("\n");
    printf(" Initial number of pi+ pi- J/Psi (dec# %i) = %.1f\n",
-         int(MCdec -> GetBinCenter(65)), Nppj);
+         int(MCdec->GetBinCenter(65)), Nppj);
    printf(" Efficiency in [%.3f, %.3f]:\n", Emin,Emax);
    printf(" eff(pi+pi-J/Psi): %.3f +/- %.3f +/- %.3f %%\n",
          100*eff[0],100*err[0],100*sys_err);
    printf("\n");
 }
-*/
 
 // {{{1 diff data-MC_sum
 //--------------------------------------------------------------------
@@ -1187,11 +1159,11 @@ void DoFit(int date) {
    // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
 
    // numbers for E in [Emin,Emax]
-   print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
-   print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
+   // print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
+   // print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
 
-   // print_eff(date,imod,hst,res,3.092,3.102);
-   // print_eff(date,imod,hst,res,3.055,3.145);
+   // print_eff(date,hst[5],chi2_fit,par,er_par,3.092,3.102);
+   // print_eff(date,hst[5],chi2_fit,par,er_par,3.055,3.145);
 }
 
 // {{{1 Main
