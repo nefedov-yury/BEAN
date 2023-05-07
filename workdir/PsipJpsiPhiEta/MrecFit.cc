@@ -146,8 +146,29 @@ vector<TH1D*> fill_hist(int date, bool NoHC=false) {
 //--------------------------------------------------------------------
 #include "norm.h"
    double shift = 0.0;
-   if ( date == 2021 ) {
-      shift = 0.0004;
+   if ( date == 2009 ) {
+      // shift = 0.00022; // chi2(M2) = 3378
+      // shift = 0.000225; // chi2(M2) = 3317
+      shift = 0.000226; // chi2(M2) = 3252 ***
+      // shift = 0.000227; // chi2(M2) = 3283
+      // shift = 0.00023; // chi2(M2) = 3354*
+      // shift = 0.00024; // chi2(M2) = 3668
+   } else if ( date == 2012 ) {
+      // shift = 0.00038; // chi2(M2) = 7641*
+      // shift = 0.000385; // chi2(M2) = 7488
+      shift = 0.000386; // chi2(M2) = 7314 ***
+      // shift = 0.000387; // chi2(M2) = 7460
+      // shift = 0.000388; // chi2(M2) = 7610
+      // shift = 0.00039; // chi2(M2) = 7537
+      // shift = 0.00040; // chi2(M2) = 8306
+   } else if ( date == 2021 ) {
+      // shift = 0.00059; // chi2(M2) = 36 848
+      // shift = 0.00060; // chi2(M2) = 30 013*
+      // shift = 0.00061; // chi2(M2) = 29 575
+      // shift = 0.000605; // chi2(M2) = 28 911
+      // shift = 0.000606; // chi2(M2) = 28 131
+      shift = 0.000607; // chi2(M2) = 27 267***
+      // shift = 0.000608; // chi2(M2) = 27 768
    }
 
    string sd(Form("%02i",date%100));
@@ -934,7 +955,8 @@ void plot_diff(const TH1D* Data, const TH1D* SumMC,
 //--------------------------------------------------------------------
 void DoFit(int date) {
 //--------------------------------------------------------------------
-   bool USE_NOHC_SIGNAL_MC = false;
+   // bool USE_NOHC_SIGNAL_MC = false;
+   bool USE_NOHC_SIGNAL_MC = true;
    vector<TH1D*> hst = fill_hist(date, USE_NOHC_SIGNAL_MC);
 
    // limits for drawing, bin size ten times smaller than FitSB
@@ -962,7 +984,7 @@ void DoFit(int date) {
    chi2_fit.SetNpol(Npol);
 
    // set type of corrections, see myChi2::cor_sig()
-   const int Model = 1;
+   const int Model = 2;
    chi2_fit.SetModel(Model);
    const int m_par = chi2_fit.GetMPar();
 
@@ -995,27 +1017,27 @@ void DoFit(int date) {
    vector<double> par_ini;
    if ( date == 2009 ) {
       if ( Model == 1 ) {
-         par_ini = { 1.0,0.1e-3,
-            1.0937,0.0087,0.0050,0.0018 }; // sb
+         par_ini = { 0.969, 0.86e-3,
+            1.094,0.005,-0.027,-0.001 }; // +0.23MeV
       } else if ( Model == 2 ) {
-         par_ini = { 0.9756, 1.24e-3, 0.44e-3, 0.48,
-            1.0340,0.0047,-0.0092,-0.0005 };
+         par_ini = { 0.990, 3.45e-3, 0.64e-3, 0.88,
+            1.094,0.006,-0.007,-0.001 }; // +0.23MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
-         par_ini = { 1.0,0.6e-3,
-            1.1178,0.0153,0.0061,0.0012 }; //sb
+         par_ini = { 0.982, 0.98e-3,
+            1.118,0.008,-0.030,-0.006 }; // +0.38MeV
       } else if ( Model == 2 ) {
-         par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
-            1.0478,0.0044,0.0076,0.0008 };
+         par_ini = { 1.005, 3.60e-3, 0.72e-3, 0.87,
+            1.118,0.009,-0.007,-0.005 }; // +0.38MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
-         par_ini = { 1.,0.6-2,
-            1.0666,-0.0002,0.0074,0.0015 }; //sb
+         par_ini = { 0.945, 0.89-3,
+            1.066,-0.006,-0.020,-0.002 }; // +0.60MeV
       } else if ( Model == 2 ) {
-         par_ini = { 0.9874, 1.e-3, 0.2e-3, 0.5,
-            1.0478,0.0044,0.0076,0.0008 };
+         par_ini = { 0.964, 3.18e-3, 0.63e-3, 0.86,
+            1.066,-0.005,-0.001,-0.002 }; // +0.60MeV
       }
    }
 
