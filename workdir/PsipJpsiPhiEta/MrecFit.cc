@@ -846,9 +846,9 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
    printf(" Number of events in [%.3f, %.3f]:\n",Emin_hst,Emax_hst);
    printf(" Data:            %9.0f +/- %4.0f\n", ndata,er_data);
    printf(" Sum(bg):         %9.0f +/- %4.0f\n", nbg,er_bg);
-   printf(" NPsip(data-bg):  %9.0f +/- %4.0f --> diff=  %.2f%%\n",
+   printf(" NJpsi(data-bg):  %9.0f +/- %4.0f --> diff=  %.2f%%\n",
          n1,er1,diff);
-   printf(" NPsip(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
+   printf(" NJpsi(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
    printf("\n");
 }
 
@@ -865,7 +865,7 @@ void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
    string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
    string fname = dir + mcincfile;
-   cout << endl << " Eff file: " << fname << endl;
+   // cout << endl << " Eff file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "ERROR in "<< __func__
@@ -913,8 +913,8 @@ void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
 
       eff[it] = Nmc / Nppj;
       err[it] = eff[it] * sqrt(SQ(er_Nmc/Nmc) + 1./Nppj);
-      printf(" ipar=%i par=%g par1=%g -> eff: %.5f +/- %.5f\n",
-            ipar, par[ipar], par1[ipar], eff[it], err[it]);
+      // printf(" ipar=%i par=%g par1=%g -> eff: %.5f +/- %.5f\n",
+            // ipar, par[ipar], par1[ipar], eff[it], err[it]);
 
       if ( it > 0 ) {
          double diff = fabs(eff[it]-eff[0]);
@@ -922,12 +922,17 @@ void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
       }
    }
 
+   double sum_err = sqrt(SQ(err[0])+SQ(sys_err));
+   double sum_rel_err = sum_err/eff[0];
+
    printf("\n");
    printf(" Initial number of pi+ pi- J/Psi (dec# %i) = %.1f\n",
          int(MCdec->GetBinCenter(65)), Nppj);
    printf(" Efficiency in [%.3f, %.3f]:\n", Emin,Emax);
-   printf(" eff(pi+pi-J/Psi): %.3f +/- %.3f +/- %.3f %%\n",
+   printf(" eff(pi+pi-J/Psi): %.3f +/- %.3f +/- %.3f %%",
          100*eff[0],100*err[0],100*sys_err);
+   printf("  (sum_err= %.3f or %.2f%%)\n",
+         100*sum_err,100*sum_rel_err);
    printf("\n");
 }
 
@@ -1181,11 +1186,11 @@ void DoFit(int date) {
    // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
 
    // numbers for E in [Emin,Emax]
-   // print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
-   // print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
+   print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
+   print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
 
-   // print_eff(date,hst[5],chi2_fit,par,er_par,3.092,3.102);
-   // print_eff(date,hst[5],chi2_fit,par,er_par,3.055,3.145);
+   print_eff(date,hst[5],chi2_fit,par,er_par,3.092,3.102);
+   print_eff(date,hst[5],chi2_fit,par,er_par,3.055,3.145);
 }
 
 // {{{1 Main
@@ -1198,9 +1203,9 @@ void MrecFit() {
    gStyle->SetLegendFont(42);
    // gStyle->SetFitFormat(".8g"); // DEBUG
 
-   // int date=2009;
+   int date=2009;
    // int date=2012;
-   int date=2021;
+   // int date=2021;
 
    DoFit(date);
 }
