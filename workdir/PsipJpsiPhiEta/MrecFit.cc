@@ -854,7 +854,8 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
 
 // {{{1 print efficiency and error on it
 //--------------------------------------------------------------------
-void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
+void print_eff(int date, bool NoHC,
+      const TH1D* MCsig, const myChi2& ch2,
       const vector<double>& par, const vector<double> er_par,
       double Emin, double Emax) {
 //--------------------------------------------------------------------
@@ -864,7 +865,7 @@ void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
 
    string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
-   string fname = dir + mcincfile;
+   string fname = dir + (NoHC ? "NoHC/" : "") + mcincfile;
    // cout << endl << " Eff file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -1045,6 +1046,10 @@ void DoFit(int date) {
             1.066,-0.005,-0.001,-0.002 }; // +0.60MeV
       }
    }
+   if ( par_ini.size() != Npar ) {
+      par_ini.resize(Npar,0.);
+      cout << " WARNING: set size of par_ini to " << Npar << endl;
+   }
 
    fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for(unsigned int i = 0; i < Npar; i++) {
@@ -1189,8 +1194,10 @@ void DoFit(int date) {
    print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
    print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
 
-   print_eff(date,hst[5],chi2_fit,par,er_par,3.092,3.102);
-   print_eff(date,hst[5],chi2_fit,par,er_par,3.055,3.145);
+   print_eff(date, USE_NOHC_SIGNAL_MC,
+         hst[5], chi2_fit, par, er_par, 3.092,3.102);
+   print_eff(date, USE_NOHC_SIGNAL_MC,
+         hst[5], chi2_fit, par, er_par, 3.055,3.145);
 }
 
 // {{{1 Main

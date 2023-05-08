@@ -456,6 +456,13 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* SumBG,
    er_data     = sqrt(er_data);
    er_bg       = sqrt(er_bg);
 
+   bool short_print = true;
+   if ( short_print ) {
+      printf(" [%.3f, %.3f]: ", Emin_hst,Emax_hst);
+      printf(" NJpsi(data-bg):  %9.0f +/- %4.0f\n", n1,er1);
+      return;
+   }
+
    printf("\n");
    printf(" Number of events in [%.3f, %.3f]:\n", Emin_hst,Emax_hst);
    printf(" Data:            %9.0f +/- %4.0f\n", ndata,er_data);
@@ -493,7 +500,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
    double ExMin = 3.06;
    double ExMax = 3.14;
    // systematic study (shift +/- 0.01)
-   // double ddE = -0.01;
+   // double ddE = 0.01;
    // ExMin -= ddE;
    // ExMax += ddE;
 
@@ -525,6 +532,10 @@ void DoFitSB(int date, bool isIOcheck = false) {
       par_ini = { 1.118, 0.015, 0.006, 0.001 };
    } else if ( date == 2021 ) {
       par_ini = { 1.067, 0.000, 0.0074, 0.002 };
+   }
+   if ( par_ini.size() != Npar ) {
+      par_ini.resize(Npar,0.);
+      cout << " WARNING: set size of par_ini to " << Npar << endl;
    }
    fitter.Config().SetParamsSettings(Npar,par_ini.data());
    for( size_t i = 0; i < Npar; ++i ) {
