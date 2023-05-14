@@ -68,6 +68,7 @@ struct Select_PsipJpsiPhiEta {
    int decPsip, decJpsi;     // decay codes for MC events
    int dec_eta;              // 1 if eta->2gamma
    Hep3Vector mcPip, mcPim;  // true pi+/pi- momentums from Psi' decay
+
    double mc_mkk;            // true inv. mass of K+K-
    double mc_mkpeta;         // true inv. mass of K+eta
    double mc_cosT;           // true cosT: T is the angle between the
@@ -76,7 +77,7 @@ struct Select_PsipJpsiPhiEta {
                              // in J/Psi rest frame
 
    long  pip_pdg, pim_pdg;   // pdg of the best selected candidates
-   int   pip_ok,  pim_ok;
+   int   pip_ok,  pim_ok;    // see MatchRecMcTrks()
 
    double Mrec_sig;          // recoil mass of the true decay
    double Mrec_sig_mindp;
@@ -127,28 +128,29 @@ typedef Select_PsipJpsiPhiEta Select;
 //--------------------------------------------------------------------
 // pi+ pi- J/Psi selection
 struct Xnt1 {
-   float Mrs;            // recoil mass of true signal pi+pi- for
-                         // decPsip==64
-   float Mrs_mindp;      // min delta momentum to find Mrs
-   float MrsW;           // weight of Mrs
-   vector<float> Mrec;   // recoil masses of all pairs except true
-                         // signal MC
-   float Mrbest;         // recoil mass closest to M(J/Psi)
-   float Ptp;            // Pt(pi+) for best
-   float Cpls;           // cos(Theta(pi+)) for best
-   float Ptm;            // Pt(pi-) for best
-   float Cmns;           // cos(Theta(pi-)) for best
-   UShort_t nch;         // N charged tracks
-   UShort_t Nm;          // number of els in Mrec: use @Mrec.size()
-   UShort_t decPsip;     // decay code of Psi(2S)
-   float mcmkk;          // true inv. mass of K+K-
-   float mcmkpet;        // true inv. mass of K+eta
-   float mccosT;         // true cosT
+   vector<float> Mrec;  // recoil mass vector of all pairs of pi+pi-
+                        // in case of MC, mass of true pair excluded
+   float Mrs;           // recoil mass of true pi+pi- (decPsip==64)
+   float Ptsp;          // reconstructed Pt(pi+) from Mrs
+   float Ptsm;          // reconstructed Pt(pi-) from Mrs
+   float MrsW;          // weight of Mrs (corrects MC eff.)
+   float Mrbest;        // recoil mass closest to M(J/Psi)
+   float Ptp;           // Pt(pi+) for best
+   float Cpls;          // cos(Theta(pi+)) for best
+   float Ptm;           // Pt(pi-) for best
+   float Cmns;          // cos(Theta(pi-)) for best
+   int   decPsip;       // decay code of Psi(2S)
+   float mcmkk;         // true inv. mass of K+K-
 } xnt1;
+   // float Mrs_mindp;      // min delta momentum to find Mrs
+   // UShort_t nch;         // N charged tracks
+   // UShort_t Nm;          // number of els in Mrec: use @Mrec.size()
+   // float mcmkpet;        // true inv. mass of K+eta
+   // float mccosT;         // true cosT
 
 // phi eta after kinematic fit
 struct Xnt2 {
-   double Mrec;              // recoil mass as in 'nt1'
+   double Mrec;              // recoil mass of pi+pi- pair
    double ch2,chsq3g;        // chi^2 of 5C fit, chi^2 of 3gammas
    double Ppip,Cpip,phipip;  // P,cos(Theta),phi of pi+
    double Ppim,Cpim,phipim;  // P,cos(Theta),phi of pi-
@@ -413,6 +415,12 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[20] = new TH2D("pi_pm","N(+) vs N(-)",
          10,-0.5,9.5, 10,-0.5,9.5);
 
+   // angle between tracks of one charge
+   hst[6] = new TH1D("ang_pip","cos(ang) between all pairs of pi+",
+         200,-1.,1.);
+   hst[7] = new TH1D("ang_pim","cos(ang) between all pairs of pi-",
+         200,-1.,1.);
+
    hst[21] = new TH1D("Mrec","recol mass of pi+ pi-", 100,3.,3.2);
    hst[22] = new TH2D("MrecNch","Mrec(pi+ pi-) vs Nch",
                       100,3.,3.2,10,1.5,11.5);
@@ -550,10 +558,10 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          "cos(#Theta) of K^{-} in the rest frame of J/#Psi",
          100,-1.,1.);
 
-   hst[181] = new TH1D("mc_Mkpeta", "Minv(K^{+}eta)", 140,1.8,2.5);
-   hst[182] = new TH2D("mc_M1M2", "Minv2(K+K-) vs Minv2(K+ eta)",
+   hst[148] = new TH1D("mc_Mkpeta", "Minv(K^{+}eta)", 140,1.8,2.5);
+   hst[149] = new TH2D("mc_M1M2", "Minv2(K+K-) vs Minv2(K+ eta)",
          140,0.,7.,140,0.,7.);
-   hst[183] = new TH1D("mc_cosT", "MC truth cosT", 100,-1.,1.);
+   hst[150] = new TH1D("mc_cosT", "MC truth cosT", 100,-1.,1.);
 
    // MatchRecMcTrks:
    hst[151] = new TH1D("mc_mdp_p","REC-MC ok min dP #pi^{+}",
@@ -607,6 +615,13 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          100,-1.0,1.0);
    hst[179] = new TH1D("mc_invPMs", "signal Minv(pi+pi-)",
          100,0.25,0.75);
+
+   hst[181] = new TH1D("mc_ndP1h","MC-REC N(dP) #pi^{+}",
+         10, 0.5,10.5);
+   hst[182] = new TH1D("mc_ndP2h","MC-REC N(dP) #pi^{-}",
+         10, 0.5,10.5);
+   hst[183] = new TH1D("mc_NMsig","N(Mrec=Mrec_sig)",
+         20, 0.5,20.5);
 
    // data-EtaEff:
    hst[201] = new TH1D("E_mrec","recol mass of pi+ pi-",
@@ -670,21 +685,24 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 
    // TTree for pi+ pi- J/Psi selection:
    m_nt1 = new TTree("nt1","pi+ pi- J/Psi selection");
-   m_nt1->Branch("Mrs"     , &xnt1.Mrs       );
-   m_nt1->Branch("mdp"     , &xnt1.Mrs_mindp );
-   m_nt1->Branch("MrsW"    , &xnt1.MrsW      );
    m_nt1->Branch("Mrec"    , &xnt1.Mrec      );
+   m_nt1->Branch("Mrs"     , &xnt1.Mrs       );
+   m_nt1->Branch("Ptsp"    , &xnt1.Ptsp      );
+   m_nt1->Branch("Ptsm"    , &xnt1.Ptsm      );
+   m_nt1->Branch("MrsW"    , &xnt1.MrsW      );
    m_nt1->Branch("Mrb"     , &xnt1.Mrbest    );
    m_nt1->Branch("Ptp"     , &xnt1.Ptp       );
    m_nt1->Branch("Cpls"    , &xnt1.Cpls      );
    m_nt1->Branch("Ptm"     , &xnt1.Ptm       );
    m_nt1->Branch("Cmns"    , &xnt1.Cmns      );
-   m_nt1->Branch("nch"     , &xnt1.nch       );
-   m_nt1->Branch("Nm"      , &xnt1.Nm        );
    m_nt1->Branch("dec"     , &xnt1.decPsip   );
    m_nt1->Branch("mcmkk"   , &xnt1.mcmkk     );
-   m_nt1->Branch("mcmkpet" , &xnt1.mcmkpet   );
-   m_nt1->Branch("mccosT"  , &xnt1.mccosT    );
+
+   // m_nt1->Branch("mdp"     , &xnt1.Mrs_mindp );
+   // m_nt1->Branch("nch"     , &xnt1.nch       );
+   // m_nt1->Branch("Nm"      , &xnt1.Nm        );
+   // m_nt1->Branch("mcmkpet" , &xnt1.mcmkpet   );
+   // m_nt1->Branch("mccosT"  , &xnt1.mccosT    );
 
    // final TTree for
    //   Psi(2S) -> pi+ pi- J/Psi
@@ -977,8 +995,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          Slct.mc_mkk = (LVKp[0]+LVKm[0]).m();
          hst[145]->Fill( Slct.mc_mkk );
          Slct.mc_mkpeta = (LVKp[0]+LVeta).m();
-         hst[181]->Fill( Slct.mc_mkpeta );
-         hst[182]->Fill( SQ(Slct.mc_mkk), SQ(Slct.mc_mkpeta) );
+         hst[148]->Fill( Slct.mc_mkpeta );
+         hst[149]->Fill( SQ(Slct.mc_mkk), SQ(Slct.mc_mkpeta) );
 
 //          HepLorentzVector LVPkk = LVKp[0]+LVKm[0];
 //          Hep3Vector boostKK = LVPkk.boostVector();
@@ -988,7 +1006,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 //          Hep3Vector Pkk = LVPkk.vect();
 //          Hep3Vector Pkp = LV.vect();
 //          Slct.mc_cosT = Pkp.dot(Pkk)/(Pkp.mag()*Pkk.mag());
-//          hst[183]->Fill( Slct.mc_cosT );
+//          hst[150]->Fill( Slct.mc_cosT );
 
          HepLorentzVector LVkpJ = LVKp[0];
          LVkpJ.boost(-beta_jpsi); // K+ in J/Psi rest system
@@ -1000,7 +1018,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          Hep3Vector VkkJ = LVkkJ.vect();
          Hep3Vector VkpJ = LVkpJ.vect();
          Slct.mc_cosT = VkpJ.dot(VkkJ)/(VkpJ.mag()*VkkJ.mag());
-         hst[183]->Fill( Slct.mc_cosT );
+         hst[150]->Fill( Slct.mc_cosT );
       }
 
       // set Slct.dec_eta
@@ -1095,8 +1113,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          Slct.mc_mkk = (LVKp[0]+LVKm[0]).m();
          hst[145]->Fill( Slct.mc_mkk );
          Slct.mc_mkpeta = (LVKp[0]+LVeta).m();
-         hst[181]->Fill( Slct.mc_mkpeta );
-         hst[182]->Fill( SQ(Slct.mc_mkk), SQ(Slct.mc_mkpeta) );
+         hst[148]->Fill( Slct.mc_mkpeta );
+         hst[149]->Fill( SQ(Slct.mc_mkk), SQ(Slct.mc_mkpeta) );
 
          HepLorentzVector LVPkk = LVKp[0]+LVKm[0];
          Hep3Vector boostKK = LVPkk.boostVector();
@@ -1106,7 +1124,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
          Hep3Vector Pkk = LVPkk.vect();
          Hep3Vector Pkp = LV.vect();
          Slct.mc_cosT = Pkp.dot(Pkk)/(Pkp.mag()*Pkk.mag());
-         hst[183]->Fill( Slct.mc_cosT );
+         hst[150]->Fill( Slct.mc_cosT );
       }
    }
 }
@@ -1229,6 +1247,7 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
    //            passes all the selection criteria
 
    const static double maxdp = 0.1;   // 100MeV
+   const static double debug_dp = 0.01;   // 10MeV
 
    if ( !isMC ) {
       return;
@@ -1240,24 +1259,32 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
    double mcPip_mag = Slct.mcPip.mag();
    RecMdcKalTrack* trp = nullptr;
    double mindp_pip = maxdp;
+   int npipdp = 0 ; // number of cases then |dP_i| < debug_dp
    for ( const auto& tr : Slct.good_pip ) {
       Hep3Vector Pip(tr->px(), tr->py(), tr->pz());
       double Pip_mag = Pip.mag();
       hst[161]->Fill( Pip[0]-Slct.mcPip[0] );
       hst[162]->Fill( Pip[1]-Slct.mcPip[1] );
       hst[163]->Fill( Pip[2]-Slct.mcPip[2] );
-      if (    fabs(Pip[0]-Slct.mcPip[0]) < maxdp
-              && fabs(Pip[1]-Slct.mcPip[1]) < maxdp
-              && fabs(Pip[2]-Slct.mcPip[2]) < maxdp ) {
+      if ( fabs(Pip[0]-Slct.mcPip[0]) < maxdp
+            && fabs(Pip[1]-Slct.mcPip[1]) < maxdp
+            && fabs(Pip[2]-Slct.mcPip[2]) < maxdp ) {
          hst[164]->Fill( Slct.mcPip.angle(Pip) );
          if ( fabs(Pip_mag - mcPip_mag) < fabs(mindp_pip) ) {
             mindp_pip = Pip_mag - mcPip_mag;
             trp   = tr;
          }
+         if ( fabs(Pip[0]-Slct.mcPip[0]) < debug_dp
+               && fabs(Pip[1]-Slct.mcPip[1]) < debug_dp
+               && fabs(Pip[2]-Slct.mcPip[2]) < debug_dp
+               && fabs(Pip_mag - mcPip_mag) < debug_dp ) {
+            npipdp += 1;
+         }
       }
    }
    if ( trp ) { // matching for pi+
       hst[165]->Fill( mindp_pip );
+      hst[181]->Fill( npipdp );
    } else {
       hst[171]->Fill( mcPip_mag );
       hst[172]->Fill( Slct.mcPip.cosTheta() );
@@ -1266,24 +1293,32 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
    double mcPim_mag = Slct.mcPim.mag();
    RecMdcKalTrack* trm = nullptr;
    double mindp_pim = maxdp;
+   int npimdp = 0 ; // number of cases then |dP_i| < debug_dp
    for ( const auto& tr : Slct.good_pim ) {
       Hep3Vector Pim(tr->px(), tr->py(), tr->pz());
       double Pim_mag = Pim.mag();
       hst[166]->Fill( Pim[0]-Slct.mcPim[0] );
       hst[167]->Fill( Pim[1]-Slct.mcPim[1] );
       hst[168]->Fill( Pim[2]-Slct.mcPim[2] );
-      if (    fabs(Pim[0]-Slct.mcPim[0]) < maxdp
-              && fabs(Pim[1]-Slct.mcPim[1]) < maxdp
-              && fabs(Pim[2]-Slct.mcPim[2]) < maxdp ) {
+      if ( fabs(Pim[0]-Slct.mcPim[0]) < maxdp
+            && fabs(Pim[1]-Slct.mcPim[1]) < maxdp
+            && fabs(Pim[2]-Slct.mcPim[2]) < maxdp ) {
          hst[169]->Fill( Slct.mcPim.angle(Pim) );
          if ( fabs(Pim_mag - mcPim_mag) < fabs(mindp_pim) ) {
             mindp_pim = Pim_mag - mcPim_mag;
             trm   = tr;
          }
+         if ( fabs(Pim[0]-Slct.mcPim[0]) < debug_dp
+               && fabs(Pim[1]-Slct.mcPim[1]) < debug_dp
+               && fabs(Pim[2]-Slct.mcPim[2]) < debug_dp
+               && fabs(Pim_mag - mcPim_mag) < debug_dp ) {
+            npimdp += 1;
+         }
       }
    }
    if ( trm ) { // matching for pi-
       hst[170]->Fill( mindp_pim );
+      hst[182]->Fill( npimdp );
    } else {
       hst[173]->Fill( mcPim_mag );
       hst[174]->Fill( Slct.mcPim.cosTheta() );
@@ -1294,6 +1329,55 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
       return;
    }
    hst[175]->Fill(1.);
+
+   // print cases of two or more candidates for true pi+/pi-
+   if ( npipdp > 1 || npimdp > 1 ) {
+      printf("DEBUG: run# %i, ev# %i -> npipdp= %d. npimdp= %d\n",
+            Slct.runNo, Slct.event, npipdp, npimdp);
+
+      auto printP = [](Hep3Vector P) -> void {
+         P *= 1e3; // GeV -> MeV
+         printf("P=(%8.3f %8.3f %8.3f), |P|= %7.3f MeV/c,"
+               " th= %6.2f deg\n",
+               P.x(),P.y(),P.z(),P.mag(),P.theta()*180/M_PI);
+      };
+      // MC tracks:
+      printf("MC pi+: ");
+      printP(Slct.mcPip);
+      printf("MC pi-: ");
+      printP(Slct.mcPim);
+      printf("\n");
+
+      // pi+ reconstructed candidates
+      for ( const auto& tr : Slct.good_pip ) {
+         Hep3Vector Pip(tr->px(), tr->py(), tr->pz());
+         double Pip_mag = Pip.mag();
+         if ( fabs(Pip[0]-Slct.mcPip[0]) < debug_dp
+               && fabs(Pip[1]-Slct.mcPip[1]) < debug_dp
+               && fabs(Pip[2]-Slct.mcPip[2]) < debug_dp
+               && fabs(Pip_mag - mcPip_mag) < debug_dp ) {
+            printf("REC pi+ [Id=%d]: stat %d, chi2 %.2f, ndof %d\n",
+                  tr->getTrackId(),tr->stat(),tr->chi2(),tr->ndof());
+            printf("        ");
+            printP(Pip);
+         }
+      }
+      // pi- reconstructed candidates
+      for ( const auto& tr : Slct.good_pim ) {
+         Hep3Vector Pim(tr->px(), tr->py(), tr->pz());
+         double Pim_mag = Pim.mag();
+         if ( fabs(Pim[0]-Slct.mcPim[0]) < debug_dp
+               && fabs(Pim[1]-Slct.mcPim[1]) < debug_dp
+               && fabs(Pim[2]-Slct.mcPim[2]) < debug_dp
+               && fabs(Pim_mag - mcPim_mag) < debug_dp ) {
+            printf("REC pi- [Id=%d]: stat %d, chi2 %.2f, ndof %d\n",
+                  tr->getTrackId(),tr->stat(),tr->chi2(),tr->ndof());
+            printf("        ");
+            printP(Pim);
+         }
+      }
+      printf("\n");
+   }
 
    // pass these pi+ pi- through the selection
    Hep3Vector Vp(trp->px(), trp->py(), trp->pz());;
@@ -1476,6 +1560,27 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    }
    hst[1]->Fill(1); // "cuts"
 
+   // check angle between tracks of one charge
+   for ( int i = 1; i < Ntrkp; ++i ) {
+      const auto& t1 = trk_p[i];
+      Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
+      for ( int ii = 0; ii < i; ++ii ) {
+         const auto& t2 = trk_p[ii];
+         Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
+         double ang = Vp1.angle(Vp2);
+         hst[6]->Fill(cos(ang));
+      }
+   }
+   for ( int i = 1; i < Ntrkm; ++i ) {
+      const auto& t1 = trk_m[i];
+      Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
+      for ( int ii = 0; ii < i; ++ii ) {
+         const auto& t2 = trk_m[ii];
+         Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
+         double ang = Vp1.angle(Vp2);
+         hst[7]->Fill(cos(ang));
+      }
+   }
 
    // 2) calculate recoil mass of all pairs of pi+ pi-
    double delta_min = 1e3;
@@ -1494,7 +1599,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
          }
          double Mrec = sqrt(Mrec2);
          if ( std::isnan(Mrec) ) {
-            printf("DEBUG: run# %i, ev# %i -> Mrec= %f Mrec2= %f)\n",
+            printf("DEBUG: run# %i, ev# %i -> Mrec= %f Mrec2= %f\n",
                Slct.runNo, Slct.event, Mrec, Mrec2 );
             cout << " LVm= " << LVm << " LVp= " << LVp << endl;
             Warning("Nan Mrec track");
@@ -1597,9 +1702,32 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       hst[96]->Fill(Vm.cosTheta());
    }
 
+   // Fill xnt1-struct
+   // save all Mrec in vector, but in case of MC calculate how many
+   // Mrec close to Mrec_sig and exclude one of them
+   double eps_Mrec = 1e-6; // eps(float) = 1.2e-7
+   xnt1.Mrec.clear();
+   if ( isMC ) {
+      int nm = 0;
+      for ( const auto& mr : Slct.Mrec ) {
+         if ( fabs(mr - Slct.Mrec_sig) < eps_Mrec ) {
+            nm += 1;
+            if ( nm == 1 ) {
+               continue;
+            }
+         }
+         xnt1.Mrec.push_back( mr );
+      }
+      hst[183]->Fill(nm);
+   } else { // Data
+      for ( const auto& mr : Slct.Mrec ) {
+         xnt1.Mrec.push_back( mr );
+      }
+   }
+
    // signal (only MC)
    xnt1.Mrs = Slct.Mrec_sig;
-   xnt1.Mrs_mindp = Slct.Mrec_sig_mindp;
+   xnt1.Mrs = Slct.Mrec_sig;
    if ( Slct.Pip_sig && Slct.Pim_sig ) {
       double ptp = Slct.Pip_sig->pxy();
       double wp  = ReWeightTrkPid(DataPeriod,0,ptp);
@@ -1607,40 +1735,25 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       double ptm = Slct.Pim_sig->pxy();
       double wm  = ReWeightTrkPid(DataPeriod,0,ptm);
       hst[99]->Fill(wm);
+      xnt1.Ptsp = ptp;
+      xnt1.Ptsm = ptm;
       xnt1.MrsW = wp*wm;
    } else {
+      xnt1.Ptsp = 0;
+      xnt1.Ptsm = 0;
       xnt1.MrsW = 0;
    }
 
-   // all Mrec, but in case of MC do not save Mrs in xnt1.Mrec
-   bool remove_sig = isMC;
-   xnt1.Mrec.clear();
-   for ( const auto& mr : Slct.Mrec ) {
-      if ( remove_sig ) {
-         if ( fabs(mr - Slct.Mrec_sig) < 1e-6 ) {
-            remove_sig = false;
-            continue;
-         }
-      }
-      xnt1.Mrec.push_back( mr );
-   }
-   xnt1.Nm = xnt1.Mrec.size();
-
    // the best: Mrec and momentums
    xnt1.Mrbest = Slct.Mrec_best;
-   xnt1.Ptp = Vp.perp();
-   xnt1.Cpls = Vp.cosTheta();
-   xnt1.Ptm = Vm.perp();
-   xnt1.Cmns = Vm.cosTheta();
-
-   xnt1.nch = Ncharged;
+   xnt1.Ptp    = Vp.perp();
+   xnt1.Cpls   = Vp.cosTheta();
+   xnt1.Ptm    = Vm.perp();
+   xnt1.Cmns   = Vm.cosTheta();
 
    // MC decay
-   xnt1.decPsip =
-      (Slct.decPsip > 0) ? static_cast<UShort_t>(Slct.decPsip) : 0;
-   xnt1.mcmkk = Slct.mc_mkk;
-   xnt1.mcmkpet = Slct.mc_mkpeta;
-   xnt1.mccosT = Slct.mc_cosT;
+   xnt1.decPsip = Slct.decPsip;
+   xnt1.mcmkk   = Slct.mc_mkk; // for efficiency
 
    m_nt1->Fill(); // ATTENTION!
 

@@ -136,13 +136,13 @@ if [ 1 -eq 1 ]; then
   printf "run local mcinc_21\n"
   ${BEAN7} \
     -u PsipJpsiPhiEta \
-    -u PsipHelixParCor \
-    -u PsipPiPiKK \
-    -u PsipJpsiGammaEta\
     -h PsipJpsiPhiEta/local/mcinc_21psip.root \
     -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
     > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &
 fi
+    #  -u PsipHelixParCor \
+    #  -u PsipPiPiKK \
+    #  -u PsipJpsiGammaEta\
     #  ${DSTDIR}/psip2021_stream001_run66839_file3.dst \
 
 ######################## TEST-DEBUG ########################
