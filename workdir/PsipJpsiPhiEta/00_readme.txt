@@ -6,8 +6,8 @@ Scripts for Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
 masses.h   -> masses of particles (GeV) from PDG 2021
 
--- norm.h     -> normalization constants for inclusive MC and for
-              non-resonance data. v709 ?
+norm.h     -> normalization constants for inclusive MC and for
+              non-resonance data. v709 not good?
 
 cuts.h     -> List of cuts for
               1) Psi' -> J/Psi pi+ pi-
@@ -27,85 +27,53 @@ ReWeightTrkPid_11.h  -> function to re-weight MC for K and Pi trk+pid
 //--------------------------------------------------------------------
 1) Selection Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
-pipi_dataMC.cc - plot data distributions vs MC
-                 for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
-               -> VarName_YEAR.pdf
+pipi_dataMC.cc:
+// plot data distributions vs MC
+// for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
+//      -> VarName_YEAR.pdf
 
-MrecFitSB.cc - Calculate number of Psi(2S) -> J/Psi pi+ pi- decays
-               in data using side-band method.
-               MrecDraw() -> Mrec_YEAR.pdf
-               DoFitSB()  -> Mrec_YEAR_fsb.pdf
-// parameters for V6.6.4
-if ( Npol == 3 ) {
-  if ( date == 2009 ) {
-    par_ini = { 1.0343, 0.0069, 0.0083, 0.0011 };
-  } else if ( date == 2012 ) {
-    par_ini = { 1.0478, 0.0044, 0.0076, 0.0008 };
-  }
-}
+MrecFitSB.cc:
+// Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data
+// using side-band method.
+//    DoFitSB()  -> Mrec_YEAR_fsb.pdf
+// - just plot pictures:
+//    MrecDraw() -> Mrec_YEAR.pdf
 
-MrecFit.cc - FOR MC AFTER HELIX CORRECTIONS
-             (archive/MrecFit.cc - version before helix corrections)
-           - data fitting by correcting of MC signal and scaling of MC
-             background
-             -> Mrec_YEAR_fitMODEL.pdf
-             -> diffYEAR_MODEL.pdf for delta(data-MC)
-           - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
-             and efficiency of selection;
-           - estimate systematic associated with a fit model
-
-   // optimization of Mrec shift(data-MC) !after helix corrections!
-   // V.6.6.4
-   double shift2009 = 0.000026;   //   100 iterations
-                                  // MeV      chi^2(3M,fix-bg)
-                                  //  0.        9214.39
-                                  // +0.024     8139.61   6204.53
-                                  // +0.025     8057.32   6122.76
-                                  // +0.026**   8048.78   6113.98
-                                  // +0.027     8126.97   6194.08
-   shift2009_nohc = 0.000222;     //  MeV   chi^2
-                                  // 0.220   3717.3
-                                  // 0.221   3709.4
-                                  // 0.222   3705.6 *
-                                  // 0.223   3705.7
-                                  // 0.224   3709.2
-
-   double shift2012 =-0.000201;   //  100 iterations
-                                  //   MeV    chi^2(M1,fix-bg)
-                                  //  0.      221199
-                                  // -0.160    49651.3 <data>=<MC>
-                                  // -0.199    42361     33334.1
-                                  // -0.200    42191.5   33157.6
-                                  // -0.201**  42092.1   33055.3
-                                  // -0.202    42250.4   33208.9
-   shift2012_nohc = 0.000379;     //  MeV   chi^2
-                                  // 0.380  7208.3
-                                  // 0.379  7202.4 *
-                                  // 0.378  7205.3
+MrecFit.cc:
+// Data fitting by correcting of MC signal and scaling of MC
+// background
+//   -> Mrec_{YEAR}_M{MODEL}_T{Npol}_[hohc].pdf
+// - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
+//   and efficiency of selection;
+// - estimate systematic associated with a fit model
 
 //--------------------------------------------------------------------
 2) Selection Jpsi -> phi eta
 //           see ../phieta/ with such scripts for J/Psi scan data
 //--------------------------------------------------------------------
 
-mass_2D.cc - 1) plot M(gamma,gamma) vs M(K+K-)
-                -> Mass2D_XXXX.pdf;
+mass_2D.cc:
+// 1) plot M(gamma,gamma) vs M(K+K-)
+//    -> Mass2D_XXXX.pdf;
+//
+// 2) Dalitz plots (for >=prod-9m)
+//    after 4C kinematic fit and chi^2 cut
+//      type = 1 M^2(K-eta) vs M^2(K+eta)
+//      type = 2 M^2(K+K-) vs M^2(K+eta)
+//    -> Dalitz_xxx.pdf
 
-             2) Dalitz plots (for >=prod-9m)
-                after 4C kinematic fit and chi^2 cut
-                  type = 1 M^2(K-eta) vs M^2(K+eta)
-                  type = 2 M^2(K+K-) vs M^2(K+eta)
-                -> Dalitz_xxx.pdf
+mass_eta.cc:
+// plot M(gamma gamma) distributions
+// after 4C kinematic fit and chi^2 cut
+// -> mass_eta.pdf
 
-mass_eta.cc - plot M(gamma gamma) distributions
-              after 4C kinematic fit and chi^2 cut
-              -> mass_eta.pdf
-
-chi2_Pr.cc - plot chi2 of the kinematic fit
-             1) data vs signal MC in the window for M(K+K-) and M(gg)
-                -> chi2_sb_YEAR.pdf
-             2) data vs inclusive MC
-                -> chi2_YEAR.pdf
+chi2_Pr.cc:
+// plot chi2 of the kinematic fit
+// 1) data vs signal MC in the window for M(K+K-) and M(gg)
+//    -> chi2_sb_YEAR.pdf
+//
+// 2) data vs inclusive MC
+//    -> chi2_YEAR.pdf
 
 kkgg_dataMC.cc - data vs MC for  Jpsi -> phi eta  selection
                -> variable_YEAR.pdf

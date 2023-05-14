@@ -9,6 +9,7 @@
 
 #include "masses.h"
 
+// {{{1 helper functions and constants
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -32,66 +33,6 @@ void SetHstFace(TH1* hst) {
       Z->SetLabelSize(0.04);
       Z->SetTitleFont(62);
       Z->SetTitleSize(0.04);
-   }
-}
-
-//--------------------------------------------------------------------
-void plot_2D(string fname, string title, string pdf="") {
-//--------------------------------------------------------------------
-#include "cuts.h"
-
-   TFile* froot = TFile::Open(fname.c_str(),"READ");
-   if( froot == 0 ) {
-      cerr << "can not open " << fname << endl;
-      exit(0);
-   }
-
-   froot->cd("PsipJpsiPhiEta");
-   TTree* a4c = (TTree*)gDirectory->Get("a4c");
-
-   TH2D* m2d = new TH2D("m2d",
-         ";M^{ inv}_{ #gamma#gamma}, GeV/c^{2}"
-         ";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}",
-         100, 0.0, 1.2,   // gg
-         100, 0.9, 2.0  );// KK
-
-   a4c->Draw("Mkk:Mgg>>m2d",c_Mrec+c_chi2,"goff");
-
-   TCanvas* c1 = new TCanvas("c1","...",0,0,873,800);
-
-   c1->cd();
-   SetHstFace(m2d);
-//    m2d->GetXaxis()->SetTitleOffset(0.9);
-   m2d->GetYaxis()->SetTitleOffset(1.2);
-   m2d->SetMarkerStyle(20);
-   m2d->SetMarkerSize(0.5);
-
-   m2d->Draw();
-
-   TEllipse* l = new TEllipse;
-   l->SetLineColor(kRed+1);
-   l->SetLineWidth(3);
-   double Reta=0.05;
-   double Rphi=0.04;
-   l->SetFillStyle(0);
-   l->DrawEllipse(Meta,Mphi,Reta,Rphi,0.,360.,0.);
-
-   TLatex* t = new TLatex;
-   t->SetTextFont(42);
-   t->SetTextColor(kRed+1);
-//    t->DrawLatex(0.6,0.94,"#phi#eta signal");
-   t->DrawLatex(0.6,0.94,"#phi#eta");
-
-   double width = 0.02*title.size();
-   TLegend* leg = new TLegend(0.89-width,0.79,0.89,0.89);
-   leg -> SetTextSize(0.04);
-   leg -> SetHeader(title.c_str(), "C");
-   leg -> Draw();
-
-
-   c1->Update();
-   if ( !pdf.empty() ) {
-      c1->Print(pdf.c_str());
    }
 }
 
@@ -175,7 +116,67 @@ void plot_Mkk(string fname, string title, string pdf="") {
    }
 }
 
-// Dalitz plot for KKeta
+// {{{1 2D: M(KK) vs M(gg)
+//--------------------------------------------------------------------
+void plot_2D(string fname, string title, string pdf="") {
+//--------------------------------------------------------------------
+#include "cuts.h"
+
+   TFile* froot = TFile::Open(fname.c_str(),"READ");
+   if( froot == 0 ) {
+      cerr << "can not open " << fname << endl;
+      exit(EXIT_FAILURE);
+   }
+
+   froot->cd("PsipJpsiPhiEta");
+   TTree* a4c = (TTree*)gDirectory->Get("a4c");
+
+   TH2D* m2d = new TH2D("m2d",
+         ";M^{ inv}_{ #gamma#gamma}, GeV/c^{2}"
+         ";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}",
+         100, 0.0, 1.2,   // gg
+         100, 0.9, 2.0  );// KK
+
+   a4c->Draw("Mkk:Mgg>>m2d",c_Mrec+c_chi2,"goff");
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,873,800);
+
+   c1->cd();
+   SetHstFace(m2d);
+   // m2d->GetXaxis()->SetTitleOffset(0.9);
+   m2d->GetYaxis()->SetTitleOffset(1.2);
+   m2d->SetMarkerStyle(20);
+   m2d->SetMarkerSize(0.3);
+
+   m2d->Draw();
+
+   TEllipse* l = new TEllipse;
+   l->SetLineColor(kRed+1);
+   l->SetLineWidth(3);
+   double Reta=0.05;
+   double Rphi=0.04;
+   l->SetFillStyle(0);
+   l->DrawEllipse(Meta,Mphi,Reta,Rphi,0.,360.,0.);
+
+   TLatex* t = new TLatex;
+   t->SetTextFont(42);
+   t->SetTextColor(kRed+1);
+   // t->DrawLatex(0.6,0.94,"#phi#eta signal");
+   t->DrawLatex(0.6,0.94,"#phi#eta");
+
+   double width = 0.02*title.size();
+   TLegend* leg = new TLegend(0.89-width,0.79,0.89,0.89);
+   leg->SetTextSize(0.04);
+   leg->SetHeader(title.c_str(), "C");
+   leg->Draw();
+
+   c1->Update();
+   if ( !pdf.empty() ) {
+      c1->Print(pdf.c_str());
+   }
+}
+
+// {{{1 Dalitz plot for KKeta
 // type = 1 M^2(K-eta) vs M^2(K+eta)
 // type = 2 M^2(K+K-) vs M^2(K+eta)
 //--------------------------------------------------------------------
@@ -189,13 +190,13 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
       pdf = string("Dalitz2_") + pdf;
    } else {
       cerr << "wrong type= " << type << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    froot->cd("PsipJpsiPhiEta");
@@ -203,7 +204,7 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
 
    TCut c_here = c_Mrec+c_chi2; // common cuts
    c_here += c_cpgg;            // only eta
-//    c_here += TCut("Mkk<1.08");  // only near phi
+   // c_here += TCut("Mkk<1.08");  // only near phi
 
    int n = 0;
    if ( type == 1 ) {
@@ -220,7 +221,7 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
 
    c1 -> cd();
-//   gPad -> SetGrid();
+   // gPad -> SetGrid();
 
    TGraph* gr = new TGraph(n, m2X, m2Y);
 
@@ -238,7 +239,7 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
       gr -> GetHistogram() -> SetMinimum(0.);
       gr -> GetHistogram() -> SetMaximum(7.);
    }
-//    gr -> GetYaxis() -> SetTitleOffset(1.2);
+   // gr -> GetYaxis() -> SetTitleOffset(1.2);
 
    gr -> Draw("AP");
 
@@ -255,6 +256,7 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
    }
 }
 
+// {{{1 Main
 //--------------------------------------------------------------------
 void mass_2D() {
 //--------------------------------------------------------------------
@@ -266,32 +268,40 @@ void mass_2D() {
    vector<string> fnames = {
       "data_09psip_all.root",
       "data_12psip_all.root",
+      "data_21psip_all.root",
       "data_3650_all.root",
       "mcinc_09psip_all.root",
       "mcinc_12psip_all.root",
+      "mcinc_21psip_all.root",
       "mcsig_kkmc_09.root",
       "mcsig_kkmc_12.root",
-      "mckketa_kkmc_09.root",
-      "mckketa_kkmc_12.root"
+      "mcsig_kkmc_21.root",
    };
+      // "mckketa_kkmc_09.root",
+      // "mckketa_kkmc_12.root"
+
    vector<string> titles = {
       "Data 2009",
       "Data 2012",
+      "Data 2021",
       "E=3.65 GeV",
       "MC inclusive 2009",
       "MC inclusive 2012",
+      "MC inclusive 2021",
       "MC signal #phi#eta 2009",
       "MC signal #phi#eta 2012",
-      "MC non-#phi KK#eta 2009",
-      "MC non-#phi KK#eta 2012"
+      "MC signal #phi#eta 2021",
    };
+      // "MC non-#phi KK#eta 2009",
+      // "MC non-#phi KK#eta 2012"
 
-   string dir = string("prod-12/");
+   // string dir = string("prod-12/");
+   string dir("prod_v709/");
 
    bool Mass2D = true;          // <--- Mass2D/Dalitz
-   vector<int> list {0,1,3,4};
+   vector<int> list {0,1,2, 4,5,6};
    if ( !Mass2D ) {
-      list = {0,1,6,8};
+      list = {0,1,2};
    }
 
    for (int iset : list) {
@@ -305,23 +315,25 @@ void mass_2D() {
                       + fn.substr(idx+1,2) + ".pdf";
          plot_2D(fname, titles[iset], pdf);
       } else {
-      // Dalitz .. fig.14
+         // Dalitz .. fig.14
          string pdf = fn.substr(0,idx);
          if ( iset < 5 ) {
             pdf += fn.substr(idx+1,2) + ".pdf";
          } else {
             pdf += fn.substr(idx+6,2) + ".pdf";
          }
-//       type = 1 M^2(K-eta) vs M^2(K+eta)
-//       type = 2 M^2(K+K-) vs M^2(K+eta)
+         // type = 1 M^2(K-eta) vs M^2(K+eta)
+         // type = 2 M^2(K+K-) vs M^2(K+eta)
          int type = 1;
          plot_Dalitz(fname, type, titles[iset], pdf);
       }
 
-      getchar(); // pause
+      gSystem->ProcessEvents(); //Process pending events
+      if ( iset != list.back() ) {
+         getchar(); // pause
+      }
    }
 
-
-//   plot_Mgg(fname, titles.at(iset)); //, "Mgg_09.pdf");
-//   plot_Mkk(fname, titles.at(iset));
+   // plot_Mgg(fname, titles.at(iset)); //, "Mgg_09.pdf");
+   // plot_Mkk(fname, titles.at(iset));
 }

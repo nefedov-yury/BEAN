@@ -1,8 +1,6 @@
-// FOR MC AFTER HELIX CORRECTIONS
-// - data fitting by correcting of MC signal and scaling of MC
-//   background
-//   -> Mrec_YEAR_fitMODEL.pdf
-//   -> diffYEAR_MODEL.pdf for delta(data-MC)
+// Data fitting by correcting of MC signal and scaling of MC
+// background
+//   -> Mrec_{YEAR}_M{MODEL}_T{Npol}_[hohc].pdf
 // - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
 //   and efficiency of selection;
 // - estimate systematic associated with a fit model

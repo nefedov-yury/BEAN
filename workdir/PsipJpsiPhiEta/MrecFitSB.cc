@@ -1,14 +1,16 @@
 // Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data
 // using side-band method.
-// We fit the distribution of recoil mass (Mrec) of two pions
-// in the area far from the peak of J/Psi by rescaling inclusive MC.
-// Here We rescale only background from non pi+ pi- J/Psi
-// by a polynomial.
+//    DoFitSB()  -> Mrec_YEAR_fsb.pdf
+// - just plot pictures:
+//    MrecDraw() -> Mrec_YEAR.pdf
+//
+// We fit the distribution of recoil mass (Mrec) of two pions in the
+// area far from the peak of J/Psi by rescaling inclusive MC.
+// We rescale only background from non pi+ pi- J/Psi by a polynomial,
+// and correct signal only by «normalization» constant.
+// The contribution of the continuum is taken into account.
 // Number of signal events is calculated by subtracting the estimated
-// background from the data.  (The contribution of the continuum
-// is taken into account.)
-//                MrecDraw() -> Mrec_YEAR.pdf
-//                DoFitSB()  -> Mrec_YEAR_fsb.pdf
+// background from the data.
 
 // for prod-12 it should be commented
 // #include "ReWeightTrkPid_11.h"
