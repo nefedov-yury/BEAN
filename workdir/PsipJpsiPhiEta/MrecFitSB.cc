@@ -64,7 +64,8 @@ void set_draw_opt(vector<TH1D*>& hst) {
    hst[2]->SetLineColor(kGreen+3);
    hst[2]->SetLineWidth(2);
    // MC bg from pi+pi-J/Psi
-   hst[3]->SetLineColor(kBlue+3);
+   // hst[3]->SetLineColor(kBlue+3);
+   hst[3]->SetLineColor(kCyan+2);
    hst[3]->SetLineWidth(2);
    // MC bg not pi+pi-J/Psi
    hst[4]->SetLineColor(kMagenta+1);
@@ -81,6 +82,7 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
    // type = 3 background for dec!=64 (other Psi' decays)
 
    fname = dir + fname;
+   // fname = dir + "NoHC/" + fname; // ho helix corrections (test)
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {
@@ -515,8 +517,8 @@ void DoFitSB(int date, bool isIOcheck = false) {
    ROOT::Math::MinimizerOptions min_opt;
    min_opt.Print();
 
-   const size_t Npol = 3; // order of polynomial (base=3)
-                          // systematic study: 2 && 4
+   // Npol is the order of polynomial, systematic study: +/-1
+   const size_t Npol = (date==2009) ? 4 : 5;
    chi2_fit.SetNpol(Npol);
 
    // set start values for parameters,
@@ -527,11 +529,11 @@ void DoFitSB(int date, bool isIOcheck = false) {
    }
    vector<double> par_ini;
    if ( date == 2009 ) {
-      par_ini = { 1.094, 0.009, 0.005, 0.002 };
+      par_ini = { 1.095, 0.009, 0.004, 0.002, 0.002 };
    } else if ( date == 2012 ) {
-      par_ini = { 1.118, 0.015, 0.006, 0.001 };
+      par_ini = { 1.119, 0.016, 0.005, 0.002, 0.002, 0.002 };
    } else if ( date == 2021 ) {
-      par_ini = { 1.067, 0.000, 0.0074, 0.002 };
+      par_ini = { 1.067, 0.000, 0.007, 0.002, 0.001, 0.001 };
    }
    if ( par_ini.size() != Npar ) {
       par_ini.resize(Npar,0.);
@@ -553,7 +555,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
 
    // to obtain reliable errors:
    fitter.CalculateHessErrors();
-   // fitter.CalculateMinosErrors();
+   // fitter.CalculateMinosErrors(); // check
 
    // == Fit result
    ROOT::Fit::FitResult res = fitter.Result();
@@ -565,9 +567,9 @@ void DoFitSB(int date, bool isIOcheck = false) {
 
    string sepline(70,'='); // separation line
    printf("%s\n",sepline.c_str());
-   printf("Error matrix and correlations\n");
-   res.PrintCovMatrix(cout); // print error matrix and correlations
-   printf("%s\n",sepline.c_str());
+   // printf("Error matrix and correlations\n");
+   // res.PrintCovMatrix(cout); // print error matrix and correlations
+   // printf("%s\n",sepline.c_str());
 
    // ========================= draw results ========================
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
@@ -642,12 +644,13 @@ void DoFitSB(int date, bool isIOcheck = false) {
    leg->AddEntry(box, "excluded from fit","F");
    leg->Draw();
 
-   TPaveText* pt = new TPaveText(0.11,0.70,0.42,0.89,"NDC");
+   double Ypt = 0.70 - 0.03*(Npol-3);
+   TPaveText* pt = new TPaveText(0.11,Ypt,0.42,0.89,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    pt->AddText( Form("#bf{Fit in [%.2f,%.2f] & [%.2f,%.2f] }",
             3.0,ExMin,ExMax,3.2));
-   pt->AddText( Form("#chi^{2}/ndf = %.1f / %i",chi2,ndf) );
+   pt->AddText( Form("#chi^{2} / ndf   %.0f / %i",chi2,ndf) );
    for ( size_t i = 0; i < par.size(); i++ ) {
       pt->AddText( Form("%s =       %.4f #pm %.4f",
                par_name[i].c_str(),par[i],er_par[i]) );
@@ -657,12 +660,15 @@ void DoFitSB(int date, bool isIOcheck = false) {
    gPad->RedrawAxis();
 
    c1->Update();
-   string pdf(Form("Mrec%d_fsb%s.pdf",date,(isIOcheck ? "IO" : "")));
+   string pdf( Form("Mrec%d_fsb%s_T%zu.pdf",
+            date,(isIOcheck ? "IO" : ""),Npol) );
    c1->Print(pdf.c_str());
 
    // print for E in [Emin,Emax]
+   printf("%s\n",sepline.c_str());
    print_Numbers(hst,SumBG,3.092,3.102,isIOcheck); // see cuts.h !
    print_Numbers(hst,SumBG,3.055,3.145,isIOcheck); // BAM-42
+   printf("%s\n",sepline.c_str());
 }
 
 // {{{1 Draw Mrec
@@ -776,9 +782,9 @@ void MrecFitSB() {
 
    bool zoom = true;
    // MrecDraw(date, !zoom);
-   // MrecDraw(date,  zoom);
+   MrecDraw(date,  zoom);
 
-   DoFitSB(date);
+   // DoFitSB(date);
 
    // IO check: trivially get the exact result!
    // bool isIOcheck = true;

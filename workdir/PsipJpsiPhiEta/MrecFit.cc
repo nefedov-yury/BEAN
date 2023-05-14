@@ -61,7 +61,8 @@ void set_draw_opt(vector<TH1D*>& hst) {
    hst[2]->SetLineColor(kGreen+3);
    hst[2]->SetLineWidth(1);
    // MC bg from pi+pi-J/Psi
-   hst[3]->SetLineColor(kBlue+3);
+   // hst[3]->SetLineColor(kBlue+3);
+   hst[3]->SetLineColor(kCyan+2);
    hst[3]->SetLineWidth(2);
    // MC bg not pi+pi-J/Psi
    hst[4]->SetLineColor(kMagenta+1);
@@ -842,6 +843,13 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
    er_bg       = sqrt(er_bg);
    double diff = 100*fabs(n1-nsig)/nsig;
 
+   bool short_print = true;
+   if ( short_print ) {
+      printf(" [%.3f, %.3f]: ", Emin_hst,Emax_hst);
+      printf(" NJpsi(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
+      return;
+   }
+
    printf("\n");
    printf(" Number of events in [%.3f, %.3f]:\n",Emin_hst,Emax_hst);
    printf(" Data:            %9.0f +/- %4.0f\n", ndata,er_data);
@@ -985,8 +993,8 @@ void DoFit(int date) {
    double EMax = 3.19;
    myChi2 chi2_fit(hst,EMin,EMax);
 
-   // order of polynomial for background correction
-   const size_t Npol = 3;
+   // order of polynomial for background, the same as in MrecFitSB
+   const size_t Npol = (date==2009) ? 4 : 5;
    chi2_fit.SetNpol(Npol);
 
    // set type of corrections, see myChi2::cor_sig()
@@ -1026,24 +1034,24 @@ void DoFit(int date) {
          par_ini = { 0.969, 0.86e-3,
             1.094,0.005,-0.027,-0.001 }; // +0.23MeV
       } else if ( Model == 2 ) {
-         par_ini = { 0.990, 3.45e-3, 0.64e-3, 0.88,
-            1.094,0.006,-0.007,-0.001 }; // +0.23MeV
+         par_ini = { 0.987, 3.24e-3, 0.62e-3, 0.88,
+            1.103,0.007,0.006,0.001,0.0129 }; // +0.23MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
          par_ini = { 0.982, 0.98e-3,
             1.118,0.008,-0.030,-0.006 }; // +0.38MeV
       } else if ( Model == 2 ) {
-         par_ini = { 1.005, 3.60e-3, 0.72e-3, 0.87,
-            1.118,0.009,-0.007,-0.005 }; // +0.38MeV
+         par_ini = { 1.002, 3.41e-3, 0.70e-3, 0.86,
+            1.128,0.024,0.008,0.008,0.014,0.008 }; // +0.38MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
          par_ini = { 0.945, 0.89-3,
             1.066,-0.006,-0.020,-0.002 }; // +0.60MeV
       } else if ( Model == 2 ) {
-         par_ini = { 0.964, 3.18e-3, 0.63e-3, 0.86,
-            1.066,-0.005,-0.001,-0.002 }; // +0.60MeV
+         par_ini = { 0.962, 3.06e-3, 0.62e-3, 0.86,
+            1.073,0.004,0.009,0.006,0.010,0.05 }; // +0.60MeV
       }
    }
    if ( par_ini.size() != Npar ) {
@@ -1142,7 +1150,7 @@ void DoFit(int date) {
          Form("#color[%i]{Sig + Bkg + Cont}",
             SumMC->GetLineColor() ),"L");
    leg->AddEntry(MCsig_cor,
-         Form("#color[%i]{Sig}",
+         Form("#color[%i]{Signal}",
             MCsig_cor->GetLineColor() ),"L");
    leg->AddEntry(SumBG,
          Form("#color[%i]{Bkg + Cont}",
@@ -1154,11 +1162,12 @@ void DoFit(int date) {
 
    leg->Draw();
 
+   double Ypt = 0.63 - 0.03*(m_par-4) - 0.03*(Npol-3);
    TPaveText* pt = new TPaveText(0.11,0.57,0.40,0.89,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    // pt->AddText( Form("#bf{Fit in [%.2f,%.2f]}",ExMin,ExMax) );
-   pt->AddText( Form("#chi^{2}/ndf =  %.0f / %i",chi2,ndf) );
+   pt->AddText( Form("#chi^{2} / ndf = %.0f / %i",chi2,ndf) );
    pt->AddText( Form("%s = %.4f #pm %.4f",
             par_name[0].c_str(),par[0],er_par[0]) );
    pt->AddText( Form("%s = %.3f #pm %.3f MeV ",
@@ -1171,14 +1180,14 @@ void DoFit(int date) {
    }
    for ( size_t i = 0; i <= Npol; ++i ) {
       int ii = m_par + i;
-      pt->AddText( Form("%s =  %.4f #pm %.4f",
+      pt->AddText( Form("%s =   %.4f #pm %.4f",
                par_name[ii].c_str(),par_bg[i],err_bg[i]) );
    }
    pt->Draw();
    gPad->RedrawAxis();
 
    c1->Update();
-   string pdf( Form("Mrec%d_fit_M%d",date,Model) );
+   string pdf( Form("Mrec%d_fit_M%d_T%zu",date,Model,Npol) );
    if ( fixbg ) {
       pdf += "_fixbg";
    }
@@ -1190,14 +1199,18 @@ void DoFit(int date) {
 
    // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
 
+   string sepline(70,'='); // separation line
+   printf("%s\n",sepline.c_str());
    // numbers for E in [Emin,Emax]
    print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
    print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
+   printf("%s\n",sepline.c_str());
 
    print_eff(date, USE_NOHC_SIGNAL_MC,
          hst[5], chi2_fit, par, er_par, 3.092,3.102);
    print_eff(date, USE_NOHC_SIGNAL_MC,
          hst[5], chi2_fit, par, er_par, 3.055,3.145);
+   printf("%s\n",sepline.c_str());
 }
 
 // {{{1 Main
