@@ -6,31 +6,43 @@
 #include "ReWeightTrkPid_11.h"
 #include "ReWeightEtaEff.h"
 
+// {{{1 helper functions and constants
 //--------------------------------------------------------------------
 constexpr double SQ(double x) {
 //--------------------------------------------------------------------
    return x*x;
 }
 
+// {{{1 Efficiency: MC-root files MUST contain nt1-tree
 //--------------------------------------------------------------------
 void get_eff(string fname, string pdf="", bool chkIO = false) {
 //--------------------------------------------------------------------
 #include "masses.h"
 
-   bool is2009 = (fname.find("_09") != string::npos);
+   // date detection from name of file
+   int date = 0;
+   if ( fname.find("_09") != string::npos ) {
+      date = 2009;
+   } else if ( fname.find("_12") != string::npos ) {
+      date = 2012;
+   } else if ( fname.find("_21") != string::npos ) {
+      date = 2021;
+   } else {
+      cerr << "can not detect date in fname: " << fname << endl;
+      exit(EXIT_FAILURE);
+   }
    bool is_sig = (fname.find("mcsig") != string::npos);
 
-   int date = (is2009) ? 2009 : 2012;
-
-   // MC signal MUST contain nt1
-   string prod("prod-12/");
-   fname = prod + fname;
+   // name of folder with root files
+   // string prod("prod-12/");
+   string dir("prod_v709/");
+   fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
-   cout << " file: " << fname << endl;
+   printf(" file: %s\n",fname.c_str());
    froot->cd("PsipJpsiPhiEta");
 
    //-----------------------------------------------------------------
@@ -38,24 +50,24 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
    //-----------------------------------------------------------------
 
    // initial number of Psi' -> pi+ pi- J/Psi -> phi eta
-   TH1D* MCdec = (TH1D*)gROOT -> FindObject("mc_dcj0");
+   TH1D* MCdec = (TH1D*)gROOT->FindObject("mc_dcj0");
    if ( !MCdec ) {
       cout << " can not find mc_dcj0" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
-   double Nini = MCdec -> GetBinContent(69);
-   printf(" number of generated J/Psi -> phi eta (dec# %.0f)= %.0f\n",
-          MCdec -> GetBinCenter(69),Nini);
+   double Nini = MCdec->GetBinContent(69);
+   printf(" number of generated 'J/Psi -> phi eta'"
+         " (dec# %.0f) is %.0f\n",
+          MCdec->GetBinCenter(69),Nini);
 
    // number of pi+pi-J/Psi after Mrs cut [3.092, 3.102]
-   TTree* nt1 = (TTree*)gDirectory -> Get("nt1");
+   TTree* nt1 = (TTree*)gDirectory->Get("nt1");
    if ( !nt1 ) {
       cout << " can not find nt1" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    TCut c_Mrb = TCut("abs(Mrb-3.097)<0.005");
-   cout << " Recoil mass cut: " << c_Mrb.GetTitle() << endl;
 
    double Lphi = 0.98, Uphi = 1.08; // histogramms
    int Nbins = 50;
@@ -67,38 +79,55 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
    mkk_f -> Sumw2(true);
    mkk_sb -> Sumw2(true);
 
-   double Nppj = nt1 -> Draw("mcmkk>>mkk_i",c_Mrb&&c_MCmkk,"goff");
-   printf(" number of pi+pi-J/Psi after 'Mrb' cut = %.0f\n\n", Nppj);
+   double Nppj = nt1->Draw("mcmkk>>mkk_i",c_Mrb&&c_MCmkk,"goff");
+   printf(" number of pi+pi-J/Psi after cut '%s' is %.0f\n",
+         c_Mrb.GetTitle(),Nppj);
 
-   double nI = mkk_i -> Integral(1,Nbins);
+   double nI = mkk_i->Integral(1,Nbins);
    if ( fabs(nI-Nppj) > 1e-3 ) {
-      cout << " DEBUG: mkk_i(Integ)= " << nI
-           << " Nppj= " << Nppj << endl;
-      double sc = Nppj/nI;
-      cout << "  scale mkk_i = " << sc << endl;
+      printf(" DEBUG: mkk_i(Integ)= %f, Nppj= %f\n",nI,Nppj);
+      printf("        scale mkk_i= %f\n",Nppj/nI);
    }
 
-   //----------------------------------------------------------------------
+   //-----------------------------------------------------------------
    // get final numbers:
-   //----------------------------------------------------------------------
+   //-----------------------------------------------------------------
 
    // J/Psi -> phi eta
-   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
+   TTree* a4c = (TTree*)gDirectory->Get("a4c");
    if ( !a4c ) {
       cout << " can not find a4c" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
-#include "p10a4c.h"
+
+// #include "a4c_v709.h"
+   Double_t        Mrec;
+   a4c->SetBranchAddress("Mrec",&Mrec);
+   Double_t        ch2;
+   a4c->SetBranchAddress("ch2",&ch2);
+   Double_t        Pkp;
+   a4c->SetBranchAddress("Pkp",&Pkp);
+   Double_t        Ckp;
+   a4c->SetBranchAddress("Ckp",&Ckp);
+   Double_t        Pkm;
+   a4c->SetBranchAddress("Pkm",&Pkm);
+   Double_t        Ckm;
+   a4c->SetBranchAddress("Ckm",&Ckm);
+   Double_t        Mkk;
+   a4c->SetBranchAddress("Mkk",&Mkk);
+   Double_t        Mgg;
+   a4c->SetBranchAddress("Mgg",&Mgg);
+   Double_t        mcmkk;
+   a4c->SetBranchAddress("mcmkk",&mcmkk);
 
    // Cuts for a4c: (MUST BE THE SAME AS IN "cuts.h"!)
    auto c_Mrec = [](double Mrec) -> bool{
       return fabs(Mrec-3.097) < 0.005;
    };
 
-   // chi^2 cut: NO uncertainties study! (helix correction)
+   // chi^2 cut
    auto c_chi2 = [](double ch2) -> bool{
-//       return ch2 < 60; // OLD std
-      return ch2 < 40; // std: v15a
+      return ch2 < 40;
    };
 
    // Mphi cut: [dL, dU]
@@ -117,8 +146,7 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
    };
 
    // 'shift_eta' is the start of the side-band
-//    double shift_eta = 6*seta; // old (prod<=10)
-   double shift_eta = 7*seta; // new for prod-11
+   double shift_eta = 7*seta;
    auto c_sbgg = [weta,shift_eta](double Mgg) -> bool{
       return (fabs(Mgg-Meta) > shift_eta) &&
              (fabs(Mgg-Meta) < shift_eta+weta);
@@ -127,116 +155,109 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
    double Ncp = 0, eNcp = 0;
    double Nsb = 0, eNsb = 0;
 
-   double Weta = ReWeightEtaEff(date);
+   double Weta = 1;
+   if ( date <= 2012
+         && !chkIO   // disable corrections for I/O check
+      ) {
+      Weta = ReWeightEtaEff(date);
+   }
    Long64_t nentries = a4c -> GetEntries();
    for ( Long64_t i = 0; i < nentries; ++i ) {
-      a4c -> GetEntry(i);
+      a4c->GetEntry(i);
       if ( !(mcmkk<1.08) ) continue;
       if ( !c_Mrec(Mrec) ) continue;
       if ( !c_chi2(ch2) ) continue;
       if ( !c_phi(Mkk) ) continue;
 
       // correction for K+,K- eff:
-      double wp = ReWeightTrkPid(date,1,Ptkp);
-      double wm = ReWeightTrkPid(date,1,Ptkm);
+      double wp = 1;
+      double wm = 1;
+      if ( date <= 2012
+            && !chkIO   // disable corrections for I/O check
+         ) {
+         double Ptkp = Pkp*sin(Ckp);
+         wp = ReWeightTrkPid(date,1,Ptkp);
+         double Ptkm = Pkm*sin(Ckm);
+         wm = ReWeightTrkPid(date,1,Ptkm);
+      }
       double w = wp*wm;
 
       // correction for eta eff:
       w *= Weta;
 
-      if ( chkIO ) {  // disable corrections for I/O check
-         w = 1.;
-      }
-
       if ( c_cpgg(Mgg) ) {              // central part
          Ncp  += w;
          eNcp += SQ(w);
-         mkk_f -> Fill(mcmkk,w);
+         mkk_f->Fill(mcmkk,w);
       } else if ( c_sbgg(Mgg) ) {       // side-band
          Nsb  += w;
          eNsb += SQ(w);
-         mkk_sb -> Fill(mcmkk,w);
+         mkk_sb->Fill(mcmkk,w);
       }
    }
-
-   // only central part
-//    double nF = mkk_f -> Integral(1,Nbins);
-//    cout << " DEBUG: mkk_f(Integ)= " << nF << " Ncp= " << Ncp << endl;
-
-//    double eff = Ncp / Nppj;
-//    double err = eff*sqrt( eNcp/SQ(Ncp) + 1./Nppj);
-//    printf("\n integral efficiency in %d is %.5f +/- %.5f\n",
-//          date, eff, err);
-
-   // side-band subtraction:
-//    double eff_sb = (Ncp - Nsb) / Nppj;
-//    double err_sb = eff_sb*sqrt( (eNcp+eNsb)/SQ(Ncp-Nsb) + 1./Nppj);
-//    printf(" -- efficiency in case of side-band subtraction"
-//           " (%.1f - %.1f)\n -- is %.5f +/- %.5f\n",
-//           Ncp,Nsb,eff_sb,err_sb);
 
    //----------------------------------------------------------------------
    // Draw results + fit
    //----------------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
-   TH1D* heff = (TH1D*)mkk_i -> Clone("heff");
+   TH1D* heff = (TH1D*)mkk_i->Clone("heff");
 //    mkk_f -> Add(mkk_f,mkk_sb,1.,-1.); // side-band subtraction ?
-   heff -> Divide(mkk_f,mkk_i,1.,1.,"B");
+   heff->Divide(mkk_f,mkk_i,1.,1.,"B");
 
    string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}"
          ";efficiency");
-   heff -> SetTitle(title.c_str());
-   heff -> GetXaxis() -> SetTitleOffset(1.1);
-   heff -> GetYaxis() -> SetTitleOffset(1.4);
-   heff -> SetLineWidth(2);
-   heff -> SetLineColor(kBlack);
-   heff -> SetMarkerStyle(20);
-   heff -> SetAxisRange(0.2,0.5,"Y"); // for memo
-   heff -> Draw("EP");
+   heff->SetTitle(title.c_str());
+   heff->GetXaxis()->SetTitleOffset(1.1);
+   heff->GetYaxis()->SetTitleOffset(1.4);
+   heff->SetLineWidth(2);
+   heff->SetLineColor(kBlack);
+   heff->SetMarkerStyle(20);
+   heff->SetAxisRange(0.1,0.5,"Y");
+   heff->Draw("EP");
 
    auto Lf = [](double* x,double* p) -> double {
       return p[0]*(1+p[1]*(x[0]-1.02));
    };
    TF1* ffit = new TF1("ffit", Lf, Lphi, Uphi, 2);
-   ffit -> SetParNames("e","k");
-   ffit -> SetParameters(0.3, -1.9);
-   ffit -> SetLineWidth(1);
+   ffit->SetParNames("e","k");
+   ffit->SetParameters(0.3, -1.9);
+   ffit->SetLineWidth(1);
 
    TF1* ff2 = nullptr;
    if ( pdf.empty() ) {
       // Systematics ONLY:
-      ff2 = new TF1("ff2", Lf, Lphi, Uphi, 2);
-      ff2 -> SetParameters(0.3, -1.9);
-      ff2 -> SetLineColor(kBlue);
-      ff2 -> SetLineWidth(2);
-      ff2 -> SetLineStyle(kDashed);
+      ff2= new TF1("ff2", Lf, Lphi, Uphi, 2);
+      ff2->SetParameters(0.3, -1.9);
+      ff2->SetLineColor(kBlue);
+      ff2->SetLineWidth(2);
+      ff2->SetLineStyle(kDashed);
 
-      ff2 -> FixParameter(1, -1.8); // sys: -1.8 +/- 0.2
-//       ff2 -> FixParameter(1, -2.0);
+      // ff2->FixParameter(1, -1.8); // sys: -1.8 +/- 0.2
+      ff2->FixParameter(1, -2.0); // +/- 0.13
    }
 
-   double bin_width = heff -> GetBinWidth(1);
+   double bin_width = heff->GetBinWidth(1);
    // left and right fit boundaries:
    double Lfit = (int(2*Mk/bin_width)+1)*bin_width;
    double Ufit = Uphi - bin_width;
-   heff -> Fit("ffit","EQ","",Lfit,Ufit);
+   heff->Fit("ffit","EQ","",Lfit,Ufit);
    if ( ff2 ) {
-      heff -> Fit("ff2","EQN","",Lfit,Ufit);
-      ff2 -> DrawCopy("SAME");
+      heff->Fit("ff2","EQN","",Lfit,Ufit);
+      ff2->DrawCopy("SAME");
    }
-   double chi2 = ffit -> GetChisquare();
-   int ndf = ffit -> GetNDF();
-   double a = ffit -> GetParameter(0);
-   double ea = ffit -> GetParError(0);
-   double b = ffit -> GetParameter(1);
-   double eb = ffit -> GetParError(1);
+   double chi2 = ffit->GetChisquare();
+   int ndf   = ffit->GetNDF();
+   double a  = ffit->GetParameter(0);
+   double ea = ffit->GetParError(0);
+   double b  = ffit->GetParameter(1);
+   double eb = ffit->GetParError(1);
 
    TPaveText* pt = new TPaveText(0.59,0.70,0.89,0.89,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
    string tit;
    if ( is_sig ) {
       tit = "MC signal #phi#eta, ";
@@ -244,57 +265,64 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
       tit = "MC non-#phi K^{+}K^{-}#eta, ";
    }
    tit += to_string(date);
-   pt -> AddText( tit.c_str() );
-//    pt -> AddText( "eff = eff(#phi) (1 + k (M-1.02))" );
-   pt -> AddText( Form("#chi^{2}/ndf = %.1f / %d",chi2,ndf) );
-   pt -> AddText( Form("eff(#phi) = %.4f #pm %.4f",a,ea) );
-   pt -> AddText( Form("k = %.2f #pm %.2f",b,eb) );
-   pt -> Draw();
+   pt->AddText( tit.c_str() );
+   // pt->AddText( "eff = eff(#phi) (1 + k (M-1.02))" );
+   pt->AddText( Form("#chi^{2}/ndf = %.1f / %d",chi2,ndf) );
+   pt->AddText( Form("eff(#phi) = %.4f #pm %.4f",a,ea) );
+   pt->AddText( Form("k = %.2f #pm %.2f",b,eb) );
+   pt->Draw();
 
-   printf(" ++ fit: efficiency(%d) = e*(1+k*(mkk-1.02))\n", date);
-   printf(" ++ e = %.4f +/- %.4f; k = %.2f +/- %.2f\n\n", a,ea, b,eb);
+   string sepline(70,'='); // separation line
+   printf("%s\n",sepline.c_str());
+   printf(" fit: efficiency(%d) = e*(1+k*(mkk-1.02))\n", date);
+   printf(" e = %.4f +/- %.4f; k = %.2f +/- %.2f\n", a,ea, b,eb);
+   printf("%s\n",sepline.c_str());
 
-   if (ff2) {
-      double a0 = ff2 -> GetParameter(0);
-      double ea0 = ff2 -> GetParError(0);
-      double b0 = ff2 -> GetParameter(1);
-      double eb0 = ff2 -> GetParError(1);
-      if ( fabs(eb0) < 1.e-4 ) {
-         printf(" %i) e= %.4f +/- %.4f; k= %.2f (fixed)\n\n",
-               date, a0, ea0, b0);
-      }
+   if ( ff2 ) {
+      double a0  = ff2->GetParameter(0);
+      double ea0 = ff2->GetParError(0);
+      double b0  = ff2->GetParameter(1);
+      double eb0 = ff2->GetParError(1);
+      printf(" %i) e= %.4f +/- %.4f; k= %.2f (fixed)\n",
+            date, a0, ea0, b0);
+      printf("%s\n",sepline.c_str());
    }
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
+// {{{1 Main
 //-------------------------------------------------------------------------
 void eff_mc() {
 //-------------------------------------------------------------------------
-   gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetOptFit(0);
-   gStyle -> SetLegendFont(42);
+   gROOT->Reset();
+   gStyle->SetOptStat(0);
+   gStyle->SetOptFit(0);
+   gStyle->SetLegendFont(42);
 
-   // fig.16: no pdf-files, fit with k-fixed
-//    get_eff("mcsig_kkmc_09.root","eff_sig_2009.pdf");
-//    get_eff("mcsig_kkmc_12.root","eff_sig_2012.pdf");
-   get_eff("mcsig_kkmc_09.root");
-//    get_eff("mcsig_kkmc_12.root");
+   // fig.16:
+   // get_eff("mcsig_kkmc_09.root","eff_sig_2009.pdf");
+   // get_eff("mcsig_kkmc_12.root","eff_sig_2012.pdf");
+   // get_eff("mcsig_kkmc_21.root","eff_sig_2021.pdf");
+
+   // no pdf-files, fit with k-fixed
+   // get_eff("mcsig_kkmc_09.root");
+   // get_eff("mcsig_kkmc_12.root");
+   // get_eff("mcsig_kkmc_21.root");
 
    // Systematic study => NoHC: no helix corrections
-//    get_eff("NoHC/mcsig_kkmc_09.root");
-//    get_eff("NoHC/mcsig_kkmc_12.root");
+   // get_eff("NoHC/mcsig_kkmc_09.root");
+   // get_eff("NoHC/mcsig_kkmc_12.root");
 
    // Systematic study => I/O check: disable corrections
-//    get_eff("mcsig_kkmc_09.root","",true);
-//    get_eff("mcsig_kkmc_12.root","",true);
+   // get_eff("mcsig_kkmc_09.root","",true);
+   // get_eff("mcsig_kkmc_12.root","",true);
 
    // KKeta phase space MC ???
-//    get_eff("mckketa_kkmc_09.root");
-//    get_eff("mckketa_kkmc_12.root");
+   // get_eff("mckketa_kkmc_09.root");
+   // get_eff("mckketa_kkmc_12.root");
 }
