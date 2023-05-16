@@ -784,9 +784,9 @@ void MrecFitSB() {
 
    bool zoom = true;
    // MrecDraw(date, !zoom);
-   MrecDraw(date,  zoom);
+   // MrecDraw(date,  zoom);
 
-   // DoFitSB(date);
+   DoFitSB(date);
 
    // IO check: trivially get the exact result!
    // bool isIOcheck = true;

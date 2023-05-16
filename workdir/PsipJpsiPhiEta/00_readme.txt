@@ -75,12 +75,14 @@ chi2_Pr.cc:
 // 2) data vs inclusive MC
 //    -> chi2_YEAR.pdf
 
-kkgg_dataMC.cc - data vs MC for  Jpsi -> phi eta  selection
-               -> variable_YEAR.pdf
+kkgg_dataMC.cc:
+// data vs MC for  Jpsi -> phi eta  selection
+// -> variable_YEAR.pdf
 
-mass_kk.cc - plot M(K+K-) for data, inclusive MC, signal MC and
-             MC KKeta cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
-             -> mass_kk.pdf
+mass_kk.cc: (do we need it?)
+// plot M(K+K-) for data, inclusive MC, signal MC and MC KKeta
+// cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
+// -> mass_kk_YEAR.pdf
 
 //--------------------------------------------------------------------
 // 2a) Study M(K+K-)

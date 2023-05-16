@@ -1,6 +1,6 @@
 // plot M(K+K-) for data, inclusive MC, signal MC and MC KKeta
 // cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
-// -> mass_kk.pdf
+// -> mass_kk_YEAR.pdf
 
 #include "masses.h"
 
@@ -38,18 +38,19 @@ TH1D* get_Mkk(string fname, string hname, int type=0) {
 #include "cuts.h"
 
    // name of folder with root files
-   static string dir("prod-12/");
+   // static string dir("prod-12/");
+   string dir("prod_v709/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    froot->cd("PsipJpsiPhiEta");
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
-//    const double dU = 1.101;
+   // const double dU = 1.101;
    const double dU = 1.08;
    const double bL = 0.98; // first bin < dL
    const int Nbins = 100;
@@ -65,7 +66,7 @@ TH1D* get_Mkk(string fname, string hname, int type=0) {
       c_here += c_sbgg;
    }
    string dr = string("Mkk>>") + hname;
-   a4c -> Draw(dr.c_str(),c_here,"goff");
+   a4c->Draw(dr.c_str(),c_here,"goff");
 
    return mkk;
 }
@@ -236,34 +237,44 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    vector<string> fnames = {
       "data_09psip_all.root",
       "data_12psip_all.root",
+      "data_21psip_all.root",
       "data_3650_all.root",
       "mcinc_09psip_all.root",
       "mcinc_12psip_all.root",
+      "mcinc_21psip_all.root",
       "mcsig_kkmc_09.root",
       "mcsig_kkmc_12.root",
-      "mckketa_kkmc_09.root",
-      "mckketa_kkmc_12.root"
+      "mcsig_kkmc_21.root",
    };
+      // "mckketa_kkmc_09.root",
+      // "mckketa_kkmc_12.root"
+
    vector<string> titles = {
       "Data 2009",
       "Data 2012",
+      "Data 2021",
       "E=3.65 GeV",
-      "MC incl. 2009",
-      "MC incl. 2012",
-      "MC signal #phi#eta",
-      "MC signal #phi#eta",
-      "MC non-#phi KK#eta",
-      "MC non-#phi KK#eta"
+      "MC inclusive 2009",
+      "MC inclusive 2012",
+      "MC inclusive 2021",
+      "MC signal #phi#eta 2009",
+      "MC signal #phi#eta 2012",
+      "MC signal #phi#eta 2021",
    };
+      // "MC non-#phi KK#eta 2009",
+      // "MC non-#phi KK#eta 2012"
 
-   int id = 0, ii = 3, is = 5, ib = 7; // 2009
+   int id = 0, ii = 4, is = 7; // 2009
    if ( date == 2012 ) {
-       id = 1, ii = 4, is = 6, ib = 8; // 2012
+       id = 1, ii = 5, is = 8; // 2012
+   }
+   if ( date == 2021 ) {
+       id = 2, ii = 6, is = 9; // 2021
    }
 
-   TH1D* hst[20];
-//    vector<int> tmp {id, ii, is, ib};
-   vector<int> tmp {id, is, ib};
+   TH1D* hst[30];
+   // vector<int> tmp {id, is, ib};
+   vector<int> tmp {id, is};
    for( auto i : tmp )  {
       string hname = string("mkk_") + to_string(i+1);
       hst[i] = get_Mkk(fnames.at(i),hname,0);
@@ -273,96 +284,103 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    TCanvas* c1 = nullptr;
    if ( PR ) {
       c1 = new TCanvas("c1","...",0,0,1200,500); // Pr
-      c1 -> Divide(2,1);
+      c1->Divide(2,1);
    } else {
       c1 = new TCanvas("c1","...",0,0,500,900); // memo
-      c1 -> Divide(1,2);
+      c1->Divide(1,2);
    }
 
-   for ( int it = 0; it < 11; it+=10 ) {
-      hst[id+it] -> SetLineWidth(2);
-      hst[id+it] -> SetLineColor(kBlack); // data
-      hst[id+it] -> SetMarkerStyle(20);
-      hst[id+it] -> SetMarkerSize(0.7);
+   for ( int it : {0,10} ) {
+      hst[id+it]->SetLineWidth(2);
+      hst[id+it]->SetLineColor(kBlack); // data
+      hst[id+it]->SetMarkerStyle(20);
+      hst[id+it]->SetMarkerSize(0.7);
 
-      hst[is+it] -> SetLineWidth(2);
-      hst[is+it] -> SetLineColor(kGreen+2); // MC phi eta
+      hst[is+it]->SetLineWidth(2);
+      hst[is+it]->SetLineColor(kGreen+2); // MC phi eta
 
-      hst[ib+it] -> SetLineColor(kBlue+1);
-      hst[ib+it] -> SetLineWidth(2);
+      // hst[ib+it]->SetLineColor(kBlue+1);
+      // hst[ib+it]->SetLineWidth(2);
    }
 
    // normalize MC on data
+   double sig_scale =
+      ( hst[id]->Integral() - hst[id+10]->Integral() ) /
+      ( hst[is]->Integral() - hst[is+10]->Integral() );
+   hst[is]->Scale( sig_scale );
+
+   /*
    const double wphi = 5*Gphi;
 
-   int n1 = hst[id] -> FindBin(Mphi-wphi);
-   int n2 = hst[id] -> FindBin(Mphi+wphi);
-   int n3 = hst[id] -> GetNbinsX();
+   int n1 = hst[id]->FindBin(Mphi-wphi);
+   int n2 = hst[id]->FindBin(Mphi+wphi);
+   int n3 = hst[id]->GetNbinsX();
    double sig_scale = 1.0;
    double bg_scale = 1.0;
    for (int iter = 0; iter < 3; iter++) {
       double sig = 1.0;
       if ( iter==0 ) {
-         sig = hst[id] -> Integral(n1,n2) /
-               hst[is] -> Integral(n1,n2);
+         sig = hst[id]->Integral(n1,n2) /
+            hst[is]->Integral(n1,n2);
       } else {
          sig = (hst[id]->Integral(n1,n2) - hst[ib]->Integral(n1,n2))
-               / hst[is] -> Integral(n1,n2);
+            / hst[is]->Integral(n1,n2);
       }
       hst[is]->Scale( sig );
       sig_scale *= sig;
 
       double bg = (hst[id]->Integral(n2,n3) - hst[is]->Integral(n2,n3))
-                  / hst[ib]->Integral(n2,n3);
+         / hst[ib]->Integral(n2,n3);
       hst[ib]->Scale( bg );
       bg_scale *= bg;
       cout << " iter# " << iter << " sig_scale= " << sig_scale
            << " bg_scale= " << bg_scale << endl;
    }
+   */
 
    // normalize side-band on the same numbers
-   hst[10+is] -> Scale( sig_scale );
-   hst[10+ib] -> Scale( bg_scale );
+   hst[10+is]->Scale( sig_scale );
+   // hst[10+ib]->Scale( bg_scale );
 
    double ymax = max( hst[id]->GetMaximum(), hst[is]->GetMaximum() );
-   hst[id] -> SetMaximum(1.2*ymax);
+   hst[id]->SetMaximum(1.2*ymax);
 
-//    hst[9] = (TH1D*)hst[is] -> Clone("mc_sig_clone");
-//    hst[9] -> Add(hst[ib]); // MC(sig) + MC(bg)
-//    hst[9] -> SetLineColor(kRed+1);
+   // hst[21] = (TH1D*)hst[is]->Clone("mc_sig_clone");
+   // hst[21]->Add(hst[ib]); // MC(sig) + MC(bg)
+   // hst[21]->SetLineColor(kRed+1);
 
-//    hst[19] = (TH1D*)hst[10+is] -> Clone("mc_sig_sb_clone");
-//    hst[19] -> Add(hst[10+ib]); // MC(sig) + MC(bg)
-//    hst[19] -> SetLineColor(kRed+1);
+   // hst[22] = (TH1D*)hst[10+is]->Clone("mc_sig_sb_clone");
+   // hst[22]->Add(hst[10+ib]); // MC(sig) + MC(bg)
+   // hst[22]->SetLineColor(kRed+1);
 
-   c1 -> cd(1);
-   gPad -> SetGrid();
+   c1->cd(1);
+   gPad->SetGrid();
 
    SetHstFace(hst[id]);
-   hst[id] -> GetXaxis() -> SetTitleOffset(1.1);
-   hst[id] -> GetYaxis() -> SetTitleOffset(1.3);
+   hst[id]->GetXaxis()->SetTitleOffset(1.1);
+   hst[id]->GetYaxis()->SetTitleOffset(1.3);
 
-   hst[id] -> Draw("E");
-   hst[is] -> Draw("HIST SAME");
-   hst[ib] -> Draw("SAME HIST");
-//    hst[9]  -> Draw("SAME HIST");
-   hst[id] -> Draw("E,SAME");
+   hst[id]->Draw("E");
+   hst[is]->Draw("HIST SAME");
+   // hst[ib]->Draw("SAME HIST");
+   // hst[21]->Draw("SAME HIST");
+   hst[id]->Draw("E,SAME");
 
    TLegend* leg = nullptr;
    if ( PR ) {
       leg = new TLegend(0.48,0.55,0.89,0.89);
    } else {
       leg = new TLegend(0.49,0.53,0.89,0.89); // memo
-      leg -> SetTextSize(0.05);
+      leg->SetTextSize(0.05);
    }
-   leg -> SetHeader(
+   leg->SetHeader(
          "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}| < 0.024",
          "C");
-   leg -> AddEntry(hst[id],titles[id].c_str(),"PLE");
-   leg -> AddEntry(hst[is],titles[is].c_str(),"L");
-   leg -> AddEntry(hst[ib],titles[ib].c_str(),"L");
-//    leg -> AddEntry(hst[9],"Sum of MC","L");
-   leg -> Draw();
+   leg->AddEntry(hst[id],titles[id].c_str(),"PLE");
+   leg->AddEntry(hst[is],titles[is].c_str(),"L");
+   // leg->AddEntry(hst[ib],titles[ib].c_str(),"L");
+   // leg->AddEntry(hst[21],"Sum of MC","L");
+   leg->Draw();
 
    gPad->RedrawAxis();
 
@@ -370,83 +388,71 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
    gPad->SetGrid();
 
    if ( date == 2009 ) {
-      hst[10+id] -> SetMaximum(4);
-   } else {
-      hst[10+id] -> SetMaximum(6);
+      hst[10+id]->SetMaximum(4);
+   } else if ( date == 2012 ) {
+      hst[10+id]->SetMaximum(6);
+   } else if ( date == 2021 ) {
+      hst[10+id]->SetMaximum(14);
    }
 
    SetHstFace(hst[10+id]);
-   hst[10+id] -> GetXaxis() -> SetTitleOffset(1.1);
+   hst[10+id]->GetXaxis()->SetTitleOffset(1.1);
 
    int type = 2;
    TF1* fit = Fit_Sb(hst[10+id],type);
    if ( !fit ) {
-      hst[10+id] -> Draw("E");
+      hst[10+id]->Draw("E");
    }
 
-   hst[10+is] -> Draw("HIST SAME");
-   cout << " Integral signal= " << hst[10+is] -> Integral() << endl;
-   hst[10+ib] -> Draw("SAME HIST");
-   hst[10+id] -> Draw("E,SAME");
+   hst[10+is]->Draw("HIST SAME");
+   cout << " Integral signal= " << hst[10+is]->Integral() << endl;
+   // hst[10+ib]->Draw("SAME HIST");
+   // hst[10+id]->Draw("E,SAME");
 
    TPaveText* pt = new TPaveText(0.45,0.76,0.89,0.89,"NDC,TR");
-   pt -> SetTextAlign(22);
-   pt -> SetTextFont(42);
-   pt -> SetTextSize(0.05);
-   pt -> AddText("Side-Band");
-   pt -> AddText(
+   pt->SetTextAlign(22);
+   pt->SetTextFont(42);
+   pt->SetTextSize(0.05);
+   pt->AddText("Side-Band");
+   pt->AddText(
          Form( "%.3f<"
-         "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}|"
-         "<%.3f", shift_eta,shift_eta+weta)
+            "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}|"
+            "<%.3f", shift_eta,shift_eta+weta)
          );
+   pt->Draw();
 
-//    if ( type == 1 ) {
-//       double p0  = fit -> GetParameter(0);
-//       double ep0 = fit -> GetParError(0);
-//       pt -> AddText( Form("p0 = %.2f #pm %.2f",p0,ep0) );
-//    } else if ( type == 2 ) {
-//       double n  = fit -> GetParameter(0);
-//       double ar  = fit -> GetParameter(1);
-//       double ern = fit -> GetParError(0);
-//       double erar = fit -> GetParError(1);
-//       pt -> AddText( Form("#color[%i]{Argus fit:} N= %.1f #pm %.1f",
-//                kRed,n,ern) );
-//       pt -> AddText( Form("a= %.1f #pm %.1f",ar,erar) );
-//    }
-   pt -> Draw();
+   gPad->RedrawAxis();
 
-   gPad -> RedrawAxis();
+   c1->Update();
 
-   c1 -> Update();
-
-   string pdf = string("mass_kk") + ( (date==2009) ? "09" : "12" ) +
-            ( (PR) ?  "_PR" : "" ) + ".pdf";
-   c1 -> Print(pdf.c_str());
+   string pdf( Form("mass_kk_%02i%s.pdf",date,(PR) ? "_PR" : "" ) );
+   c1->Print(pdf.c_str());
 }
 
 // {{{1 MAIN:
 //--------------------------------------------------------------------
 void mass_kk() {
 //--------------------------------------------------------------------
-   gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetLegendFont(42);
-//    gStyle -> SetOptFit(0);
-   gStyle -> SetOptFit(111); // do not print fixed params
-   gStyle -> SetFitFormat(".1f");
+   gROOT->Reset();
+   gStyle->SetOptStat(0);
+   gStyle->SetLegendFont(42);
+   // gStyle->SetOptFit(0);
+   gStyle->SetOptFit(111); // do not print fixed params
+   gStyle->SetFitFormat(".1f");
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.755);
    gStyle->SetStatW(0.245);
 
 
    // just test
-//    test_RevAgrus();
+   // test_RevAgrus();
 
    // presentation
-//    plot_mass_kk(2009,true);
-//    plot_mass_kk(2012,true);
+   // plot_mass_kk(2009,true);
+   // plot_mass_kk(2012,true);
+   plot_mass_kk(2021,true);
 
    // memo
-   plot_mass_kk(2009);
-//    plot_mass_kk(2012);
+   // plot_mass_kk(2009);
+   // plot_mass_kk(2012);
 }
