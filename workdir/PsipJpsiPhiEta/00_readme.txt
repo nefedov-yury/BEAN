@@ -87,10 +87,11 @@ mass_kk.cc: (do we need it?)
 //--------------------------------------------------------------------
 // 2a) Study M(K+K-)
 //--------------------------------------------------------------------
-eff_mc.cc -  efficiencies for selection of the J/Psi -> phi eta
-             as a function of true MC M(K+K-) and
-             fit it by a straight line
-             -> eff_(sig|bkg)_YYYY.pdf
+eff_mc.cc:
+// efficiencies for selection of the J/Psi -> phi eta
+// as a function of true MC M(K+K-) and
+// fit it by a straight line
+// -> eff_(sig|bkg)_YYYY.pdf
 
 mass_kk_fit.cc - unbinned LH fit of M(K+K-) distributions
                  after the cuts (see cuts.h): Mrec + chi^2(4C) + Mgg

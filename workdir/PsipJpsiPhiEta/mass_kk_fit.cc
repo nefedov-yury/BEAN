@@ -4,7 +4,7 @@
 // *) Breit-Wigner for psi -> K+K- (psi from J/Psi -> phi eta)
 // *) convolution of BW with the Gauss distribution
 // *) ARGUS function (and "reverse" Argus)
-// *) interference B-W and Argus amplitudes
+// *) interference
 //    -> mkkYY_fit??.pdf
 //    -> mkk_cf_???.pdf (combined fit)
 
@@ -35,9 +35,10 @@ static TH1D* htt[10];
 
 //--------------------------------------------------------------------
 void my_handler(const char* reason, const char* file, int line,
-                int gsl_errno) {
+      int gsl_errno) {
 //--------------------------------------------------------------------
-   printf("-- GSL EXCEPTION: %s in func %s\n",reason,gsl_integral_func);
+   printf("-- GSL EXCEPTION: %s in func %s\n",
+         reason,gsl_integral_func);
    return;
 }
 
@@ -70,9 +71,13 @@ struct ParAndErr {
    vector<double> Uerr; // upper minos errors
    vector<double> Lerr; // lower minos errors
 
+   // if the upper and lower errors differ no more than the
+   // 'threshold', the maximum of them is used as a symmetric error
+   double threshold = 0.1;
+
    // ctor
    //-----------------------------------------------------------------
-   ParAndErr(const ROOT::Fit::FitResult& res,double threshold = 0.1) {
+   ParAndErr(const ROOT::Fit::FitResult& res,double thr = 0.1) {
    //-----------------------------------------------------------------
       Fpar = res.Parameters();
       Perr = res.Errors();
@@ -81,47 +86,58 @@ struct ParAndErr {
       Lerr.resize(Npar,0.);
       Uerr.resize(Npar,0.);
 
-      // if the upper and lower errors differ no more than the
-      // 'threshold', the maximum of them is used as a symmetric error
+      threshold = thr;
+
       for ( int np = 0; np < Npar; ++np ) {
-         if ( res.HasMinosError(np) ) {
-            double uerr = fabs(res.UpperError(np));
-            double lerr = fabs(res.LowerError(np));
-            Uerr[np] = uerr;
-            Lerr[np] = lerr;
-            if ( uerr*lerr == 0 ) {// one of the errors is not defined
-               continue;
-            }
-            if ( fabs(1-lerr/uerr) < threshold ) {
-               Perr[np] = max(lerr,uerr);
-            } else {
-               Perr[np] = -1; // use asymmetric errors
-               if ( res.IsParameterFixed(np) ) {
-                  Perr[np] = 0;
-               }
-            }
+         if ( res.IsParameterFixed(np) ) {
+            Perr[np] = 0;
+            continue;
          }
-//          cout << " set Perr[" << np << "] = " << Perr[np] << endl;
+         if ( res.HasMinosError(np) ) {
+            Uerr[np] = fabs(res.UpperError(np));
+            Lerr[np] = fabs(res.LowerError(np));
+         }
       }
    }
 
    // pretty print parameters with errors
    //-----------------------------------------------------------------
-   const char* Eform (int i,string fm, double X = 1) {
+   const char* Eform (int i, string fm, double X = 1) {
    //-----------------------------------------------------------------
-      if ( Perr[i] > 0 ) {
+      auto SymF = [fm,X](double par, double err) {
          string fmt = "%" +fm+ " #pm %" +fm;
-         return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
-      } else if ( Perr[i] < 0 ) {
+         return Form(fmt.c_str(),par*X,err*X);
+      };
+
+      auto FixF = [fm,X](double par) {
+         string fmt = "%" +fm+ " (fixed)";
+         return Form(fmt.c_str(),par*X);
+      };
+
+      auto AsymF = [fm,X](double par, double uerr, double lerr) {
          string fmt = "%" + fm
             + "^{#lower[0.15]{#kern[0.15]{#plus}#kern[0.05]{%"
             + fm + "}}" + "}"
             + "_{#lower[-0.15]{#kern[0.15]{#minus}#kern[0.05]{%"
             + fm + "}}" + "}";
-         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,Lerr[i]*X);
+         return Form(fmt.c_str(),par*X,uerr*X,lerr*X);
+      };
+
+      if ( Perr[i] == 0 ) {
+         return FixF(Fpar[i]);
       }
-      string fmt = "%" +fm+ " (fixed)";
-      return Form(fmt.c_str(),Fpar[i]*X);
+
+      if ( Uerr[i]*Lerr[i] != 0 ) {
+         // there are both upper and lower errors
+         if ( fabs(1-Lerr[i]/Uerr[i]) < threshold ) {
+            double err = max(Lerr[i],Uerr[i]);
+            return SymF(Fpar[i],err);
+         } else {
+            return AsymF(Fpar[i],Uerr[i],Lerr[i]);
+         }
+      }
+
+      return SymF(Fpar[i],Perr[i]);
    }
 
    // return middle point = par(i) + 0.5(UpperError+LowerError)
@@ -129,21 +145,6 @@ struct ParAndErr {
    double Middle (int i) {
    //-----------------------------------------------------------------
       return Fpar[i] + 0.5*(Uerr[i]-Lerr[i]);
-   }
-
-   // pretty print for table
-   //-----------------------------------------------------------------
-   const char* Tform (int i,string fm, double X = 1) {
-   //-----------------------------------------------------------------
-      if ( Perr[i] > 0 ) {
-         string fmt = "%" +fm+ " \\pm %" +fm;
-         return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
-      } else if ( Perr[i] < 0 ) {
-         string fmt = "%" + fm + "^{%+" + fm + "}" + "_{%+" + fm + "}";
-         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,-Lerr[i]*X);
-      }
-      string fmt = "%" +fm;
-      return Form(fmt.c_str(),Fpar[i]*X);
    }
 };
 
@@ -166,51 +167,52 @@ constexpr double SQ(double x) {
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
-   TAxis* X = hst -> GetXaxis();
+   TAxis* X = hst->GetXaxis();
    if ( X ) {
-      X -> SetLabelFont(62);
-      X -> SetLabelSize(0.04);
-      X -> SetTitleFont(62);
-      X -> SetTitleSize(0.04);
+      X->SetLabelFont(62);
+      X->SetLabelSize(0.04);
+      X->SetTitleFont(62);
+      X->SetTitleSize(0.04);
    }
-   TAxis* Y = hst -> GetYaxis();
+   TAxis* Y = hst->GetYaxis();
    if ( Y ) {
-      Y -> SetLabelFont(62);
-      Y -> SetLabelSize(0.04);
-      Y -> SetTitleFont(62);
-      Y -> SetTitleSize(0.04);
+      Y->SetLabelFont(62);
+      Y->SetLabelSize(0.04);
+      Y->SetTitleFont(62);
+      Y->SetTitleSize(0.04);
    }
-   TAxis* Z = hst -> GetZaxis();
+   TAxis* Z = hst->GetZaxis();
    if ( Z ) {
-      Z -> SetLabelFont(62);
-      Z -> SetLabelSize(0.04);
-      Z -> SetTitleFont(62);
-      Z -> SetTitleSize(0.04);
+      Z->SetLabelFont(62);
+      Z->SetLabelSize(0.04);
+      Z->SetTitleFont(62);
+      Z->SetTitleSize(0.04);
    }
 }
 
 // {{{1 data processing
 //--------------------------------------------------------------------
-vector<double> get_mkk_hist( string fname, string hname,
-                             TH1D* hst[], int type = 0 ) {
+vector<double> get_mkk_hist( string fname, string hname, TH1D* hst[],
+      int type = 0 ) {
 //--------------------------------------------------------------------
 #include "cuts.h"
    bool isMC = (fname.find("mcsig") != string::npos);
 
    // name of folder with root files
-   static string dir("prod-12/");
+   // static string dir("prod-12/");
+   string dir("prod_v709/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
-   froot -> cd("PsipJpsiPhiEta");
-   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
+   froot->cd("PsipJpsiPhiEta");
+   TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
    TCut c_here = c_Mrec+c_chi2;
-//    c_here += TCut("chsq3g>ch2"); // the same cut as in prod-11
+   // c_here += TCut("chsq3g>ch2");// with the search for third gamma
    c_here += TCut(Form("%f<=Mkk&&Mkk<%f",dL,dU));
    if ( type == 0 ) {        // central part
       c_here += c_cpgg;
@@ -222,21 +224,21 @@ vector<double> get_mkk_hist( string fname, string hname,
       c_here += c_MCmkk;
    }
 
-   int n = a4c -> Draw("Mkk", c_here, "goff");
-//    cout << " n= " << n << endl;
-   double* buffer = a4c -> GetVal(0);
+   int n = a4c->Draw("Mkk", c_here, "goff");
+   // cout << " n= " << n << endl;
+   double* buffer = a4c->GetVal(0);
    vector<double> mkk(buffer, buffer+n);
 
    string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
    int ibW = int(bW*1e5+0.1);
    title += string(";Entries / ") +
       ( (ibW%10 == 0) ? string(Form("%.0f MeV/c^{2}",bW*1e3))
-                      : string(Form("%.2f MeV/c^{2}",bW*1e3)) );
+        : string(Form("%.2f MeV/c^{2}",bW*1e3)) );
    hst[0] = new TH1D(hname.c_str(),title.c_str(),Nbins,bL,dU);
 
-   hst[0] -> Sumw2(true);
+   hst[0]->Sumw2(true);
    for ( const auto& mk : mkk ) {
-      hst[0] -> Fill(mk);
+      hst[0]->Fill(mk);
    }
    return mkk;
 }
@@ -252,23 +254,28 @@ TH1D* plot_Mkk( string fname, string hname, int type = 0 ) {
 //--------------------------------------------------------------------
 TH1D* get_mcMkk(string fname) {
 //--------------------------------------------------------------------
+   // name of folder with root files
+   // static string dir("prod-12/");
+   string dir("prod_v709/");
+
+   fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( !froot ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
-   froot -> cd("PsipJpsiPhiEta");
-   TH1D* mcmkk = (TH1D*) gDirectory -> Get("mc_Mkk");
+   froot->cd("PsipJpsiPhiEta");
+   TH1D* mcmkk = (TH1D*) gDirectory->Get("mc_Mkk");
    if( !mcmkk ) {
       cerr << "can not find mc_Mkk" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
    title += string(";Entries / 1 MeV/c^{2}");
-   mcmkk -> SetTitle(title.c_str());
-//    mcmkk->Sumw2(true);
+   mcmkk->SetTitle(title.c_str());
+   // mcmkk->Sumw2(true);
 
    return mcmkk;
 }
@@ -350,9 +357,9 @@ double BreitWignerGauss( double m,
       // int status = gsl_int.Status();
       // the estimate of the absolute Error
       if ( gsl_int.Error() > 1e-6 ) {
-         htt[0] -> Fill(log10(gsl_int.Error()));
+         htt[0]->Fill(log10(gsl_int.Error()));
       } else {
-         htt[0] -> Fill(-7.);
+         htt[0]->Fill(-7.);
       }
    }
 
@@ -389,11 +396,11 @@ double BreitWignerGaussN( double m,
       ROOT::Math::GSLIntegrator gsl_int(1.e-7, 1.e-6, 1000);
       norm = gsl_int.Integral(Lint,p,dL,dU);
       if ( DEBUG ) {
-         htt[1] -> Fill(norm);
+         htt[1]->Fill(norm);
          if ( gsl_int.Error() > 1e-6 ) {
-            htt[2] -> Fill(log10(gsl_int.Error()));
+            htt[2]->Fill(log10(gsl_int.Error()));
          } else {
-            htt[2] -> Fill(-7.);
+            htt[2]->Fill(-7.);
          }
       }
       cacheN = norm;
@@ -415,89 +422,172 @@ void test_BreitWigner() {
       return p[0]*BreitWigner(x[0],p[1],p[2],p[3]);
    };
    TF1* bw = new TF1("bw", Lbw, dL, dU, 4);
-   bw -> SetParNames("Norm","Mphi","Gphi","Rff");
-   bw -> SetParameters(1., Mphi, Gphi,R_BW);
-   bw -> SetLineWidth(1);
-   bw -> SetLineColor(kBlue);
-   bw -> SetNpx(500);
+   bw->SetParNames("Norm","Mphi","Gphi","Rff");
+   bw->SetParameters(1., Mphi, Gphi,R_BW);
+   bw->SetLineWidth(1);
+   bw->SetLineColor(kBlue);
+   bw->SetNpx(500);
 
-   double norm = 1./bw -> Integral(dL,dU,1e-8);
+   double norm = 1. / bw->Integral(dL,dU,1e-8);
    printf("norm = %.7f\n",norm);
-   bw -> SetParameter(0, norm );
+   bw->SetParameter(0, norm );
 
    // test of stability
-//    for ( int i = 0; i < 100; i++ ) { // mphi = Mphi +/- 1MeV
-//       double mphi = Mphi + (-1. + 0.02*i)*1e-3;
-//       for ( int j = 0; j < 100; j++ ) { // sigma from 1.1 to 1.3 MeV
-//          double sigma = (1.1 + 0.02*j)*1e-3;
-//          BreitWignerGaussN(mphi-4*sigma,mphi,Gphi,sigma);
-//       }
-//    }
+   // for ( int i = 0; i < 100; i++ ) { // mphi = Mphi +/- 1MeV
+      // double mphi = Mphi + (-1. + 0.02*i)*1e-3;
+      // for ( int j = 0; j < 100; j++ ) { // sigma from 1.1 to 1.3 MeV
+         // double sigma = (1.1 + 0.02*j)*1e-3;
+         // BreitWignerGaussN(mphi-4*sigma,mphi,Gphi,sigma);
+      // }
+   // }
 
    // 2) BreitWignerGaussN
    auto Lbwgn = [](const double* x,const double* p) -> double {
       return p[0]*BreitWignerGaussN(x[0],p[1],p[2],p[3],p[4]);
    };
    TF1* bwgn = new TF1("bwgn", Lbwgn, dL, dU, 5);
-   bwgn -> SetParNames("Norm","Mphi","Gphi","Sigma","Slope");
-   bwgn -> SetParameters(1., Mphi, Gphi, 1.2e-3, 0.);
-   bwgn -> SetLineWidth(2);
-   bwgn -> SetLineColor(kRed);
-   bwgn -> SetLineStyle(kDashed);
-   bwgn -> SetNpx(500);
+   bwgn->SetParNames("Norm","Mphi","Gphi","Sigma","Slope");
+   bwgn->SetParameters(1., Mphi, Gphi, 1.2e-3, 0.);
+   bwgn->SetLineWidth(2);
+   bwgn->SetLineColor(kRed);
+   bwgn->SetLineStyle(kDashed);
+   bwgn->SetNpx(500);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
-   gPad -> SetLogy(true);
+   c1->cd();
+   gPad->SetGrid();
+   gPad->SetLogy(true);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg -> SetHeader("Breit-Wigner (M_{#phi}, #Gamma_{#phi})","C");
-   leg -> AddEntry(bw -> Clone(), "BW, Rff=3GeV^{-1}", "L");
+   leg->SetHeader("Breit-Wigner (M_{#phi}, #Gamma_{#phi})","C");
+   leg->AddEntry(bw -> Clone(), "BW, Rff=3GeV^{-1}", "L");
 
-   bw -> DrawCopy("L");
-   c1 -> Update();
+   bw->DrawCopy("L");
+   c1->Update();
 
-   bw -> Update();
-   bw -> SetParameters(1., Mphi, Gphi, 6.); // Blatt-Weisskopf x2
-   bw -> SetLineColor(kGreen);
-   bw -> DrawCopy("LSAME");
-   leg -> AddEntry(bw -> Clone(), "BW, Rff=6GeV^{-1}", "L");
+   bw->Update();
+   bw->SetParameters(1., Mphi, Gphi, 6.); // Blatt-Weisskopf x2
+   bw->SetLineColor(kGreen);
+   bw->DrawCopy("LSAME");
+   leg->AddEntry(bw -> Clone(), "BW, Rff=6GeV^{-1}", "L");
 
-   bw -> Update();
-   bw -> SetParameters(1., Mphi, Gphi, 1.); // Blatt-Weisskopf ff
-   bw -> SetLineColor(kRed);
-   bw -> DrawCopy("LSAME");
-   leg -> AddEntry(bw -> Clone(), "BW, Rff=1GeV^{-1}", "L");
+   bw->Update();
+   bw->SetParameters(1., Mphi, Gphi, 1.); // Blatt-Weisskopf ff
+   bw->SetLineColor(kRed);
+   bw->DrawCopy("LSAME");
+   leg->AddEntry(bw -> Clone(), "BW, Rff=1GeV^{-1}", "L");
 
+   // bwgn->DrawCopy("SAME");
+   // leg->AddEntry( bwgn->Clone(), Form("#sigma=%.2f sl=%.2f",
+            // bwgn->GetParameter(3)*1e3,
+            // bwgn->GetParameter(4) ), "L" );
 
-//    bwgn -> DrawCopy("SAME");
-//    leg -> AddEntry( bwgn -> Clone(), Form("#sigma=%.2f sl=%.2f",
-//             bwgn -> GetParameter(3)*1e3,
-//             bwgn -> GetParameter(4) ), "L" );
+   // bwgn->SetParameter(4, -1.9 );  // slope
+   // bwgn->SetLineColor(kGreen);
+   // bwgn->DrawCopy("SAME");
+   // leg->AddEntry(bwgn->Clone(), Form("#sigma=%.2f sl=%.2f",
+            // bwgn->GetParameter(3)*1e3,
+            // bwgn->GetParameter(4) ), "L");
 
-//    bwgn -> SetParameter(4, -1.9 );  // slope
-//    bwgn -> SetLineColor(kGreen);
-//    bwgn -> DrawCopy("SAME");
-//    leg -> AddEntry(bwgn -> Clone(), Form("#sigma=%.2f sl=%.2f",
-//             bwgn -> GetParameter(3)*1e3,
-//             bwgn -> GetParameter(4) ), "L");
-
-   leg -> Draw();
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   leg->Draw();
+   gPad->RedrawAxis();
+   c1->Update();
 }
 
 //--------------------------------------------------------------------
-void sig_fit(string fname, string title, string pdf="") {
+void sig_fit_mc(int date, string pdf="") {
 //--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
+   string fname( Form("mcsig_kkmc_%02i.root",date%100) );
+   TH1D* hst = get_mcMkk(fname);
+   double bin_width = hst->GetBinWidth(1);
 
+   // Fit signal MC(phi,eta) by Breit-Wigner
+   auto Lbwg = [bin_width](const double* x,const double* p) {
+      return bin_width*p[0]*BreitWigner(x[0],p[1],p[2],p[3]);
+   };
+   TF1* bwg = new TF1("bwg", Lbwg, 0.98, 2., 4);
+   bwg->SetParNames("Norm","Mphi","Gphi","r");
+   bwg->SetParameters(1.e5, Mphi, Gphi, R_BW);
+
+   // bwg->FixParameter(1, Mphi);
+   // bwg->FixParameter(2, Gphi);
+   // bwg->FixParameter(3, R_BW);
+   bwg->SetParLimits(3, 0.5, 5.);
+
+   bwg->SetLineWidth(2);
+   bwg->SetLineColor(kRed);
+   bwg->SetNpx(500);
+
+   // gStyle->SetOptFit(111); // do not print fixed parameters
+   gStyle->SetOptFit(112); // print all parameters
+   gStyle->SetStatFont(42);
+   gStyle->SetFitFormat(".7g"); // or .6f
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.89);
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   c1->cd();
+   gPad->SetGrid();
+   gPad->SetLogy();
+
+   SetHstFace(hst);
+   hst->SetMinimum(1.);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.25);
+   hst->SetLineWidth(3);
+   hst->SetLineColor(kBlack);
+
+   hst->Draw("EP");
+   double maxMkk=1.0835;
+   hst->Fit("bwg","E","",dL,maxMkk);
+
+   TLine* lB = new TLine;
+   lB->SetLineColor(kBlue+1);
+   lB->SetLineWidth(2);
+   lB->SetLineStyle(kDashed);
+   lB->DrawLine(maxMkk,1,maxMkk,hst->GetBinContent(103));
+
+   TF1* bwg1 = (TF1*) bwg->Clone();
+   bwg1->SetLineStyle(kDashed);
+   bwg1->DrawF1(maxMkk,1.125,"SAME");
+
+   double genEv = hst->GetEntries();
+   double corr = bwg->GetParameter(0) / genEv;
+   double dcorr = bwg->GetParError(0) / genEv;
+   cout << " genEv= " << genEv << " corr= " << corr << endl;
+
+   double intg108 = bwg->Integral(dL,1.08,1e-8) / bin_width;
+   double intg12  = bwg->Integral(dL,1.2,1e-8) / bin_width;
+   double norm108 = bwg->GetParameter(0) / intg108;
+   double norm12  = bwg->GetParameter(0) / intg12;
+   cout << " norm108= " << norm108 << endl;
+   cout << " norm12= " << norm12 << endl;
+
+   TLegend* leg = new TLegend(0.22,0.20,0.62,0.40);
+   leg->SetTextSize(0.03);
+   leg->SetHeader( Form("Cut-off correction: %.3f#pm%.3f",corr,dcorr),
+         "C" );
+   leg->AddEntry(hst, Form("MC truth %i",date),"LEP");
+   leg->AddEntry(bwg,"Breit-Wigner","L");
+   leg->AddEntry(lB,"Cut-off","L");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   if ( !pdf.empty() ) {
+      c1->Print(pdf.c_str());
+   }
+}
+
+//--------------------------------------------------------------------
+void sig_fit(int date, string pdf="") {
+//--------------------------------------------------------------------
    // Get un-binned data
    TH1D* hist[1];
+   string fname( Form("mcsig_kkmc_%02i.root",date%100) );
    vector<double> mkk = get_mkk_hist( fname, "mkk_phi", hist );
    TH1D* hst = hist[0];
-   double norm = hst -> Integral();
+   double norm = hst->Integral();
 
    int n = mkk.size();
    ROOT::Fit::DataRange dr(dL, dU);
@@ -510,10 +600,8 @@ void sig_fit(string fname, string title, string pdf="") {
    //-----------------------------------------------------------------
    // Fit signal MC(phi,eta) by Breit-Wigner convoluted with Gauss
    // function MUST be normalized to 1 on the fit range
-   double slope = -1.8; // -1.83
-   if ( is2009 ) {
-      slope = -1.8;     // -1.77
-   }
+   // double slope = -1.8; // prod-12
+   double slope = -2.0; // v709
    auto Lbwg = [slope](const double* x,const double* p) -> double {
       return BreitWignerGaussN(x[0],p[0],p[1],p[2],slope);
    };
@@ -578,7 +666,7 @@ void sig_fit(string fname, string title, string pdf="") {
 
       // we use statistics X times larger than the data
       size_t max_mkk = 9000;
-      if ( is2009 ) {
+      if ( date == 2009 ) {
          max_mkk = 5000;
       }
 //       mkk.resize(max_mkk);
@@ -586,7 +674,7 @@ void sig_fit(string fname, string title, string pdf="") {
       ROOT::Math::GoFTest* goftest =
          new ROOT::Math::GoFTest( max_mkk, mkk.data(), fcr,
                ROOT::Math::GoFTest::kPDF, dL,dU );
-      pvalueKS = goftest -> KolmogorovSmirnovTest();
+      pvalueKS = goftest->KolmogorovSmirnovTest();
       cout << " pvalueKS= " << pvalueKS << endl;
    }
 
@@ -597,135 +685,47 @@ void sig_fit(string fname, string title, string pdf="") {
       return  Wn * Lbwg(x,Fpar.data());
    };
    TF1* ffit = new TF1("ffit", Lfit, dL, dU, 0);
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kRed);
-   ffit -> SetNpx(500);
+   ffit->SetLineWidth(2);
+   ffit->SetLineColor(kRed);
+   ffit->SetNpx(500);
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
-   gPad -> SetLogy();
+   c1->cd();
+   gPad->SetGrid();
+   gPad->SetLogy();
 
    SetHstFace(hst);
-   hst -> SetMinimum(1.);
-   hst -> GetYaxis() -> SetTitleOffset(1.25);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->SetMinimum(1.);
+   hst->GetYaxis()->SetTitleOffset(1.25);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
-   ffit -> Draw("SAME");
+   hst->Draw("EP");
+   ffit->Draw("SAME");
 
    TLegend* leg = new TLegend(0.55,0.81,0.89,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
-   leg -> AddEntry(bwg,"(BW#timesE) #otimes Gauss","L");
-   leg -> Draw();
+   leg->AddEntry(hst,Form("MC signal #phi#eta %i",date),"LEP");
+   leg->AddEntry(bwg,"(BW#timesE) #otimes Gauss","L");
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.55,0.63,0.89,0.80,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> Draw();
-
-   gPad -> RedrawAxis();
-   c1 -> Update();
-   if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   // pt->AddText( Form("#it{L_{min} = %.1f}",Lmin) );
+   if ( calc_pval ) {
+      pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    }
-}
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->Draw();
 
-//--------------------------------------------------------------------
-void sig_fit_mc(string fname, string pdf="") {
-//--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
-
-   TH1D* hst = get_mcMkk(fname);
-   double bin_width = hst -> GetBinWidth(1);
-
-   // Fit signal MC(phi,eta) by Breit-Wigner
-   auto Lbwg = [bin_width](const double* x,const double* p) -> double{
-      return bin_width*p[0]*BreitWigner(x[0],p[1],p[2],p[3]);
-   };
-   TF1* bwg = new TF1("bwg", Lbwg, 0.98, 2., 4);
-   bwg -> SetParNames("Norm","Mphi","Gphi","r");
-   bwg -> SetParameters(1.e5, Mphi, Gphi, R_BW);
-
-//    bwg -> FixParameter(1, Mphi);
-//    bwg -> FixParameter(2, Gphi);
-//    bwg -> FixParameter(3, R_BW);
-   bwg -> SetParLimits(3, 0.5, 5.);
-
-   bwg -> SetLineWidth(2);
-   bwg -> SetLineColor(kRed);
-   bwg -> SetNpx(500);
-
-//    gStyle -> SetOptFit(111); // do not print fixed parameters!
-   gStyle -> SetOptFit(112); // print all parameters!
-   gStyle -> SetStatFont(42);
-   gStyle -> SetFitFormat(".7g"); // or .6f
-   gStyle -> SetStatX(0.89);
-   gStyle -> SetStatY(0.89);
-
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
-   gPad -> SetLogy();
-
-   SetHstFace(hst);
-   hst -> SetMinimum(1.);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.25);
-   hst -> SetLineWidth(3);
-   hst -> SetLineColor(kBlack);
-
-   hst -> Draw("EP");
-   double maxMkk=1.0835;
-   hst -> Fit("bwg","E","",dL,maxMkk);
-
-   TLine* lB = new TLine;
-   lB -> SetLineColor(kBlue+1);
-   lB -> SetLineWidth(2);
-   lB -> SetLineStyle(kDashed);
-   lB -> DrawLine(maxMkk,1,maxMkk,hst -> GetBinContent(103));
-
-   TF1* bwg1 = (TF1*) bwg -> Clone();
-   bwg1 -> SetLineStyle(kDashed);
-   bwg1 -> DrawF1(maxMkk,1.125,"SAME");
-
-   double genEv = hst -> GetEntries();
-   double corr = bwg -> GetParameter(0) / genEv;
-   double dcorr = bwg -> GetParError(0) / genEv;
-   cout << " genEv= " << genEv << " corr= " << corr << endl;
-
-   double intg108 = bwg -> Integral(dL,1.08,1e-8) / bin_width;
-   double intg12 = bwg -> Integral(dL,1.2,1e-8) / bin_width;
-   double norm108 = bwg -> GetParameter(0) / intg108;
-   double norm12 = bwg -> GetParameter(0) / intg12;
-   cout << " norm108= " << norm108 << endl;
-   cout << " norm12= " << norm12 << endl;
-
-   TLegend* leg = new TLegend(0.22,0.20,0.62,0.40);
-   leg -> SetTextSize(0.03);
-   leg -> SetHeader(
-         Form(" Cut-off corr.: %.3f #pm %.3f",corr,dcorr), "C" );
-   if ( is2009 ) {
-      leg -> AddEntry(hst,"MC truth 2009","LEP");
-   } else {
-      leg -> AddEntry(hst,"MC truth 2012","LEP");
-   }
-   leg -> AddEntry(bwg,"Breit-Wigner","L");
-   leg -> AddEntry(lB,"Cut-off","L");
-   leg -> Draw();
-
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -797,11 +797,11 @@ double RevArgusN(double m, double A, double slope) {
       ROOT::Math::GSLIntegrator gsl_int(1.e-8, 1.e-8, 1000);
       norm = gsl_int.Integral(Lint,p,dL,dU);
       if ( DEBUG ) {
-         htt[3] -> Fill(norm);
+         htt[3]->Fill(norm);
          if ( gsl_int.Error() > 1e-6 ) {
-            htt[4] -> Fill(log10(gsl_int.Error()));
+            htt[4]->Fill(log10(gsl_int.Error()));
          } else {
-            htt[4] -> Fill(-7.);
+            htt[4]->Fill(-7.);
          }
       }
       cacheN = norm;
@@ -822,24 +822,23 @@ void test_Argus() {
 
 //    TF1* fbkg = new TF1("fbkg", Largus, 0., 1., 2);
    TF1* fbkg = new TF1("fbkg", Largus, 0.98, 2., 2);
-   fbkg -> SetParNames("N","A");
-   fbkg -> SetParameters(1., 2.);
-   fbkg -> SetLineWidth(2);
-   fbkg -> SetLineColor(kBlue);
+   fbkg->SetParNames("N","A");
+   fbkg->SetParameters(1., 2.);
+   fbkg->SetLineWidth(2);
+   fbkg->SetLineColor(kBlue);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
 
-   c1 -> cd();
-   gPad -> SetGrid();
-   fbkg -> DrawCopy();
+   c1->cd();
+   gPad->SetGrid();
+   fbkg->DrawCopy();
 
    // test normalization:
-//    printf(" norm= %.15f\n",fbkg -> Integral(0.,1.));
-   printf(" norm= %.15f\n",fbkg -> Integral(2*Mk,Mjpsi-Meta));
+   printf(" norm= %.15f\n",fbkg->Integral(2*Mk,Mjpsi-Meta));
 
-   fbkg -> SetParameters(1., 1.);
-   fbkg -> SetLineColor(kRed);
-   fbkg -> DrawCopy("SAME");
+   fbkg->SetParameters(1., 1.);
+   fbkg->SetLineColor(kRed);
+   fbkg->DrawCopy("SAME");
 }
 
 //--------------------------------------------------------------------
@@ -850,53 +849,64 @@ void test_RevArgus() {
    };
 
    TF1* fbkg = new TF1("fbkg", Lrargus, 0.98, dU, 3);
-   fbkg -> SetParNames("N","A","Sl");
-   fbkg -> SetParameters(1., 0.98, 0.);
-   fbkg -> SetLineWidth(2);
-   fbkg -> SetLineColor(kBlue);
+   fbkg->SetParNames("N","A","Sl");
+   fbkg->SetParameters(1., 0.98, 0.);
+   fbkg->SetLineWidth(2);
+   fbkg->SetLineColor(kBlue);
 
    TLegend* leg = new TLegend(0.35,0.20,0.75,0.40);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
 
-   c1 -> cd();
-   gPad -> SetGrid();
-   fbkg -> DrawCopy();
-   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
-            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+   c1->cd();
+   gPad->SetGrid();
+   fbkg->DrawCopy();
+   leg->AddEntry(fbkg->Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg->GetParameter(1),fbkg->GetParameter(2)),"L");
 
    // test normalization:
-   printf(" RevArgusN norm= %.15f\n",fbkg -> Integral( dL,dU ) );
+   printf(" RevArgusN norm= %.15f\n",fbkg->Integral( dL,dU ) );
 
-   fbkg -> SetParameter(1, 0. );  // A
-   fbkg -> SetParameter(2, -1.9 ); // Slope
-   fbkg -> SetLineColor(kRed);
-   fbkg -> SetLineStyle(kDashed);
-   fbkg -> DrawCopy("SAME");
-   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
-            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
-   printf(" RevArgusN norm2= %.15f\n",fbkg -> Integral( dL,dU ) );
+   fbkg->SetParameter(1, 0. );  // A
+   fbkg->SetParameter(2, -2.0 ); // Slope
+   fbkg->SetLineColor(kRed);
+   fbkg->SetLineStyle(kDashed);
+   fbkg->DrawCopy("SAME");
+   leg->AddEntry(fbkg->Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg->GetParameter(1),fbkg->GetParameter(2)),"L");
+   printf(" RevArgusN norm2= %.15f\n",fbkg->Integral( dL,dU ) );
 
-   fbkg -> SetParameter(1, 0.98 );  // A
-   fbkg -> SetLineColor(kGreen);
-   fbkg -> DrawCopy("SAME");
-   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
-            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+   fbkg->SetParameter(1, 0.98 );  // A
+   fbkg->SetLineColor(kGreen);
+   fbkg->DrawCopy("SAME");
+   leg->AddEntry(fbkg->Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg->GetParameter(1),fbkg->GetParameter(2)),"L");
 
-   leg -> Draw();
+   leg->Draw();
 }
 
 //--------------------------------------------------------------------
-void bkg_fit(string fname, string title, string pdf="",int type=0) {
+void bkg_fit(int date, int type=0) {
 //--------------------------------------------------------------------
-// type=1 for side-band events
-   bool is2009 = (fname.find("_09") != string::npos);
+   string fname, title, pdf;
+   if ( type == 0 ) { // KK-eta PHSP
+      fname = string( Form("mckketa_kkmc_%02i.root",date%100) );
+      title = string( Form("MC non-#phi KK#eta %i",date) );
+      pdf   = string( Form("mkk%02i_fitbg.pdf",date%100) );
+   } else if ( type == 1 ) { // side-band events in data
+      fname = string( Form("data_%02ipsip_all.root",date%100) );
+      title = string( Form("Data %i (side-band)",date) );
+      pdf   = string( Form("mkk_sb%02i_fitar.pdf",date%100) );
+   } else {
+      cerr << "ERROR: unknown type = " << type << endl;
+      exit(EXIT_FAILURE);
+   }
 
    // Get un-binned data
    TH1D* hist[1];
    vector<double> mkk = get_mkk_hist( fname, "mkk", hist, type );
    TH1D* hst = hist[0];
-   double norm = hst -> Integral();
+   double norm = hst->Integral();
 
    int n = mkk.size();
    ROOT::Fit::DataRange dr(dL, dU);
@@ -909,10 +919,8 @@ void bkg_fit(string fname, string title, string pdf="",int type=0) {
    //-----------------------------------------------------------------
    // Fit KKeta background by reversed Argus function
    // function MUST be normalized to 1 on the fit range
-   double slope = -1.8; // -1.83
-   if ( is2009 ) {
-      slope = -1.8;     // -1.77
-   }
+   // double slope = -1.8; // prod-12
+   double slope = -2.0; // v709
    auto Lan = [slope](const double* x,const double* p) -> double {
       return RevArgusN(x[0],p[0],slope);
    };
@@ -934,12 +942,11 @@ void bkg_fit(string fname, string title, string pdf="",int type=0) {
    }
 
    // fix/limit/step for parameters
-//    fitter.Config().ParSettings(0).SetLimits(-2.5, 2.5);
    fitter.Config().ParSettings(0).SetLimits(-0.0001, 10.);
 
    fitter.LikelihoodFit(Bkg,false); // true=extended likelihood fit
    fitter.CalculateHessErrors(); // without MINOS here
-//    fitter.CalculateMinosErrors();
+   // fitter.CalculateMinosErrors();
 
    ROOT::Fit::FitResult res = fitter.Result();
    res.Print(cout);
@@ -959,7 +966,7 @@ void bkg_fit(string fname, string title, string pdf="",int type=0) {
    rmath_fun< decltype(Lgof) > ftest(Lgof); // lambda -> Root1Dfunc
    ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
          mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
+   double pvalueKS = goftest->KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
    //-----------------------------------------------------------------
@@ -969,68 +976,67 @@ void bkg_fit(string fname, string title, string pdf="",int type=0) {
       return Wn * Lan(x,Fpar.data());
    };
    TF1* ffit = new TF1("ffit", Lfit, dL-1e-2, dU, 0);
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kBlue);
-   ffit -> SetNpx(200);
+   ffit->SetLineWidth(2);
+   ffit->SetLineColor(kBlue);
+   ffit->SetNpx(200);
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(hst);
    double hst_max = hst->GetMaximum();
    if ( hst_max < 10 ) {
-      hst -> SetMaximum( hst_max+2);
+      hst->SetMaximum( hst_max+2);
    } else {
-      hst -> SetMaximum( 1.3*hst_max );
+      hst->SetMaximum( 1.3*hst_max );
    }
-   hst -> GetYaxis() -> SetMaxDigits(3);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.25);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetYaxis()->SetMaxDigits(3);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.25);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
-   ffit -> Draw("SAME");
+   hst->Draw("EP");
+   ffit->Draw("SAME");
 
    TLegend* leg = new TLegend(0.11,0.77,0.50,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
-   leg -> AddEntry(ffit,"Argus function","L");
-   leg -> Draw();
+   leg->AddEntry(hst,title.c_str(),"LEP");
+   leg->AddEntry(ffit,"Argus function","L");
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.55,0.78,0.89,0.89,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   // pt->AddText( Form("#it{L_{min} = %.1f}",Lmin) );
+   pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    if ( type == 1 ) { // low statistic
-      pt -> AddText( Form("a = %s",PE.Eform(0,".1f")) );
+      pt->AddText( Form("a = %s",PE.Eform(0,".1f")) );
    } else {
-      pt -> AddText( Form("a = %s",PE.Eform(0,".2f")) );
+      pt->AddText( Form("a = %s",PE.Eform(0,".2f")) );
    }
-   pt -> Draw();
+   pt->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
 // {{{1 data_fit() no interference
 //--------------------------------------------------------------------
-void data_fit(string fname,string title,int date,int Mphix,
-      string pdf="") {
+void data_fit(int date, int Mphix, string pdf="") {
 //--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
+   string fname( Form("data_%02ipsip_all.root",date%100) );
 
    // Get un-binned data
    TH1D* hist[1];
    vector<double> mkk = get_mkk_hist( fname, "mkk_data_cp", hist );
    TH1D* hst = hist[0];
-   double norm = hst -> Integral();
+   double norm = hst->Integral();
 
    int n = mkk.size();
    ROOT::Fit::DataRange dr(dL, dU);
@@ -1042,10 +1048,8 @@ void data_fit(string fname,string title,int date,int Mphix,
 
    //-----------------------------------------------------------------
    // Fit data
-   double slope = -1.8; // -1.83
-   if ( is2009 ) {
-      slope = -1.8;     // -1.77
-   }
+   // double slope = -1.8; // prod-12
+   double slope = -2.0; // v709
    // function represents the total number of events (extended LH)
    auto Lsum = [slope](const double* x,const double* p) -> double {
       return p[4] * BreitWignerGaussN(x[0],p[0],p[1],p[2],slope) +
@@ -1072,24 +1076,21 @@ void data_fit(string fname,string title,int date,int Mphix,
 
    // fix/limit/step for parameters
    if ( Mphix == 1 ) {
-      fitter.Config().ParSettings(0).SetValue(1.01953); // like MC
+      fitter.Config().ParSettings(0).SetValue(1.01952); // like MC
       fitter.Config().ParSettings(0).Fix();
    } else {
       fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
    }
    fitter.Config().ParSettings(1).Fix(); // Gphi
-   if ( is2009 ) {
-      fitter.Config().ParSettings(2).SetValue(1.4e-3); // sigma09
-   }
-   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sigma
-   fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // Argus
-   fitter.Config().ParSettings(3).Fix();                    // Ar
-//    fitter.Config().ParSettings(4).SetLimits(0.,1.5*norm);   // Nphi
-//    fitter.Config().ParSettings(5).SetLimits(0.,norm);       // Nbkg
+   fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3);// sigma
+   fitter.Config().ParSettings(3).SetLimits(-5.,5.);       // Argus
+   fitter.Config().ParSettings(3).Fix();                   // Ar
+   // fitter.Config().ParSettings(4).SetLimits(0.,1.5*norm);  // Nphi
+   // fitter.Config().ParSettings(5).SetLimits(0.,norm);      // Nbkg
 
    fitter.LikelihoodFit(Dat,true); // true=extended likelihood fit
+   // fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
-   fitter.CalculateHessErrors(); //in case of Minos find a new minimum
 
    ROOT::Fit::FitResult res = fitter.Result();
    res.Print(cout);
@@ -1099,6 +1100,7 @@ void data_fit(string fname,string title,int date,int Mphix,
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
+   // TODO: fast algo
    // User input PDF:
    auto Lgof = [Lsum,Fpar](double x) -> double {
       return Lsum(&x,Fpar.data());
@@ -1106,7 +1108,7 @@ void data_fit(string fname,string title,int date,int Mphix,
    rmath_fun< decltype(Lgof) > ftest(Lgof);
    ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
          mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
+   double pvalueKS = goftest->KolmogorovSmirnovTest();
    cout << " pvalueKS= " << pvalueKS << endl;
 
    //-----------------------------------------------------------------
@@ -1115,58 +1117,57 @@ void data_fit(string fname,string title,int date,int Mphix,
       return bW * Lsum(x,Fpar.data());
    };
    TF1* ffit = new TF1("ffit", Lfit, dL, dU, 0);
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kRed);
-   ffit -> SetNpx(500);
+   ffit->SetLineWidth(2);
+   ffit->SetLineColor(kRed);
+   ffit->SetNpx(500);
 
    auto Lbkg = [Fpar,slope](double* x,double* p) -> double {
       return bW * Fpar[5] * RevArgusN(x[0],fabs(Fpar[3]),slope);
    };
    TF1* fbkg = new TF1("fbkg", Lbkg, dL, dU, 0);
-   fbkg -> SetLineWidth(2);
-   fbkg -> SetLineColor(kBlue);
-   fbkg -> SetLineStyle(kDashed);
+   fbkg->SetLineWidth(2);
+   fbkg->SetLineColor(kBlue);
+   fbkg->SetLineStyle(kDashed);
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(hst);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.25);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.25);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
-   ffit -> Draw("SAME");
-   fbkg -> Draw("SAME");
+   hst->Draw("EP");
+   ffit->Draw("SAME");
+   fbkg->Draw("SAME");
 
    TLegend* leg = new TLegend(0.55,0.76,0.89,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
-   leg -> AddEntry(ffit,"Fit result","L");
-   leg -> AddEntry(fbkg,"non-#phi KK#eta","L");
-   leg -> Draw();
+   leg->AddEntry(hst,Form("Data %i",date),"LEP");
+   leg->AddEntry(ffit,"Fit result","L");
+   leg->AddEntry(fbkg,"non-#phi KK#eta","L");
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.55,0.45,0.89,0.75,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
-            PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("N_{non-#phi}= %s",PE.Eform(5,".1f")) );
-   pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
-   pt -> Draw();
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   // pt->AddText( Form("#it{L_{min} = %.1f}",Lmin) );
+   pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
+   pt->AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->AddText( Form("N_{non-#phi}= %s",PE.Eform(5,".1f")) );
+   pt->AddText( Form("a = %s",PE.Eform(3,".2f")) );
+   pt->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -1174,7 +1175,8 @@ void data_fit(string fname,string title,int date,int Mphix,
 //--------------------------------------------------------------------
 struct myFCN_nointer_sb {
    // efficiency parameters:
-   const double sl = -1.8;
+   // const double sl = -1.8; // prod-12
+   const double sl = -2.0; // v709
    // Function for side-band: 0 - constant, 1 - Argus
    const int funSB = 1;
 
@@ -1236,10 +1238,10 @@ struct myFCN_nointer_sb {
 };
 
 //--------------------------------------------------------------------
-void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
+void dataSB_fit( int date, int Mphix, string pdf="") {
 //--------------------------------------------------------------------
-// Flag = 1 - mphi is fixed; 2 - no Nonphi component
-   bool is2009 = (fname.find("_09") != string::npos);
+   bool NoNonPhi = false; // if true Nnonphi fix to 0.
+   string fname( Form("data_%02ipsip_all.root",date%100) );
 
    myFCN_nointer_sb my_fcn;        // class for 'FitFCN'
    const double sl = my_fcn.sl;    // efficiency parameters
@@ -1265,12 +1267,14 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
    vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
                              "Nphi", "Nnonphi", "Nbkg", "Arsb" };
    vector<double> par_ini;
-   if ( is2009 ) {
-      par_ini = { Mphi,Gphi,1.3e-3,0., 800,60,8.77,6.56 };
-//       par_ini = { Mphi,Gphi,0.2e-3,0., 685,2,3,0. }; // I/O
-   } else {
-      par_ini = { Mphi,Gphi,1.1e-3,0., 2400,180,33.17,3.94};
-//       par_ini = { Mphi,Gphi,1.1e-3,0.,2700,10,10,0.}; // I/O
+   if ( date == 2009 ) {
+      par_ini = { Mphi,Gphi,1.3e-3,0., 800,70,7,7. };
+      // par_ini = { Mphi,Gphi,0.2e-3,0., 685,2,3,0. }; // I/O
+   } else if ( date == 2012 ) {
+      par_ini = { Mphi,Gphi,1.1e-3,0., 2550,200,33,2.5};
+      // par_ini = { Mphi,Gphi,1.1e-3,0.,2700,10,10,0.}; // I/O
+   } else if ( date == 2021 ) {
+      par_ini = { Mphi,Gphi,1.1e-3,0., 16200,1300,190.,5.};
    }
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -1281,8 +1285,8 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
    }
 
    // fix/limit/step for parameters
-   if ( Flag == 1 ) {
-      fitter.Config().ParSettings(0).SetValue(1.01953); // like MC
+   if ( Mphix == 1 ) {
+      fitter.Config().ParSettings(0).SetValue(1.01952); // like MC
       fitter.Config().ParSettings(0).Fix();
    } else {
       fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
@@ -1291,15 +1295,15 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
    fitter.Config().ParSettings(2).SetLimits(0.2e-3, 2.e-3); // sig
    fitter.Config().ParSettings(3).SetLimits(-5.,5.);        // ar
    fitter.Config().ParSettings(3).Fix();
-//    fitter.Config().ParSettings(4).SetLimits(1.,1.5*norm);   // Nphi
-//    fitter.Config().ParSettings(5).SetLimits(1.,norm);       // Nnonphi
-//    fitter.Config().ParSettings(6).SetLimits(1.,2.*nsb);     // Nbkg
-//    fitter.Config().ParSettings(7).SetLimits(0.,15.);        // Arsb
-   if ( Flag == 2 ) {  // no non-phi KK eta and fix side-band
+   // fitter.Config().ParSettings(4).SetLimits(1.,1.5*norm);   // Nphi
+   // fitter.Config().ParSettings(5).SetLimits(1.,norm);       // Nnonphi
+   // fitter.Config().ParSettings(6).SetLimits(1.,2.*nsb);     // Nbkg
+   // fitter.Config().ParSettings(7).SetLimits(0.,15.);        // Arsb
+   if ( NoNonPhi ) {  // no non-phi KK eta
       fitter.Config().ParSettings(5).SetValue(0.); // no Nnonphi
       fitter.Config().ParSettings(5).Fix();
-//       fitter.Config().ParSettings(6).Fix();        // fix Nbkg
-//       fitter.Config().ParSettings(7).Fix();        // fix a(sb)
+      // fitter.Config().ParSettings(6).Fix();        // fix Nbkg
+      // fitter.Config().ParSettings(7).Fix();        // fix a(sb)
    }
 
    // == Fit
@@ -1316,7 +1320,7 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
       printf("\n=> INVALID RESULT <=\n");
    }
    res.Print(cout);
-//    res.PrintCovMatrix(cout); // print error matrix and correlations
+   // res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
@@ -1340,10 +1344,10 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
    ROOT::Math::GoFTest* gofcr =
       new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
             ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKS = gofcr -> KolmogorovSmirnovTest();
+   double pvalueKS = gofcr->KolmogorovSmirnovTest();
    cout << " pvalueKS(cr)= " << pvalueKS << endl;
-//    double pvalueAD = gofcr -> AndersonDarlingTest();
-//    cout << " pvalueAD= " << pvalueAD << endl;
+   // double pvalueAD = gofcr->AndersonDarlingTest();
+   // cout << " pvalueAD= " << pvalueAD << endl;
 
    // side-band
    auto Lsb = [Fpar,sl,FunSB](double x) -> double {
@@ -1359,10 +1363,10 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
    ROOT::Math::GoFTest* gofsb =
       new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
          ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
+   double pvalueKSsb = gofsb->KolmogorovSmirnovTest();
    cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-//    double pvalueADsb = gofsb -> AndersonDarlingTest();
-//    cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+   // double pvalueADsb = gofsb->AndersonDarlingTest();
+   // cout << " pvalueAD(sb)= " << pvalueADsb << endl;
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -1391,78 +1395,80 @@ void dataSB_fit( string fname,string title,int Flag=0,string pdf="" ) {
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(hst);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.25);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.25);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
+   hst->Draw("EP");
 
    TLegend* leg = new TLegend(0.55,0.745,0.89,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
+   leg->AddEntry(hst,Form("Data %i",date),"LEP");
 
-   fdr -> SetParameter(0, 0); // Sum
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineColor(kRed+1);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry(fdr -> Clone(),"Result of fit","L");
+   fdr->SetParameter(0, 0); // Sum
+   fdr->SetLineWidth(2);
+   fdr->SetLineColor(kRed+1);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry(fdr->Clone(),"Result of fit","L");
 
-   fdr -> SetParameter(0, 1); // BW
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kGreen+2);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Breit-Wigner #phi#eta", "L");
+   fdr->SetParameter(0, 1); // BW
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kGreen+2);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Breit-Wigner #phi#eta", "L");
 
-   fdr -> SetParameter(0, 2); // Ar
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kBlue);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry(fdr -> Clone(),"non-#phi KK#eta","L");
+   fdr->SetParameter(0, 2); // Ar
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kBlue);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry(fdr->Clone(),"non-#phi KK#eta","L");
 
-//    fdr -> SetParameter(0, 3); // SB
-//    fdr -> SetLineWidth(1);
-//    fdr -> SetLineStyle(kDashed);
-//    fdr -> SetLineColor(kCyan+3);
-//    fdr -> DrawCopy("SAME");
-//    leg -> AddEntry(fdr -> Clone(),"background","L");
+   // fdr->SetParameter(0, 3); // SB
+   // fdr->SetLineWidth(1);
+   // fdr->SetLineStyle(kDashed);
+   // fdr->SetLineColor(kCyan+3);
+   // fdr->DrawCopy("SAME");
+   // leg->AddEntry(fdr->Clone(),"background","L");
 
-   leg -> Draw();
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.55,0.46,0.89,0.74,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
-            PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("N_{non-#phi}= %s",PE.Eform(5,".1f")) );
-   pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
-   pt -> Draw();
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
+   pt->AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->AddText( Form("N_{non-#phi}= %s",PE.Eform(5,".1f")) );
+   pt->AddText( Form("a = %s",PE.Eform(3,".2f")) );
+   pt->Draw();
 
    TPaveText* ptsb = new TPaveText(0.55,0.34,0.89,0.46,"NDC");
-   ptsb -> SetTextAlign(12);
-   ptsb -> SetTextFont(42);
-   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
-            pvalueKSsb) );
-   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
-            PE.Eform(6,".1f")) );
-   ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
-            PE.Eform(7,".1f")) );
-   ptsb -> Draw();
+   ptsb->SetTextAlign(12);
+   ptsb->SetTextFont(42);
+   ptsb->AddText( Form("#it{p-val(side-band) = %.3f}", pvalueKSsb) );
+   ptsb->AddText( Form("#lower[-0.1]{Nbg = %s}", PE.Eform(6,".1f")) );
+   ptsb->AddText( Form("#lower[-0.1]{a(sb) = %s}",PE.Eform(7,".1f")));
+   ptsb->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+      if ( NoNonPhi ) {
+         auto pos = pdf.find(".pdf");
+         if ( pos != string::npos) {
+            pdf = pdf.substr(0,pos) + "_noNonphi.pdf";
+         }
+      }
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -6474,12 +6480,12 @@ void combineSBBR_Intfr_scan( string fname09, string fname12,
 
 // {{{1 MAIN:
 //--------------------------------------------------------------------
-void mass_kk_fit() {
+void mass_kk_fit(int date=2021) {
 //--------------------------------------------------------------------
-   gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetStatFont(42);
-   gStyle -> SetLegendFont(42);
+   gROOT->Reset();
+   gStyle->SetOptStat(0);
+   gStyle->SetStatFont(42);
+   gStyle->SetLegendFont(42);
 
    if ( DEBUG ) {
       // BOOK HISTOGRAMMS
@@ -6494,83 +6500,91 @@ void mass_kk_fit() {
    vector<string> fnames = {
       "data_09psip_all.root",
       "data_12psip_all.root",
-      "data_3650_all.root",
+      "data_21psip_all.root",
       "mcinc_09psip_all.root",
       "mcinc_12psip_all.root",
+      "mcinc_21psip_all.root",
       "mcsig_kkmc_09.root",
       "mcsig_kkmc_12.root",
-      "mckketa_kkmc_09.root",
-      "mckketa_kkmc_12.root"
+      "mcsig_kkmc_21.root",
    };
+      // "mckketa_kkmc_09.root",
+      // "mckketa_kkmc_12.root"
    vector<string> titles = {
       "Data 2009",
       "Data 2012",
-      "E=3.65 GeV",
-      "MC incl. 2009",
-      "MC incl. 2012",
+      "Data 2021",
+      "MC inclusive 2009",
+      "MC inclusive 2012",
+      "MC inclusive 2021",
       "MC signal #phi#eta 2009",
       "MC signal #phi#eta 2012",
-      "MC non-#phi KK#eta 2009",
-      "MC non-#phi KK#eta 2012"
+      "MC signal #phi#eta 2021",
    };
+      // "MC non-#phi KK#eta 2009",
+      // "MC non-#phi KK#eta 2012"
 //--------------------------------------------------------------------
-   // Numbers of items for date:
-//    int id = 0, ii = 3, is = 5, ib = 7; // 2009
-   int id = 1, ii = 5, is = 6, ib = 8; // 2012
+   // index for file with data
+   int id = -1;
+   if ( date == 2009 ) {
+      id = 0;
+   } else if ( date == 2012 ) {
+      id = 2;
+   } else if ( date == 2021 ) {
+      id = 3;
+   } else {
+      cerr << "ERROR: unknown date= " << date << endl;
+      exit(EXIT_FAILURE);
+   }
+   int ii = id + 3; // index for file with inclusive MC
+   int i3 = id + 6; // index for file with signal MC
 //--------------------------------------------------------------------
 
    // = define GSL error handler which does nothing =
    gsl_set_error_handler_off();
 
    // = set handler =
-//    gsl_set_error_handler( my_handler );
+   // gsl_set_error_handler( my_handler );
 
    // set integrator: ROOT::Math::GSLIntegrator adaptive method (QAG)
    ROOT::Math::IntegratorOneDimOptions::SetDefaultIntegrator("Adaptive");
    ROOT::Math::IntegratorOneDimOptions::SetDefaultRelTolerance(1e-9);
 
 // ------------- signal sec.6.1 --------------------------------------
-//    test_BreitWigner();
+   // test_BreitWigner();
 
-//    sig_fit_mc("prod-12/mcsig_kkmc_09.root","mcmkk09_sig.pdf");
-//    sig_fit_mc("prod-12/mcsig_kkmc_12.root","mcmkk12_sig.pdf");
+   // string pdf_mcsig( Form("mcmkk%02i_sig.pdf",date%100) );
+   // sig_fit_mc(date, pdf_mcsig);
 
-   // fit phi-eta by BW x Gauss
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_sig_log.pdf";
-//    sig_fit(fnames.at(is),titles.at(is),pdf);
+   // fit MC phi-eta by BW x Gauss
+   // string pdf_mc( Form("mkk%02i_sig_log.pdf",date%100) );
+   // sig_fit(date,pdf_mc);
 
 // ------------- background sec.6.2 ----------------------------------
-//    test_Argus();
-//    test_RevArgus();
+   // test_Argus();
+   // test_RevArgus(); // with normalization
 
-   // fit kk-eta by Argus
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_fitbg.pdf";
-//    bkg_fit(fnames.at(ib),titles.at(ib),pdf);
+   // bkg_fit(date, 0); // fit kk-eta by Argus
+   // bkg_fit(date, 1); // fit data side-band by Argus
 
-   // fit rho-eta by Argus
-//    bkg_fit("mcrhoeta_kkmc_12.root","MC #rho#eta 2012",
-//            "mkk_rhoeta12_argus.pdf");
+   // fit rho-eta by Argus ???
+   // bkg_fit("mcrhoeta_kkmc_12.root","MC #rho#eta 2012",
+           // "mkk_rhoeta12_argus.pdf");
 
-   // fit side-band by Argus
-//    string tit = titles.at(id)+string("(side-band)");
-//    string pdf = string("mkk_sb")+((id==0) ? "09" : "12")+"_fitar.pdf";
-//    bkg_fit(fnames.at(id),tit,pdf,1); // type=1 for sideband
 
 // ------------- data: no interference sec.6.3.1 ---------------------
-   int Flag = 2; // 1 - mphi is fixed, 2 - no Nonphi component
-//    string pdf = string("mkk") + ((id==0) ? "09" : "12") + "_fit"
-//       + to_string(Flag) + ".pdf";
-//    data_fit(fnames.at(id),titles.at(id),2009+id*3,Flag,pdf);
+   int FixM = 1; // 0/1 - mphi is float/fixed
+   // string pdf_dat( Form("mkk%02i_fit%i.pdf",date%100,FixM) );
+   // data_fit(date,FixM,pdf_dat);
 
    // combined with Side-Band (constant or Argus SB)
-   string pdf = string("mkk") + ((id==0) ? "09" : "12") + "_fitSB_" +
-      ((Flag < 2) ? to_string(Flag) : "noNonphi") + ".pdf";
-   dataSB_fit(fnames.at(id),titles.at(id),Flag,pdf);
+   string pdf_dat( Form("mkk%02i_fitSB_%i.pdf",date%100,FixM) );
+   dataSB_fit(date,FixM,pdf_dat);
 
-   // I/O check: use mcinc files as data: id+3 => incl.MC
-//    string pdf = string("mkk") + ((id==0) ? "09" : "12") +
-//       "_chkIO_" + to_string(Mphix) + ".pdf";
-//    dataSB_fit(fnames.at(id+3),titles.at(id+3),Mphix,pdf);
+   // ?? I/O check: use mcinc files as data: id+3 => incl.MC
+   // string pdf = string("mkk") + ((id==0) ? "09" : "12") +
+      // "_chkIO_" + to_string(Mphix) + ".pdf";
+   // dataSB_fit(fnames.at(id+3),titles.at(id+3),Mphix,pdf);
 
 // ------------- data: interference sec 6.3.2 ------------------------
 //    test_Intfr();
