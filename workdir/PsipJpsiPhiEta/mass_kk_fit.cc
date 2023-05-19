@@ -8,7 +8,7 @@
 //    -> mkkYY_fit??.pdf
 //    -> mkk_cf_???.pdf (combined fit)
 
-// #include <functional>        // for std::function
+#include <functional>        // for std::function
 #include "gsl/gsl_errno.h"   // GSL error handler
 
 #include "masses.h"
@@ -157,6 +157,37 @@ struct ValErr {
       return Form(fmt.c_str(),val,err);
    }
 };
+
+//--------------------------------------------------------------------
+// adapter function to spead up the Kolmogorov-Smirnov test
+// linear extrapolation of Fun on a uniform grid of n points in the
+// region [dL,dU] is used
+//--------------------------------------------------------------------
+double FastKSTest(const vector<double>& Mkk,
+      const function<double (double)>& Fun) {
+//--------------------------------------------------------------------
+   int n = 10000;
+   vector<double> vec(n);
+   double dx = (dU-dL)/(n-1);
+   for ( int i = 0; i < n; ++i ) {
+      double x = dL + i * dx;
+      vec[i] = Fun(x);
+   }
+   auto Lin = [&vec,dx](double x) -> double {
+      if ( x < dL || x >= dU ) {
+         return 0.;
+      }
+      int i = (x-dL) / dx;
+      double xi = dL + i * dx;
+      double f = vec[i] + (vec[i+1]-vec[i])*((x-xi)/dx);
+      return f;
+   };
+   rmath_fun< decltype(Lin) > ftest(Lin); // lambda -> Root1Dfunc
+   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
+         Mkk.size(),Mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
+   double pvalueKS = goftest->KolmogorovSmirnovTest();
+   return pvalueKS;
+}
 
 //--------------------------------------------------------------------
 constexpr double SQ(double x) {
@@ -642,41 +673,18 @@ void sig_fit(int date, string pdf="") {
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   bool calc_pval = true;
-   double pvalueKS = 0;
-   if ( calc_pval ) {
-      // linear extrapolation in [dL,dU] divided into  n points
-      int n = 10000;
-      vector<double> vLcr(n);
-      double dm = (dU-dL)/(n-1);
-      for ( int i = 0; i < n; ++i ) {
-         double m = dL + i * dm;
-         vLcr[i] = Lbwg(&m,Fpar.data());
-      }
-      auto Lcr = [&vLcr,dm](double x) -> double {
-         if ( x < dL || x >= dU ) {
-            return 0.;
-         }
-         int i = (x-dL) / dm;
-         double mi = dL + i * dm;
-         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
-         return f;
-      };
-      rmath_fun< decltype(Lcr) > fcr(Lcr);
+   // we use statistics X times larger than the data
+   // size_t max_mkk = 9000;
+   // if ( date == 2009 ) {
+      // max_mkk = 5000;
+   // }
+   // mkk.resize(max_mkk);
 
-      // we use statistics X times larger than the data
-      size_t max_mkk = 9000;
-      if ( date == 2009 ) {
-         max_mkk = 5000;
-      }
-//       mkk.resize(max_mkk);
-
-      ROOT::Math::GoFTest* goftest =
-         new ROOT::Math::GoFTest( max_mkk, mkk.data(), fcr,
-               ROOT::Math::GoFTest::kPDF, dL,dU );
-      pvalueKS = goftest->KolmogorovSmirnovTest();
-      cout << " pvalueKS= " << pvalueKS << endl;
-   }
+   auto Fun = [Lbwg,Fpar](double m) -> double {
+      return Lbwg(&m,Fpar.data());
+   };
+   double pvalueKS = FastKSTest(mkk,Fun);
+   cout << " pvalueKS= " << pvalueKS << endl;
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -714,9 +722,7 @@ void sig_fit(int date, string pdf="") {
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    // pt->AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   if ( calc_pval ) {
-      pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
-   }
+   pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
    pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
    pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
    pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
@@ -6578,8 +6584,8 @@ void mass_kk_fit(int date=2021) {
    // data_fit(date,FixM,pdf_dat);
 
    // combined with Side-Band (constant or Argus SB)
-   string pdf_dat( Form("mkk%02i_fitSB_%i.pdf",date%100,FixM) );
-   dataSB_fit(date,FixM,pdf_dat);
+   // string pdf_dat( Form("mkk%02i_fitSB_%i.pdf",date%100,FixM) );
+   // dataSB_fit(date,FixM,pdf_dat);
 
    // ?? I/O check: use mcinc files as data: id+3 => incl.MC
    // string pdf = string("mkk") + ((id==0) ? "09" : "12") +
