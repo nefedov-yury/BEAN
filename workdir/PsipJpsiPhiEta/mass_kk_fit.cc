@@ -13,7 +13,7 @@
 
 #include "masses.h"
 
-// {{{1 constants
+// {{{1 constants, TODO: struct ?
 //--------------------------------------------------------------------
 // the meson radial parameter in Blatt-Weisskopf form factor
 static const double R_BW = 3.; // GeV^{-1}; +/-1 uncertainties study
@@ -163,8 +163,8 @@ struct ValErr {
 // linear extrapolation of Fun on a uniform grid of n points in the
 // region [dL,dU] is used
 //--------------------------------------------------------------------
-double FastKSTest(const vector<double>& Mkk,
-      const function<double (double)>& Fun) {
+double FastKSTest(const function<double (double)>& Fun,
+      const vector<double>& Mkk, size_t NMkk = 0) {
 //--------------------------------------------------------------------
    int n = 10000;
    vector<double> vec(n);
@@ -183,10 +183,17 @@ double FastKSTest(const vector<double>& Mkk,
       return f;
    };
    rmath_fun< decltype(Lin) > ftest(Lin); // lambda -> Root1Dfunc
+   if ( NMkk == 0 ) {
+      NMkk = Mkk.size();
+   } else {
+      NMkk = min(NMkk, Mkk.size());
+   }
    ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         Mkk.size(),Mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
+         NMkk,Mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
    double pvalueKS = goftest->KolmogorovSmirnovTest();
    return pvalueKS;
+   // double pvalueAD = gofcr->AndersonDarlingTest();
+   // cout << " pvalueAD= " << pvalueAD << endl;
 }
 
 //--------------------------------------------------------------------
@@ -637,7 +644,7 @@ void sig_fit(int date, string pdf="") {
       return BreitWignerGaussN(x[0],p[0],p[1],p[2],slope);
    };
    vector<string> par_name { "M#phi", "G#phi", "#sigma" };
-   vector<double> par_ini  {   Mphi,   Gphi,    1.1e-3  };
+   vector<double> par_ini  {   Mphi,   Gphi,    1.2e-3  };
 
    const unsigned int Npar = par_name.size(); // number of parameters
    TF1* bwg = new TF1("bwg", Lbwg, dL, dU, Npar);
@@ -672,19 +679,22 @@ void sig_fit(int date, string pdf="") {
    vector<double>& Fpar = PE.Fpar;
 
    //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // we use statistics X times larger than the data
-   // size_t max_mkk = 9000;
-   // if ( date == 2009 ) {
-      // max_mkk = 5000;
-   // }
-   // mkk.resize(max_mkk);
+   // "Goodness of fit" using KS-test
+   // use limited statistics (larger than the data)
+   size_t max_mkk = 0;
+   if ( date == 2009 ) {  // ~800ev
+      max_mkk = 0; // all
+   } else if ( date == 2012 ) { // ~2600ev
+      max_mkk = 9000;
+   } else if ( date == 2021 ) { // ~16 000ev
+      max_mkk = 20000;
+   }
 
    auto Fun = [Lbwg,Fpar](double m) -> double {
       return Lbwg(&m,Fpar.data());
    };
-   double pvalueKS = FastKSTest(mkk,Fun);
-   cout << " pvalueKS= " << pvalueKS << endl;
+   double pvalueKS = FastKSTest(Fun,mkk,max_mkk);
+   printf(" pvalueKS= %.3g (%zu)\n", pvalueKS,max_mkk);
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -961,19 +971,13 @@ void bkg_fit(int date, int type=0) {
    vector<double>& Fpar = PE.Fpar;
 
    //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto Lgof = [Lan,Fpar](double x) -> double {
+   // "Goodness of fit" using KS-test
+   size_t max_mkk = min( 4000, int(mkk.size()) );
+   auto Fun = [Lan,Fpar](double x) -> double {
       return Lan(&x,Fpar.data());
    };
-   if ( mkk.size() > 4000 ) {
-      mkk.resize(4000);
-   }
-   rmath_fun< decltype(Lgof) > ftest(Lgof); // lambda -> Root1Dfunc
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest->KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
+   double pvalueKS = FastKSTest(Fun,mkk,max_mkk);
+   printf(" pvalueKS= %.3g (%zu)\n", pvalueKS,max_mkk);
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -1105,17 +1109,12 @@ void data_fit(int date, int Mphix, string pdf="") {
    vector<double>& Fpar = PE.Fpar;
 
    //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // TODO: fast algo
-   // User input PDF:
-   auto Lgof = [Lsum,Fpar](double x) -> double {
+   // "Goodness of fit" using KS-test
+   auto Fun = [Lsum,Fpar](double x) -> double {
       return Lsum(&x,Fpar.data());
    };
-   rmath_fun< decltype(Lgof) > ftest(Lgof);
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest->KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
+   double pvalueKS = FastKSTest(Fun,mkk);
+   printf(" pvalueKS= %.3g\n", pvalueKS);
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -1332,8 +1331,8 @@ void dataSB_fit( int date, int Mphix, string pdf="") {
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
 
    //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   auto Lcr = [Fpar,sl,FunSB](double x) -> double {
+   // "Goodness of fit" using KS-test
+   auto Fun = [Fpar,sl,FunSB](double x) -> double {
       double ret =
          Fpar[4] * BreitWignerGaussN(x,Fpar[0],Fpar[1],Fpar[2],sl) +
          Fpar[5] * RevArgusN(x,Fpar[3],sl);
@@ -1346,17 +1345,11 @@ void dataSB_fit( int date, int Mphix, string pdf="") {
       double Ntot = Fpar[4] + Fpar[5] + Fpar[6];
       return ret/Ntot;
    };
-   rmath_fun< decltype(Lcr) > fcr(Lcr);
-   ROOT::Math::GoFTest* gofcr =
-      new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-            ROOT::Math::GoFTest::kPDF, dL,dU );
-   double pvalueKS = gofcr->KolmogorovSmirnovTest();
-   cout << " pvalueKS(cr)= " << pvalueKS << endl;
-   // double pvalueAD = gofcr->AndersonDarlingTest();
-   // cout << " pvalueAD= " << pvalueAD << endl;
+   double pvalueKS = FastKSTest(Fun,mkk);
+   printf(" pvalueKS(cr)= %.3g\n", pvalueKS);
 
    // side-band
-   auto Lsb = [Fpar,sl,FunSB](double x) -> double {
+   auto Fsb = [Fpar,sl,FunSB](double x) -> double {
       double ret = 0;
       if ( FunSB == 0 ) {
          ret = 1./(dU-dL);
@@ -1365,14 +1358,8 @@ void dataSB_fit( int date, int Mphix, string pdf="") {
       }
       return ret;
    };
-   rmath_fun< decltype(Lsb) > fsb(Lsb);
-   ROOT::Math::GoFTest* gofsb =
-      new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
-         ROOT::Math::GoFTest::kPDF, bL,dU );
-   double pvalueKSsb = gofsb->KolmogorovSmirnovTest();
-   cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-   // double pvalueADsb = gofsb->AndersonDarlingTest();
-   // cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+   double pvalueKSsb = FastKSTest(Fsb,sb);
+   printf(" pvalueKS(sb)= %.3g\n", pvalueKSsb);
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -1397,7 +1384,7 @@ void dataSB_fit( int date, int Mphix, string pdf="") {
       return bW * (BW + Ar + Bg);
    };
    TF1* fdr = new TF1("fdr", Ldr, bL, dU, 1);
-   fdr -> SetNpx(500);
+   fdr->SetNpx(500);
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -1523,7 +1510,7 @@ vector<double> IntfrBWAR( double m,
    double BB_k   = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
-//    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
+   // double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    // common multipliers
@@ -1553,20 +1540,14 @@ double IntfrBWARG( double m,
 //--------------------------------------------------------------------
 // Function Fun(x) folded with a normal distribution:
 //
-//        1                        [                  (X'-X)^2    ]
-// ---------------- *   Integral   [ Fun(X') * exp( - --------- ) ] dX'
-// sqrt(2*pi)*sigma   (-oo<X'<+oo) [                  2*sigma^2   ]
+//        1                       [                  (X'-X)^2    ]
+// ---------------- *  Integral   [ Fun(X') * exp( - --------- ) ] dX'
+// sqrt(2*pi)*sigma   (-oo<X'<+oo)[                  2*sigma^2   ]
 //
 //--------------------------------------------------------------------
 // integration in +/-5 sigma interval
 //--------------------------------------------------------------------
    static const double Ngauss = 1./sqrt(2*M_PI);
-
-   // paranoic check
-//    if ( idx > 3 ) {
-//       cout << " FATAL ERROR: " << __func__ << " idx= " << idx << endl;
-//       exit;
-//    }
 
    // integrand lambda function
    auto Lint = [m,p,idx](double t) -> double{
@@ -1614,7 +1595,7 @@ double IntfrBWARGN( double m,
       // integrand lambda function
       auto Lint = [](double x, void* pp) -> double{
          const double* p = static_cast<const double*>(pp);
-         return IntfrBWARG(x,p,0);  // MUST be zero!
+         return IntfrBWARG(x,p,0);  // MUST be idx=0
       };
 
       // desired errors:                abs    rel
@@ -1640,49 +1621,47 @@ double IntfrBWARGN( double m,
 void test_Intfr() {
 //--------------------------------------------------------------------
    double mphi = Mphi, gphi = Gphi;
-   auto Lintfr = [mphi,gphi](const double* x, const double* p) ->
-      double {
+   auto Lintfr = [mphi,gphi](const double* x, const double* p) {
       double pp[] { mphi, gphi, p[0],p[1],p[2],p[3],p[4] };
       return IntfrBWARGN( x[0], pp, int(p[5]) );
    };
 
    int npar = 6;
    TF1* fun = new TF1("fun", Lintfr, dL, dU, npar);
-   fun -> SetParNames("Sigma", "A", "F", "Ang",  "Sl", "T");
-   fun -> SetParameters(1.2e-3, 0., 0.8,   0.7,  -1.99,  0.);
-   fun -> SetLineWidth(2);
-   fun -> SetNpx(500);
+   fun->SetParNames("Sigma", "A", "F", "Ang",  "Sl", "T");
+   fun->SetParameters(1.2e-3, 0., 0.8,   0.7,  -1.99,  0.);
+   fun->SetLineWidth(2);
+   fun->SetNpx(500);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    TH1D* tmp = new TH1D("tmp","",500,bL,dU);
-   tmp -> SetAxisRange(-20.,130.,"Y");
-   tmp -> Draw();
+   tmp->SetAxisRange(-20.,130.,"Y");
+   tmp->Draw();
 
-   fun -> SetParameter(npar-1, 0); // draw all
-   fun -> SetLineColor(kRed);
-   fun -> DrawCopy("SAME");
-   printf(" Norm= %.6f\n", fun -> Integral(dL,dU,1e-4) );
+   fun->SetParameter(npar-1, 0); // draw all
+   fun->SetLineColor(kRed);
+   fun->DrawCopy("SAME");
+   printf(" Norm= %.6f\n", fun->Integral(dL,dU,1e-4) );
 
-   fun -> SetParameter(npar-1, 2); // draw Argus
-   fun -> SetLineColor(kBlue);
-   fun -> SetLineStyle(kDashed);
-   fun -> DrawCopy("SAME");
+   fun->SetParameter(npar-1, 2); // draw Argus
+   fun->SetLineColor(kBlue);
+   fun->SetLineStyle(kDashed);
+   fun->DrawCopy("SAME");
 
-   fun -> SetParameter(npar-1, 1); // draw BW
-   fun -> SetLineColor(kGreen+2);
-   fun -> DrawCopy("SAME");
+   fun->SetParameter(npar-1, 1); // draw BW
+   fun->SetLineColor(kGreen+2);
+   fun->DrawCopy("SAME");
 
-   fun -> SetParameter(npar-1, 3); // draw interference
-   fun -> SetLineColor(kMagenta);
-   fun -> SetLineStyle(kSolid);
-   fun -> DrawCopy("SAME");
+   fun->SetParameter(npar-1, 3); // draw interference
+   fun->SetLineColor(kMagenta);
+   fun->SetLineStyle(kSolid);
+   fun->DrawCopy("SAME");
 
-   c1 -> Update();
+   c1->Update();
 }
-
 
 //--------------------------------------------------------------------
 ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
@@ -1692,16 +1671,16 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
    // desired errors:
    constexpr double eps_abs = 1.e-6;
    constexpr double eps_rel = 1.e-6;
-   constexpr double epsilon  = 1.e-3; // max numerical error
+   constexpr double epsilon = 1.e-3; // max numerical error
 
    // get parameters and covariation matrix of error
    int Npar = res.NPar();
    vector<double> Fpar = res.Parameters();
 
    if ( Npar != 6 && Npar != 7 ) {
-      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
-           << endl;
-      exit(1);
+      cerr << " FATAL ERROR in " << __func__
+         << " Npar= " << Npar << endl;
+      exit(EXIT_FAILURE);
    }
 
    int covMatrStatus = res.CovMatrixStatus();
@@ -1717,7 +1696,7 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
    }
 
    // 1) calculate integral of normalized component
-   auto Lfc = [sl,idx,Npar](const double* x,const double* p)->double{
+   auto Lfc = [sl,idx,Npar](const double* x,const double* p) {
       double m = x[0];
       double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl }; // real slope
       double normI = IntfrBWARGN( m,pp,100 );
@@ -1737,7 +1716,7 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
 
    double err_num = 0;
    double Integ = FC.IntegralOneDim(dL,dU,eps_rel,eps_abs, err_num);
-//    cout << " err_num(" << idx << ") = " << err_num << endl;
+   // cout << " err_num(" << idx << ") = " << err_num << endl;
    if ( err_num > epsilon ) {
       cout << " WARNING: " << __func__ << " numerical error of"
          " integration of F_C(" << idx << ") is too big "
@@ -1747,8 +1726,8 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
    // 2) calculate error of this integral
    TMatrixDSym covMatrix(Npar);
    covMatrix.Use(Npar,cov_m.data());
-//    printf("\ncovMatrix : ");
-//    covMatrix.Print();
+   // printf("\ncovMatrix : ");
+   // covMatrix.Print();
 
    TVectorD IntGrad(Npar);
    double err_num2 = 0;
@@ -1766,14 +1745,14 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
       double err_num = 0;
       IntGrad[i] = dF.IntegralOneDim(dL,dU,eps_rel,eps_abs, err_num);
       err_num = covMatrix(i,i) * IntGrad[i] * err_num;
-//       cout << " abs err_num(" << i << ") = " << err_num << endl;
+      // cout << " abs err_num(" << i << ") = " << err_num << endl;
       err_num2 += SQ(err_num);
-//       cout << " IntGrad[" << i << "] = " << IntGrad[i] << endl;
+      // cout << " IntGrad[" << i << "] = " << IntGrad[i] << endl;
    }
 
    double err_Int = sqrt( covMatrix.Similarity(IntGrad) );
    err_num2 = sqrt( err_num2 / err_Int ); // abs numerical error
-//    cout << " err_num(" << idx << ") = " << err_num2 << endl;
+   // cout << " err_num(" << idx << ") = " << err_num2 << endl;
    if ( err_num2 > epsilon ) {
       cout << " WARNING: " << __func__ << " numerical error "
          "of integration of dF is too big " << err_num2 << endl;
@@ -1783,9 +1762,9 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
 }
 
 //--------------------------------------------------------------------
-void data_Intfr_fit(string fname, string title, string pdf="") {
+void data_Intfr_fit(int date, string pdf="") {
 //--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
+   string fname( Form("data_%02ipsip_all.root",date%100) );
 
    // Get un-binned data
    TH1D* hist[1];
@@ -1802,23 +1781,27 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    //-----------------------------------------------------------------
    // Fit data
    // efficiency parameters
-   double sl = -1.8;    // 1.83
-   if ( is2009 ) {
-      sl = -1.8;        // 1.77
-   }
+   // double slope = -1.8; // prod-12
+   double slope = -2.0; // v709
    // function MUST be normalized to 1 on the fit range
-   auto Lfit = [sl](const double* x,const double* p) -> double {
-      const double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],sl };
+   auto Lfit = [slope](const double* x,const double* p) -> double {
+      const double pp[] { p[0],p[1],p[2],p[3],p[4],p[5],slope };
       return IntfrBWARGN( x[0], pp, 0 );
    };
    vector<string> par_name { "M#phi", "G#phi", "#sigma", "A",
                              "F", "#vartheta" };
 
-   vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,1.0,1.0}; // 09 neg
-//    vector<double> par_ini {Mphi,Gphi,1.5e-3,0.,1.0,-1.1}; // 09 pos
-//    vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,1.0,0.7}; // 12 neg
-//    vector<double> par_ini {Mphi,Gphi,1.2e-3,0.,1.0,-0.7}; // 12 pos
-
+   vector<double> par_ini;
+   if ( date == 2009 ) {
+      par_ini = {Mphi,Gphi,1.4e-3,0.,1.1,1.1}; // neg
+      // par_ini = {Mphi,Gphi,1.4e-3,0.,1.2,-1.1}; // pos
+   } else if ( date == 2012 ) {
+      par_ini = {Mphi,Gphi,1.1e-3,0.,1.0,0.7}; // neg
+      // par_ini = {Mphi,Gphi,1.1e-3,0.,1.0,-0.8}; // pos
+   } else if ( date == 2021 ) {
+      par_ini = {Mphi,Gphi,1.1e-3,0.,1.0,0.8}; // neg
+      // par_ini = {Mphi,Gphi,1.1e-3,0.,1.1,-0.8}; // pos
+   }
    bool neg_pos = par_ini.back() > 0; //true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -1837,7 +1820,7 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
 
    // fix/limit/step for parameters
    fitter.Config().ParSettings(0).SetLimits(Mphi-0.01, Mphi+0.01);
-   fitter.Config().ParSettings(0).SetValue(1.01953);        // like MC
+   fitter.Config().ParSettings(0).SetValue(1.01952);        // like MC
    fitter.Config().ParSettings(0).Fix();                    // Mphi
    fitter.Config().ParSettings(1).SetLimits(Gphi-0.1e-3, Gphi+0.1e-3);
    fitter.Config().ParSettings(1).Fix();                    // Gphi
@@ -1845,18 +1828,18 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    fitter.Config().ParSettings(3).Fix();                    // A
    fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
    fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // vartheta
-//    fitter.Config().ParSettings(5).SetValue(-95*M_PI/180);
-//    fitter.Config().ParSettings(5).Fix();
+   // fitter.Config().ParSettings(5).SetValue(-95*M_PI/180);
+   // fitter.Config().ParSettings(5).Fix();
 
    fitter.LikelihoodFit(Dat,false); // true=extended likelihood fit
    fitter.CalculateMinosErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
    res.Print(cout);
-//    res.PrintCovMatrix(cout); // print error matrix and correlations
+   // res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
-   ParAndErr PE(res);
+   ParAndErr PE(res,0.05);
    vector<double>& Fpar = PE.Fpar;
 
    vector<string> names { "N(KK)", "Nphi", "Nnonphi", "Nifr"  };
@@ -1864,8 +1847,8 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    Nos.reserve(4);
    cout << " n= " << n << endl;
    for ( int idx = 0; idx <= 3; ++idx ) {
-      ValErr Integ = CalcIntEr( res, sl, idx );
-//       printf("Int[%i] = %s\n",idx,Integ.prt(".4f")); // DEBUG
+      ValErr Integ = CalcIntEr( res, slope, idx );
+      // printf("Int[%i] = %s\n",idx,Integ.prt(".4f")); // DEBUG
       double Num = n * Integ.val;
       double Err = fabs(Num) * sqrt( 1./n + SQ(Integ.err/Integ.val) );
       Nos.push_back( ValErr {Num,Err} );
@@ -1874,109 +1857,104 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
    double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
 
    //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   // User input PDF:
-   auto Lgof = [Lfit,Fpar](double x) -> double {
+   // "Goodness of fit" using KS-test
+   auto Fun = [Lfit,Fpar](double x) -> double {
       return Lfit( &x,Fpar.data() );
    };
-   rmath_fun< decltype(Lgof) > ftest(Lgof);
-   ROOT::Math::GoFTest* goftest = new ROOT::Math::GoFTest(
-         mkk.size(),mkk.data(),ftest,ROOT::Math::GoFTest::kPDF,dL,dU);
-   double pvalueKS = goftest -> KolmogorovSmirnovTest();
-   cout << " pvalueKS= " << pvalueKS << endl;
+   double pvalueKS = FastKSTest(Fun,mkk);
+   printf(" pvalueKS= %.3g\n", pvalueKS);
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr = [n,Fpar,sl](double* x,double* p) -> double {
+   auto Ldr = [n,Fpar,slope](double* x,double* p) -> double {
       const double pp[]
-        { Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl };
+        { Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],slope };
       return bW*n*IntfrBWARGN( x[0], pp, int(p[0]) );
    };
    TF1* ffit = new TF1("ffit", Ldr, dL, dU, 1);
-   ffit -> SetNpx(500);
+   ffit->SetNpx(500);
 
    // find max/min to draw
-   ffit -> SetParameter(0, 1); // BW
-   int maxbin = hst -> GetMaximumBin();
-   double hmax = hst -> GetBinContent(maxbin) +
-      hst -> GetBinError(maxbin);
-   double fmax = ffit -> GetMaximum( 1.01, 1.03, 1e-6);
+   ffit->SetParameter(0, 1); // BW
+   int maxbin = hst->GetMaximumBin();
+   double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
+   double fmax = ffit->GetMaximum( 1.01, 1.03, 1e-6);
    hmax = floor(1.1 * max( hmax, fmax ));
    if ( hmax > 0 ) {
-      hst -> SetMaximum(hmax);
+      hst->SetMaximum(hmax);
    }
 
-   ffit -> SetParameter(0, 3); // interference
-   double hmin = ffit -> GetMinimum( 1.01, 1.03, 1e-6);
+   ffit->SetParameter(0, 3); // interference
+   double hmin = ffit->GetMinimum( 1.01, 1.03, 1e-6);
    hmin = floor(1.15 * min( 0., hmin ));
    if ( hmin < 0 ) {
-      hst -> SetMinimum(hmin);
+      hst->SetMinimum(hmin);
    }
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(hst);
 
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.3);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
+   hst->Draw("EP");
 
    TLegend* leg = new TLegend(0.52,0.67,0.89,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
+   leg->AddEntry(hst,Form("Data %i",date),"LEP");
 
-   ffit -> SetParameter(0, 0); // SUM
-   ffit -> SetLineWidth(2);
-   ffit -> SetLineColor(kRed);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Result of fit", "L");
+   ffit->SetParameter(0, 0); // SUM
+   ffit->SetLineWidth(2);
+   ffit->SetLineColor(kRed);
+   ffit->DrawCopy("SAME");
+   leg->AddEntry( ffit->Clone(), "Result of fit", "L");
 
    // draw components
-   ffit -> SetLineWidth(1);
-   ffit -> SetLineStyle(kDashed);
+   ffit->SetLineWidth(1);
+   ffit->SetLineStyle(kDashed);
 
-   ffit -> SetParameter(0, 1); // BW
-   ffit -> SetLineColor(kGreen+2);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Breit-Wigner", "L");
+   ffit->SetParameter(0, 1); // BW
+   ffit->SetLineColor(kGreen+2);
+   ffit->DrawCopy("SAME");
+   leg->AddEntry( ffit->Clone(), "Breit-Wigner", "L");
 
-   ffit -> SetParameter(0, 2); // Argus
-   ffit -> SetLineColor(kBlue);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Argus", "L");
+   ffit->SetParameter(0, 2); // Argus
+   ffit->SetLineColor(kBlue);
+   ffit->DrawCopy("SAME");
+   leg->AddEntry( ffit->Clone(), "Argus", "L");
 
-   ffit -> SetParameter(0, 3); // interference
-   ffit -> SetLineColor(kMagenta+1);
-   ffit -> DrawCopy("SAME");
-   leg -> AddEntry( ffit -> Clone(), "Interference", "L");
+   ffit->SetParameter(0, 3); // interference
+   ffit->SetLineColor(kMagenta+1);
+   ffit->DrawCopy("SAME");
+   leg->AddEntry( ffit->Clone(), "Interference", "L");
 
-   leg -> Draw();
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.52,0.33,0.89,0.66,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-//    pt -> AddText( Form("#it{L_{min} = %.1f}",Lmin) );
-   pt -> AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
-   pt -> AddText( Form("N_{#phi} = %.1f #pm %.1f",Nphi,err_Nphi) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("a = %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
-   pt -> AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
-   pt -> Draw();
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   // pt->AddText( Form("#it{L_{min} = %.1f}",Lmin) );
+   pt->AddText( Form("#it{p-value(KS) = %.3f}",pvalueKS) );
+   pt->AddText( Form("N_{#phi} = %.1f #pm %.1f",Nphi,err_Nphi) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->AddText( Form("a = %s",PE.Eform(3,".1f")) );
+   pt->AddText( Form("F = %s",PE.Eform(4,".2f")) );
+   pt->AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
+   pt->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
       pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -1984,7 +1962,8 @@ void data_Intfr_fit(string fname, string title, string pdf="") {
 //--------------------------------------------------------------------
 struct myFCN_inter {
    // efficiency parameter:
-   const double sl = -1.8;
+   // const double sl = -1.8; // prod-12
+   const double sl = -2.0; // v709
    // Function for side-band:
    const int funSB = 1; // 0 - constant, 1 - Argus
                         //
@@ -2053,16 +2032,16 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
    // desired errors:
    constexpr double eps_abs = 1.e-6;
    constexpr double eps_rel = 1.e-6;
-   constexpr double epsilon  = 1.e-3; // max numerical error
+   constexpr double epsilon = 1.e-3; // max numerical error
 
    // get parameters and covariation matrix of error
    int Npar = res.NPar();
    vector<double> Fpar = res.Parameters();
 
    if ( Npar != 9 ) {
-      cerr << " FATAL ERROR in " << __func__ << " Npar= " << Npar
-           << endl;
-      exit(1);
+      cerr << " FATAL ERROR in " << __func__
+         << " Npar= " << Npar << endl;
+      exit(EXIT_FAILURE);
    }
    Npar = 6; // remove NKK, Nbg and arsb parameters!
 
@@ -2092,7 +2071,7 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
 
    double err_num = 0;
    double Integ = FC.IntegralOneDim(dL,dU,eps_rel,eps_abs,err_num);
-//    printf(" err_FC_Integ[%d] = %.2g\n",idx,err_num);
+   // printf(" err_FC_Integ[%d] = %.2g\n",idx,err_num);
    if ( err_num > epsilon ) {
       printf(" WARNING: %s numerical error of integration of "
             "F_C[%d] is too big: %.2g\n", __func__,idx,err_num);
@@ -2105,8 +2084,8 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
    // 2) calculate error of this integral
    TMatrixDSym covMatrix(Npar);
    covMatrix.Use(Npar,cov_m.data());
-//    printf("\ncovMatrix : ");
-//    covMatrix.Print();
+   // printf("\ncovMatrix : ");
+   // covMatrix.Print();
 
    TVectorD IntGrad(Npar);
    double err_num2 = 0;
@@ -2125,12 +2104,12 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
       IntGrad[i] = dF.IntegralOneDim(dL,dU,eps_rel,eps_abs,err_num);
       err_num = covMatrix(i,i) * IntGrad[i] * err_num;
       err_num2 += SQ(err_num);
-//       printf(" IntGrad(dF[%i]/d_%d)= %.4g -> err_num= %.4g\n",
-//             idx,i, IntGrad[i], err_num);
+      // printf(" IntGrad(dF[%i]/d_%d)= %.4g -> err_num= %.4g\n",
+            // idx,i, IntGrad[i], err_num);
    }
 
    double err_Int = sqrt( covMatrix.Similarity(IntGrad) );
-//    printf(" Integral[%d] = %.6g +/- %.2g\n",idx,Integ,err_Int);
+   // printf(" Integral[%d] = %.6g +/- %.2g\n",idx,Integ,err_Int);
 
    err_num2 = sqrt( err_num2 / err_Int ); // abs numerical error
    if ( err_num2 > epsilon ) {
@@ -2142,9 +2121,9 @@ ValErr CalcIntErSb( const ROOT::Fit::FitResult& res,
 }
 
 //--------------------------------------------------------------------
-void dataSB_Intfr( string fname, string title, string pdf="" ) {
+void dataSB_Intfr(int date, string pdf="") {
 //--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
+   string fname( Form("data_%02ipsip_all.root",date%100) );
 
    myFCN_inter my_fcn;             // class for 'FitFCN'
    const int FunSB = my_fcn.funSB; // 0 - constant, 1 - Argus
@@ -2170,13 +2149,17 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
                              "F", "angle", "NKK", "Nbg", "arsb" };
 
-   vector<double> par_ini {Mphi, Gphi, 1.4e-3, 0.,
-                           1.0, 1.0, 850., 10., 7. }; // 09neg
-//    vector<double> par_ini {Mphi, Gphi, 1.4e-3, 0.,
-//                            1.0,-1.0, 850., 10., 7. }; // 09pos
-//    vector<double> par_ini {Mphi, Gphi, 1.1e-3, 0.,
-//                               0.8, 0.01, 2620.,35., 5. }; // 12ch40
-
+   vector<double> par_ini;
+   if ( date == 2009 ) {
+      par_ini = {Mphi,Gphi,1.4e-3,0., 1.1, 1.0, 890., 10., 7. };//n
+      // par_ini = {Mphi,Gphi,1.4e-3,0., 1.1,-1.0, 890., 10., 7. };//p
+   } else if ( date == 2012 ) {
+      par_ini = {Mphi,Gphi,1.1e-3,0., 0.8, 0.3, 2750.,35., 4. };//n
+      // par_ini = {Mphi,Gphi,1.1e-3,0., 0.8,-0.3, 2750.,35., 4. };//p
+   } else if ( date == 2021 ) {
+      // par_ini = {Mphi,Gphi,1.1e-3,0., 0.9, 0.5, 17500.,195.,6.};//n
+      par_ini = {Mphi,Gphi,1.1e-3,0., 0.9,-0.5, 17500.,195.,6.};//p
+   }
    bool neg_pos = par_ini[5] > 0; // true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -2187,7 +2170,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    }
 
    // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetValue(1.01953);        // like MC
+   fitter.Config().ParSettings(0).SetValue(1.01952);        // like MC
    fitter.Config().ParSettings(0).Fix();                    // Mphi
    fitter.Config().ParSettings(1).Fix();                    // Gphi
    fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
@@ -2206,7 +2189,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-//    fitter.CalculateHessErrors();
+   // fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
@@ -2217,20 +2200,10 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       printf("\n=> INVALID RESULT <=\n");
    }
    res.Print(cout);
-//    res.PrintCovMatrix(cout); // print error matrix and correlations
+   // res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
-//    if ( is2009 ) {
-//       PE.Perr[5] = -1;
-//       if ( neg_pos == true ) { // 2009 negative
-//          PE.Lerr[5] = fabs(-1.23 - PE.Fpar[5]); // ch60
-//          PE.Lerr[5] = fabs(-1.29 - PE.Fpar[5]);
-//       } else {
-//          PE.Uerr[5] = fabs(1.14 - PE.Fpar[5]); // ch60
-//          PE.Uerr[5] = fabs(1.19 - PE.Fpar[5]);
-//       }
-//    }
 
    double Nfit = Fpar[6];
    double Nfit_err = max({PE.Perr[6],PE.Uerr[6],PE.Lerr[6]});
@@ -2240,7 +2213,7 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    vector<ValErr> Nos( names.size() );
    for ( int idx = 0; idx <= 3; ++idx ) {
       ValErr Integ = CalcIntErSb( res, sl, idx );
-//       printf("Int[%i] = %s\n",idx,Integ.prt(".6f")); // DEBUG
+      // printf("Int[%i] = %s\n",idx,Integ.prt(".6f")); // DEBUG
       double Num = Nfit * Integ.val;
       double Err = fabs(Num) *
          sqrt( SQ(Integ.err/Integ.val) + SQ(Nfit_err/Nfit) );
@@ -2251,69 +2224,36 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
    double Nphi = Nos[1].val, err_Nphi = Nos[1].err;
 
    //-----------------------------------------------------------------
-   // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   bool calc_pval = true;
-   double pvalueKS = 0, pvalueKSsb = 0;
-   if ( calc_pval ) {
-      // central part
-      auto Lcr = [Fpar,sl,FunSB](double x) -> double {
-         double pp[]
-            {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
-         double ret = Fpar[6] * IntfrBWARGN( x,pp,0 );
-         if ( FunSB == 0 ) {
-            ret += Fpar[7]/(dU-dL);
-         } else {
-            ret += Fpar[7] * RevArgusN( x,Fpar[8],sl );
-         }
-         // normalization on 1
-         double Ntot = Fpar[6] + Fpar[7];
-         return ret/Ntot;
-      };
-
-      // linear extrapolation in [dL,dU] divided into  n points
-      int n = 10000;
-      vector<double> vLcr(n);
-      double dm = (dU-dL)/(n-1);
-      for ( int i = 0; i < n; ++i ) {
-         double m = dL + i * dm;
-         vLcr[i] = Lcr(m);
+   // "Goodness of fit" using KS-test
+   // central part
+   auto Fcr = [Fpar,sl,FunSB](double x) -> double {
+      double pp[]
+      {Fpar[0],Fpar[1],Fpar[2],Fpar[3],Fpar[4],Fpar[5],sl};
+      double ret = Fpar[6] * IntfrBWARGN( x,pp,0 );
+      if ( FunSB == 0 ) {
+         ret += Fpar[7]/(dU-dL);
+      } else {
+         ret += Fpar[7] * RevArgusN( x,Fpar[8],sl );
       }
+      // normalization on 1
+      double Ntot = Fpar[6] + Fpar[7];
+      return ret/Ntot;
+   };
+   double pvalueKS = FastKSTest(Fcr,mkk);
+   printf(" pvalueKS(cr)= %.3g\n", pvalueKS);
 
-      auto LcrE = [&vLcr,dm](double x) -> double {
-         if ( x < dL || x >= dU ) {
-            return 0.;
-         }
-         int i = (x-dL) / dm;
-         double mi = dL + i * dm;
-         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
-         return f;
-      };
-      rmath_fun< decltype(LcrE) > fcr(LcrE);
-
-      ROOT::Math::GoFTest* gofcr =
-         new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-               ROOT::Math::GoFTest::kPDF, bL,dU );
-      pvalueKS = gofcr -> KolmogorovSmirnovTest();
-      cout << " pvalueKS(cr)= " << pvalueKS << endl;
-
-      // side-band
-      auto Lsb = [Fpar,sl,FunSB](double x) -> double {
-         double ret = 0;
-         if ( FunSB == 0 ) {
-            ret = 1./(dU-dL);
-         } else {
-            ret = RevArgusN( x,Fpar[8],sl );
-         }
-         return ret;
-      };
-      rmath_fun< decltype(Lsb) > fsb(Lsb);
-
-      ROOT::Math::GoFTest* gofsb =
-         new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
-            ROOT::Math::GoFTest::kPDF, dL,dU );
-      pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-      cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-   }
+   // side-band
+   auto Fsb = [Fpar,sl,FunSB](double x) -> double {
+      double ret = 0;
+      if ( FunSB == 0 ) {
+         ret = 1./(dU-dL);
+      } else {
+         ret = RevArgusN( x,Fpar[8],sl );
+      }
+      return ret;
+   };
+   double pvalueKSsb = FastKSTest(Fsb,sb);
+   printf(" pvalueKS(sb)= %.3g\n", pvalueKSsb);
 
    //-----------------------------------------------------------------
    // Functions to draw
@@ -2336,112 +2276,106 @@ void dataSB_Intfr( string fname, string title, string pdf="" ) {
       return bW * (BWARG + Bg);
    };
    TF1* fdr = new TF1("fdr", Ldr, dL, dU, 1);
-   fdr -> SetNpx(500);
+   fdr->SetNpx(500);
 
    // find max/min to draw
-   fdr -> SetParameter(0, 1); // BW
-   int maxbin = hst -> GetMaximumBin();
-   double hmax = hst -> GetBinContent(maxbin) +
-      hst -> GetBinError(maxbin);
-   double fmax = fdr -> GetMaximum( 1.01, 1.03, 1e-6);
+   fdr->SetParameter(0, 1); // BW
+   int maxbin = hst->GetMaximumBin();
+   double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
+   double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
    hmax = floor(1.1 * max( hmax, fmax ));
    if ( hmax > 0 ) {
-      hst -> SetMaximum(hmax);
+      hst->SetMaximum(hmax);
    }
 
-   fdr -> SetParameter(0, 3); // interference
+   fdr->SetParameter(0, 3); // interference
    double hmin = fdr -> GetMinimum( 1.01, 1.03, 1e-6);
    hmin = floor(1.15 * min( 0., hmin ));
    if ( hmin < 0 ) {
-      hst -> SetMinimum(hmin);
+      hst->SetMinimum(hmin);
    }
 
    //-----------------------------------------------------------------
-   // Draw results
-   TLegend* leg = new TLegend(0.58,0.725,0.89,0.89);
-
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(hst);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.3);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
-   leg -> AddEntry(hst,title.c_str(),"LEP");
+   hst->Draw("EP");
 
-   fdr -> SetParameter(0, 0); // SUM
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineColor(kRed+1);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Result of fit", "L");
+   TLegend* leg = new TLegend(0.58,0.725,0.89,0.89);
+   leg->AddEntry(hst,Form("Data %i",date),"LEP");
 
-   fdr -> SetParameter(0, 1); // BW
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kGreen+2);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Breit-Wigner #phi#eta", "L");
+   fdr->SetParameter(0, 0); // SUM
+   fdr->SetLineWidth(2);
+   fdr->SetLineColor(kRed+1);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Result of fit", "L");
 
-   fdr -> SetParameter(0, 2); // Argus
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kBlue);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Non-#phi KK#eta", "L");
+   fdr->SetParameter(0, 1); // BW
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kGreen+2);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Breit-Wigner #phi#eta", "L");
 
-   fdr -> SetParameter(0, 3); // interference
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kMagenta+1);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Interference", "L");
-   leg -> Draw();
+   fdr->SetParameter(0, 2); // Argus
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kBlue);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Non-#phi KK#eta", "L");
+
+   fdr->SetParameter(0, 3); // interference
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kMagenta+1);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Interference", "L");
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.58,0.48,0.89,0.72,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-   pt -> AddText( Form("#it{p-value = %.3f}",pvalueKS) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
-            PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("a = %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
-   pt -> AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
-   pt -> AddText( Form("NKK(fit) = %s", PE.Eform(6,".1f")) );
-   pt -> Draw();
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   pt->AddText( Form("#it{p-value = %.3f}",pvalueKS) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->AddText( Form("a = %s",PE.Eform(3,".1f")) );
+   pt->AddText( Form("F = %s",PE.Eform(4,".2f")) );
+   pt->AddText( Form("#vartheta = %s",PE.Eform(5,".2f")) );
+   pt->AddText( Form("NKK(fit) = %s", PE.Eform(6,".1f")) );
+   pt->Draw();
 
    TPaveText* ptsb = new TPaveText(0.58,0.39,0.89,0.48,"NDC");
-   ptsb -> SetTextAlign(12);
-   ptsb -> SetTextFont(42);
-   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
-            pvalueKSsb) );
-   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
-            PE.Eform(7,".1f")) );
+   ptsb->SetTextAlign(12);
+   ptsb->SetTextFont(42);
+   ptsb->AddText( Form("#it{p-val(side-band) = %.3f}", pvalueKSsb) );
+   ptsb->AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(7,".1f")) );
    if ( FunSB != 0 ) {
-      ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+      ptsb->AddText( Form("#lower[-0.1]{a(sb) = %s}",
                PE.Eform(8,".1f")) );
    }
-   ptsb -> Draw();
+   ptsb->Draw();
 
    TPaveText* ptres = new TPaveText(0.58,0.33,0.89,0.39,"NDC");
-   ptres -> SetTextAlign(12);
-   ptres -> SetTextFont(42);
-   ptres -> AddText(Form("N_{#etaKK} = %.1f #pm %.1f",
-            Nkk,err_Nkk));
-   ptres -> AddText(Form("N_{#phi } = %.1f #pm %.1f",Nphi,err_Nphi));
-   ptres -> Draw();
+   ptres->SetTextAlign(12);
+   ptres->SetTextFont(42);
+   ptres->AddText(Form("N_{#etaKK} = %.1f #pm %.1f", Nkk,err_Nkk));
+   ptres->AddText(Form("N_{#phi } = %.1f #pm %.1f",Nphi,err_Nphi));
+   ptres->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
       pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -6593,14 +6527,14 @@ void mass_kk_fit(int date=2021) {
    // dataSB_fit(fnames.at(id+3),titles.at(id+3),Mphix,pdf);
 
 // ------------- data: interference sec 6.3.2 ------------------------
-//    test_Intfr();
-//
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifr";
-//    data_Intfr_fit(fnames.at(id),titles.at(id),pdf);
+   // test_Intfr();
+
+   // string pdf_t( Form("mkk%02i_ifr",date) );
+   // data_Intfr_fit(date,pdf_t);
 
    // combined with Side-Band
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB";
-//    dataSB_Intfr(fnames.at(id),titles.at(id),pdf);
+   string pdf_t( Form("mkk%02i_ifrSB",date) );
+   dataSB_Intfr(date,pdf_t);
 
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB_scan";
 //    dataSB_Intfr_scan(fnames.at(id),pdf);
