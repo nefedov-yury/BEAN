@@ -1966,7 +1966,7 @@ struct myFCN_inter {
    const double sl = -2.0; // v709
    // Function for side-band:
    const int funSB = 1; // 0 - constant, 1 - Argus
-                        //
+
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
 
@@ -2157,8 +2157,8 @@ void dataSB_Intfr(int date, string pdf="") {
       par_ini = {Mphi,Gphi,1.1e-3,0., 0.8, 0.3, 2750.,35., 4. };//n
       // par_ini = {Mphi,Gphi,1.1e-3,0., 0.8,-0.3, 2750.,35., 4. };//p
    } else if ( date == 2021 ) {
-      // par_ini = {Mphi,Gphi,1.1e-3,0., 0.9, 0.5, 17500.,195.,6.};//n
-      par_ini = {Mphi,Gphi,1.1e-3,0., 0.9,-0.5, 17500.,195.,6.};//p
+      par_ini = {Mphi,Gphi,1.1e-3,0., 0.9, 0.5, 17500.,195.,6.};//n
+      // par_ini = {Mphi,Gphi,1.1e-3,0., 0.9,-0.5, 17500.,195.,6.}//p
    }
    bool neg_pos = par_ini[5] > 0; // true for negative interference
 
@@ -2177,8 +2177,8 @@ void dataSB_Intfr(int date, string pdf="") {
    fitter.Config().ParSettings(3).Fix();                    // ar
    fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
    fitter.Config().ParSettings(5).SetLimits(-M_PI, M_PI);   // angle
-//    fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
-//    fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
+   // fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
+   // fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
    if ( FunSB == 0 ) {                                      // arsb
       fitter.Config().ParSettings(8).SetValue(0.);
       fitter.Config().ParSettings(8).Fix();
@@ -2380,10 +2380,9 @@ void dataSB_Intfr(int date, string pdf="") {
 }
 
 //--------------------------------------------------------------------
-void dataSB_Intfr_scan( string fname, string pdf="" ) {
+void dataSB_Intfr_scan(int date, string pdf="") {
 //--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
-   string title = (is2009) ? "2009" : "2012";
+   string fname( Form("data_%02ipsip_all.root",date%100) );
 
    myFCN_inter my_fcn;             // class for 'FitFCN'
    const int FunSB = my_fcn.funSB; // 0 - constant, 1 - Argus
@@ -2404,27 +2403,25 @@ void dataSB_Intfr_scan( string fname, string pdf="" ) {
    //-----------------------------------------------------------------
    // Fit data
    ROOT::Fit::Fitter fitter;
-//    fitter.Config().MinimizerOptions().SetPrintLevel(3);
+   // fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
                              "F", "angle", "NKK", "Nbg", "arsb" };
 
    // parameters of loop for angles (degrees)
-   int angmin = -70, angmax = 70, angstep = 180; // test
-   if ( is2009 ) {
-      angmin = -80; angmax = 74; angstep = 2; // 2009
-   } else {
-      angmin = -45; angmax = 45; angstep = 3; // 2012
-   }
+   int angmin = -90, angmax = 90, angstep = 181; // test
 
-   // initial values for 'edge' of scan:
+   // initial values for scan
    vector<double> par_ini;
-   if ( is2009 ) {
-      // -80 deg
-      par_ini = {Mphi, Gphi, 1.3e-3, 0., 1.3, 0., 850., 10., 7. };
-   } else {
-      // -45 deg
-      par_ini = {Mphi, Gphi, 1.1e-3, 0., 1.0, 0., 2620.,30., 5. };
+   if ( date == 2009 ) {
+      angmin = -90; angmax = 90; angstep = 5;
+      par_ini = {Mphi,Gphi,1.4e-3,0., 1.6, 0., 890., 10., 7. };
+   } else if ( date == 2012 ) {
+      angmin = -90; angmax = 90; angstep = 5;
+      par_ini = {Mphi,Gphi,1.1e-3,0., 1.5, 0., 2750.,35., 4. };
+   } else if ( date == 2021 ) {
+      angmin = -90; angmax = 90; angstep = 5;
+      par_ini = {Mphi,Gphi,1.1e-3,0., 1.5, 0., 17500.,195.,6.};
    }
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -2435,14 +2432,14 @@ void dataSB_Intfr_scan( string fname, string pdf="" ) {
    }
 
    // fix/limit/step for parameters
-   fitter.Config().ParSettings(0).SetValue(1.01953);        // like MC
+   fitter.Config().ParSettings(0).SetValue(1.01952);        // like MC
    fitter.Config().ParSettings(0).Fix();                    // Mphi
    fitter.Config().ParSettings(1).Fix();                    // Gphi
    fitter.Config().ParSettings(2).SetLimits(0.5e-3, 2.e-3); // sig
    fitter.Config().ParSettings(3).Fix();                    // ar
    fitter.Config().ParSettings(4).SetLimits(0.01, 10.);     // F
-//    fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
-//    fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
+   // fitter.Config().ParSettings(6).SetLimits(0., 1.5*n);        // NKK
+   // fitter.Config().ParSettings(7).SetLimits(0., 2.*nsb);       // Nbg
    if ( FunSB == 0 ) {                                      // arsb
       fitter.Config().ParSettings(8).SetValue(0.);
       fitter.Config().ParSettings(8).Fix();
@@ -2472,22 +2469,22 @@ void dataSB_Intfr_scan( string fname, string pdf="" ) {
       return bW * (BWARG + Bg);
    };
    TF1* fdr = new TF1("fdr", Ldr, dL, dU, 1);
-   fdr -> SetNpx(500);
+   fdr->SetNpx(500);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
-   pdf += (FunSB == 0 ) ? "_l" : "_ar" + to_string(FunSB);
+   pdf += (FunSB == 0 ) ? "_l" : "_ar";
    pdf += ".pdf";
-   c1 -> Print((pdf+"[").c_str()); // open pdf-file
-                                   //
+   c1->Print((pdf+"[").c_str()); // open pdf-file
+
    SetHstFace(hst);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.3);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
    //-----------------------------------------------------------------
    // start the cycle
@@ -2500,13 +2497,13 @@ void dataSB_Intfr_scan( string fname, string pdf="" ) {
       // == Fit
       int Ndat = n + nsb;
       fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-//       fitter.CalculateHessErrors();
-//       fitter.CalculateMinosErrors();
+      // fitter.CalculateHessErrors();
+      // fitter.CalculateMinosErrors();
 
       const ROOT::Fit::FitResult& res = fitter.Result();
       Fpar = res.Parameters();
-//       res.Print(cout);
-//       res.PrintCovMatrix(cout); // print error matrix and correlations
+      // res.Print(cout);
+      // res.PrintCovMatrix(cout); // print error matrix and correlations
       ParAndErr PE(res);
 
       double lmin = res.MinFcnValue();
@@ -2523,84 +2520,82 @@ void dataSB_Intfr_scan( string fname, string pdf="" ) {
       // Draw intermidiate results
       TLegend* leg = new TLegend(0.58,0.725,0.89,0.89);
 
-      hst -> Draw("EP");
-      leg -> AddEntry(hst,("Data "+title).c_str(),"LEP");
+      hst->Draw("EP");
+      leg->AddEntry(hst,Form("Data %i",date),"LEP");
 
-      fdr -> SetParameter(0, 0); // SUM
-      fdr -> SetLineWidth(2);
-      fdr -> SetLineColor(kRed+1);
-      fdr -> DrawCopy("SAME");
-      leg -> AddEntry( fdr -> Clone(), "Result of fit", "L");
+      fdr->SetParameter(0, 0); // SUM
+      fdr->SetLineWidth(2);
+      fdr->SetLineColor(kRed+1);
+      fdr->SetLineStyle(kSolid);
+      fdr->DrawCopy("SAME");
+      leg->AddEntry( fdr->Clone(), "Result of fit", "L");
 
-      fdr -> SetParameter(0, 1); // BW
-      fdr -> SetLineWidth(2);
-      fdr -> SetLineStyle(kDashed);
-      fdr -> SetLineColor(kGreen+2);
-      fdr -> DrawCopy("SAME");
-      leg -> AddEntry( fdr -> Clone(), "Breit-Wigner #phi#eta", "L");
+      fdr->SetParameter(0, 1); // BW
+      fdr->SetLineWidth(2);
+      fdr->SetLineColor(kGreen+2);
+      fdr->SetLineStyle(kDashed);
+      fdr->DrawCopy("SAME");
+      leg->AddEntry( fdr->Clone(), "Breit-Wigner #phi#eta", "L");
 
-      fdr -> SetParameter(0, 2); // Argus
-      fdr -> SetLineWidth(2);
-      fdr -> SetLineStyle(kDashed);
-      fdr -> SetLineColor(kBlue);
-      fdr -> DrawCopy("SAME");
-      leg -> AddEntry( fdr -> Clone(), "Non-#phi KK#eta", "L");
+      fdr->SetParameter(0, 2); // Argus
+      fdr->SetLineWidth(2);
+      fdr->SetLineColor(kBlue);
+      fdr->SetLineStyle(kDashed);
+      fdr->DrawCopy("SAME");
+      leg->AddEntry( fdr->Clone(), "Non-#phi KK#eta", "L");
 
-      fdr -> SetParameter(0, 3); // interference
-      fdr -> SetLineWidth(2);
-      fdr -> SetLineStyle(kDashed);
-      fdr -> SetLineColor(kMagenta+1);
-      fdr -> DrawCopy("SAME");
-      leg -> AddEntry( fdr -> Clone(), "Interference", "L");
-      leg -> Draw();
+      fdr->SetParameter(0, 3); // interference
+      fdr->SetLineWidth(2);
+      fdr->SetLineColor(kMagenta+1);
+      fdr->SetLineStyle(kDashed);
+      fdr->DrawCopy("SAME");
+      leg->AddEntry( fdr->Clone(), "Interference", "L");
+      leg->Draw();
 
       TPaveText* pt = new TPaveText(0.58,0.48,0.89,0.72,"NDC");
-      pt -> SetTextAlign(12);
-      pt -> SetTextFont(42);
-      pt -> AddText( Form("#vartheta = %s deg",
+      pt->SetTextAlign(12);
+      pt->SetTextFont(42);
+      pt->AddText( Form("#vartheta = %s deg",
                PE.Eform(5,".0f",180./M_PI)) );
-      pt -> AddText( Form("#it{L_{min} = %.1f}",lmin) );
-      pt -> AddText( Form("M_{#phi}= %s MeV",
-               PE.Eform(0,".2f",1e3)) );
-      pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+      pt->AddText( Form("#it{L_{min} = %.1f}",lmin) );
+      pt->AddText( Form("M_{#phi}= %s MeV", PE.Eform(0,".2f",1e3)) );
+      pt->AddText( Form("#Gamma_{#phi}= %s MeV",
                PE.Eform(1,".3f",1e3)) );
-      pt -> AddText( Form("#sigma = %s MeV",
-               PE.Eform(2,".2f",1e3)) );
-//       pt -> AddText( Form("a = %s",PE.Eform(3,".1f")) );
-      pt -> AddText( Form("F = %s",PE.Eform(4,".2f")) );
-      pt -> AddText( Form("NKK(fit) = %s", PE.Eform(6,".1f")) );
-      pt -> AddText(Form("N_{#phi } = %.1f",Nphi));
-      pt -> AddText( Form("#lower[-0.1]{Nbg = %s}",
-               PE.Eform(7,".1f")) );
+      pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+      // pt->AddText( Form("a = %s",PE.Eform(3,".1f")) );
+      pt->AddText( Form("F = %s",PE.Eform(4,".2f")) );
+      pt->AddText( Form("NKK(fit) = %s", PE.Eform(6,".1f")) );
+      pt->AddText(Form("N_{#phi } = %.1f",Nphi));
+      pt->AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(7,".1f")) );
       if ( FunSB != 0 ) {
-         pt -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+         pt->AddText( Form("#lower[-0.1]{a(sb) = %s}",
                   PE.Eform(8,".1f")) );
       }
-      pt -> Draw();
+      pt->Draw();
 
-      gPad -> RedrawAxis();
-      c1 -> Update();
-      c1 -> Print(pdf.c_str()); // add to pdf-file
+      gPad->RedrawAxis();
+      c1->Update();
+      c1->Print(pdf.c_str()); // add to pdf-file
    }
    //-----------------------------------------------------------------
    // final draw
    int nch = angl.size();
    if ( nch < 3 ) {
-      c1 -> Print((pdf+"]").c_str()); // close pdf-file
+      c1->Print((pdf+"]").c_str()); // close pdf-file
       return;
    }
 
    // 1 - Nphi vs angl
-   c1 -> cd();
+   c1->cd();
    auto grN = new TGraph( nch, angl.data(), nphi.data() );
-   grN -> SetTitle(";#vartheta, degrees;N_{#phi}");
-   grN -> SetMarkerColor(kBlue);
-   grN -> SetMarkerStyle(21);
-   grN -> SetLineWidth(2);
-   grN -> GetYaxis() -> SetTitleOffset(1.);
-   grN -> Draw("APL");
-   c1 -> Update();
-   c1 -> Print(pdf.c_str()); // add to pdf-file
+   grN->SetTitle(";#vartheta, degrees;N_{#phi}");
+   grN->SetMarkerColor(kBlue);
+   grN->SetMarkerStyle(21);
+   grN->SetLineWidth(2);
+   grN->GetYaxis()->SetTitleOffset(1.);
+   grN->Draw("APL");
+   c1->Update();
+   c1->Print(pdf.c_str()); // add to pdf-file
 
    // 2 - Lmin vs angle
    // subtract minimal value
@@ -2610,18 +2605,18 @@ void dataSB_Intfr_scan( string fname, string pdf="" ) {
    }
 
    auto grL = new TGraph( nch, angl.data(), Lmin.data() );
-   grL -> SetTitle(";#vartheta, degrees;#it{-2log(L/L_{max})}");
-   grL -> GetYaxis() -> SetMaxDigits(3);
-   grL -> GetYaxis() -> SetTitleOffset(1.);
-   grL -> SetMarkerColor(kBlue);
-   grL -> SetMarkerStyle(20);
-   grL -> SetLineWidth(2);
-   grL -> Draw("APL");
-   gPad -> RedrawAxis();
-   c1 -> Update();
-   c1 -> Print(pdf.c_str()); // add to pdf-file
+   grL->SetTitle(";#vartheta, degrees;#it{-2log(L/L_{max})}");
+   grL->GetYaxis()->SetMaxDigits(3);
+   grL->GetYaxis()->SetTitleOffset(1.);
+   grL->SetMarkerColor(kBlue);
+   grL->SetMarkerStyle(20);
+   grL->SetLineWidth(2);
+   grL->Draw("APL");
+   gPad->RedrawAxis();
+   c1->Update();
+   c1->Print(pdf.c_str()); // add to pdf-file
 
-   c1 -> Print((pdf+"]").c_str()); // close pdf-file
+   c1->Print((pdf+"]").c_str()); // close pdf-file
 }
 
 // dataSBBR_Intfr(): combined with side-band + fitBR
@@ -6529,15 +6524,15 @@ void mass_kk_fit(int date=2021) {
 // ------------- data: interference sec 6.3.2 ------------------------
    // test_Intfr();
 
-   // string pdf_t( Form("mkk%02i_ifr",date) );
+   // string pdf_t( Form("mkk%02i_ifr",date%100) );
    // data_Intfr_fit(date,pdf_t);
 
    // combined with Side-Band
-   string pdf_t( Form("mkk%02i_ifrSB",date) );
-   dataSB_Intfr(date,pdf_t);
+   // string pdf_t( Form("mkk%02i_ifrSB",date%100) );
+   // dataSB_Intfr(date,pdf_t);
 
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSB_scan";
-//    dataSB_Intfr_scan(fnames.at(id),pdf);
+   string pdf_sc( Form("mkk%02i_ifrSB_scan",date%100) );
+   dataSB_Intfr_scan(date,pdf_sc);
 
    // combined with Side-Band + fitBR ---> not USED
 //    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR";
