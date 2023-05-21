@@ -1466,6 +1466,7 @@ void dataSB_fit( int date, int Mphix, string pdf="") {
 }
 
 // {{{1 Interference BW with Argus bkg.
+// {{{2 Common
 //--------------------------------------------------------------------
 vector<double> IntfrBWAR( double m,
       double mphi, double gphi,      // B-W
@@ -1617,6 +1618,7 @@ double IntfrBWARGN( double m,
    return IntfrBWARG(m,p,idx) / norm;
 }
 
+// {{{2 test_Intfr()
 //--------------------------------------------------------------------
 void test_Intfr() {
 //--------------------------------------------------------------------
@@ -1663,6 +1665,7 @@ void test_Intfr() {
    c1->Update();
 }
 
+// {{{2 data_Intfr_fit()
 //--------------------------------------------------------------------
 ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
       double sl, unsigned int idx ) {
@@ -1958,7 +1961,7 @@ void data_Intfr_fit(int date, string pdf="") {
    }
 }
 
-// dataSB_Intfr(): combined with side-band
+// {{{2 dataSB_Intfr(): combined with side-band
 //--------------------------------------------------------------------
 struct myFCN_inter {
    // efficiency parameter:
@@ -2147,7 +2150,7 @@ void dataSB_Intfr(int date, string pdf="") {
    fitter.Config().MinimizerOptions().SetPrintLevel(3);
 
    vector<string> par_name { "Mphi", "Gphi", "sig", "ar",
-                             "F", "angle", "NKK", "Nbg", "arsb" };
+      "F", "angle", "NKK", "Nbg", "arsb" };
 
    vector<double> par_ini;
    if ( date == 2009 ) {
@@ -2379,8 +2382,9 @@ void dataSB_Intfr(int date, string pdf="") {
    }
 }
 
+// {{{2  dataSB_Intfr_scan()
 //--------------------------------------------------------------------
-void dataSB_Intfr_scan(int date, string pdf="") {
+void dataSB_Intfr_scan(int date, string sname) {
 //--------------------------------------------------------------------
    string fname( Form("data_%02ipsip_all.root",date%100) );
 
@@ -2414,13 +2418,13 @@ void dataSB_Intfr_scan(int date, string pdf="") {
    // initial values for scan
    vector<double> par_ini;
    if ( date == 2009 ) {
-      angmin = -90; angmax = 90; angstep = 5;
+      angmin = -90; angmax = 90; angstep = 1;
       par_ini = {Mphi,Gphi,1.4e-3,0., 1.6, 0., 890., 10., 7. };
    } else if ( date == 2012 ) {
-      angmin = -90; angmax = 90; angstep = 5;
+      angmin = -90; angmax = 90; angstep = 1;
       par_ini = {Mphi,Gphi,1.1e-3,0., 1.5, 0., 2750.,35., 4. };
    } else if ( date == 2021 ) {
-      angmin = -90; angmax = 90; angstep = 5;
+      angmin = -90; angmax = 90; angstep = 1;
       par_ini = {Mphi,Gphi,1.1e-3,0., 1.5, 0., 17500.,195.,6.};
    }
 
@@ -2475,8 +2479,12 @@ void dataSB_Intfr_scan(int date, string pdf="") {
    c1->cd();
    gPad->SetGrid();
 
-   pdf += (FunSB == 0 ) ? "_l" : "_ar";
-   pdf += ".pdf";
+   sname += (FunSB == 0 ) ? "_l" : "_ar";
+   string hfile = sname + ".root";
+   TFile c_out(hfile.c_str(),"recreate"); // file for scan results
+   c_out.cd();
+
+   string pdf = sname + ".pdf";
    c1->Print((pdf+"[").c_str()); // open pdf-file
 
    SetHstFace(hst);
@@ -2594,6 +2602,8 @@ void dataSB_Intfr_scan(int date, string pdf="") {
    grN->SetLineWidth(2);
    grN->GetYaxis()->SetTitleOffset(1.);
    grN->Draw("APL");
+   grN->SetName( Form("Nphi_scan_%02i",date%100) );
+   grN->Write();
    c1->Update();
    c1->Print(pdf.c_str()); // add to pdf-file
 
@@ -2612,25 +2622,29 @@ void dataSB_Intfr_scan(int date, string pdf="") {
    grL->SetMarkerStyle(20);
    grL->SetLineWidth(2);
    grL->Draw("APL");
+   grL->SetName( Form("L_scan_%02i",date%100) );
+   grL->Write();
    gPad->RedrawAxis();
    c1->Update();
    c1->Print(pdf.c_str()); // add to pdf-file
 
    c1->Print((pdf+"]").c_str()); // close pdf-file
+   c_out.Close(); // close root-file with scan results
 }
 
-// dataSBBR_Intfr(): combined with side-band + fitBR
+// {{{2 dataSBBR_Intfr(): combined with side-band + fitBR
 //--------------------------------------------------------------------
 struct myFCN_sbbr {
    // efficiency parameter:
-   const double sl = -1.8;
+   // const double sl = -1.8; // prod-12
+   const double sl = -2.0; // v709
    // Function for side-band:
    const int funSB = 1; // 0 - constant, 1 - Argus
 
    vector<double> mkk;  // data central part
    vector<double> sb;   // data side band
 
-   const double mphi = 1.01953; // Mphi like in MC
+   const double mphi = 1.01952; // Mphi like in MC
    const double gphi = Gphi;
    const double ar = 0.; // Argus parameter
    double Br2Nkk = 0.;   // convertion Br(J/Psi -> KK eta) -> Nkk
@@ -2646,25 +2660,33 @@ struct myFCN_sbbr {
    //-----------------------------------------------------------------
    myFCN_sbbr(int date) { // set parameters for 2009/2012
    //-----------------------------------------------------------------
-      // Br(eta->2gamma) = 39.41%
-      const double breta = 0.3941;
-      // Br(phi->K+K-) = 49.2%
-      const double brphi = 0.492;
+      // Br(eta->2gamma) = 39.36 +/- 0.18% PDG 2023
+      const double breta = 0.3936;
+      // Br(phi->K+K-) = 49.1 +/- 0.5% PDG 2023
+      const double brphi = 0.491;
 
       // prod-12
-      const double NJpsi09 = 15740130; // 2009
-      const double NJpsi12 = 48674393; // 2012
-      const double e_phi09 = 0.3280; // eff chi2<60
-      const double e_phi12 = 0.3229; // eff chi2<60
+      // const double NJpsi09 = 15740130; // 2009
+      // const double NJpsi12 = 48674393; // 2012
+      // const double e_phi09 = 0.3280; // eff chi2<60
+      // const double e_phi12 = 0.3229; // eff chi2<60
+
+      // prod v709 first
+      const double NJpsi09 =  15990331; // 2009
+      const double NJpsi12 =  49882436; // 2012
+      const double NJpsi21 = 324842271; // 2021
+      const double e_phi09 = 0.2841; // eff chi2<40
+      const double e_phi12 = 0.3112; // eff chi2<40
+      const double e_phi21 = 0.3163; // eff chi2<40
 
       if ( date == 2009 ) {
          Br2Nkk = NJpsi09 * e_phi09 * breta;
-         Br2Nphi = Br2Nkk * brphi;
-      } else { // 2012
+      } else if ( date == 2012 ) {
          Br2Nkk = NJpsi12 * e_phi12 * breta;
-         Br2Nphi = Br2Nkk * brphi;
+      } else if ( date == 2021 ) {
+         Br2Nkk = NJpsi21 * e_phi21 * breta;
       }
-
+      Br2Nphi = Br2Nkk * brphi;
    }
 
    // normalization for Argus SB
@@ -2692,7 +2714,7 @@ struct myFCN_sbbr {
       normArsb = gsl_int.Integral(Lintar,(void *)par,dL,dU);
 
       // debug print
-//       printf(" arsb= %.3f, normArsb= %.3g\n", arsb, normArsb);
+      // printf(" arsb= %.3f, normArsb= %.3g\n", arsb, normArsb);
    }
 
    //-----------------------------------------------------------------
@@ -2760,10 +2782,10 @@ struct myFCN_sbbr {
       checkInt("IIs",IIs,pp);
 
       // debug print
-//       printf(" IeBW= %.3g IeAr= %.3g IeIc= %.3g IeIs= %.3g\n",
-//             IeBW, IeAr, IeIc, IeIs);
-//       printf(" IBW= %.3g IAr= %.3g IIc= %.3g IIs= %.3g\n",
-//             IBW, IAr, IIc, IIs);
+      // printf(" IeBW= %.3g IeAr= %.3g IeIc= %.3g IeIs= %.3g\n",
+            // IeBW, IeAr, IeIc, IeIs);
+      // printf(" IBW= %.3g IAr= %.3g IIc= %.3g IIs= %.3g\n",
+            // IBW, IAr, IIc, IIs);
    }
 
    // intergrals MUST be calculeted before calling this function
@@ -2882,18 +2904,17 @@ struct myFCN_sbbr {
          }
       }
 
-//       printf("RES: p[]= %g,%g,%g,%g,%g,%g -> %.3f\n",
-//               p[0],p[1],p[2],p[3],p[4],p[5],res);
+      // printf("RES: p[]= %g,%g,%g,%g,%g,%g -> %.3f\n",
+              // p[0],p[1],p[2],p[3],p[4],p[5],res);
       return res;
    }
 };
 
 //--------------------------------------------------------------------
-void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
+void dataSBBR_Intfr(int date, string pdf="") {
 //--------------------------------------------------------------------
-   bool is2009 = (fname.find("_09") != string::npos);
+   string fname( Form("data_%02ipsip_all.root",date%100) );
 
-   int date = (is2009) ? 2009 : 2012;
    myFCN_sbbr my_fcn(date);  // class for 'FitFCN'
    const double sl = my_fcn.sl; // efficiency parameters
    const int FunSB = my_fcn.funSB;
@@ -2918,10 +2939,17 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    vector<string> par_name { "Brkk", "Brphi", "angle", "sigma",
       "Nbg", "Arsb" };
 
-   vector<double> par_ini {4.5e-4,9.2e-4, 0.9, 1.4e-3,1.*nsb,8.}; // 09neg
-//    vector<double> par_ini {4.5e-4,8.1e-4,-1.0, 1.4e-3,1.*nsb,8.}; // 09pos
-//    vector<double> par_ini {4.5e-4,8.5e-4, 0.01, 1.1e-3, 1.*nsb,5.};// 12zero
-
+   vector<double> par_ini;
+   if ( date == 2009 ) {
+      par_ini = {5.0e-4, 10.3e-4, 1.0, 1.4e-3, 7., 7.}; //n
+      // par_ini = {5.0e-4, 8.5e-4,-1.0, 1.4e-3, 7., 7.}; //p
+   } else if ( date == 2012 ) {
+      par_ini = {4.5e-4, 8.8e-4, 0.3, 1.1e-3, 34., 4.}; //n
+      // par_ini = {4.5e-4, 8.4e-4,-0.3, 1.1e-3, 34., 4.}; //p
+   } else if ( date == 2021 ) {
+      par_ini = {4.4e-4, 8.5e-4, 0.5, 1.1e-3, 195., 6.}; //n
+      // par_ini = {4.4e-4, 7.9e-4,-0.5, 1.1e-3, 195., 6.}; //p
+   }
    bool neg_pos = par_ini[2] > 0; // true for negative interference
 
    const unsigned int Npar = par_name.size(); // number of parameters
@@ -2936,14 +2964,14 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
    fitter.Config().ParSettings(1).SetLimits(5e-4, 12e-4); // Brphi
    fitter.Config().ParSettings(2).SetLimits(-M_PI, M_PI); // angle
    fitter.Config().ParSettings(3).SetLimits(0.5e-3,2.e-3);// sigma
-//    fitter.Config().ParSettings(3).Fix();
-//    fitter.Config().ParSettings(4).SetLimits(0., 1.5*nsb); // Nbg
+   // fitter.Config().ParSettings(3).Fix();
+   // fitter.Config().ParSettings(4).SetLimits(0., 1.5*nsb); // Nbg
    fitter.Config().ParSettings(5).SetLimits(0., 15.);     // Arsb
 
    // == Fit
    int Ndat = n + nsb;
    fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // false=likelihood
-   fitter.CalculateHessErrors();
+   // fitter.CalculateHessErrors();
    fitter.CalculateMinosErrors();
 
    const ROOT::Fit::FitResult& res = fitter.Result();
@@ -2958,102 +2986,65 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
       printf("\n=> FINAL RESULT <=\n");
    }
    res.Print(cout);
-//    res.PrintCovMatrix(cout); // print error matrix and correlations
+   // res.PrintCovMatrix(cout); // print error matrix and correlations
 
    double Lmin = res.MinFcnValue();
    ParAndErr PE(res,0.05); // ignore 5% upper/lower errors
 
    //-----------------------------------------------------------------
    // "Goodness of fit" using KS-test (see goftest from ROOT-tutorial)
-   bool calc_pval = true;
-   double pvalueKS = 0, pvalueKSsb = 0;
-   if ( calc_pval ) {
-      // central part
-      double Nkk = Fpar[0] * my_fcn.Br2Nkk;
-      double Nphi = Fpar[1] * my_fcn.Br2Nphi;
-      double NFit = Nphi/my_fcn.IBW;
+   // central part
+   double Nkk = Fpar[0] * my_fcn.Br2Nkk;
+   double Nphi = Fpar[1] * my_fcn.Br2Nphi;
+   double NFit = Nphi/my_fcn.IBW;
 
-      double ang = Fpar[2];
-      double sig = Fpar[3];
+   double ang = Fpar[2];
+   double sig = Fpar[3];
 
-      // {mphi,gphi,sigma,A,F,Ang,sl}
-      const double pp[] {
-         my_fcn.mphi, my_fcn.gphi, sig, my_fcn.ar, Ff, ang, my_fcn.sl
-      };
+   // {mphi,gphi,sigma,A,F,Ang,sl}
+   const double pp[] {
+      my_fcn.mphi, my_fcn.gphi, sig, my_fcn.ar, Ff, ang, my_fcn.sl
+   };
 
-      // normalization on 1
-      double Nsb = Fpar[4];
-      double Ntot = Nkk + Nsb;
-      NFit /= Ntot;
+   // normalization on 1
+   double Nsb = Fpar[4];
+   double Ntot = Nkk + Nsb;
+   NFit /= Ntot;
 
-      double NsbNorm = Nsb/Ntot;
-      if ( FunSB != 0 ) {
-         NsbNorm /= my_fcn.normArsb;
-      }
-
-      auto Lcr = [NFit,pp,FunSB,NsbNorm,arsb,sl](double x) -> double {
-         double ret = NFit*IntfrBWARG( x,pp,0 );
-         if ( FunSB == 0 ) {
-            ret += NsbNorm/(dU-dL);
-         } else {
-            ret += NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
-         }
-         return ret;
-      };
-
-      // linear extrapolation in [dL,dU] divided into  n points
-      int n = 10000;
-      vector<double> vLcr(n);
-      double dm = (dU-dL)/(n-1);
-      for ( int i = 0; i < n; ++i ) {
-         double m = dL + i * dm;
-         vLcr[i] = Lcr(m);
-      }
-
-      auto LcrE = [&vLcr,dm](double x) -> double {
-         if ( x < dL || x >= dU ) {
-            return 0.;
-         }
-         int i = (x-dL) / dm;
-         double mi = dL + i * dm;
-         double f = vLcr[i] + (vLcr[i+1]-vLcr[i])*((x-mi)/dm);
-         return f;
-      };
-      rmath_fun< decltype(LcrE) > fcr(LcrE);
-
-      ROOT::Math::GoFTest* gofcr =
-         new ROOT::Math::GoFTest( mkk.size(),mkk.data(),fcr,
-               ROOT::Math::GoFTest::kPDF, dL,dU );
-      pvalueKS = gofcr -> KolmogorovSmirnovTest();
-      cout << " pvalueKS(cr)= " << pvalueKS << endl;
-
-      // side-band
-//       function<double(double)> Lsb;
-      NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
-      auto Lsb = [FunSB,NsbNorm,arsb,sl](double x) -> double {
-         double ret = 0;
-         if ( FunSB == 0 ) {
-            ret = 1./(dU-dL);
-         } else {
-            ret = NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
-         }
-         return ret;
-      };
-      rmath_fun< decltype(Lsb) > fsb(Lsb);
-
-      ROOT::Math::GoFTest* gofsb =
-         new ROOT::Math::GoFTest( sb.size(),sb.data(),fsb,
-            ROOT::Math::GoFTest::kPDF, dL,dU );
-      pvalueKSsb = gofsb -> KolmogorovSmirnovTest();
-      cout << " pvalueKS(sb)= " << pvalueKSsb << endl;
-//       double pvalueADsb = gofsb -> AndersonDarlingTest();
-//       cout << " pvalueAD(sb)= " << pvalueADsb << endl;
+   double NsbNorm = Nsb/Ntot;
+   if ( FunSB != 0 ) {
+      NsbNorm /= my_fcn.normArsb;
    }
+
+   auto Fcr = [NFit,pp,FunSB,NsbNorm,arsb,sl](double x) -> double {
+      double ret = NFit*IntfrBWARG( x,pp,0 );
+      if ( FunSB == 0 ) {
+         ret += NsbNorm/(dU-dL);
+      } else {
+         ret += NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
+      }
+      return ret;
+   };
+   double pvalueKS = FastKSTest(Fcr,mkk);
+   printf(" pvalueKS(cr)= %.3g\n", pvalueKS);
+
+   // side-band
+   NsbNorm = 1. / my_fcn.normArsb; // norm to 1 for Lsb
+   auto Fsb = [FunSB,NsbNorm,arsb,sl](double x) -> double {
+      double ret = 0;
+      if ( FunSB == 0 ) {
+         ret = 1./(dU-dL);
+      } else {
+         ret = NsbNorm * RevArgus(x,arsb)*(1+sl*(x-1.02));
+      }
+      return ret;
+   };
+   double pvalueKSsb = FastKSTest(Fsb,sb);
+   printf(" pvalueKS(sb)= %.3g\n", pvalueKSsb);
 
    //-----------------------------------------------------------------
    // Functions to draw
-   auto Ldr =
-      [Fpar,my_fcn,Ff,arsb,FunSB](double* x,double* p) -> double {
+   auto Ldr = [Fpar,my_fcn,Ff,arsb,FunSB](double* x,double* p) {
       int isw = int(p[0]+0.5);
 
       double Nphi = Fpar[1] * my_fcn.Br2Nphi;
@@ -3080,104 +3071,99 @@ void dataSBBR_Intfr( string fname, string title, string pdf="" ) {
       return bW * (BWARG + Bg);
    };
    TF1* fdr = new TF1("fdr", Ldr, bL, dU, 1);
-   fdr -> SetNpx(500);
+   fdr->SetNpx(500);
 
    // find max/min to draw
-   fdr -> SetParameter(0, 1); // BW
-   int maxbin = hst -> GetMaximumBin();
-   double hmax = hst -> GetBinContent(maxbin) +
-      hst -> GetBinError(maxbin);
-   double fmax = fdr -> GetMaximum( 1.01, 1.03, 1e-6);
+   fdr->SetParameter(0, 1); // BW
+   int maxbin = hst->GetMaximumBin();
+   double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
+   double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
    hmax = floor(1.1 * max( hmax, fmax ));
    if ( hmax > 0 ) {
-      hst -> SetMaximum(hmax);
+      hst->SetMaximum(hmax);
    }
 
-   fdr -> SetParameter(0, 3); // interference
-   double hmin = fdr -> GetMinimum( 1.01, 1.03, 1e-6);
+   fdr->SetParameter(0, 3); // interference
+   double hmin = fdr->GetMinimum( 1.01, 1.03, 1e-6);
    hmin = floor(1.15 * min( 0., hmin ));
    if ( hmin < 0 ) {
-      hst -> SetMinimum(hmin);
+      hst->SetMinimum(hmin);
    }
 
    //-----------------------------------------------------------------
-   // Draw results
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
+   c1->cd();
 
-   gPad -> SetGrid();
+   gPad->SetGrid();
 
    SetHstFace(hst);
-   hst -> GetXaxis() -> SetTitleOffset(1.1);
-   hst -> GetYaxis() -> SetTitleOffset(1.3);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.3);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
+   hst->Draw("EP");
 
    TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
+   leg->AddEntry(hst,Form("Data %i",date),"LEP");
 
-   fdr -> SetParameter(0, 0); // SUM
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineColor(kRed+1);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Result of fit", "L");
+   fdr->SetParameter(0, 0); // SUM
+   fdr->SetLineWidth(2);
+   fdr->SetLineColor(kRed+1);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Result of fit", "L");
 
-   fdr -> SetParameter(0, 1); // BW
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kGreen+2);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Breit-Wigner #phi#eta", "L");
+   fdr->SetParameter(0, 1); // BW
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kGreen+2);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Breit-Wigner #phi#eta", "L");
 
-   fdr -> SetParameter(0, 2); // Argus
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kBlue);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Non-#phi KK#eta", "L");
+   fdr->SetParameter(0, 2); // Argus
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kBlue);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Non-#phi KK#eta", "L");
 
-   fdr -> SetParameter(0, 3); // interference
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineStyle(kDashed);
-   fdr -> SetLineColor(kMagenta+1);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Interference", "L");
-   leg -> Draw();
+   fdr->SetParameter(0, 3); // interference
+   fdr->SetLineWidth(2);
+   fdr->SetLineStyle(kDashed);
+   fdr->SetLineColor(kMagenta+1);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Interference", "L");
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.58,0.47,0.89,0.69,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-   pt -> AddText( Form("#it{p-value = %.3f}",pvalueKS) );
-   pt -> AddText( Form("Br(KK#eta)= %s #times10^{-4 }",
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   pt->AddText( Form("#it{p-value = %.3f}",pvalueKS) );
+   pt->AddText( Form("Br(KK#eta)= %s #times10^{-4 }",
             PE.Eform(0,".2f",1e4)) );
-   pt -> AddText( Form("Br(#phi#eta)= %s #times10^{-4}",
+   pt->AddText( Form("Br(#phi#eta)= %s #times10^{-4}",
             PE.Eform(1,".2f",1e4)) );
-   pt -> AddText( Form("#vartheta = %s",PE.Eform(2,".2f")) );
-   pt -> AddText( Form("#sigma = %s MeV", PE.Eform(3,".2f",1e3)) );
-   pt -> Draw();
+   pt->AddText( Form("#vartheta = %s",PE.Eform(2,".2f")) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(3,".2f",1e3)) );
+   pt->Draw();
 
    TPaveText* ptsb = new TPaveText(0.58,0.35,0.89,0.47,"NDC");
-   ptsb -> SetTextAlign(12);
-   ptsb -> SetTextFont(42);
-   ptsb -> AddText( Form("#it{p-val(side-band) = %.3f}",
-            pvalueKSsb) );
-   ptsb -> AddText( Form("#lower[-0.1]{Nbg = %s}",
-            PE.Eform(4,".1f")) );
+   ptsb->SetTextAlign(12);
+   ptsb->SetTextFont(42);
+   ptsb->AddText( Form("#it{p-val(side-band) = %.3f}", pvalueKSsb) );
+   ptsb->AddText( Form("#lower[-0.1]{Nbg = %s}",PE.Eform(4,".1f")) );
    if ( FunSB != 0 ) {
-      ptsb -> AddText( Form("#lower[-0.1]{a(sb) = %s}",
+      ptsb->AddText( Form("#lower[-0.1]{a(sb) = %s}",
                PE.Eform(5,".1f")) );
    }
-   ptsb -> Draw();
+   ptsb->Draw();
 
-   gPad -> RedrawAxis();
-
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
       pdf += (neg_pos ? "_n.pdf" : "_p.pdf");
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -6422,6 +6408,12 @@ void mass_kk_fit(int date=2021) {
    gStyle->SetStatFont(42);
    gStyle->SetLegendFont(42);
 
+   // check date
+   if ( date != 2009 && date != 2012 && date != 2021 ) {
+      cerr << "ERROR: unknown date= " << date << endl;
+      exit(EXIT_FAILURE);
+   }
+
    if ( DEBUG ) {
       // BOOK HISTOGRAMMS
       htt[0] = new TH1D("eBWG","log10(BWG conv. error)",100,-6.,-1.);
@@ -6432,47 +6424,6 @@ void mass_kk_fit(int date=2021) {
       htt[5] = new TH1D("eInG","log10(Intfr.conv.err.)",100,-6.,-1.);
    }
 
-   vector<string> fnames = {
-      "data_09psip_all.root",
-      "data_12psip_all.root",
-      "data_21psip_all.root",
-      "mcinc_09psip_all.root",
-      "mcinc_12psip_all.root",
-      "mcinc_21psip_all.root",
-      "mcsig_kkmc_09.root",
-      "mcsig_kkmc_12.root",
-      "mcsig_kkmc_21.root",
-   };
-      // "mckketa_kkmc_09.root",
-      // "mckketa_kkmc_12.root"
-   vector<string> titles = {
-      "Data 2009",
-      "Data 2012",
-      "Data 2021",
-      "MC inclusive 2009",
-      "MC inclusive 2012",
-      "MC inclusive 2021",
-      "MC signal #phi#eta 2009",
-      "MC signal #phi#eta 2012",
-      "MC signal #phi#eta 2021",
-   };
-      // "MC non-#phi KK#eta 2009",
-      // "MC non-#phi KK#eta 2012"
-//--------------------------------------------------------------------
-   // index for file with data
-   int id = -1;
-   if ( date == 2009 ) {
-      id = 0;
-   } else if ( date == 2012 ) {
-      id = 2;
-   } else if ( date == 2021 ) {
-      id = 3;
-   } else {
-      cerr << "ERROR: unknown date= " << date << endl;
-      exit(EXIT_FAILURE);
-   }
-   int ii = id + 3; // index for file with inclusive MC
-   int i3 = id + 6; // index for file with signal MC
 //--------------------------------------------------------------------
 
    // = define GSL error handler which does nothing =
@@ -6502,10 +6453,9 @@ void mass_kk_fit(int date=2021) {
    // bkg_fit(date, 0); // fit kk-eta by Argus
    // bkg_fit(date, 1); // fit data side-band by Argus
 
-   // fit rho-eta by Argus ???
+   // TODO: fit rho-eta by Argus
    // bkg_fit("mcrhoeta_kkmc_12.root","MC #rho#eta 2012",
            // "mkk_rhoeta12_argus.pdf");
-
 
 // ------------- data: no interference sec.6.3.1 ---------------------
    int FixM = 1; // 0/1 - mphi is float/fixed
@@ -6516,7 +6466,7 @@ void mass_kk_fit(int date=2021) {
    // string pdf_dat( Form("mkk%02i_fitSB_%i.pdf",date%100,FixM) );
    // dataSB_fit(date,FixM,pdf_dat);
 
-   // ?? I/O check: use mcinc files as data: id+3 => incl.MC
+   // TODO: I/O check: use mcinc files as data
    // string pdf = string("mkk") + ((id==0) ? "09" : "12") +
       // "_chkIO_" + to_string(Mphix) + ".pdf";
    // dataSB_fit(fnames.at(id+3),titles.at(id+3),Mphix,pdf);
@@ -6531,12 +6481,12 @@ void mass_kk_fit(int date=2021) {
    // string pdf_t( Form("mkk%02i_ifrSB",date%100) );
    // dataSB_Intfr(date,pdf_t);
 
-   string pdf_sc( Form("mkk%02i_ifrSB_scan",date%100) );
-   dataSB_Intfr_scan(date,pdf_sc);
+   // string pdf_sc( Form("mkk%02i_ifrSB_scan",date%100) );
+   // dataSB_Intfr_scan(date,pdf_sc);
 
    // combined with Side-Band + fitBR ---> not USED
-//    string pdf = string("mkk")+((id==0) ? "09" : "12")+"_ifrSBBR";
-//    dataSBBR_Intfr(fnames.at(id),titles.at(id),pdf);
+   string pdf_sbbr( Form("mkk%02i_ifrSBBR",date%100) );
+   dataSBBR_Intfr(date,pdf_sbbr);
 
 // ------------- data: common fit ------------------------------------
 //    combine_Intfr(fnames[0],fnames[1],"mkk_cf_std");

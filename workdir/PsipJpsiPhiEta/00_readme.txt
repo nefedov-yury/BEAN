@@ -93,15 +93,20 @@ eff_mc.cc:
 // fit it by a straight line
 // -> eff_(sig|bkg)_YYYY.pdf
 
-mass_kk_fit.cc - unbinned LH fit of M(K+K-) distributions
-                 after the cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
-                 *) Breit-Wigner for phi -> K+K-
-                    (phi from J/Psi -> phi eta)
-                 *) convolution of BW with the Gauss distribution
-                 *) ARGUS function (and "reverse" Argus)
-                 *) interference B-W and Argus amplitudes
-                 -> mkkYY_???.pdf
-                 -> mkk_cf_???.pdf (combined fit)
+mass_kk_fit.cc:
+// unbinned LH fit of M(K+K-) distributions
+// after the cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
+// Formulas for:
+// *) Breit-Wigner for psi -> K+K- (psi from J/Psi -> phi eta)
+// *) convolution of BW with the Gauss distribution
+// *) ARGUS function (and "reverse" Argus)
+// *) interference
+//    -> mkkYY_fit??.pdf
+//    -> mkk_cf_???.pdf (combined fit)
+
+plot_scan.cc:
+// script to plot scan results:
+// 'χ2 = -2log(L/L_{max})' as a function of the vartheta-angle
 
 //--------------------------------------------------------------------
 // Study systematic uncertainties:
