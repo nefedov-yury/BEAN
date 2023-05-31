@@ -400,6 +400,152 @@ static double GetEcms(int runNo, bool verbose = false) {
    struct runInfo {
       int runS, runE; // first and last runs in period
       double Ebeam;   // energy of beam (MeV)
+   };
+
+   // List Runs for J/Psi-scan 2012 see arXiv:2206.13674v1
+   // for 3080 take old -0.55MeV
+   static const runInfo ListRuns[] =  {
+      { 28312, 28346,     3049.642},
+      { 28347, 28381,     3058.693},
+      { 28241, 28266,     3079.645},
+      { 28382, 28387,     3082.496},
+      { 28466, 28469,     3082.496},
+      { 28388, 28416,     3088.854},
+      { 28472, 28475,     3088.854},
+      { 28417, 28453,     3091.760},
+      { 28476, 28478,     3091.760},
+      { 28479, 28482,     3094.697},
+      { 28487, 28489,     3095.430},
+      { 28490, 28492,     3095.826},
+      { 28493, 28495,     3097.213},
+      { 28496, 28498,     3098.340},
+      { 28499, 28501,     3099.042},
+      { 28504, 28505,     3101.359},
+      { 28506, 28509,     3105.580},
+      { 28510, 28511,     3112.051},
+      { 28512, 28513,     3119.878},
+   };
+   static const int Np = sizeof(ListRuns)/sizeof(ListRuns[0]);
+
+   // List Runs for J/Psi scan 2018
+   //               + 3080 data 2019: 7th-11th Feb 2019
+   static const runInfo ListJ2018[] =  {
+      { 55060, 55065,     3087.659},
+      { 55066, 55073,     3095.726},
+      { 55074, 55083,     3096.203},
+      { 55084, 55088,     3096.986},
+      { 55089, 55091,     3097.226},
+      { 55092, 55097,     3097.654},
+      { 55098, 55103,     3098.728},
+      { 55104, 55109,     3104.000},
+      { 59016, 59141,     3080.,  },
+   };
+   static const int Np3 = sizeof(ListJ2018)/sizeof(ListJ2018[0]);
+
+   // List Runs for R-scan 2015 + RscanDQ
+   static const runInfo ListRscan[] =  {
+      { 39355, 39618,     3080.},
+      { 39619, 39650,     2950.},
+      { 39651, 39679,     2981.},
+      { 39680, 39710,     3000.},
+      { 39711, 39738,     3020.},
+      { 39775, 40069,     2900.},
+   };
+   static const int Np2 = sizeof(ListRscan)/sizeof(ListRscan[0]);
+
+   // cache value for one run
+   static int save_runNo = 0;
+   static double Ecms = 3.097;
+   if ( runNo == save_runNo ) {
+      return Ecms;
+   }
+
+   int absrun = abs(runNo);
+   bool found = false;
+
+   // search in J/Psi-scan 2012
+   if ( !found ) {
+      for(int i = 0; i < Np; i++) {
+         if ( absrun >= ListRuns[i].runS &&
+               absrun <= ListRuns[i].runE ) {
+            Ecms   = ListRuns[i].Ebeam  * 1.e-3;  // MeV -> GeV
+            found  = true;
+            break;
+         }
+      }
+   }
+
+   // search in J/Psi scan 2018
+   if ( !found ) {
+      for(int i = 0; i < Np3; i++) {
+         if ( absrun >= ListJ2018[i].runS &&
+               absrun <= ListJ2018[i].runE ) {
+            Ecms   = ListJ2018[i].Ebeam  * 1.e-3;  // MeV -> GeV
+            found  = true;
+            break;
+         }
+      }
+   }
+
+   // search in R-scan
+   if ( !found ) {
+      for(int i = 0; i < Np2; i++) {
+         if ( absrun >= ListRscan[i].runS &&
+               absrun <= ListRscan[i].runE ) {
+            Ecms   = ListRscan[i].Ebeam  * 1.e-3;  // MeV -> GeV
+            found  = true;
+            if ( runNo > 0 ) { // data
+               RscanDQ rdq = RscanDQ(runNo);
+               double Ebeam = rdq.getEbeam(); // beam energy in GeV
+               int status = rdq.getStatus();
+
+               if ( fabs(2*Ebeam-Ecms) > 1e-4 ) {
+                  cout << " GetEcms::WARNING "
+                     << "RscanDQ problem for run= " << runNo
+                     << " Ebeam= " << Ebeam
+                     << " Ecms= " << Ecms << endl;
+                  Warning("RscanDQ problem");
+               }
+
+               if ( status != 1 ) {
+                  cout << " GetEcms::RscanDQ bad run="
+                     << runNo << endl;
+                  Ecms = -Ecms;
+               }
+            }
+            break;
+         }
+      }
+   }
+
+   if ( !found ) {
+      // run not in the list
+      if ( absrun >= 9947 && absrun <= 10878 ) { // J/Psi 2009
+         Ecms =  3.097;
+      } else {
+         cout << " GetEcms::WARNING unknown run# " << runNo
+              << " use Ecms= " << Ecms << endl;
+         Warning("Unknown run");
+      }
+   }
+
+   if( verbose ) {
+      cout << " GetEcms: run= " << runNo << " -> "
+           << " Ecms= " << Ecms << endl;
+   }
+
+   save_runNo = runNo;
+   return Ecms;
+}
+
+/*
+// GetEcms: return negative value for bad runs
+//--------------------------------------------------------------------
+static double GetEcmsOLD(int runNo, bool verbose = false) {
+//--------------------------------------------------------------------
+   struct runInfo {
+      int runS, runE; // first and last runs in period
+      double Ebeam;   // energy of beam (MeV)
       double Spread;  // beam spread (KeV)
       double Lumi;    // luminosity (pb^-1)
    };
@@ -449,7 +595,6 @@ static double GetEcms(int runNo, bool verbose = false) {
       { 55089, 55091,     3097.226, 1.270, 1.70679 },
       { 55092, 55097,     3097.654, 1.047, 4.78731 },
       { 55098, 55103,     3098.728, 1.183, 5.75102 },
-      { 55104, 55109,     3104.000, 1.010, 5.8398  },
       { 55104, 55109,     3104.000, 1.010, 5.8398  },
       { 59016, 59141,     3080.,    0.,    83.935  },
    };
@@ -546,6 +691,7 @@ static double GetEcms(int runNo, bool verbose = false) {
    save_runNo = runNo;
    return Ecms;
 }
+*/
 
 // {{{1 FillHistoMC() && ISRhistoMC()
 //--------------------------------------------------------------------
