@@ -1,6 +1,7 @@
 // plot Data vs MC distributions after all cuts applied
 // -> data_vs_mc_XXXX.pdf
 
+// {{{1 helper functions and constants
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -27,6 +28,7 @@ void SetHstFace(TH1* hst) {
    }
 }
 
+// {{{1 Fill histograms
 //--------------------------------------------------------------------
 vector<TH1D*> get_hists(string name, string var, bool isMC) {
 //--------------------------------------------------------------------
@@ -36,12 +38,12 @@ vector<TH1D*> get_hists(string name, string var, bool isMC) {
    } else {
       fname += string("ntpl_mcgpj_") + name + string(".root");
    }
-//    cout << " file: " << fname << endl;
+   // cout << " file: " << fname << endl;
 
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    froot->cd("SelectKKgg");
@@ -50,6 +52,7 @@ vector<TH1D*> get_hists(string name, string var, bool isMC) {
    string title;
    int Nbins = 100;
    double Vmin = 0, Vmax = 0;
+   string var2;
    if ( var == "Pkp" ) {
       Nbins = 40; Vmin = 0.; Vmax = 1.;
       title = ";P(K^{#plus}), GeV/c;Events/25 MeV/c";
@@ -68,6 +71,17 @@ vector<TH1D*> get_hists(string name, string var, bool isMC) {
    } else if ( var == "Cgg" ) {
       Nbins = 40; Vmin = -1.; Vmax = 1.;
       title = ";cos(#Theta(#eta));Events/0.05";
+   } else if ( var == "Pk" ) {
+      Nbins = 80; Vmin = -1.0; Vmax = 1.0;
+      title = ";P(K^{#minus}) and P(K^{#plus}), GeV/c;"
+         "Events/25 MeV/c";
+      var = "Pkp";
+      var2 = "-Pkm";
+   } else if ( var == "Ck" ) {
+      Nbins = 40; Vmin = -1.; Vmax = 1.;
+      title = ";cos(#Theta(K^{#pm}));Events/0.05";
+      var = "Ckp";
+      var2 = "Ckm";
    } else {
       cerr << " unknown var=" << var << endl;
       exit(0);
@@ -78,10 +92,10 @@ vector<TH1D*> get_hists(string name, string var, bool isMC) {
    if (isMC) {
       c_here += c_xisr + c_MCmkk; // X_isr>0.9 && mc_Mkk<1.08
    }
-   // c_here += c_phi;               // Mkk in [2*Mk, 1.08GeV]
-   c_here += c_phiT;               // Mkk in [1.01, 1.03GeV]
-//    c_here += c_cpgg;              // central part of Mgg
-//    c_here += c_sbgg;              // side-band
+   c_here += c_phi;               // Mkk in [2*Mk, 1.08GeV]
+   // c_here += c_phiT;              // Mkk in [1.01, 1.03GeV]
+   // c_here += c_cpgg;              // central part of Mgg
+   // c_here += c_sbgg;              // side-band
 
    vector<TH1D*> hst(2,nullptr);
    string hncp = var + ((isMC) ? "_mc" : "") + "_cp";
@@ -90,53 +104,53 @@ vector<TH1D*> get_hists(string name, string var, bool isMC) {
    hst[1] = new TH1D(hnsb.c_str(),"Side-band", Nbins,Vmin,Vmax);
    a4c->Draw( (var+">>"+hncp).c_str(), c_here+c_cpgg, "goff");
    a4c->Draw( (var+">>"+hnsb).c_str(), c_here+c_sbgg, "goff");
+   if ( !var2.empty() ) {
+      a4c->Draw( (var2+">>+"+hncp).c_str(), c_here+c_cpgg, "goff");
+      a4c->Draw( (var2+">>+"+hnsb).c_str(), c_here+c_sbgg, "goff");
+   }
 
    return hst;
 }
 
 //--------------------------------------------------------------------
-void fill_hists(string name,vector<TH1D*>& Dhst,vector<TH1D*>& Mhst) {
+tuple<vector<TH1D*>,vector<TH1D*> > HstDM(string name, string var) {
 //--------------------------------------------------------------------
-   vector<string> vars {"Pkp", "Pkm", "Ckp", "Ckm", "Pgg", "Cgg" };
-   for ( auto var : vars ) {
-      auto dh = get_hists(name,var,false); // data
-      auto dm = get_hists(name,var,true);  // MC
+   auto hd = get_hists(name,var,false); // data
+   auto hm = get_hists(name,var,true);  // MC
 
-      // normaliza MC on data:
-      double Ndat = dh[0]->Integral() - dh[1]->Integral();
-      double Nmc  = dm[0]->Integral() - dm[1]->Integral();
-      double scale = Ndat/Nmc;
-      dm[0]->Scale( scale );
-      dm[1]->Scale( scale );
+   // normaliza MC on data:
+   double Ndat = hd[0]->Integral() - hd[1]->Integral();
+   double Nmc  = hm[0]->Integral() - hm[1]->Integral();
+   double scale = Ndat/Nmc;
+   hm[0]->Scale( scale );
+   hm[1]->Scale( scale );
 
-      Dhst.insert( end(Dhst), begin(dh), end(dh) );
-      Mhst.insert( end(Mhst), begin(dm), end(dm) );
-   }
+   return make_tuple(hd,hm);
 }
 
+// {{{1 Plot for slides
 //--------------------------------------------------------------------
 void PlotDataMc(string name, string title) {
 //--------------------------------------------------------------------
-   // string pdf = "data_vs_mc_" + name +".pdf";
-   string pdf = "data_vs_mc_" + name +"_T.pdf"; // tight Mkk cut
+   string pdf = "data_vs_mc_" + name + ".pdf";
+   // string pdf = "data_vs_mc_" + name + "_T.pdf"; // tight Mkk cut
 
    vector<TH1D*> Dhst, Mhst;
-   fill_hists(name,Dhst,Mhst);
-   int Ncp = Dhst[0] -> GetEntries();
-   int Nsb = Dhst[1] -> GetEntries();
+   vector<string> vars {"Pkp", "Pkm", "Ckp", "Ckm", "Pgg", "Cgg" };
+   for ( auto var : vars ) {
+      vector<TH1D*> hd, hm;
+      tie(hd,hm) = HstDM(name,var);
+      Dhst.insert( end(Dhst), begin(hd), end(hd) );
+      Mhst.insert( end(Mhst), begin(hm), end(hm) );
+   }
 
-   // TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
-   // c1->cd();
-   // gPad->SetGrid();
+   int Ncp = Dhst[0]->GetEntries();
+   int Nsb = Dhst[1]->GetEntries();
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,1100,500);
    c1->Divide(3,2);
 
-   // c1->Print((pdf+"[").c_str()); // just open pdf-file
-
-   // TLegend* leg = new TLegend(0.12,0.75,0.52,0.92);
    TLegend* leg = new TLegend(0.12,0.65,0.52,0.92);
-   // string head = string("Data vs MC ") + title;
    string head(Form("#bf{Data vs MC %s}",title.c_str()));
    leg->SetHeader(head.c_str(),"C");
    leg->AddEntry(Dhst[0],Form("Data: %i events",Ncp),"EP");
@@ -195,30 +209,95 @@ void PlotDataMc(string name, string title) {
       pt[np-1]->Draw();
 
       c1->Update();
-      // c1->Print(pdf.c_str()); // add to pdf-file
-      // string pdf = "data_vs_mc_"+name+"_"+to_string(j/2)+".pdf";
-      // c1->Print(pdf.c_str());
    }
-
-   // c1->Print((pdf+"]").c_str()); // just close pdf-file
 
    c1->cd();
    c1->Update();
    c1->Print(pdf.c_str());
 }
 
+// {{{1 Plot for memo
+//--------------------------------------------------------------------
+void PlotDataMcMEMO(string name, string var, string pdf) {
+//--------------------------------------------------------------------
+   vector<TH1D*> hd, hm; // data & mc
+   tie(hd,hm) = HstDM(name,var);
+
+   int maxbin = hd[0]->GetMaximumBin();
+   double hmax = 0;
+   hmax = hd[0]->GetBinContent(maxbin)+hd[0]->GetBinError(maxbin);
+   hmax *= 1.15;
+
+   int Ncp = hd[0]->GetEntries();
+   int Nsb = hd[1]->GetEntries();
+
+   double X1=0.30, Y1=0.75, X2=0.70, Y2=0.89; // legend
+   if ( var == "Pgg" || var == "Cgg" ) {
+      X1=0.12; X2=0.52;
+   }
+   TLegend* leg = new TLegend(X1,Y1,X2,Y2);
+   string title;
+   if ( name == "3080_rs" ) {
+      title = "3080MeV R-scan";
+   } else if ( name == "3097" ) {
+      title = "3097MeV (2012)";
+   } else if ( name == "J4" ) {
+      title = "3097MeV (2018)";
+   }
+   leg->SetHeader(title.c_str(),"C");
+   leg->AddEntry(hd[0],Form("Data: %i events",Ncp),"E");
+   leg->AddEntry(hd[1],Form("Side-band: %i events",Nsb),"F");
+   leg->AddEntry(hm[0],"MC signal #phi#eta","L");
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   c1->cd();
+   gPad->SetGrid();
+
+   SetHstFace(hd[0]);
+   hd[0]->SetLineColor(kBlack);
+   hd[0]->SetLineWidth(2);
+   hd[0]->GetYaxis()->SetTitleOffset(1.25);
+   if ( hmax > 1 ) {
+      hd[0]->SetMaximum(hmax);
+   }
+   hd[0]->Draw("E1");
+
+   hd[1]->SetLineColor(kBlue+2);
+   hd[1]->SetFillStyle(3001);
+   hd[1]->SetFillColor(kBlue+1);
+   hd[1]->Draw("SAME");
+
+   hm[0]->SetLineWidth(2);
+   hm[0]->SetLineColor(kGreen+2);
+   hm[0]->DrawCopy("HIST SAME");
+
+   leg->Draw();
+
+   c1->Update();
+   c1->Print(pdf.c_str());
+}
+
+// {{{1 Main
 //--------------------------------------------------------------------
 void plot_data_mc() {
 //--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
-   gStyle -> SetLegendFont(42);
-//    gStyle->SetOptStat(111110);
-//    gStyle->SetOptFit(0);
+   gStyle->SetLegendFont(42);
+   // gStyle->SetOptStat(111110);
+   // gStyle->SetOptFit(0);
 
-   // PlotDataMc("3080_rs","3080 MeV (R-scan)");
-   PlotDataMc("3097","3097 MeV");
-   // PlotDataMc("J4","3097 MeV (2018)");
+   // PlotDataMc("3080_rs","3080MeV R-scan");
+   // PlotDataMc("J4","3097MeV (2018)");
+   // PlotDataMc("3097","3097MeV (2012)");
 
-//    PlotDataMc("3080_2019","3080 MeV (2019)");
+   // PlotDataMcMEMO("3080_rs","Pgg","Pgg_3080rs.pdf");
+   // PlotDataMcMEMO("3080_rs","Cgg","Cgg_3080rs.pdf");
+   // PlotDataMcMEMO("3080_rs","Pk","Pk_3080rs.pdf");
+   // PlotDataMcMEMO("3080_rs","Ck","Ck_3080rs.pdf");
+
+   // PlotDataMcMEMO("J4","Pgg","Pgg_3097J.pdf");
+   // PlotDataMcMEMO("J4","Cgg","Cgg_3097J.pdf");
+   // PlotDataMcMEMO("J4","Pk","Pk_3097J.pdf");
+   // PlotDataMcMEMO("J4","Ck","Ck_3097J.pdf");
 }

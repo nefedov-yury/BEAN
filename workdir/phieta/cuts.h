@@ -5,7 +5,7 @@
 #include "masses.h"
 
 //--------------------------------------------------------------------
-// J/Psi -> phi eta
+// e+e- -> phi eta
 // Side band for Meta: invariant mass of 2gamma (eta -> 2gamma)
 // Window for Mphi: invariant mass of K+ K- (phi -> K+ K-)
 //--------------------------------------------------------------------
