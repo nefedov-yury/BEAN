@@ -584,15 +584,23 @@ void setJpsiScan12( vector<string>& names, vector<double>& ebeam,
    };
    int N = names.size();
 
+   // OLD:
+   // ebeam = {
+      // 3050.213, 3059.257, 3080.195, 3083.060, 3089.418,
+      // 3092.324, 3095.261, 3095.994, 3096.390, 3097.777,
+      // 3098.904, 3099.606, 3101.923, 3106.144, 3112.615,
+      // 3120.442
+   // };
+   // for ( auto& e : ebeam ) {
+      // e -=0.55;
+   // }
+   // arXiv:2206.13674v1
    ebeam = {
-      3050.213, 3059.257, 3080.195, 3083.060, 3089.418,
-      3092.324, 3095.261, 3095.994, 3096.390, 3097.777,
-      3098.904, 3099.606, 3101.923, 3106.144, 3112.615,
-      3120.442
+      3049.642, 3058.693, 3079.645, 3082.496, 3088.854,
+      3091.760, 3094.697, 3095.430, 3095.826, 3097.213,
+      3098.340, 3099.042, 3101.359, 3105.580, 3112.051,
+      3119.878
    };
-   for ( auto& e : ebeam ) {
-      e -=0.55;
-   }
    if( ebeam.size() != N ) {
       cout << " ERROR in " << __func__ << " size of ebeam" << endl;
       exit(0);
@@ -607,6 +615,9 @@ void setJpsiScan12( vector<string>& names, vector<double>& ebeam,
    if( er_eb.size() != N ) {
       cout << " ERROR in " << __func__ << " size of er_eb" << endl;
       exit(0);
+   }
+   for ( auto& er : er_eb ) { // additional error due to calibration
+      er = sqrt( sq(er) + SQ(0.033) );
    }
 
    lumi = {
