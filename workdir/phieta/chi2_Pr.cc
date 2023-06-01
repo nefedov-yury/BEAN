@@ -3,6 +3,7 @@
 // versus signal MC (plus another MC if any):
 // -> chi2_sb_XXXXX.pdf
 
+// {{{1 helper functions and constants
 static double chi2_cut = 0.; // to keep value from cuts.h file
 
 //--------------------------------------------------------------------
@@ -31,9 +32,16 @@ void SetHstFace(TH1* hst) {
    }
 }
 
+// {{{1 Fill histograms
 //--------------------------------------------------------------------
-TH1D* get_chi2(string fname, string hname, int icuts=1) {
+TH1D* get_chi2(string fname, string hname, int icuts, int mc=0) {
 //--------------------------------------------------------------------
+// icut = 0: no cuts
+//        1: central Mgg
+//        2: side-band Mgg
+// mc   = 0: Data
+//        1: MC
+//      >=2: Inclusive MC with selection 'dec'
 #include "cuts.h"
    chi2_cut = chi2M;
 
@@ -43,7 +51,7 @@ TH1D* get_chi2(string fname, string hname, int icuts=1) {
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    froot->cd("SelectKKgg");
@@ -51,17 +59,22 @@ TH1D* get_chi2(string fname, string hname, int icuts=1) {
 
    TCut c_here(""); // no cuts if icuts == 0
    if ( icuts != 0 ) {
-      bool isMC = (icuts < 0);
+      bool isMC = (mc > 0);
       if (isMC) {
          c_here += c_xisr + c_MCmkk; // X_isr>0.9 && mc_Mkk<1.08
+         if ( mc==2 ) {
+            c_here += TCut("dec==68"); // J/psi->phi eta
+         } else if ( mc==3 ) {
+            c_here += TCut("dec!=68"); // background
+         }
       }
       if ( abs(icuts) == 1 ) { // central part of Mgg
          c_here += c_cpgg;
       } else if ( abs(icuts) == 2 ) { // side-band
          c_here += c_sbgg;
       }
-      // c_here += c_phi; // Mkk in [2*Mk, 1.08GeV]
-      c_here += c_phiT; // Mkk in [1.01, 1.03GeV]
+      c_here += c_phi; // Mkk in [2*Mk, 1.08GeV]
+      // c_here += c_phiT; // Mkk in [1.01, 1.03GeV]
    }
 
    TH1D* chi2 = new TH1D(hname.c_str(),
@@ -73,6 +86,7 @@ TH1D* get_chi2(string fname, string hname, int icuts=1) {
    return chi2;
 }
 
+// {{{1 data vs signal MC
 //--------------------------------------------------------------------
 void chi2_SB( string stype ) {
 //--------------------------------------------------------------------
@@ -82,111 +96,114 @@ void chi2_SB( string stype ) {
    if( stype == "3080_rs" ) {
       Dname = string("ntpl_3080_rs.root");
       MCname= string("ntpl_mcgpj_3080_rs.root");
-      Tleg  = string("#chi^{2}(4C): R-scan at 3080MeV");
+      Tleg  = string("#chi^{2}(4C): 3080MeV R-scan");
       pdf   = string("chi2_sb_3080_rs");
-      MCqq  = string("ntpl_qq_kkmc_3080.root");
+      // MCqq  = string("ntpl_qq_kkmc_3080.root");
    } else if( stype == "3080_2019" ) {
       Dname = string("ntpl_3080_2019.root");
       MCname= string("ntpl_mcgpj_3080_2019.root");
-      Tleg  = string("#chi^{2}(4C): 3080MeV in 2019");
+      Tleg  = string("#chi^{2}(4C): 3080MeV (2019)");
       pdf   = string("chi2_sb_3080_2019");
       MCqq  = string("ntpl_qq_kkmc_3080.root");
    } else if ( stype == "3097" ) {
       Dname = string("ntpl_3097.root");
       MCname= string("ntpl_mcgpj_3097.root");
-      Tleg  = string("#chi^{2}(4C): J/#Psi-scan at 3097MeV");
+      Tleg  = string("#chi^{2}(4C): 3097MeV (2012)");
       pdf   = string("chi2_sb_3097");
       MCinc = string("ntpl_jpsi_incl.root");
    } else if ( stype == "3097J" ) {
       Dname = string("ntpl_J4.root");
       MCname= string("ntpl_mcgpj_J4.root");
-      Tleg  = string("#chi^{2}(4C): 3097MeV in 2018");
+      Tleg  = string("#chi^{2}(4C): 3097MeV (2018)");
       pdf   = string("chi2_sb_3097J");
-      MCinc = string("ntpl_jpsi_incl.root");
+      // MCinc = string("ntpl_jpsi_incl.root");
    } else if ( stype == "2900_rs" ) {
       Dname = string("ntpl_2900_rs.root");
       MCname= string("ntpl_mcgpj_2900_rs.root");
-      Tleg  = string("#chi^{2}(4C): R-scan at 2900MeV");
+      Tleg  = string("#chi^{2}(4C): 2900MeV R-scan");
       pdf   = string("chi2_sb_2900_rs");
    }
 
    TH1D* chi2cp = get_chi2(Dname,"chi2cp",1);
    SetHstFace(chi2cp);
-   chi2cp -> SetLineColor(kBlack);
-   chi2cp -> SetLineWidth(2);
-   chi2cp -> GetYaxis() -> SetTitleOffset(1.25);
+   chi2cp->SetLineColor(kBlack);
+   chi2cp->SetLineWidth(2);
+   chi2cp->GetYaxis()->SetTitleOffset(1.25);
    maxh = max(maxh, chi2cp->GetMaximum());
 
    TH1D* chi2sb = get_chi2(Dname,"chi2sb",2);
-   chi2sb -> SetLineColor(kBlue+2);
-   chi2sb -> SetFillStyle(3001);
-   chi2sb -> SetFillColor(kBlue+1);
+   chi2sb->SetLineColor(kBlue+2);
+   chi2sb->SetFillStyle(3001);
+   chi2sb->SetFillColor(kBlue+1);
 
-   TH1D* chi2_mcS = get_chi2(MCname,"chi2_mcS",-1);
-   chi2_mcS -> SetLineColor(kGreen+2);
-   chi2_mcS -> SetLineWidth(2);
-   // normalize MC signal to data
-   chi2_mcS -> Scale(
+   // MC signal phi eta: normalization to data
+   TH1D* chi2_mcS = get_chi2(MCname,"chi2_mcS",1,1);
+   chi2_mcS->SetLineColor(kGreen+2);
+   chi2_mcS->SetLineWidth(2);
+   chi2_mcS->SetLineStyle(kSolid);
+   chi2_mcS->Scale(
          (chi2cp->Integral() - chi2sb->Integral()) /
-         chi2_mcS -> Integral()
+         chi2_mcS->Integral()
          );
-   maxh = max(maxh, chi2_mcS -> GetMaximum());
+   maxh = max(maxh, chi2_mcS->GetMaximum());
 
+   // MC inclusive for bkg: normalization to data
    TH1D* chi2mc_inc = nullptr;
    if ( !MCinc.empty() ) {
-      chi2mc_inc = get_chi2(MCinc,"chi2_mcinc",-1);
-      // normalize MC inclusive to data
-      chi2mc_inc -> Scale(
-         chi2cp->Integral() / chi2mc_inc -> Integral()
-         );
-      maxh = max(maxh, chi2mc_inc -> GetMaximum());
-      chi2mc_inc -> SetLineColor(kRed+2);
-      chi2mc_inc -> SetLineWidth(2);
-      chi2mc_inc -> SetLineStyle(kDashed);
+      TH1D* chi2_0 = get_chi2(MCinc,"chi2_mc0",1,1); // all
+      double norm = chi2cp->Integral() / chi2_0->Integral();
+      // chi2mc_inc = get_chi2(MCinc,"chi2_mcinc",1,3); // bkg
+      chi2mc_inc = chi2_0;
+      chi2mc_inc->Scale( norm );
+      maxh = max(maxh, chi2mc_inc->GetMaximum());
+      chi2mc_inc->SetLineColor(kRed+2);
+      chi2mc_inc->SetLineWidth(2);
+      chi2mc_inc->SetLineStyle(kDashed);
    }
 
+   // MC-qq: normalizition to data without cuts
    TH1D* chi2mc_qq = nullptr;
    if ( !MCqq.empty() ) {
       TH1D* chi2_0 = get_chi2(Dname,"chi2_0",0);
       TH1D* chi2qq_0 = get_chi2(MCqq,"chi2qq_0",0);
-      // normalizition for MC-qq to data without Mqq cuts
-      double norm = chi2_0->Integral() / chi2qq_0 -> Integral();
+      double norm = chi2_0->Integral() / chi2qq_0->Integral();
 
-      chi2mc_qq = get_chi2(MCqq,"chi2_mcqq",-1);
-      chi2mc_qq -> Scale(norm);
-      maxh = max(maxh, chi2mc_qq -> GetMaximum());
-      chi2mc_qq -> SetLineColor(kRed+2);
-      chi2mc_qq -> SetLineWidth(2);
-      chi2mc_qq -> SetLineStyle(kDashed);
+      chi2mc_qq = get_chi2(MCqq,"chi2_mcqq",1,1);
+      chi2mc_qq->Scale(norm);
+      maxh = max(maxh, chi2mc_qq->GetMaximum());
+      chi2mc_qq->SetLineColor(kRed+2);
+      chi2mc_qq->SetLineWidth(2);
+      chi2mc_qq->SetLineStyle(kDashed);
    }
 
    double ymax = 1.15*maxh;
-   chi2cp -> SetMaximum(ymax);
+   chi2cp->SetMaximum(ymax);
 
    // box to show rejected region
    TBox* box = new TBox;
-   box -> SetFillStyle(3001);
-   box -> SetFillColor(kRed-10);
-   box -> SetLineColor(kRed-9);
-   box -> SetLineWidth(1);
+   box->SetFillStyle(3001);
+   box->SetFillColor(kRed-10);
+   box->SetLineColor(kRed-9);
+   box->SetLineWidth(1);
 
    // Draw
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
-   chi2cp -> SetMaximum(ymax);
-   chi2cp -> DrawCopy("E1");
+   chi2cp->SetMaximum(ymax);
+   chi2cp->DrawCopy("E1");
 
-   double ymin = gPad->PixeltoY(0);
-   box -> DrawBox(chi2_cut, ymin, 200., ymax);
-   chi2cp -> DrawCopy("E1,SAME");
+   // double ymin = gPad->PixeltoY(0);
+   double ymin = 0;
+   box->DrawBox(chi2_cut, ymin, 200., ymax);
+   chi2cp->DrawCopy("E1,SAME");
 
-   chi2sb -> DrawCopy("SAME HIST");
-   chi2_mcS -> DrawCopy("SAME HIST");
-   if ( chi2mc_inc ) chi2mc_inc -> DrawCopy("SAME HIST");
-   if ( chi2mc_qq ) chi2mc_qq -> DrawCopy("SAME HIST");
+   chi2sb->DrawCopy("SAME HIST");
+   chi2_mcS->DrawCopy("SAME HIST");
+   if ( chi2mc_inc ) chi2mc_inc->DrawCopy("SAME HIST");
+   if ( chi2mc_qq ) chi2mc_qq->DrawCopy("SAME HIST");
 
    TLegend* leg = new TLegend(0.46,0.64,0.89,0.89);
    leg->SetHeader(Tleg.c_str(),"C");
@@ -194,35 +211,35 @@ void chi2_SB( string stype ) {
    leg->AddEntry(chi2sb,"Data: side-band","F");
    leg->AddEntry(chi2_mcS,"MC signal #phi#eta","L");
    if ( chi2mc_inc ) {
-      leg->AddEntry(chi2mc_inc,"J/#Psi inclusive MC (2012)","L");
+      // leg->AddEntry(chi2mc_inc,"bkg by incl. MC J/#Psi","L");
+      leg->AddEntry(chi2mc_inc,"Inclusive MC J/#Psi","L");
    }
    if ( chi2mc_qq ) {
       leg->AddEntry(chi2mc_qq,"MC QQ: KKMC at 3080MeV","L");
    }
-   leg -> AddEntry(box, "Rejection area","F");
+   leg->AddEntry(box, "Rejection area","F");
    leg->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
-   // pdf += ".pdf";
-   pdf += "_T.pdf";  // for tight Mkk cut
-   c1 -> Print(pdf.c_str());
+   gPad->RedrawAxis();
+   c1->Update();
+   pdf += ".pdf";
+   // pdf += "_T.pdf";  // for tight Mkk cut
+   c1->Print(pdf.c_str());
 }
 
+// {{{1 Main
 //--------------------------------------------------------------------
 void chi2_Pr() {
 //--------------------------------------------------------------------
-   gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetLegendFont(42);
+   gROOT->Reset();
+   gStyle->SetOptStat(0);
+   gStyle->SetLegendFont(42);
 
    // chi2_SB("3080_rs");
    // chi2_SB("3097J"); // J4
    // chi2_SB("3097");
 
-//    chi2_SB("2900_rs");
-//    chi2_SB("3080_2019");
-//    chi2_SB("");
-
+   // chi2_SB("2900_rs");
+   // chi2_SB("3080_2019");
+   // chi2_SB("");
 }
-
