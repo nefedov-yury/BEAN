@@ -352,8 +352,6 @@ double BreitWigner(double m, double mphi, double gphi, double R=R_BW){
    double BB_k = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
-
-//--    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    return (kap * SQ(fm)) / ( SQ(m2-mphi2) + SQ(GM) );
@@ -1506,7 +1504,6 @@ vector<double> IntfrBWAR( double m,
    double BB_k   = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
-   // double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    // common multipliers
