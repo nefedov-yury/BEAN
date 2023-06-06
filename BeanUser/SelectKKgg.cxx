@@ -427,10 +427,9 @@ static double GetEcms(int runNo, bool verbose = false) {
    };
    static const int Np = sizeof(ListRuns)/sizeof(ListRuns[0]);
 
-   // List Runs for J/Psi scan 2018
-   //               + 3080 data 2019: 7th-11th Feb 2019
+   // List Runs for J/Psi scan 2018: 19.04-87006-bes3memo-v1.1.pdf
    static const runInfo ListJ2018[] =  {
-      { 55060, 55065,     3087.659},
+      { 55060, 55065,     3087.593},
       { 55066, 55073,     3095.726},
       { 55074, 55083,     3096.203},
       { 55084, 55088,     3096.986},
@@ -438,7 +437,7 @@ static double GetEcms(int runNo, bool verbose = false) {
       { 55092, 55097,     3097.654},
       { 55098, 55103,     3098.728},
       { 55104, 55109,     3104.000},
-      { 59016, 59141,     3080.,  },
+      { 59016, 59141,     3080.   }, // 3080 data 2019
    };
    static const int Np3 = sizeof(ListJ2018)/sizeof(ListJ2018[0]);
 
