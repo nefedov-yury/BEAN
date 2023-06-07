@@ -723,7 +723,7 @@ void sig_fit(int date, string pdf="") {
 
    TLegend* leg = new TLegend(0.55,0.81,0.89,0.89);
    leg->AddEntry(hst,Form("MC signal #phi#eta %i",date),"LEP");
-   leg->AddEntry(bwg,"(BW#timesE) #otimes Gauss","L");
+   leg->AddEntry(bwg,"(#it{BW}#times#it{E}) #otimes #it{Gauss}","L");
    leg->Draw();
 
    TPaveText* pt = new TPaveText(0.55,0.63,0.89,0.80,"NDC");

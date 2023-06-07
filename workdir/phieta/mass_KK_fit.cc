@@ -54,9 +54,13 @@ struct ParAndErr {
    vector<double> Uerr; // upper minos errors
    vector<double> Lerr; // lower minos errors
 
+   // if the upper and lower errors differ no more than the
+   // 'threshold', the maximum of them is used as a symmetric error
+   double threshold = 0.1;
+
    // ctor
    //-----------------------------------------------------------------
-   ParAndErr(const ROOT::Fit::FitResult& res,double threshold = 0.1) {
+   ParAndErr(const ROOT::Fit::FitResult& res,double thr = 0.1) {
    //-----------------------------------------------------------------
       Fpar = res.Parameters();
       Perr = res.Errors();
@@ -65,54 +69,58 @@ struct ParAndErr {
       Lerr.resize(Npar,0.);
       Uerr.resize(Npar,0.);
 
-      // if the upper and lower errors differ no more than the
-      // 'threshold', the maximum of them is used as a symmetric error
+      threshold = thr;
+
       for ( int np = 0; np < Npar; ++np ) {
-         if ( res.HasMinosError(np) ) {
-            double uerr = fabs(res.UpperError(np));
-            double lerr = fabs(res.LowerError(np));
-            Uerr[np] = uerr;
-            Lerr[np] = lerr;
-            if ( uerr*lerr == 0 ) {// one of the errors is not defined
-               continue;
-            }
-            if ( fabs(1-lerr/uerr) < threshold ) {
-               Perr[np] = max(lerr,uerr);
-            } else {
-               Perr[np] = -1; // use asymmetric errors
-               if ( res.IsParameterFixed(np) ) {
-                  Perr[np] = 0;
-               }
-            }
+         if ( res.IsParameterFixed(np) ) {
+            Perr[np] = 0;
+            continue;
          }
-//          cout << " set Perr[" << np << "] = " << Perr[np] << endl;
+         if ( res.HasMinosError(np) ) {
+            Uerr[np] = fabs(res.UpperError(np));
+            Lerr[np] = fabs(res.LowerError(np));
+         }
       }
    }
 
    // pretty print parameters with errors
    //-----------------------------------------------------------------
-   const char* Eform (int i,string fm, double X = 1) {
+   const char* Eform (int i, string fm, double X = 1) {
    //-----------------------------------------------------------------
-      if ( Perr[i] > 0 ) {
+      auto SymF = [fm,X](double par, double err) {
          string fmt = "%" +fm+ " #pm %" +fm;
-         return Form(fmt.c_str(),Fpar[i]*X,Perr[i]*X);
-      } else if ( Perr[i] < 0 ) {
+         return Form(fmt.c_str(),par*X,err*X);
+      };
+
+      auto FixF = [fm,X](double par) {
+         string fmt = "%" +fm+ " (fixed)";
+         return Form(fmt.c_str(),par*X);
+      };
+
+      auto AsymF = [fm,X](double par, double uerr, double lerr) {
          string fmt = "%" + fm
             + "^{#lower[0.15]{#kern[0.15]{#plus}#kern[0.05]{%"
             + fm + "}}" + "}"
             + "_{#lower[-0.15]{#kern[0.15]{#minus}#kern[0.05]{%"
             + fm + "}}" + "}";
-         return Form(fmt.c_str(),Fpar[i]*X,Uerr[i]*X,Lerr[i]*X);
-      }
-      string fmt = "%" +fm+ " (fixed)";
-      return Form(fmt.c_str(),Fpar[i]*X);
-   }
+         return Form(fmt.c_str(),par*X,uerr*X,lerr*X);
+      };
 
-   // return middle point = par(i) + 0.5(UpperError+LowerError)
-   //-----------------------------------------------------------------
-   double Middle (int i) {
-   //-----------------------------------------------------------------
-      return Fpar[i] + 0.5*(Uerr[i]-Lerr[i]);
+      if ( Perr[i] == 0 ) {
+         return FixF(Fpar[i]);
+      }
+
+      if ( Uerr[i]*Lerr[i] != 0 ) {
+         // there are both upper and lower errors
+         if ( fabs(1-Lerr[i]/Uerr[i]) < threshold ) {
+            double err = max(Lerr[i],Uerr[i]);
+            return SymF(Fpar[i],err);
+         } else {
+            return AsymF(Fpar[i],Uerr[i],Lerr[i]);
+         }
+      }
+
+      return SymF(Fpar[i],Perr[i]);
    }
 
    // pretty print for table
@@ -157,26 +165,26 @@ constexpr double SQ(double x) {
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
-   TAxis* X = hst -> GetXaxis();
+   TAxis* X = hst->GetXaxis();
    if ( X ) {
-      X -> SetLabelFont(62);
-      X -> SetLabelSize(0.04);
-      X -> SetTitleFont(62);
-      X -> SetTitleSize(0.04);
+      X->SetLabelFont(62);
+      X->SetLabelSize(0.04);
+      X->SetTitleFont(62);
+      X->SetTitleSize(0.04);
    }
-   TAxis* Y = hst -> GetYaxis();
+   TAxis* Y = hst->GetYaxis();
    if ( Y ) {
-      Y -> SetLabelFont(62);
-      Y -> SetLabelSize(0.04);
-      Y -> SetTitleFont(62);
-      Y -> SetTitleSize(0.04);
+      Y->SetLabelFont(62);
+      Y->SetLabelSize(0.04);
+      Y->SetTitleFont(62);
+      Y->SetTitleSize(0.04);
    }
-   TAxis* Z = hst -> GetZaxis();
+   TAxis* Z = hst->GetZaxis();
    if ( Z ) {
-      Z -> SetLabelFont(62);
-      Z -> SetLabelSize(0.04);
-      Z -> SetTitleFont(62);
-      Z -> SetTitleSize(0.04);
+      Z->SetLabelFont(62);
+      Z->SetLabelSize(0.04);
+      Z->SetTitleFont(62);
+      Z->SetTitleSize(0.04);
    }
 }
 
@@ -193,11 +201,11 @@ vector<double> get_mkk_hist( string fname, string hname,
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
-   froot -> cd("SelectKKgg");
-   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
+   froot->cd("SelectKKgg");
+   TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
    TCut c_here = c_chi2+c_phi;
    if ( type == 0 ) {        // central part
@@ -205,9 +213,9 @@ vector<double> get_mkk_hist( string fname, string hname,
    } else if ( type == 1 ) { // side-band
       c_here += c_sbgg;
    }
-   int n = a4c -> Draw("Mkk", c_here, "goff");
+   int n = a4c->Draw("Mkk", c_here, "goff");
    // cout << " n= " << n << endl;
-   double* buffer = a4c -> GetVal(0);
+   double* buffer = a4c->GetVal(0);
    vector<double> mkk(buffer, buffer+n);
 
    string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
@@ -217,9 +225,9 @@ vector<double> get_mkk_hist( string fname, string hname,
                       : string(Form("%.2f MeV/c^{2}",bW*1e3)) );
    hst[0] = new TH1D(hname.c_str(),title.c_str(),Nbins,bL,dU);
 
-   hst[0] -> Sumw2(true);
+   hst[0]->Sumw2(true);
    for ( const auto& mk : mkk ) {
-      hst[0] -> Fill(mk);
+      hst[0]->Fill(mk);
    }
    return mkk;
 }
@@ -283,7 +291,7 @@ tuple<TH1D*,int,double,double> Subtract(string fname) {
       }
    }
    // number side-band events
-   double Nsb = hst2 -> Integral();
+   double Nsb = hst2->Integral();
    return make_tuple(sub,Nbin,Nev,Nsb);
 }
 
@@ -434,58 +442,59 @@ void test_BreitWigner() {
 //--------------------------------------------------------------------
 
    // 1) BreitWigner (internally normalized to 1)
-//    double Eee = Mjpsi;
+   // double Eee = Mjpsi;
    double Eee = 3.08;
    auto Lbw = [Eee](const double* x,const double* p) -> double {
       return p[0]*BreitWigner(x[0],Eee,p[1],p[2]);
    };
    TF1* bw = new TF1("bw", Lbw, dL, dU, 3);
-   bw -> SetParNames("Norm","Mphi","Gphi");
-   bw -> SetParameters(1., Mphi, Gphi);
-   bw -> SetLineWidth(1);
-   bw -> SetLineColor(kBlue);
-   bw -> SetNpx(500);
+   bw->SetParNames("Norm","Mphi","Gphi");
+   bw->SetParameters(1., Mphi, Gphi);
+   bw->SetLineWidth(1);
+   bw->SetLineColor(kBlue);
+   bw->SetNpx(500);
 
-   double norm = 1./bw -> Integral(dL,dU,1e-8);
+   double norm = 1./bw->Integral(dL,dU,1e-8);
    printf("norm = %.7f\n",norm);
-   bw -> SetParameter(0, norm );
+   bw->SetParameter(0, norm );
 
    // 2) BreitWignerGaussN
    auto Lbwgn = [Eee](const double* x,const double* p) -> double {
       return p[0]*BreitWignerGaussN(x[0],Eee,p[1],p[2],p[3]);
    };
    TF1* bwgn = new TF1("bwgn", Lbwgn, dL, dU, 4);
-   bwgn -> SetParNames("Norm","Mphi","Gphi","Sigma");
-   bwgn -> SetParameters(1., Mphi, Gphi, 1.2e-3);
-   bwgn -> SetLineWidth(2);
-   bwgn -> SetLineColor(kRed);
-   bwgn -> SetLineStyle(kDashed);
-   bwgn -> SetNpx(500);
+   bwgn->SetParNames("Norm","Mphi","Gphi","Sigma");
+   bwgn->SetParameters(1., Mphi, Gphi, 1.2e-3);
+   bwgn->SetLineWidth(2);
+   bwgn->SetLineColor(kRed);
+   bwgn->SetLineStyle(kDashed);
+   bwgn->SetNpx(500);
 
    double normN = 1./bwgn->Integral(dL,dU,1e-8);
    printf("normN = %.6f\n",normN);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg -> SetHeader("Breit-Wigner (M_{#phi}, #Gamma_{#phi})","C");
-   leg -> AddEntry(bw -> Clone(), "BW, Rff=3GeV^{-1}", "L");
-   leg -> AddEntry( bwgn -> Clone(), Form("BWG(#sigma=%.2f MeV)",
-            bwgn -> GetParameter(3)*1e3), "L" );
+   leg->SetHeader("Breit-Wigner (M_{#phi}, #Gamma_{#phi})","C");
+   leg->AddEntry(bw->Clone(), "BW, Rff=3GeV^{-1}", "L");
+   leg->AddEntry( bwgn->Clone(), Form("BWG(#sigma=%.2f MeV)",
+            bwgn->GetParameter(3)*1e3), "L" );
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
-   gPad -> SetLogy(true);
+   c1->cd();
+   gPad->SetGrid();
+   gPad->SetLogy(true);
 
-   bw -> Draw();
-   bwgn -> Draw("SAME");
-   leg -> Draw();
+   bw->Draw();
+   bwgn->Draw("SAME");
+   leg->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
 }
 
+// {{{1 Fit signal MC by Breit-Wigner
 //--------------------------------------------------------------------
-void sig_fit_mc(string Ename, double Eee, string pdf="") {
+void sig_fit_mc(string Ename, double Eee, string pdf) {
 //--------------------------------------------------------------------
    string fname( Form("ntpl_mcgpj_%s.root",Ename.c_str()) );
    TH1D* hst = get_mcMkk(fname);
@@ -564,6 +573,129 @@ void sig_fit_mc(string Ename, double Eee, string pdf="") {
    leg->AddEntry(bwg,"Breit-Wigner","L");
    leg->AddEntry(lB,"Cut-off","L");
    leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   if ( !pdf.empty() ) {
+      c1->Print(pdf.c_str());
+   }
+}
+
+//--------------------------------------------------------------------
+void sig_fit(string Ename, double Eee, string pdf) {
+//--------------------------------------------------------------------
+   // Use binned data
+   string fname( Form("ntpl_mcgpj_%s.root",Ename.c_str()) );
+   TH1D* hst = nullptr;
+   int Nbin = 0;
+   double Nev = 0, Nsb = 0;
+   tie(hst,Nbin,Nev,Nsb) = Subtract(fname); // subtract side-band
+
+   ROOT::Fit::DataOptions opt;
+   // use integral of bin content instead of bin center (def: false)
+   opt.fIntegral = true;
+   // use empty bins (default is false) with a fixed error of 1
+   opt.fUseEmpty = true; // must be even for LH
+
+   ROOT::Fit::DataRange dr(dL, dU);
+   ROOT::Fit::BinData Sig(opt,dr);
+   ROOT::Fit::FillData(Sig, hst);
+
+   // Fit signal MC by Breit-Wigner convoluted with Gauss
+   auto Lbwg = [Eee](const double* x,const double* p) -> double {
+      return bW * p[3]*BreitWignerGaussN(x[0],Eee,p[0],p[1],p[2]);
+   };
+
+   vector<string> par_name { "Mphi", "Gphi", "sigma", "Nphi" };
+   vector<double> par_ini  {  Mphi,   Gphi,  1.e-3, Nev-Nsb };
+   const size_t Npar = par_name.size(); // number of parameters
+   TF1* bwg = new TF1("bwg", Lbwg, dL, dU, Npar);
+
+   ROOT::Fit::Fitter fitter;
+   fitter.Config().MinimizerOptions().SetPrintLevel(3);
+
+   ROOT::Math::WrappedTF1 fbwg( *bwg );
+   fitter.SetFunction(fbwg,false); // false=no parameter derivatives
+
+   // Set parameters, data must come before names
+   fitter.Config().SetParamsSettings(Npar,par_ini.data());
+   for( unsigned int i = 0; i < Npar; ++i ) {
+      fitter.Config().ParSettings(i).SetName(par_name[i]);
+   }
+
+   // fix/limit/step for parameters
+   //-----------------------------------------------------------------
+   fitter.Config().ParSettings(0).SetLimits(Mphi-0.01,Mphi+0.01);
+   // fitter.Config().ParSettings(0).Fix();
+   fitter.Config().ParSettings(1).Fix();
+   // fitter.Config().ParSettings(1).SetLimits(Gphi-1e-4,Gphi+1e-4);
+   fitter.Config().ParSettings(2).SetLimits(0.1e-3, 3.e-3); // sigma
+   // fitter.Config().ParSettings(4).SetLimits(0.8*Nev,1.2*Nev);// Nphi
+
+   // Fit
+   //-----------------------------------------------------------------
+   fitter.LikelihoodFit( Sig );
+   fitter.CalculateMinosErrors();
+   // fitter.CalculateHessErrors(); // without MINOS here
+
+   ROOT::Fit::FitResult res = fitter.Result();
+   res.Print(cout);
+   double Lmin = res.MinFcnValue();
+   ParAndErr PE(res,0.1);
+   vector<double>& Fpar = PE.Fpar;
+
+   //-----------------------------------------------------------------
+   // "Goodness of fit" evaluated by Chi2
+   double chi2 = res.Chi2();
+   unsigned int Ndf = res.Ndf();
+
+   //-----------------------------------------------------------------
+   // Functions to draw
+   auto Ldr = [Lbwg,Fpar](double* x,double* p) -> double {
+      return Lbwg(x,Fpar.data());
+   };
+   TF1* fdr = new TF1("fdr", Ldr, dL, dU, 0);
+   fdr->SetLineWidth(2);
+   fdr->SetLineColor(kRed);
+   fdr->SetNpx(500);
+
+   //-----------------------------------------------------------------
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   c1->cd();
+   gPad->SetGrid();
+   gPad->SetLogy();
+
+   SetHstFace(hst);
+   hst->SetMinimum(1.);
+   hst->GetYaxis()->SetTitleOffset(1.2);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
+
+   hst->Draw("EP");
+   fdr->Draw("SAME");
+
+   TLegend* leg = new TLegend(0.55,0.79,0.89,0.89);
+   string title(Ename);
+   if ( Ename == "3080_rs" ) {
+      title = "3080MeV R-scan";
+   } else if ( Ename == "J4" ) {
+      title = "3097MeV (2018)";
+   }
+   leg->SetHeader(title.c_str(),"C");
+   leg->AddEntry(hst,"MC signal #phi#eta","LEP");
+   leg->AddEntry(bwg,"#it{Breit-Wigner} #otimes #it{Gauss}","L");
+   leg->Draw();
+
+   TPaveText* pt = new TPaveText(0.55,0.63,0.89,0.78,"NDC");
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   pt->AddText( Form("#chi^{2}/ndf = %.2f / %u",chi2,Ndf) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma = %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->AddText( Form("N_{#phi}= %s",PE.Eform(3,".0f")) );
+   pt->Draw();
 
    gPad->RedrawAxis();
    c1->Update();
@@ -654,7 +786,7 @@ void test_RevArgus() {
       return RevArgus(x[0],p[0],p[1]);
    };
    TF1* far = new TF1("far", Lar, dL,dU, 2);
-   far -> SetParameters(0.,Eee);
+   far->SetParameters(0.,Eee);
    TUnuranContDist dist(far);
    dist.SetDomain(dL,dU);
    // to use a different random number engine do:
@@ -670,52 +802,52 @@ void test_RevArgus() {
 
    // Generate
    TH1D* h1 = new TH1D("h1Ar","", 100,dL,dU);
-   h1 -> SetLineWidth(2);
-   h1 -> SetLineColor(kBlack);
-   h1 -> SetMarkerStyle(20);
+   h1->SetLineWidth(2);
+   h1->SetLineColor(kBlack);
+   h1->SetMarkerStyle(20);
 
    int Ngen = 1000;
    for (int i = 0; i < Ngen; ++i) {
       double x = unr.Sample();
-      h1 -> Fill(x);
+      h1->Fill(x);
    }
 
    // Draw
-   double Wb = Ngen * (dU-dL) / h1 -> GetNbinsX();
-   auto Larg = [Wb](const double* x,const double* p) -> double {
+   double Wb = Ngen * (dU-dL) / h1->GetNbinsX();
+   auto Larg = [Wb](const double* x,const double* p)->double {
       return Wb*RevArgusN(x[0],p[0],p[1]);
    };
 
    TF1* fbkg = new TF1("fbkg", Larg, dL, dU, 2);
-   fbkg -> SetParameter(0, far -> GetParameter(0) );
-   fbkg -> SetParameter(1, Eee );
-   fbkg -> SetLineWidth(2);
-   fbkg -> SetLineColor(kBlue);
+   fbkg->SetParameter(0, far->GetParameter(0) );
+   fbkg->SetParameter(1, Eee );
+   fbkg->SetLineWidth(2);
+   fbkg->SetLineColor(kBlue);
 
    TLegend* leg = new TLegend(0.13,0.74,0.43,0.89);
-   leg -> SetHeader( Form("RevArgus(Eee=%.2f) a=%.2f",
-            Eee, fbkg -> GetParameter(0)),"C" );
-   leg -> AddEntry( h1,"Unuran generated","PLE");
-   leg -> AddEntry( fbkg -> Clone(), "RevArgusN function","L");
+   leg->SetHeader( Form("RevArgus(Eee=%.2f) a=%.2f",
+            Eee, fbkg->GetParameter(0)),"C" );
+   leg->AddEntry( h1,"Unuran generated","PLE");
+   leg->AddEntry( fbkg->Clone(), "RevArgusN function","L");
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
-   h1 -> Draw("EP");
-   fbkg -> DrawCopy("SAME");
+   h1->Draw("EP");
+   fbkg->DrawCopy("SAME");
 
-   fbkg -> SetParameter(0, 2.); // Argus parameter
-   fbkg -> SetLineColor(kRed+2);
-   fbkg -> DrawCopy("SAME");
-   leg -> AddEntry( fbkg -> Clone(), "RevArgusN(A=2)","L");
+   fbkg->SetParameter(0, 2.); // Argus parameter
+   fbkg->SetLineColor(kRed+2);
+   fbkg->DrawCopy("SAME");
+   leg->AddEntry( fbkg->Clone(), "RevArgusN(A=2)","L");
 
-   leg -> Draw();
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   leg->Draw();
+   gPad->RedrawAxis();
+   c1->Update();
 
    // test normalization:
-   printf(" RevArgusN norm= %.6f\n",fbkg -> Integral(dL,dU)/Wb );
+   printf(" RevArgusN norm= %.6f\n",fbkg->Integral(dL,dU)/Wb );
 }
 
 // {{{1 Interference BW with Argus bkg.
@@ -879,10 +1011,10 @@ void test_Intfr() {
    };
    TF1* fgen = new TF1("fgen", Lgen, dL,dU, 6); // 5 or 6
    double Sg=1.4e-3, Ag = 0, Fg = 1.0, Ang = 0.8;
-   // fgen -> SetParameters(Mphi,Gphi,Ag,Fg,Ang);
-   fgen -> SetParameters(Mphi,Gphi,Sg,Ag,Fg,Ang);
+   // fgen->SetParameters(Mphi,Gphi,Ag,Fg,Ang);
+   fgen->SetParameters(Mphi,Gphi,Sg,Ag,Fg,Ang);
 
-   double Xmax = fgen -> GetMaximumX(Mphi-0.4e-3,Mphi+0.4e-3);
+   double Xmax = fgen->GetMaximumX(Mphi-0.4e-3,Mphi+0.4e-3);
    printf(" Xmax= %.7f (delta= %.1e)\n",Xmax,Xmax-Mphi);
 
    TUnuranContDist dist(fgen);
@@ -902,18 +1034,18 @@ void test_Intfr() {
 
    // Generate
    TH1D* h1 = new TH1D("h1Intfr","", 100,dL,dU);
-   h1 -> SetLineWidth(2);
-   h1 -> SetLineColor(kBlack);
-   h1 -> SetMarkerStyle(20);
+   h1->SetLineWidth(2);
+   h1->SetLineColor(kBlack);
+   h1->SetMarkerStyle(20);
 
    int Ngen = 1000;
    for (int i = 0; i < Ngen; ++i) {
       double x = unr.Sample();
-      h1 -> Fill(x);
+      h1->Fill(x);
    }
 
    // Draw
-   double Wb = Ngen * (dU-dL) / h1 -> GetNbinsX();
+   double Wb = Ngen * (dU-dL) / h1->GetNbinsX();
    auto Lintfr=[Eee,Wb,Sg,Ag,Fg,Ang](double* x, double* p) -> double {
       // vector<double> res = IntfrBWAR( x[0],Eee, Mphi,Gphi,Ag,Fg,Ang);
       // return Wb*res[int(p[0])];
@@ -922,46 +1054,46 @@ void test_Intfr() {
    };
 
    TF1* fun = new TF1("fun", Lintfr, dL, dU, 1);
-   fun -> SetLineWidth(2);
-   fun -> SetNpx(500);
+   fun->SetLineWidth(2);
+   fun->SetNpx(500);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    TLegend* leg = new TLegend(0.59,0.59,0.89,0.89);
-   leg -> SetHeader("Interference BW #otimes Argus","C");
-   leg -> AddEntry( h1,"Unuran generated","PLE");
+   leg->SetHeader("Interference BW #otimes Argus","C");
+   leg->AddEntry( h1,"Unuran generated","PLE");
 
-   h1 -> SetMaximum(1.2*fun->Eval(Xmax));
-   h1 -> SetMinimum(-25);
-   h1 -> Draw("EP");
+   h1->SetMaximum(1.2*fun->Eval(Xmax));
+   h1->SetMinimum(-25);
+   h1->Draw("EP");
 
-   fun -> SetParameter(0, 0.); // draw all
-   fun -> SetLineColor(kRed);
-   fun -> SetLineStyle(kSolid);
-   fun -> DrawCopy("SAME");
-   leg -> AddEntry( fun -> Clone(), "IntfrBWARG function", "L");
+   fun->SetParameter(0, 0.); // draw all
+   fun->SetLineColor(kRed);
+   fun->SetLineStyle(kSolid);
+   fun->DrawCopy("SAME");
+   leg->AddEntry( fun->Clone(), "IntfrBWARG function", "L");
 
-   fun -> SetParameter(0, 1); // draw BW
-   fun -> SetLineColor(kGreen+2);
-   fun -> SetLineStyle(kDashed);
-   fun -> DrawCopy("SAME");
-   leg -> AddEntry( fun -> Clone(), "Breit-Wigner", "L");
+   fun->SetParameter(0, 1); // draw BW
+   fun->SetLineColor(kGreen+2);
+   fun->SetLineStyle(kDashed);
+   fun->DrawCopy("SAME");
+   leg->AddEntry( fun->Clone(), "Breit-Wigner", "L");
 
-   fun -> SetParameter(0, 2); // draw Argus
-   fun -> SetLineColor(kBlue);
-   fun -> SetLineStyle(kDashed);
-   fun -> DrawCopy("SAME");
-   leg -> AddEntry( fun -> Clone(), "Argus", "L");
+   fun->SetParameter(0, 2); // draw Argus
+   fun->SetLineColor(kBlue);
+   fun->SetLineStyle(kDashed);
+   fun->DrawCopy("SAME");
+   leg->AddEntry( fun->Clone(), "Argus", "L");
 
-   fun -> SetParameter(0, 3); // draw interference
-   fun -> SetLineColor(kMagenta);
-   fun -> SetLineStyle(kSolid);
-   fun -> DrawCopy("SAME");
-   leg -> AddEntry( fun -> Clone(), "Interference", "L");
+   fun->SetParameter(0, 3); // draw interference
+   fun->SetLineColor(kMagenta);
+   fun->SetLineStyle(kSolid);
+   fun->DrawCopy("SAME");
+   leg->AddEntry( fun->Clone(), "Interference", "L");
 
-   leg -> Draw();
+   leg->Draw();
    c1->Update();
 }
 
@@ -980,7 +1112,7 @@ void do_fit(string fname, double Eee, bool bkgfit,
    // use integral of bin content instead of bin center (def: false)
    opt.fIntegral = true;
    // use empty bins (default is false) with a fixed error of 1
-   opt.fUseEmpty = true; // for LH ?
+   opt.fUseEmpty = true; // must be even for LH
 
    ROOT::Fit::DataRange dr(dL, dU);
    ROOT::Fit::BinData Dat(opt,dr);
@@ -1071,33 +1203,33 @@ void do_fit(string fname, double Eee, bool bkgfit,
       return Lfit(x,Fpar.data());
    };
    TF1* fdr = new TF1("fdr", Ldr, dL, dU, 0);
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineColor(kRed);
-   fdr -> SetNpx(500);
+   fdr->SetLineWidth(2);
+   fdr->SetLineColor(kRed);
+   fdr->SetNpx(500);
 
    auto Lbkg = [Fpar,Eee](double* x,double* p) -> double {
       return bW * Fpar[5] * RevArgusN(x[0],Fpar[3],Eee);
    };
    TF1* fbkg = new TF1("fbkg", Lbkg, dL, dU, 0);
-   fbkg -> SetLineWidth(2);
-   fbkg -> SetLineColor(kBlue);
-   fbkg -> SetLineStyle(kDashed);
+   fbkg->SetLineWidth(2);
+   fbkg->SetLineColor(kBlue);
+   fbkg->SetLineStyle(kDashed);
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
-   // gPad -> SetLogy(true);
+   c1->cd();
+   gPad->SetGrid();
+   // gPad->SetLogy(true);
 
    SetHstFace(hst);
-   hst -> GetYaxis() -> SetMaxDigits(3);
-   hst -> GetYaxis() -> SetTitleOffset(1.2);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetYaxis()->SetMaxDigits(3);
+   hst->GetYaxis()->SetTitleOffset(1.2);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
-   fdr -> Draw("SAME");
+   hst->Draw("EP");
+   fdr->Draw("SAME");
 
    TLegend* leg = nullptr;
    TPaveText* pt = nullptr;
@@ -1108,36 +1240,36 @@ void do_fit(string fname, double Eee, bool bkgfit,
       leg = new TLegend(0.60,0.80,0.89,0.89);
       pt = new TPaveText(0.60,0.56,0.89,0.80,"NDC");
    }
-   leg -> AddEntry(hst,title.c_str(),"LEP");
-   leg -> AddEntry(fdr,"BW #otimes Gauss","L");
+   leg->AddEntry(hst,title.c_str(),"LEP");
+   leg->AddEntry(fdr,"BW #otimes Gauss","L");
    if ( bkgfit ) {
-      fbkg -> Draw("SAME");
-      leg -> AddEntry(fbkg,"flat background","L");
+      fbkg->Draw("SAME");
+      leg->AddEntry(fbkg,"flat background","L");
    }
-   leg -> Draw();
+   leg->Draw();
 
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-   pt -> AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   pt->AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",
             PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
-   pt -> AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
+   pt->AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
+   pt->AddText( Form("N_{#phi}= %s",PE.Eform(4,".1f")) );
    if ( bkgfit ) {
-      // pt -> AddText( Form("a = %s",PE.Eform(3,".2f")) );
-      pt -> AddText( Form("N_{bkg}= %s",PE.Eform(5,".1f")) );
+      // pt->AddText( Form("a = %s",PE.Eform(3,".2f")) );
+      pt->AddText( Form("N_{bkg}= %s",PE.Eform(5,".1f")) );
    }
-   pt -> Draw();
+   pt->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
       if ( !bkgfit ) {
          pdf += "_nobg";
       }
       pdf += ".pdf";
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 
    // print for table
@@ -1386,9 +1518,9 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
       return bW * Fpar[6]*IntfrBWARGN( x[0],Eee,Fpar.data(),idx );
    };
    TF1* fdr = new TF1("fdr", Ldr, dL, dU, 1);
-   fdr -> SetLineWidth(2);
-   fdr -> SetLineColor(kRed);
-   fdr -> SetNpx(500);
+   fdr->SetLineWidth(2);
+   fdr->SetLineColor(kRed);
+   fdr->SetNpx(500);
 
    // find min to draw
    fdr->SetParameter(0, 3);   // interference
@@ -1400,72 +1532,72 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
       } else {
          hmin = int(hmin) - 2.;
       }
-      hst -> SetMinimum(hmin);
+      hst->SetMinimum(hmin);
    }
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(hst);
-   hst -> GetYaxis() -> SetMaxDigits(3);
-   hst -> GetYaxis() -> SetTitleOffset(1.2);
-   hst -> SetLineWidth(2);
-   hst -> SetLineColor(kBlack);
-   hst -> SetMarkerStyle(20);
+   hst->GetYaxis()->SetMaxDigits(3);
+   hst->GetYaxis()->SetTitleOffset(1.2);
+   hst->SetLineWidth(2);
+   hst->SetLineColor(kBlack);
+   hst->SetMarkerStyle(20);
 
-   hst -> Draw("EP");
+   hst->Draw("EP");
 
    TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
-   leg -> AddEntry(hst,title.c_str(),"LEP");
+   leg->AddEntry(hst,title.c_str(),"LEP");
 
-   fdr -> SetParameter(0, 0); // SUM
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Result of the fit", "L");
+   fdr->SetParameter(0, 0); // SUM
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Result of the fit", "L");
 
    // draw components
-   fdr -> SetLineWidth(1);
-   fdr -> SetLineStyle(kDashed);
+   fdr->SetLineWidth(1);
+   fdr->SetLineStyle(kDashed);
 
-   fdr -> SetParameter(0, 1);   // BW
-   fdr -> SetLineColor(kGreen+2);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Breit-Wigner", "L");
+   fdr->SetParameter(0, 1);   // BW
+   fdr->SetLineColor(kGreen+2);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Breit-Wigner", "L");
 
-   fdr -> SetParameter(0, 2);   // Argus
-   fdr -> SetLineColor(kBlue);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Argus", "L");
+   fdr->SetParameter(0, 2);   // Argus
+   fdr->SetLineColor(kBlue);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Argus", "L");
 
-   fdr -> SetParameter(0, 3);   // interference
-   fdr -> SetLineColor(kMagenta+1);
-   fdr -> DrawCopy("SAME");
-   leg -> AddEntry( fdr -> Clone(), "Interference", "L");
+   fdr->SetParameter(0, 3);   // interference
+   fdr->SetLineColor(kMagenta+1);
+   fdr->DrawCopy("SAME");
+   leg->AddEntry( fdr->Clone(), "Interference", "L");
 
-   leg -> Draw();
+   leg->Draw();
 
    TPaveText* pt = new TPaveText(0.60,0.50,0.89,0.74,"NDC");
-   pt -> SetTextAlign(12);
-   pt -> SetTextFont(42);
-   pt -> AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
-   pt -> AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
-   pt -> AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
-   pt -> AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
-   // pt -> AddText( Form("a= %s",PE.Eform(3,".1f")) );
-   pt -> AddText( Form("F= %s",PE.Eform(4,".2f")) );
-   pt -> AddText( Form("#vartheta= %s",PE.Eform(5,".2f")) );
-   pt -> AddText( Form("N_{#etaKK}= %s",PE.Eform(6,".1f")) );
-   pt -> AddText( Form("N_{#phi}= %.1f #pm %.1f",Nphi,err_Nphi) );
-   pt -> Draw();
+   pt->SetTextAlign(12);
+   pt->SetTextFont(42);
+   pt->AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
+   pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
+   pt->AddText( Form("#Gamma_{#phi}= %s MeV",PE.Eform(1,".3f",1e3)) );
+   pt->AddText( Form("#sigma= %s MeV", PE.Eform(2,".2f",1e3)) );
+   // pt->AddText( Form("a= %s",PE.Eform(3,".1f")) );
+   pt->AddText( Form("F= %s",PE.Eform(4,".2f")) );
+   pt->AddText( Form("#vartheta= %s",PE.Eform(5,".2f")) );
+   pt->AddText( Form("N_{#etaKK}= %s",PE.Eform(6,".1f")) );
+   pt->AddText( Form("N_{#phi}= %.1f #pm %.1f",Nphi,err_Nphi) );
+   pt->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
       // pdf = string("mkk_pict/") + pdf +
          // (neg_pos ? "_n.pdf" : "_p.pdf");
       pdf += ".pdf";
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 
    // print for table
@@ -1567,12 +1699,12 @@ ValErr CalcIntEr( const ROOT::Fit::FitResult& res,
 //--------------------------------------------------------------------
 void mass_KK_fit(int interference=1) {
 //--------------------------------------------------------------------
-   gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetOptFit(111); // do not print fixed parameters!
-   // gStyle -> SetOptFit(112); // print all parameters (fixed)
-   gStyle -> SetStatFont(62);
-   gStyle -> SetLegendFont(42);
+   gROOT->Reset();
+   gStyle->SetOptStat(0);
+   gStyle->SetOptFit(111); // do not print fixed parameters!
+   // gStyle->SetOptFit(112); // print all parameters (fixed)
+   gStyle->SetStatFont(62);
+   gStyle->SetLegendFont(42);
 
    // gStyle->SetStatH(0.25);
    // gStyle->SetStatW(0.23);
@@ -1591,12 +1723,20 @@ void mass_KK_fit(int interference=1) {
    // test_RevArgus();
    // test_Intfr();
 
-   // string Ename("3080_rs");
-   // double Eee = 3.08;
-   string Ename("J4");
-   double Eee = 3.096986;
-   string pdf_mcsig( Form("mcMkk_sig_%s.pdf",Ename.c_str()) );
-   sig_fit_mc(Ename,Eee,pdf_mcsig);
+   //-----------------------------------------------------------------
+   // -> fit signal MC for test
+
+   string Ename("3080_rs");
+   double Eee = 3.08;
+   // string Ename("J4");
+   // double Eee = 3.096986;
+
+   // string pdf_mcsig( Form("mcMkk_sig_%s.pdf",Ename.c_str()) );
+   // sig_fit_mc(Ename,Eee,pdf_mcsig);
+
+   // fit MC phi-eta by BW x Gauss
+   string pdf_sig( Form("mkk_sig_log_%s.pdf",Ename.c_str()) );
+   sig_fit(Ename,Eee,pdf_sig);
 
    return;
 
