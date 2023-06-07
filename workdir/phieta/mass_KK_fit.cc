@@ -287,6 +287,34 @@ tuple<TH1D*,int,double,double> Subtract(string fname) {
    return make_tuple(sub,Nbin,Nev,Nsb);
 }
 
+//--------------------------------------------------------------------
+TH1D* get_mcMkk(string fname) {
+//--------------------------------------------------------------------
+   // name of folder with root files
+   static string dir("Ntpls/");
+
+   fname = dir + fname;
+   TFile* froot = TFile::Open(fname.c_str(),"READ");
+   if( !froot ) {
+      cerr << "can not open " << fname << endl;
+      exit(EXIT_FAILURE);
+   }
+
+   froot->cd("SelectKKgg");
+   TH1D* mcmkk = (TH1D*) gDirectory->Get("mc_Mkk");
+   if( !mcmkk ) {
+      cerr << "can not find mc_Mkk" << endl;
+      exit(EXIT_FAILURE);
+   }
+
+   string title(";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}");
+   title += string(";Entries / 1 MeV/c^{2}");
+   mcmkk->SetTitle(title.c_str());
+   // mcmkk->Sumw2(true);
+
+   return mcmkk;
+}
+
 // {{{1 Breigt Wigner for phi -> KK
 //--------------------------------------------------------------------
 // Breigt Wigner for e+ e- -> phi eta -> K+K- eta
@@ -294,14 +322,14 @@ tuple<TH1D*,int,double,double> Subtract(string fname) {
 //--------------------------------------------------------------------
 
 //--------------------------------------------------------------------
-double BreitWigner(double m, double Eee, double mphi, double gphi) {
+double BreitWigner(double m, double Eee, double mphi, double gphi,
+      double R = R_BW) {
 //--------------------------------------------------------------------
-// we assume that mphi, gphi and R are the fit parameters
    if ( m < dL ) { // phase space becomes zero (see p_k)
       return 0;
    }
 
-   static const double R   = R_BW; // Blatt-Weisskopf ff
+   // static const double R   = R_BW; // Blatt-Weisskopf ff
    constexpr double Meta2  = SQ(Meta);
    constexpr double Mk2    = SQ(Mk);
 
@@ -327,8 +355,6 @@ double BreitWigner(double m, double Eee, double mphi, double gphi) {
    double BB_k = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
-
-//--    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    return (kap * SQ(fm)) / ( SQ(m2-mphi2) + SQ(GM) );
@@ -456,6 +482,94 @@ void test_BreitWigner() {
 
    gPad -> RedrawAxis();
    c1 -> Update();
+}
+
+//--------------------------------------------------------------------
+void sig_fit_mc(string Ename, double Eee, string pdf="") {
+//--------------------------------------------------------------------
+   string fname( Form("ntpl_mcgpj_%s.root",Ename.c_str()) );
+   TH1D* hst = get_mcMkk(fname);
+   double bin_width = hst->GetBinWidth(1);
+
+   // Fit signal MC(phi,eta) by Breit-Wigner
+   auto Lbwg = [Eee,bin_width](const double* x,const double* p) {
+      return bin_width*p[0]*BreitWigner(x[0],Eee,p[1],p[2],p[3]);
+   };
+   TF1* bwg = new TF1("bwg", Lbwg, 0.98, 1.2, 4);
+   bwg->SetParNames("Norm","Mphi","Gphi","r");
+   bwg->SetParameters(1.e5, Mphi, Gphi, R_BW);
+
+   // bwg->FixParameter(1, Mphi);
+   // bwg->FixParameter(2, Gphi);
+   // bwg->FixParameter(3, R_BW);
+   bwg->SetParLimits(3, 0.5, 5.);
+
+   bwg->SetLineWidth(2);
+   bwg->SetLineColor(kRed);
+   bwg->SetNpx(500);
+
+   // gStyle->SetOptFit(111); // do not print fixed parameters
+   gStyle->SetOptFit(112); // print all parameters
+   gStyle->SetStatFont(42);
+   gStyle->SetFitFormat(".7g"); // or .6f
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.89);
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   c1->cd();
+   gPad->SetGrid();
+   gPad->SetLogy();
+
+   SetHstFace(hst);
+   hst->SetMinimum(1.);
+   hst->GetXaxis()->SetTitleOffset(1.1);
+   hst->GetYaxis()->SetTitleOffset(1.25);
+   hst->SetLineWidth(3);
+   hst->SetLineColor(kBlack);
+
+   hst->Draw("EP");
+   double maxMkk=1.083;
+   hst->Fit("bwg","E","",dL,maxMkk);
+
+   TLine* lB = new TLine;
+   lB->SetLineColor(kBlue+1);
+   lB->SetLineWidth(2);
+   lB->SetLineStyle(kDashed);
+   lB->DrawLine(maxMkk,1,maxMkk,hst->GetBinContent(103));
+
+   TF1* bwg1 = (TF1*) bwg->Clone();
+   bwg1->SetLineStyle(kDashed);
+   bwg1->DrawF1(maxMkk,1.125,"SAME");
+
+   double genEv = hst->GetEntries();
+   double corr = bwg->GetParameter(0) / genEv;
+   double dcorr = bwg->GetParError(0) / genEv;
+   cout << " genEv= " << genEv << " corr= " << corr << endl;
+
+   double intg108 = bwg->Integral(dL,1.08,1e-8) / bin_width;
+   double norm108 = bwg->GetParameter(0) / intg108;
+   cout << " norm108= " << norm108 << endl;
+
+   TLegend* leg = new TLegend(0.22,0.20,0.62,0.40);
+   leg->SetTextSize(0.03);
+   leg->SetHeader( Form("Cut-off correction: %.3f#pm%.3f",corr,dcorr),
+         "C" );
+   string title(Ename);
+   if ( Ename == "3080_rs" ) {
+      title = "3080MeV";
+   } else if ( Ename == "J4" ) {
+      title = "3097MeV";
+   }
+   leg->AddEntry(hst, Form("MC truth %s",title.c_str()),"LEP");
+   leg->AddEntry(bwg,"Breit-Wigner","L");
+   leg->AddEntry(lB,"Cut-off","L");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   if ( !pdf.empty() ) {
+      c1->Print(pdf.c_str());
+   }
 }
 
 // {{{1 Argus functions
@@ -647,7 +761,6 @@ vector<double> IntfrBWAR( double m, double Eee,
    double BB_k   = sqrt( BB_k2 );
 
    double fm = r_phi*r_k*BB_phi*BB_k;
-//    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k; // == m*G(m)
    double GM = gphi*mphi*(r_k*r_k*r_k)*BB_k2; // == m*G(m)
 
    // common multipliers
@@ -1477,7 +1590,15 @@ void mass_KK_fit(int interference=1) {
    // test_BreitWigner();
    // test_RevArgus();
    // test_Intfr();
-   // return;
+
+   // string Ename("3080_rs");
+   // double Eee = 3.08;
+   string Ename("J4");
+   double Eee = 3.096986;
+   string pdf_mcsig( Form("mcMkk_sig_%s.pdf",Ename.c_str()) );
+   sig_fit_mc(Ename,Eee,pdf_mcsig);
+
+   return;
 
    //-----------------------------------------------------------------
    // structure with data description
