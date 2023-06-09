@@ -2,6 +2,7 @@
 
 BEAN6="./bean_6.6.4.exe"
 BEAN7="./bean_7.0.4.exe"
+MAX_PROC=4
 
 ODIR="./outputs"
 if [ "$HOSTNAME" != "badger" ]; then
@@ -10,7 +11,7 @@ if [ "$HOSTNAME" != "badger" ]; then
 fi
 
 # badger:
-BDIR_MCGPJ="/data/bes3/phasejpsiscan/MC/phieta_mcgpj"
+BDIR_MCGPJ="/data/bes3/phasejpsiscan/MC/phieta_mcgpj/MCGPJ_03"
 
 ######################## DATA ########################
 if [ 0 -eq 1 ]; then
@@ -21,7 +22,7 @@ if [ 0 -eq 1 ]; then
   DSTS+="3102 3106 3112 3120 "
 
   printf "${DSTS}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN6} -u SelectKKgg \
             -L phieta/Lists/{}.list \
             -h ${ODIR}/ntpl_{}.root \
@@ -38,7 +39,7 @@ if [ 1 -eq 1 ]; then
   DSTS+="3096 3097 3098 3099 3102 3106 3112 3120"
 
   printf "${DSTS}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN6} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}.root \
             ${BDIR}/phiEta_mcgpj_{}mc_?.dst \
@@ -46,11 +47,24 @@ if [ 1 -eq 1 ]; then
 fi
 
 if [ 1 -eq 1 ]; then
+  # J/Psi 2018 MCGPJ:
+  BDIR_J="${BDIR_MCGPJ}/MCGPJ_PhiEta_J2018"
+  DSTJN="J1 J2 J3 J4 J5 J6 J7 J8"
+  printf "${DSTJN}" | \
+    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+      sh -c "${BEAN7} -u SelectKKgg \
+            -h ${ODIR}/ntpl_mcgpj_{}.root \
+            ${BDIR_J}/phiEta_mcgpj_{}mc_?.dst \
+            > ${ODIR}/mcgpj_{}.out 2>&1"
+fi
+
+if [ 1 -eq 1 ]; then
   # Rscan 2015 MCGPJ
   BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R"
-  DSTRS="2900 2950 2981 3000 3020 3080"
+  #  DSTRS="2900 2950 2981 3000 3020 3080"
+  DSTRS="3080"
   printf "${DSTRS}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}_rs.root \
             ${BDIR_R}/phiEta_mcgpj_{}Rmc_?.dst \
@@ -58,22 +72,10 @@ if [ 1 -eq 1 ]; then
 fi
 
 if [ 0 -eq 1 ]; then
-  # J/Psi 2018 MCGPJ:
-  BDIR_J="${BDIR_MCGPJ}/MCGPJ_PhiEta_J2018"
-  DSTJN="J1 J2 J3 J4 J5 J6 J7 J8"
-  printf "${DSTJN}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
-      sh -c "${BEAN7} -u SelectKKgg \
-            -h ${ODIR}/ntpl_mcgpj_{}.root \
-            ${BDIR_J}/phiEta_mcgpj_{}mc_?.dst \
-            > ${ODIR}/mcgpj_{}.out 2>&1"
-fi
-
-if [ 0 -eq 1 ]; then
   # 3080 data 2019 MCGPJ
   BDIR_2019="${BDIR_MCGPJ}/MCGPJ_PhiEta_R_704"
   printf "3080_2019" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}.root \
             ${BDIR_2019}/phiEta_mcgpj_{}_?.dst \
@@ -81,6 +83,29 @@ if [ 0 -eq 1 ]; then
 
 fi
 
+######################## BACKGROUND MC ########################
+if [ 0 -eq 1 ]; then
+  # +++ inclusive J/Psi
+  printf "00 01 02 03 04 05 06 07" | \
+    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    sh -c "${BEAN6} -u SelectKKgg \
+        -L phieta/Lists/JPsi_664_{}.list \
+        -h ${ODIR}/ntpl_jpsi_incl_{}.root \
+        > ${ODIR}/jpsi_incl_{}.out 2>&1"
+fi
+
+if [ 0 -eq 1 ]; then
+  # KKMC: e+ e- -> all final states (study of background)
+  BDIR_KKMC="/data/bes3/phasejpsiscan/MC/qq_KKMC"
+  ${BEAN6} -u SelectKKgg \
+    -h ${ODIR}/ntpl_qq_kkmc_3080.root \
+    ${BDIR_KKMC}/qq_KKMC_3080*.dst \
+    > ${ODIR}/qq_kkmc_3080.out 2>&1 &
+fi
+
+######################## OLD, UNUSED ########################
+if false
+then
 # MCGPJ: e+ e- --> K+K- eta (phase space)
 #
 if [ 0 -eq 1 ]; then
@@ -134,23 +159,5 @@ if [ 0 -eq 1 ]; then
 
 fi
 
-######################## BACKGROUND MC ########################
-if [ 0 -eq 1 ]; then
-  # +++ inclusive J/Psi
-  printf "00 01 02 03 04 05 06 07" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
-    sh -c "${BEAN6} -u SelectKKgg \
-        -L phieta/Lists/JPsi_664_{}.list \
-        -h ${ODIR}/ntpl_jpsi_incl_{}.root \
-        > ${ODIR}/jpsi_incl_{}.out 2>&1"
 fi
-
-if [ 0 -eq 1 ]; then
-  # KKMC: e+ e- -> all final states (study of background)
-  BDIR_KKMC="/data/bes3/phasejpsiscan/MC/qq_KKMC"
-  ${BEAN6} -u SelectKKgg \
-    -h ${ODIR}/ntpl_qq_kkmc_3080.root \
-    ${BDIR_KKMC}/qq_KKMC_3080*.dst \
-    > ${ODIR}/qq_kkmc_3080.out 2>&1 &
-fi
-
+######################## END ########################
