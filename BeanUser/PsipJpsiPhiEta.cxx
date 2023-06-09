@@ -402,6 +402,12 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[1] = new TH1D("All_cuts","selections cuts", 20,-0.5,19.5);
 
    //  ChargedTracksPiPi:
+   // angle between tracks of one charge
+   hst[6] = new TH1D("ang_pip","cos(ang) between all pairs of pi+",
+         200,-1.,1.);
+   hst[7] = new TH1D("ang_pim","cos(ang) between all pairs of pi-",
+         200,-1.,1.);
+
    hst[11] = new TH1D("Rxy","R_{xy}", 200,-2.,2.);
    hst[12] = new TH1D("Rz","R_{z}", 200,-20.,20.);
    hst[13] = new TH1D("cos_theta","cos(#theta)", 200,-1.,1.);
@@ -414,12 +420,6 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[19] = new TH1D("pi_ct","soft pions cos(#theta)", 200,-1.,1.);
    hst[20] = new TH2D("pi_pm","N(+) vs N(-)",
          10,-0.5,9.5, 10,-0.5,9.5);
-
-   // angle between tracks of one charge
-   hst[6] = new TH1D("ang_pip","cos(ang) between all pairs of pi+",
-         200,-1.,1.);
-   hst[7] = new TH1D("ang_pim","cos(ang) between all pairs of pi-",
-         200,-1.,1.);
 
    hst[21] = new TH1D("Mrec","recol mass of pi+ pi-", 100,3.,3.2);
    hst[22] = new TH2D("MrecNch","Mrec(pi+ pi-) vs Nch",

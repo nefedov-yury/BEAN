@@ -216,6 +216,12 @@ void SelectKKggStartJob(ReadDst* selector) {
    hst[9] = new TH1D("Ecms","E_{cms}", 600, 2.85, 3.15);
 
    //  ChargedTracksKK:
+   // angle between tracks of one charge
+   hst[6] = new TH1D("ang_pip","cos(ang) between all pairs of K+",
+         200,-1.,1.);
+   hst[7] = new TH1D("ang_pim","cos(ang) between all pairs of K-",
+         200,-1.,1.);
+
    hst[11] = new TH1D("Rxy","R_{xy}", 200,-2.,2.);
    hst[12] = new TH1D("Rz","R_{z}", 200,-20.,20.);
    hst[13] = new TH1D("cos_theta","cos(#theta)", 200,-1.,1.);
@@ -1031,6 +1037,28 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
    hst[24]->Fill(np,nm);
    hst[25]->Fill(np+nm);
    hst[26]->Fill(Nother);
+
+   // check angle between tracks of one charge
+   for ( int i = 1; i < np; ++i ) {
+      const auto& t1 = Slct.trk_Kp[i];
+      Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
+      for ( int ii = 0; ii < i; ++ii ) {
+         const auto& t2 = Slct.trk_Kp[ii];
+         Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
+         double ang = Vp1.angle(Vp2);
+         hst[6]->Fill(cos(ang));
+      }
+   }
+   for ( int i = 1; i < nm; ++i ) {
+      const auto& t1 = Slct.trk_Km[i];
+      Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
+      for ( int ii = 0; ii < i; ++ii ) {
+         const auto& t2 = Slct.trk_Km[ii];
+         Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
+         double ang = Vp1.angle(Vp2);
+         hst[7]->Fill(cos(ang));
+      }
+   }
 
    // require exactly one "+" and one "-"
    if ( np != 1 || nm != 1 ) {
