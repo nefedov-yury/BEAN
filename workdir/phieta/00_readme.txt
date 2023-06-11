@@ -5,12 +5,11 @@ Scripts for phi-eta selection:
 //--------------------------------------------------------------------
 Common headers
 //--------------------------------------------------------------------
-masses.h   -> masses of particles (GeV) from PDG 2021
+masses.h   -> masses of particles (GeV) from PDG 2022
 
-TODO: cuts.h -> List of cuts
+cuts.h -> List of cuts
 // List of constants and cuts
 
-Ntpls/a4c_prod2.C -> declaration of variables in prod-02
 Ntpls/a4c_prod3.C -> declaration of variables in prod-03
 > a4c->MakeCode("a4c_prod3.C")
 

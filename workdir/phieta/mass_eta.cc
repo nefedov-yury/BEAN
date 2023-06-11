@@ -115,7 +115,7 @@ void plot_mass_eta(bool presentation=true) {
    vector<TPaveText*> pt( Nhst, nullptr );
    for ( size_t i = 0; i < Nhst; ++i ) {
       string hn( Form("mgg_%zu",i) );
-      bool isMC = (i > 3);
+      bool isMC = (i >= 3);
       mgg[i] = get_mass_hist(fnames[i],hn,isMC);
 
       SetHstFace(mgg[i]);

@@ -1,0 +1,9 @@
+MCGPJ version 03: corrected shape of Mkk, 250 000ev/Energy
+
+Mcgpj.EnergySpread = 0.86;      // sqrt(2)*BeamSpread [MeV]
+Mcgpj.EmQCDangle = 2.6;         // Phi_mix
+Mcgpj.EmQCDampl = 3.3;          // A_mix
+      BW for phi with cut Minv(K+K-) < 1083 MeV
+      Xisr - no cut
+
+   variation of MCGPJ parameters: not yet done
