@@ -31,7 +31,7 @@ mass_eta.cc:
 // after chi^2 cut for Mphi region
 // -> mass_eta_(PR).pdf
 
-mass_KK.cc:
+-- mass_KK.cc: do we need it?
 // plot M(K+K-) distributions
 // cuts: chi^2(4C) + Mgg
 // -> mass_kk_(PR).pdf
@@ -46,6 +46,13 @@ plot_data_mc.cc
 // plot Data vs MC distributions after all cuts applied
 // -> data_vs_mc_XXXX.pdf
 
+mcgpj_plots.cc
+// plot true distributions for MCGPJ generator:
+// 1) beam-spread       -> mcgpj_bs_Exxxx.pdf
+// 2) cos Theta (eta)   -> mcgpj_ang_Exxxx.pdf
+// 3) X_{ISR} distributions before and after selection
+//    -> Xisr_XXXX.pdf
+
 //--------------------------------------------------------------------
 Background study
 //--------------------------------------------------------------------
@@ -58,17 +65,11 @@ jpsi_incl.cc:
 //--------------------------------------------------------------------
 Efficiency && Cross section
 //--------------------------------------------------------------------
-xisr_Pr.cc:
-// To illustratt why X_{ISR} > 0.9 is chosen as the signal definition
-// area, we plot X_{ISR} distributions (from MCGPJ) before and after
-// selection
-// -> Xisr_XXXX.pdf
-
-xisr_eff.cc
+-- xisr_eff.cc ?
 // plot efficiency as a function of X_isr
 // -> Xisr_eff_XXXX.pdf
 
-eff_MC.cc:
+-- eff_MC.cc: ?
 // selection efficiency of the J/Psi -> phi eta
 // as a function of true MC M(K+K-)
 // fit it by a straight line
@@ -77,6 +78,7 @@ eff_MC.cc:
 mass_KK_fit.cc
 // fit distributions M(K+K-) for data
 // NOTE: see also PsipJpsiPhiEta/mass_kk_fit.cc and mkk_fitch2.cc
+//       memo_brf_v15a: phase_angle= 0.05^+0.52_-0.63 = [-0.58,+0.58]
 // -> outputs:
 //    'mkk_inter/' for interference model BW with Argus
 //    'mkk_noint/' for model with sum BW + Argus
