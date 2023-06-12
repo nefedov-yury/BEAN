@@ -684,7 +684,7 @@ void sig_fit(string Ename, double Eee, string pdf) {
    }
    leg->SetHeader(title.c_str(),"C");
    leg->AddEntry(hst,"MC signal #phi#eta","LEP");
-   leg->AddEntry(bwg,"#it{Breit-Wigner} #otimes #it{Gauss}","L");
+   leg->AddEntry(bwg,"Breit-Wigner #otimes Gauss","L");
    leg->Draw();
 
    TPaveText* pt = new TPaveText(0.55,0.63,0.89,0.78,"NDC");
@@ -1215,6 +1215,16 @@ void do_fit(string fname, double Eee, bool bkgfit,
    fbkg->SetLineColor(kBlue);
    fbkg->SetLineStyle(kDashed);
 
+   // set min/max to draw
+   hst->SetMinimum(-5.);
+   int maxbin = hst->GetMaximumBin();
+   double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
+   double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
+   hmax = floor(1.1 * max( hmax, fmax ));
+   if ( hmax > 0 ) {
+      hst->SetMaximum(hmax);
+   }
+
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1->cd();
@@ -1231,26 +1241,21 @@ void do_fit(string fname, double Eee, bool bkgfit,
    hst->Draw("EP");
    fdr->Draw("SAME");
 
-   TLegend* leg = nullptr;
-   TPaveText* pt = nullptr;
-   if ( bkgfit ) {
-      leg = new TLegend(0.60,0.77,0.89,0.89);
-      pt = new TPaveText(0.60,0.53,0.89,0.77,"NDC");
-   } else {
-      leg = new TLegend(0.60,0.80,0.89,0.89);
-      pt = new TPaveText(0.60,0.56,0.89,0.80,"NDC");
-   }
+   double yleg = 0.80 - 0.04*int(bkgfit);
+   TLegend* leg = new TLegend(0.55,yleg,0.89,0.89);
    leg->AddEntry(hst,title.c_str(),"LEP");
-   leg->AddEntry(fdr,"BW #otimes Gauss","L");
+   leg->AddEntry(fdr,"Breit-Wigner #otimes Gauss","L");
    if ( bkgfit ) {
       fbkg->Draw("SAME");
       leg->AddEntry(fbkg,"flat background","L");
    }
    leg->Draw();
 
+   double ypt = yleg - 0.04*(5+int(bkgfit));
+   TPaveText* pt = new TPaveText(0.55,ypt,0.89,yleg-0.01,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
-   pt->AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
+   pt->AddText( Form("#chi^{2}/ndf = %.2f / %u",chi2,Ndf) );
    pt->AddText( Form("M_{#phi}= %s MeV",PE.Eform(0,".2f",1e3)) );
    pt->AddText( Form("#Gamma_{#phi}= %s MeV",
             PE.Eform(1,".3f",1e3)) );
@@ -1522,18 +1527,20 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    fdr->SetLineColor(kRed);
    fdr->SetNpx(500);
 
-   // find min to draw
-   fdr->SetParameter(0, 3);   // interference
-   double hmin = fdr->GetMinimum(1.,Mphi); // min in [1,Mphi]
-   if ( hmin < -0.1 && hmin < hst->GetMinimum() ) {
-      if ( hst->GetMaximum() > 40 ) {
-         double hmin1 = 5.*(int(hmin)/5-1);
-         hmin = ( fabs(hmin1-hmin) > 1 ) ? hmin1 : hmin1-5;
-      } else {
-         hmin = int(hmin) - 2.;
-      }
-      hst->SetMinimum(hmin);
+   // set max/min to draw
+   fdr->SetParameter(0, 1); // BW
+   int maxbin = hst->GetMaximumBin();
+   double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
+   double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
+   hmax = floor(1.1 * max( hmax, fmax ));
+   if ( hmax > 0 ) {
+      hst->SetMaximum(hmax);
    }
+
+   fdr->SetParameter(0, 3);   // interference
+   double hmin = fdr->GetMinimum( 1.01, 1.03, 1e-6);
+   hmin = floor(1.15 * min( -5., hmin ));
+   hst->SetMinimum(hmin);
 
    //-----------------------------------------------------------------
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
@@ -1549,7 +1556,8 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
 
    hst->Draw("EP");
 
-   TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
+   double yleg = 0.89 - 0.03*5;
+   TLegend* leg = new TLegend(0.55,yleg,0.89,0.89);
    leg->AddEntry(hst,title.c_str(),"LEP");
 
    fdr->SetParameter(0, 0); // SUM
@@ -1577,7 +1585,8 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
 
    leg->Draw();
 
-   TPaveText* pt = new TPaveText(0.60,0.50,0.89,0.74,"NDC");
+   double ypt = yleg - 0.03*8;
+   TPaveText* pt = new TPaveText(0.55,ypt,0.89,yleg-0.01,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    pt->AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
@@ -1726,19 +1735,25 @@ void mass_KK_fit(int interference=1) {
    //-----------------------------------------------------------------
    // -> fit signal MC for test
 
-   string Ename("3080_rs");
-   double Eee = 3.08;
+   // string Ename("3080_rs");
+   // double Eee = 3.08;
    // string Ename("J4");
    // double Eee = 3.096986;
+   // --------------
+   // string Ename("J3");
+   // double Eee = 3.096203;
+   // string Ename("3097"); // 2012
+   // double Eee = 3.097777;
+
 
    // string pdf_mcsig( Form("mcMkk_sig_%s.pdf",Ename.c_str()) );
    // sig_fit_mc(Ename,Eee,pdf_mcsig);
 
    // fit MC phi-eta by BW x Gauss
-   string pdf_sig( Form("mkk_sig_log_%s.pdf",Ename.c_str()) );
-   sig_fit(Ename,Eee,pdf_sig);
+   // string pdf_sig( Form("mkk_sig_log_%s.pdf",Ename.c_str()) );
+   // sig_fit(Ename,Eee,pdf_sig);
 
-   return;
+   // return;
 
    //-----------------------------------------------------------------
    // structure with data description
@@ -1759,7 +1774,7 @@ void mass_KK_fit(int interference=1) {
       {"3020_rs",3.02, "R-scan: 3020MeV"},
       {"3080_rs",3.08, "R-scan: 3080MeV"},
       //-- tau-scan 2018: 7-14
-      {"J1", 3.087659, "2018: 3087.659MeV"},
+      {"J1", 3.087593, "2018: 3087.593MeV"},
       {"J2", 3.095726, "2018: 3095.726MeV"},
       {"J3", 3.096203, "2018: 3096.203MeV"},
       {"J4", 3.096986, "2018: 3096.986MeV"},
@@ -1768,22 +1783,22 @@ void mass_KK_fit(int interference=1) {
       {"J7", 3.098728, "2018: 3098.728MeV"},
       {"J8", 3.104,    "2018: 3104.000MeV"},
       //-- J/Psi-scan 2012: 15-30
-      {"3050",3.049663,"2012: 3049.663MeV"},
-      {"3060",3.058707,"2012: 3058.707MeV"},
+      {"3050",3.049642,"2012: 3049.642MeV"},
+      {"3060",3.058693,"2012: 3058.693MeV"},
       {"3080",3.079645,"2012: 3079.645MeV"},
-      {"3083",3.082510,"2012: 3082.510MeV"},
-      {"3090",3.088868,"2012: 3088.868MeV"},
-      {"3093",3.091774,"2012: 3091.774MeV"},
-      {"3094",3.094711,"2012: 3094.711MeV"},
-      {"3095",3.095444,"2012: 3095.444MeV"},
-      {"3096",3.095840,"2012: 3095.840MeV"},
-      {"3097",3.097227,"2012: 3097.227MeV"},
-      {"3098",3.098354,"2012: 3098.354MeV"},
-      {"3099",3.099056,"2012: 3099.056MeV"},
-      {"3102",3.101373,"2012: 3101.373MeV"},
-      {"3106",3.105594,"2012: 3105.594MeV"},
-      {"3112",3.112065,"2012: 3112.065MeV"},
-      {"3120",3.119892,"2012: 3119.892MeV"},
+      {"3083",3.082496,"2012: 3082.496MeV"},
+      {"3090",3.088854,"2012: 3088.854MeV"},
+      {"3093",3.091760,"2012: 3091.760MeV"},
+      {"3094",3.094697,"2012: 3094.697MeV"},
+      {"3095",3.095430,"2012: 3095.430MeV"},
+      {"3096",3.095826,"2012: 3095.826MeV"},
+      {"3097",3.097213,"2012: 3097.213MeV"},
+      {"3098",3.098340,"2012: 3098.340MeV"},
+      {"3099",3.099042,"2012: 3099.042MeV"},
+      {"3102",3.101359,"2012: 3101.359MeV"},
+      {"3106",3.105580,"2012: 3105.580MeV"},
+      {"3112",3.112051,"2012: 3112.051MeV"},
+      {"3120",3.119878,"2012: 3119.878MeV"},
    };
 
    //-----------------------------------------------------------------
@@ -1862,15 +1877,15 @@ void mass_KK_fit(int interference=1) {
          // "2018: 3087.659MeV","mkk_J1" ); // 8,sb=1
    // do_fitI( "ntpl_J3.root", 3.096203,
          // "2018: 3096.203MeV","mkk_J3" ); // 985,sb=31
-   // do_fitI( "ntpl_J4.root", 3.096986,
-         // "2018: 3096.986MeV","mkk_J4" ); // 866
+   do_fitI( "ntpl_J4.root", 3.096986,
+         "2018: 3096.986MeV","mkk_J4" ); // 866
 
    // do_fitI( "ntpl_3050.root", 3.049663,
          // "2012: 3049.663MeV","mkk_3050" ); // 22
    // do_fitI( "ntpl_3095.root", 3.095444,
          // "2012: 3095.444MeV","mkk_3095" ); // 100
-   do_fitI( "ntpl_3097.root", 3.097227,
-         "2012: 3097.227MeV","mkk_3097" ); // 559,sb=16
+   // do_fitI( "ntpl_3097.root", 3.097227,
+         // "2012: 3097.227MeV","mkk_3097" ); // 559,sb=16
    // do_fitI( "ntpl_3099.root", 3.099056,
          // "2012: 3099.056MeV","mkk_3099" ); // 24
    // do_fitI( "ntpl_3106.root", 3.105594,
