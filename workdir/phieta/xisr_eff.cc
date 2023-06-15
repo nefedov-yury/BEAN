@@ -1,4 +1,5 @@
 // plot efficiency as a function of X_isr
+// NOTE: there is no cut Mkk < 1.08 in 'mcisr_xisr' histo
 // -> Xisr_eff_XXXX.pdf
 
 // {{{1 helper functions and constants

@@ -63,10 +63,11 @@ Background study
 > purity for ch2<80 is 95.43%
 
 //--------------------------------------------------------------------
-Efficiency && Cross section
+Efficiency && Mkk fitting
 //--------------------------------------------------------------------
 -- xisr_eff.cc: --memo--
 // plot efficiency as a function of X_isr
+// NOTE: there is no cut Mkk < 1.08 in 'mcisr_xisr' histo
 // -> Xisr_eff_XXXX.pdf
 
 eff_MC.cc:
@@ -83,6 +84,9 @@ mass_KK_fit.cc
 //    'mkk_inter/' for interference model BW with Argus
 //    'mkk_noint/' for model with sum BW + Argus
 
+//--------------------------------------------------------------------
+Cross section
+//--------------------------------------------------------------------
 cross_section.cpp:
 // estimating the cross-section values from the data:
 // I ) sinple subtraction of the side-band
@@ -94,27 +98,14 @@ cross_section.cpp:
 //    -> cs_results.h   : cpp-code with cross-section and energies
 //    -> cs_results.tex or .txt : final tables in TeX format
 
-CS_OLD/10Feb23: side-band subtraction, tight cut: 1.01 < Mkk < 1.03 GeV
-CS_OLD/17Mar23: mass_KK_fit (LH), more accurate fit parameters
-
-MCGPJ_02 parameters (see fit results of 22Mar23)
-CS_OLD/25Mar23:    mass_KK_fit (LH)
-CS_OLD/SB_25Mar23: side-band subtraction: 1.01<Mkk<1.03 GeV
-
-Fix bug: include zero bins in likelihood fitting
-CS_OLD/01Apr23_02: mass_KK_fit (LH MCGPJ_02)
-
-MCGPJ_01 parameters is close to result:
-01Apr23: mass_KK_fit (LH MCGPJ_01)
-SB_01Apr23: side-band subtraction: 1.01<Mkk<1.03 GeV (MCGPJ_01)
+15Jun23: mass_KK_fit, MCGPJ_03
 
 //--------------------------------------------------------------------
-Study of uncertainties
+--- Study of uncertainties
 //--------------------------------------------------------------------
 sys_lumi.py
 # systematic uncertainties for luminosity (pb-1)
 -> sys_lumi.h
-
 
 cmpr_cs.cc
 // compare cross-sections

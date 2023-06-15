@@ -66,11 +66,12 @@ void get_eff(string fname, string title, string pdf="") {
       cout << " can not find mc_Mkk_ini histo" << endl;
       exit(EXIT_FAILURE);
    }
-   // 100bins [0.98,108] (see SelectKKgg.cxx)
-   double Nini = mc_Mkk_ini->Integral(1,100);
+   // Note: Xisr > 0.9 cut is applied in SelectKKgg.cxx
+   double Nini = mc_Mkk_ini->Integral(1,100); // Mkk<1.08GeV
    printf(" number of generated 'e+e- -> phi eta'"
-         " for Xisr<09 is %.0f\n",Nini);
+         " for Xisr>0.9 is %.0f\n",Nini);
 
+   // 100bins [0.98,108]
    // int Nbins = 100;
    // TH1D* mkk_i = mc_Mkk_ini;
 

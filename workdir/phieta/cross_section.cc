@@ -1,5 +1,5 @@
 // estimating the cross-section values from the data:
-// I ) sinple subtraction of the side-band
+// I ) simple subtraction of the side-band
 // II) after mass_KK_fit.cc
 //  *) plot efficiency of phi-eta selection on the base of MCGPJ
 //     -> eff_12/18/R/all.pdf
@@ -169,35 +169,26 @@ void prtTable( FILE* fp, bool TeX, string title,
 //--------------------------------------------------------------------
 double getMCini(string fname) {
 //--------------------------------------------------------------------
-   // get MC initial distribution
-#include "cuts.h"
+// return number of MC events generated for Xisr > 0.9 and Mkk < 1.08
+// NOTE: there is no cut Mkk < 1.08 in "mcisr_xisr" histo
+//       so we use "mc_Mkk_ini"
 
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cout << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
-   froot -> cd("SelectKKgg");
-   TH1D* Xisr_ini = (TH1D*)gROOT -> FindObject("mcisr_xisr");
-   if( !Xisr_ini ) {
-      cout << " file: " << fname << endl;
-      cout << " can not find mcisr_xisr histo" << endl;
-      exit(0);
+   froot->cd("SelectKKgg");
+   TH1D* mc_Mkk_ini = (TH1D*)gROOT->FindObject("mc_Mkk_ini");
+   if( !mc_Mkk_ini ) {
+      cout << " can not find mc_Mkk_ini histo" << endl;
+      exit(EXIT_FAILURE);
    }
-
-   int NXbins = Xisr_ini -> GetNbinsX();
-   int ib_min = int(Xisr_min*NXbins)+1;
-   double Xlow = Xisr_ini -> GetBinLowEdge(ib_min);
-   if ( fabs(Xlow-Xisr_min) > 1e-6 ) {
-      cout << " file: " << fname << endl;
-      cout << " wrong bin in Xisr_ini: ib_min = " << ib_min
-         << " LowEdge= " << Xlow << " Xisr_min= " << Xisr_min
-         << endl;
-      exit(0);
-   }
-   double Nini = Xisr_ini -> Integral(ib_min,NXbins+1);
-//    cout << " Xisr_min= " << Xisr_min << " Nini= " << Nini << endl;
+   // Note: Xisr > 0.9 cut is applied in SelectKKgg.cxx
+   double Nini = mc_Mkk_ini->Integral(1,100); // Mkk<1.08GeV
+   // printf(" number of generated 'e+e- -> phi eta'"
+         // " for Xisr>0.9 is %.0f\n",Nini);
 
    return Nini;
 }
@@ -213,11 +204,11 @@ tuple<double,double> getNumHst( string fname, string hname,
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cout << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
-   froot -> cd("SelectKKgg");
-   TTree* a4c = (TTree*)gDirectory -> Get("a4c");
+   froot->cd("SelectKKgg");
+   TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
    TCut c_here = c_chi2;
    if ( isMC ) {
@@ -245,9 +236,9 @@ tuple<double,double> getNumHst( string fname, string hname,
    hst[1] = new TH1D(hnsb.c_str(), title.c_str(), Nbins,bL,dU);
 
    // fill MKK histograms and count number of events in them
-   double Ncp = a4c -> Draw( Form("Mkk>>%s",hncp.c_str()),
+   double Ncp = a4c->Draw( Form("Mkk>>%s",hncp.c_str()),
          c_here+c_cpgg, "goff" );
-   double Nsb = a4c -> Draw( Form("Mkk>>%s",hnsb.c_str()),
+   double Nsb = a4c->Draw( Form("Mkk>>%s",hnsb.c_str()),
          c_here+c_sbgg, "goff" );
 
    return make_tuple(Ncp,Nsb);
@@ -257,7 +248,7 @@ tuple<double,double> getNumHst( string fname, string hname,
 void getEfficiency( bool UseFitMkk, const vector<string>& names,
       vector<double> Eff[], vector<TH1D*>& HstMc ) {
 //--------------------------------------------------------------------
-   // calculate efficiency and fill Nmc & mkk
+// calculate efficiency and fill Nmc & mkk
    int N = names.size();
    Eff[0].resize(N,0.);
    Eff[1].resize(N,0.);
@@ -274,7 +265,8 @@ void getEfficiency( bool UseFitMkk, const vector<string>& names,
 
       double eff = (Ncp - Nsb) / Nini;
       double err = eff*sqrt( (Ncp+Nsb)/SQ(Ncp-Nsb) + 1./Nini);
-//       cout << " eff = " << eff << " +/- " << err << endl;
+      // printf("%s efficiency: %.5f +/- %.5f\n",
+            // names[i].c_str(),eff,err);
 
       Eff[0][i] = eff;
       Eff[1][i] = err;
@@ -286,7 +278,8 @@ void getCrossSection( const vector<string>& names,
       const vector<double>& lumi,const vector<double>& eff,
       vector<double> CS[],vector<double> Nd[],vector<TH1D*>& HstD ) {
 //--------------------------------------------------------------------
-   // calculate cross sections
+// calculate cross sections by couning events and subtracting
+// the side-band
    const double Br_phiKK = 0.492; // PDG2018: phi->K+K-   (49.2±0.5)%
    // PDG2018: eta->2gamma (39.41±0.20)%
    // MC generated decay of eta
@@ -302,14 +295,15 @@ void getCrossSection( const vector<string>& names,
       string fname = "Ntpls/ntpl_" + names[i] + ".root";
       string hname = "mkk_dat_" + names[i];
       double Ncp = 0, Nsb = 0;
-      // getCrossSection() called for SB so UseFitMkk is false
+      // here UseFitMkk must be false
       tie(Ncp,Nsb) = getNumHst(fname,hname,false,false,&HstD[2*i]);
 
       double nd      = Ncp - Nsb;
       double err_nd  = sqrt( Ncp + Nsb );
       double cs      = nd / (lumi[i]*eff[i]*Br_phiKK);
       double err_cs  = cs * (err_nd/nd);
-//       cout << " cross section: " << cs << " +/- " << err_cs << endl;
+      // printf("%s cross section: %.3g +/- %.3g\n",
+            // names[i].c_str(),cs,err_cs);
 
       Nd[0][i] = nd;
       Nd[1][i] = err_nd;
@@ -321,8 +315,9 @@ void getCrossSection( const vector<string>& names,
 //--------------------------------------------------------------------
 void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
 //--------------------------------------------------------------------
-   // const string DIR("mkk_inter/LH_std/"); // directory to read files
-   const string DIR("mkk_inter/"); // directory to read files
+// read Mkk fitting results: Nphi and errNphi
+   // directory to read files
+   const string DIR("mkk_inter/");
    int N = names.size();
    Nd[0].resize(N,0.);
    Nd[1].resize(N,0.);
@@ -331,7 +326,7 @@ void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
       FILE* fmkk = fopen(fname.c_str(),"r");
       if ( !fmkk ) {
          cout << " can not open file " << fname << endl;
-         exit(1);
+         exit(EXIT_FAILURE);
       }
       fseek(fmkk, 0, SEEK_END);
       auto pos = ftell(fmkk);
@@ -372,7 +367,7 @@ void CrossSection( const vector<double> Nd[],
       const vector<double>& lumi, const vector<double>& eff,
       vector<double> CS[] ) {
 //--------------------------------------------------------------------
-   // calculate cross sections
+// calculate cross sections
    const double Br_phiKK = 0.492; // PDG2018: phi->K+K-   (49.2±0.5)%
    // PDG2018: eta->2gamma (39.41±0.20)%
    // MC generated decay of eta
@@ -409,7 +404,7 @@ TGraphErrors* get_graph( const vector<double>& E,
 
    TGraphErrors* geff = new TGraphErrors(N,E.data(),res[0].data(),
          err_E.data(),res[1].data());
-   geff -> SetTitle( title.c_str() );
+   geff->SetTitle( title.c_str() );
    return geff;
 }
 
@@ -417,90 +412,82 @@ TGraphErrors* get_graph( const vector<double>& E,
 void drawHstRes( string pdf, const vector<double>& E,
       const vector<TH1D*>& Hst, bool isMC, vector<double> res[] ){
 //--------------------------------------------------------------------
-// #include "cuts.h"
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
-   c1 -> Print((pdf+"[").c_str()); // just open pdf-file
+   c1->Print((pdf+"[").c_str()); // just open pdf-file
    c1->Divide(2,2);
    int j = 1, jmax = 4;
 
    int N = E.size();
    for( int i = 0; i < N; ++i ) {
-      c1 -> cd(j);
+      c1->cd(j);
       TH1D* hst = Hst[2*i];
       SetHstFace(hst);
-      hst -> GetYaxis() -> SetTitleOffset(1.3);
-      hst -> SetLineWidth(1);
-      hst -> SetLineColor(kBlack);
-//       hst -> SetMarkerStyle(20);
-      hst -> Draw("E");
+      hst->GetYaxis()->SetTitleOffset(1.3);
+      hst->SetLineWidth(1);
+      hst->SetLineColor(kBlack);
+      // hst->SetMarkerStyle(20);
+      hst->Draw("E");
 
       hst = Hst[2*i+1];
       SetHstFace(hst);
-      hst -> SetLineWidth(1);
-//       hst -> SetLineColor(kBlue+2);
-      hst -> SetLineColor(kRed);
-      hst -> SetFillStyle(3001);
-      hst -> SetFillColor(kRed);
-      hst -> Draw("SAME");
+      hst->SetLineWidth(1);
+      // hst->SetLineColor(kBlue+2);
+      hst->SetLineColor(kRed);
+      hst->SetFillStyle(3001);
+      hst->SetFillColor(kRed);
+      hst->Draw("SAME");
 
       TLegend* leg = new TLegend(0.50,0.65,0.89,0.89);
-      leg -> SetTextFont(42);
-      leg -> SetHeader(Form("E = %.3f MeV",E[i]),"C");
-
-//       leg -> AddEntry(Hst[2*i],
-//             Form("|M(#gamma#gamma)-M(#eta)|<%.0fMeV",weta*1e3),
-//             "PLE");
-//       leg -> AddEntry(Hst[2*i+1],
-//             Form("%.0f<|M(#gamma#gamma)-M(#eta)|<%.0fMeV",
-//                shift_eta*1e3,(shift_eta+weta)*1e3), "F");
+      leg->SetTextFont(42);
+      leg->SetHeader(Form("E = %.3f MeV",E[i]),"C");
 
       if ( isMC ) {
-         leg -> AddEntry(Hst[2*i],"MC signal #phi#eta","PLE");
-         leg -> AddEntry(Hst[2*i+1],"Side band", "F");
-         leg -> AddEntry( (TObject*)0,
+         leg->AddEntry(Hst[2*i],"MC signal #phi#eta","PLE");
+         leg->AddEntry(Hst[2*i+1],"Side band", "F");
+         leg->AddEntry( (TObject*)0,
                Form("#varepsilon = %.4f #pm %.4f",
                   res[0][i],res[1][i]),"");
       } else {
-         leg -> AddEntry(Hst[2*i],"Data","PLE");
-         leg -> AddEntry(Hst[2*i+1],"Side band", "F");
-         leg -> AddEntry( (TObject*)0,
+         leg->AddEntry(Hst[2*i],"Data","PLE");
+         leg->AddEntry(Hst[2*i+1],"Side band", "F");
+         leg->AddEntry( (TObject*)0,
                Form("#sigma = %.3f #pm %.3f pb",
                   res[0][i],res[1][i]), "");
       }
-      leg -> Draw();
-      gPad -> RedrawAxis();
+      leg->Draw();
+      gPad->RedrawAxis();
 
       j += 1;
       if ( j > jmax ) {
-         c1 -> Update();
-         c1 -> Print(pdf.c_str()); // add to pdf-file
+         c1->Update();
+         c1->Print(pdf.c_str()); // add to pdf-file
          j = 1;
       }
    }
 
    // clear empty pads
    for ( ;1 < j && j <= jmax; ++j ) {
-      c1 -> cd(j);
-      gPad -> Clear();
-      c1 -> Update();
-      c1 -> Print(pdf.c_str()); // add to pdf-file
+      c1->cd(j);
+      gPad->Clear();
+      c1->Update();
+      c1->Print(pdf.c_str()); // add to pdf-file
    }
 
-   c1 -> cd();
-   gPad -> Clear();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->Clear();
+   gPad->SetGrid();
    if ( !isMC ) {
-      gPad -> SetLogy();
+      gPad->SetLogy();
    }
 
    TGraphErrors* g = get_graph( E, isMC, res );
-   g -> GetYaxis() -> SetTitleOffset(1.);
-   g -> SetMarkerStyle(20);
-   g -> Draw("APL");
+   g->GetYaxis()->SetTitleOffset(1.);
+   g->SetMarkerStyle(20);
+   g->Draw("APL");
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
-   c1 -> Print(pdf.c_str()); // add to pdf-file
+   gPad->RedrawAxis();
+   c1->Update();
+   c1->Print(pdf.c_str()); // add to pdf-file
 
    c1->Print((pdf+"]").c_str()); // just close pdf-file
 }
@@ -510,63 +497,64 @@ void drawGraph( string pdf, vector<TGraphErrors*>& g, bool isMC ) {
 //--------------------------------------------------------------------
    string cn = pdf.substr(0,pdf.find('.'));
    TCanvas* c1 = new TCanvas(cn.c_str(),"...",0,0,800,800);
-   c1 -> Print((pdf+"[").c_str()); // just open pdf-file
+   c1->Print((pdf+"[").c_str()); // just open pdf-file
 
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
    if ( !isMC ) {
-      gPad -> SetLogy();
+      gPad->SetLogy();
    }
 
-   g[0] -> GetXaxis() -> SetLimits(2880.,3140.);
+   // g[0]->GetXaxis()->SetLimits(2880.,3140.);
+   g[0]->GetXaxis()->SetLimits(3030.,3140.);
    if ( isMC ) {
-      // g[0] -> SetMinimum(0.14);
-      // g[0] -> SetMaximum(0.18);
-      g[0] -> GetYaxis() -> SetNdivisions(1005);
-      g[0] -> GetYaxis() -> SetTitleOffset(1.3);
+      g[0]->SetMinimum(0.14);
+      g[0]->SetMaximum(0.18);
+      g[0]->GetYaxis()->SetNdivisions(1005);
+      g[0]->GetYaxis()->SetTitleOffset(1.3);
    } else {
-      g[0] -> SetMinimum(5.);
-      g[0] -> SetMaximum(5000.);
-      g[0] -> GetYaxis() -> SetTitleOffset(1.2);
+      g[0]->SetMinimum(5.);
+      g[0]->SetMaximum(5000.);
+      g[0]->GetYaxis()->SetTitleOffset(1.2);
    }
 
-   g[0] -> SetMarkerStyle(20);
-   g[0] -> SetMarkerColor(kBlue+2);
-   g[0] -> SetLineColor(kBlue+2);
-   g[0] -> SetLineWidth(1);
-   g[0] -> SetLineStyle(kSolid); // kDashed;
-   g[0] -> Draw("APL");
+   g[0]->SetMarkerStyle(20);
+   g[0]->SetMarkerColor(kBlue+2);
+   g[0]->SetLineColor(kBlue+2);
+   g[0]->SetLineWidth(1);
+   g[0]->SetLineStyle(kSolid); // kDashed;
+   g[0]->Draw("APL");
 
-   g[1] -> SetMarkerStyle(33);
-   g[1] -> SetMarkerColor(kGreen+1);
-   g[1] -> SetLineColor(kGreen+1);
-   g[1] -> SetLineWidth(1);
-   g[1] -> SetLineStyle(kSolid); // kDashed;
-   g[1] -> Draw("PL SAME");
+   g[1]->SetMarkerStyle(33);
+   g[1]->SetMarkerColor(kGreen+1);
+   g[1]->SetLineColor(kGreen+1);
+   g[1]->SetLineWidth(1);
+   g[1]->SetLineStyle(kSolid); // kDashed;
+   g[1]->Draw("PL SAME");
 
-   g[2] -> SetMarkerStyle(22);
-   g[2] -> SetMarkerColor(kRed+2);
-   g[2] -> SetLineColor(kRed+2);
-   g[2] -> SetLineWidth(1);
-   g[2] -> SetLineStyle(kSolid); // kDashed;
-   g[2] -> Draw("PL SAME");
+   g[2]->SetMarkerStyle(22);
+   g[2]->SetMarkerColor(kRed+2);
+   g[2]->SetLineColor(kRed+2);
+   g[2]->SetLineWidth(1);
+   g[2]->SetLineStyle(kSolid); // kDashed;
+   g[2]->Draw("PL SAME");
 
-   g[0] -> Draw("P SAME");
+   g[0]->Draw("P SAME");
 
    TLegend* leg = new TLegend(0.15,0.65,0.50,0.89);
    if ( isMC ) {
-      leg -> SetHeader("Efficiency","C");
+      leg->SetHeader("Efficiency","C");
    } else {
-      leg -> SetHeader("Cross Section","C");
+      leg->SetHeader("Cross Section","C");
    }
-   leg -> AddEntry(g[0], "J/#Psi scan 2012", "PLE");
-   leg -> AddEntry(g[1], "2018", "PLE");
-   leg -> AddEntry(g[2], "R-scan", "PLE");
-   leg -> Draw();
+   leg->AddEntry(g[0], "J/#Psi scan 2012", "PLE");
+   leg->AddEntry(g[1], "2018", "PLE");
+   leg->AddEntry(g[2], "R-scan", "PLE");
+   leg->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
-   c1 -> Print(pdf.c_str()); // add to pdf-file
+   gPad->RedrawAxis();
+   c1->Update();
+   c1->Print(pdf.c_str()); // add to pdf-file
 
    c1->Print((pdf+"]").c_str()); // just close pdf-file
 }
@@ -594,6 +582,7 @@ void setJpsiScan12( vector<string>& names, vector<double>& ebeam,
    // for ( auto& e : ebeam ) {
       // e -=0.55;
    // }
+
    // arXiv:2206.13674v1
    ebeam = {
       3049.642, 3058.693, 3079.645, 3082.496, 3088.854,
@@ -603,22 +592,24 @@ void setJpsiScan12( vector<string>& names, vector<double>& ebeam,
    };
    if( ebeam.size() != N ) {
       cout << " ERROR in " << __func__ << " size of ebeam" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    er_eb = {
-      0.026, 0.028, 0.023, 0.043, 0.022,
+      0.026, 0.028, 0.023, 0.023, 0.022,
       0.025, 0.084, 0.081, 0.075, 0.076,
       0.075, 0.093, 0.106, 0.090, 0.093,
       0.115
    };
    if( er_eb.size() != N ) {
       cout << " ERROR in " << __func__ << " size of er_eb" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
-   for ( auto& er : er_eb ) { // additional error due to calibration
-      er = sqrt( sq(er) + SQ(0.033) );
-   }
+   // additional error due to calibration: common for all...
+   // double er_shift = 0.033;
+   // for ( auto& er : er_eb ) {
+      // er = sqrt( SQ(er) + SQ(er_shift) );
+   // }
 
    lumi = {
       14.919, 15.060, 17.393, 4.769, 15.558,
@@ -628,7 +619,7 @@ void setJpsiScan12( vector<string>& names, vector<double>& ebeam,
    };
    if( lumi.size() != N ) {
       cout << " ERROR in " << __func__ << " size of lumi" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 }
 
@@ -643,43 +634,60 @@ void setScan18( vector<string>& names, vector<double>& ebeam,
    };
    int N = names.size();
 
+   // bes3memo-v1.1.pdf
    ebeam = {
-      3.087659, 3.095726, 3.096203, 3.096986,
-      3.097226, 3.097654, 3.098728, 3.104000
+      3087.593, 3095.726, 3096.203, 3096.986,
+      3097.226, 3097.654, 3098.728, 3104.000
    };
-   for ( auto& e : ebeam ) {
-      e *= 1.e3; // GeV -> MeV
-   }
    if( ebeam.size() != N ) {
       cout << " ERROR in " << __func__ << " size of ebeam" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    er_eb = {
-      0.094e-3, 0.077e-3, 0.069e-3, 0.083e-3, 0.099e-3,
-      0.082e-3, 0.078e-3, 0.082e-3
+      0.125, 0.077, 0.069, 0.083, 0.099,
+      0.082, 0.078, 0.082
    };
-   for ( auto& e : er_eb ) {
-      e *= 1.e3; // GeV -> MeV
-   }
    if( er_eb.size() != N ) {
       cout << " ERROR in " << __func__ << " size of er_eb" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    lumi = {
-      2.50166, 2.96535, 5.10588, 3.07306,
-      1.70679, 4.78731, 5.75102, 5.8398
+      2.467, 2.918, 4.978, 3.103,
+      1.681, 4.656, 5.638, 5.716
    };
    if( lumi.size() != N ) {
       cout << " ERROR in " << __func__ << " size of lumi" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 }
 
 // {{{1  R-scan 2015
 //--------------------------------------------------------------------
 void setRscan15( vector<string>& names, vector<double>& ebeam,
+      vector<double>& er_eb, vector<double>& lumi ) {
+//--------------------------------------------------------------------
+   names = { "3080_rs" };
+   int N = names.size();
+
+   ebeam =  { 3080.  };
+   if( ebeam.size() != N ) {
+      cout << " ERROR in " << __func__ << " size of ebeam" << endl;
+      exit(EXIT_FAILURE);
+   }
+
+   er_eb = vector<double>(N,1.0);
+
+   lumi = { 126.21 };
+   if( lumi.size() != N ) {
+      cout << " ERROR in " << __func__ << " size of lumi" << endl;
+      exit(EXIT_FAILURE);
+   }
+}
+
+//--------------------------------------------------------------------
+void setRscan15all( vector<string>& names, vector<double>& ebeam,
       vector<double>& er_eb, vector<double>& lumi ) {
 //--------------------------------------------------------------------
    names = {
@@ -692,25 +700,21 @@ void setRscan15( vector<string>& names, vector<double>& ebeam,
    };
    if( ebeam.size() != N ) {
       cout << " ERROR in " << __func__ << " size of ebeam" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    er_eb = vector<double>(N,1.0);
-   // if( er_eb.size() != N ) {
-      // cout << " ERROR in " << __func__ << " size of er_eb" << endl;
-      // exit(0);
-   // }
 
    lumi = {
       105.53, 15.960, 16.046, 15.849, 17.315, 126.21
    };
    if( lumi.size() != N ) {
       cout << " ERROR in " << __func__ << " size of lumi" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 }
 
-// {{{1 MAIN:
+// {{{1 get_cross_section()
 //--------------------------------------------------------------------
 void get_cross_section( bool UseFitMkk,
       string pdfeff="eff", string pdfcs="cs", string prtCS="cs",
@@ -765,17 +769,15 @@ void get_cross_section( bool UseFitMkk,
       getCrossSection( name12,lumi12,Eff12[0], Sig12,Nd12,HisD12);
       getCrossSection( name18,lumi18,Eff18[0], Sig18,Nd18,HisD18);
       getCrossSection( nameR, lumiR, EffR[0],  SigR, NdR, HisDR);
-      /*
-      if ( !pdfcs.empty() ) {
-         // draw cross-section separatly
-         string cs12 = pdfcs + "_12.pdf";
-         string cs18 = pdfcs + "_18.pdf";
-         string csR  = pdfcs + "_R.pdf";
-         drawHstRes( cs12, ebeam12, HisD12, false, Sig12 );
-         drawHstRes( cs18, ebeam18, HisD18, false, Sig18 );
-         drawHstRes( csR,  ebeamR,  HisDR,  false, SigR );
-      }
-      */
+      // if ( !pdfcs.empty() ) {
+         // // draw cross-section separatly
+         // string cs12 = pdfcs + "_12.pdf";
+         // string cs18 = pdfcs + "_18.pdf";
+         // string csR  = pdfcs + "_R.pdf";
+         // drawHstRes( cs12, ebeam12, HisD12, false, Sig12 );
+         // drawHstRes( cs18, ebeam18, HisD18, false, Sig18 );
+         // drawHstRes( csR,  ebeamR,  HisDR,  false, SigR );
+      // }
    } else { // NEW: read after mass_KK_fit()
       read_mkk_file(name12,Nd12);
       read_mkk_file(name18,Nd18);
@@ -803,7 +805,7 @@ void get_cross_section( bool UseFitMkk,
    string t12("J/Psi scan 2012, Note: 0.55MeV is already subtracted");
    string t18("scan 2018");
    string tR("R-scan 2015");
-   FILE* fp = stdout;                       // by default
+   FILE* fp = stdout;  // by default
    if ( !prtCS.empty() ) {
       string ftxt = prtCS + ((TeX) ? ".tex" : ".txt"); // to file
       fp = fopen(ftxt.c_str(),"w");
@@ -844,33 +846,37 @@ void get_cross_section( bool UseFitMkk,
    }
 }
 
+// {{{1 MAIN:
 //--------------------------------------------------------------------
 void cross_section() {
 //--------------------------------------------------------------------
-   gROOT -> Reset();
-   gStyle -> SetOptStat(0);
-   gStyle -> SetOptFit(0);
-   gStyle -> SetStatFont(62);
-   gStyle -> SetLegendFont(42);
+   gROOT->Reset();
+   gStyle->SetOptStat(0);
+   gStyle->SetOptFit(0);
+   gStyle->SetStatFont(62);
+   gStyle->SetLegendFont(42);
 
    time_t temp = time(NULL);
-   struct tm * timeptr = localtime(&temp);
+   struct tm* timeptr = localtime(&temp);
    char buf[32];
    strftime(buf,sizeof(buf),"%d%b%y",timeptr);
    string dat(buf);
 
    bool UseFitMkk = true;
    // bool UseFitMkk = false;  // SB only
-   bool TeX = true;
 
    if ( !UseFitMkk ) {
       dat="SB_"+dat;
    }
 
-   // get_cross_section(UseFitMkk, "eff_"+dat,"cs_"+dat,"cs_"+dat);
+   get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat);
+
+   // for TeX tables
+   // bool TeX = true;
+   // get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat,TeX);
 
    // systematic: tables only, txt format, variation param in name
-   dat="test";
+   // dat="test";
 
    // dat="angP";
    // dat="angM";
@@ -881,5 +887,5 @@ void cross_section() {
    // dat="weta_2";
    // dat="weta_4";
 
-   get_cross_section(UseFitMkk, "","","cs_"+dat,false);
+   // get_cross_section(UseFitMkk,"","","cs_"+dat);
 }
