@@ -1,6 +1,7 @@
 // plot efficiency as a function of X_isr
 // -> Xisr_eff_XXXX.pdf
 
+// {{{1 helper functions and constants
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
@@ -27,8 +28,9 @@ void SetHstFace(TH1* hst) {
    }
 }
 
+// {{{1 Fill histograms
 //--------------------------------------------------------------------
-vector<TH1D*> get_xisr_histos(string name) {
+tuple<TH1D*,TH1D*> get_xisr_histos(string name) {
 //--------------------------------------------------------------------
    string fname = "Ntpls/ntpl_mcgpj_" + name + ".root";
    cout << " file: " << fname << endl;
@@ -36,23 +38,20 @@ vector<TH1D*> get_xisr_histos(string name) {
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    froot->cd("SelectKKgg");
-   vector<TH1D*> hst;
 
-   // 1)
+   // ini
    TH1D* Xisr_ini = (TH1D*)gROOT->FindObject("mcisr_xisr");
    if( !Xisr_ini ) {
       cerr << " can not find Xisr_ini" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
-   Xisr_ini -> SetTitle(";X_{ISR};Events/0.01");
-   SetHstFace(Xisr_ini);
-   hst.push_back(Xisr_ini);
+   Xisr_ini->SetTitle(";X_{ISR};Events/0.01");
 
-   // 2)
+   // fin
    TTree *a4c = (TTree*)gDirectory->Get("a4c");
 #include "cuts.h"
    TCut c_here = c_chi2;          // ch2 < 80
@@ -62,21 +61,24 @@ vector<TH1D*> get_xisr_histos(string name) {
 
    TH1D* xf = new TH1D("xf", "after selection", 100,0.,1.);
    a4c->Draw("xisr>>xf",c_here,"goff");
-   SetHstFace(xf);
-   hst.push_back(xf);
 
-   return hst;
+   return make_tuple(Xisr_ini,xf);
 }
 
+// {{{1  PlotEffXisr()
 //--------------------------------------------------------------------
 void PlotEffXisr(string name, string title) {
 //--------------------------------------------------------------------
    string pdf = "Xisr_eff_" + name + ".pdf";
 
-   auto hst = get_xisr_histos(name);
-   double* xini = hst[0] -> GetIntegral();
-   double* xfin = hst[1] -> GetIntegral();
-   double Ni = xini[101];
+   TH1D* xi = nullptr;
+   TH1D* xf = nullptr;
+   tie(xi,xf) = get_xisr_histos(name);
+
+   // get commulative integrals normalized to 1
+   double* xini = xi->GetIntegral();
+   double* xfin = xf->GetIntegral();
+   double Ni = xini[101]; // number of entries
    double Nf = xfin[101];
    cout << " Ni=" << Ni << " Nf=" << Nf << endl;
 
@@ -85,44 +87,46 @@ void PlotEffXisr(string name, string title) {
          10,0.9,1.0);
 
    for ( int i=91; i < 100; ++i ) { // do not use bin 100
-      double bc = hst[0] -> GetBinCenter(i);
+      double bc = xi->GetBinCenter(i);
       double si = (1-xini[i])*Ni;
       double sf = (1-xfin[i])*Nf;
       double eff = sf/si;
-      heff -> Fill( bc, eff );
+      heff->Fill( bc, eff );
 
-//       double err_eff = eff * sqrt(1/sf - 1/si); // binomial error
-//       cout << " bc= " << bc << " ini= " << si << " fin= " << sf
-//          << " eff= " << eff << " +/- " << err_eff << endl;
-//       heff -> SetBinContent(i-90,eff);
-//       heff -> SetBinError(i-90,err_eff);
-  }
+      // double err_eff = eff * sqrt(1/sf - 1/si); // binomial error
+      // heff->SetBinError(i-90,err_eff);
+
+      cout << " bc= " << bc << " ini= " << si
+         << " fin= " << sf << " eff= " << eff
+         // << " +/- " << err_eff
+         << endl;
+   }
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
-   c1 -> cd();
-   gPad -> SetGrid();
+   c1->cd();
+   gPad->SetGrid();
 
    SetHstFace(heff);
-   heff -> GetYaxis() -> SetTitleOffset(1.25);
-   heff -> GetYaxis() -> SetNdivisions(505);
-   heff -> SetAxisRange(0.9,0.99,"X");
-   heff -> SetAxisRange(0.1,0.2,"Y");
-   heff -> DrawCopy("HISTO L");
+   heff->GetYaxis()->SetTitleOffset(1.25);
+   heff->GetYaxis()->SetNdivisions(505);
+   heff->SetAxisRange(0.9,0.985,"X");
+   heff->SetAxisRange(0.1,0.2,"Y");
+   heff->DrawCopy("HISTO L");
 
    TLegend* leg = new TLegend(0.35,0.81,0.89,0.89);
-   leg -> SetHeader(title.c_str(),"C");
-   leg -> Draw();
-   
-   c1 -> Update();
-   c1 -> Print(pdf.c_str());
+   leg->SetHeader(title.c_str(),"C");
+   leg->Draw();
+
+   c1->Update();
+   c1->Print(pdf.c_str());
 }
 
-//----------------------------------------------------------
-void xisr_eff()
-//----------------------------------------------------------
-{
+// {{{1 Main
+//--------------------------------------------------------------------
+void xisr_eff() {
+//--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
 
-   PlotEffXisr("3080_rs","3080 MeV (R-scan)");
+   PlotEffXisr("3080_rs","R-scan: 3080 MeV");
 }

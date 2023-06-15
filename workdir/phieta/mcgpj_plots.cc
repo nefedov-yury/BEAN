@@ -96,7 +96,8 @@ TH1D* get_xisr_rec(string fname) {
    TTree *a4c = (TTree*)gDirectory->Get("a4c");
 
    TCut c_here = c_chi2;          // ch2 < 80
-   c_here += c_xisr + c_MCmkk;    // X_isr>0.9 && mc_Mkk<1.08
+   // c_here += c_xisr + c_MCmkk;    // X_isr>0.9 && mc_Mkk<1.08
+   c_here += c_MCmkk;             // mc_Mkk<1.08
    c_here += c_cpgg;              // central part of Mgg
    c_here += c_phi;               // Mkk in [2*Mk, 1.08GeV]
 
@@ -194,7 +195,8 @@ void Xisr(string Ename, double Eee, string pdf) {
    hi->GetYaxis()->SetMaxDigits(3);
    hi->GetYaxis()->SetTitleOffset(1.2);
    hi->SetLineWidth(2);
-   double ymax = 1.15 * hi->GetMaximum();
+   // double ymax = 1.2 * hi->GetMaximum();
+   double ymax = 2.5e5; // 250000 ev in MC
    hi->SetAxisRange(1.,ymax,"Y");
 
    // final
@@ -210,10 +212,10 @@ void Xisr(string Ename, double Eee, string pdf) {
 
    // box to show selection region:
    TBox* box = new TBox;
-   box -> SetFillStyle(3001);
-   box -> SetFillColor(kGreen-8);
-   box -> SetLineColor(kGreen-6);
-   box -> SetLineWidth(1);
+   box->SetFillStyle(3001);
+   box->SetFillColor(kGreen-8);
+   box->SetLineColor(kGreen-6);
+   box->SetLineWidth(1);
 
    hi->DrawCopy();
    box->DrawBox(0.9,1.0,1.0,ymax);

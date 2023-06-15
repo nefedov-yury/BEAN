@@ -31,7 +31,7 @@ mass_eta.cc:
 // after chi^2 cut for Mphi region
 // -> mass_eta_(PR).pdf
 
--- mass_KK.cc: do we need it?
+-- mass_KK.cc: --memo--
 // plot M(K+K-) distributions
 // cuts: chi^2(4C) + Mgg
 // -> mass_kk_(PR).pdf
@@ -56,7 +56,7 @@ mcgpj_plots.cc
 //--------------------------------------------------------------------
 Background study
 //--------------------------------------------------------------------
-jpsi_incl.cc:
+-- jpsi_incl.cc: --memo--
 // plot eff, purity and signal/background ration as function of chi^2
 // cut estimated by Monte Carlo for inclusive decays of J/Psi
 // -> chi2_eff_pur.pdf
@@ -65,15 +65,15 @@ jpsi_incl.cc:
 //--------------------------------------------------------------------
 Efficiency && Cross section
 //--------------------------------------------------------------------
--- xisr_eff.cc ?
+-- xisr_eff.cc: --memo--
 // plot efficiency as a function of X_isr
 // -> Xisr_eff_XXXX.pdf
 
--- eff_MC.cc: ?
-// selection efficiency of the J/Psi -> phi eta
-// as a function of true MC M(K+K-)
-// fit it by a straight line
-// -> eff_sig.pdf
+eff_MC.cc:
+// selection efficiency of the J/Psi -> phi eta as a function
+// of true M(K+K-). We fit this efficiency with constant and
+// linear dependences on M(K+K-)
+// -> eff_sig_XXX.pdf
 
 mass_KK_fit.cc
 // fit distributions M(K+K-) for data

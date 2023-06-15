@@ -1733,7 +1733,7 @@ void mass_KK_fit(int interference=1) {
    // test_Intfr();
 
    //-----------------------------------------------------------------
-   // -> fit signal MC for test
+   // -> fit signal MC
 
    // string Ename("3080_rs");
    // double Eee = 3.08;
@@ -1835,7 +1835,7 @@ void mass_KK_fit(int interference=1) {
    //-----------------------------------------------------------------
    } else if ( interference == 0 ) {
       // bool bkgfit=true;
-      bool bkgfit = false;
+      bool bkgfit = false; // only BWG
 
       for ( const auto& dd : DD ) {
          string Filename = "ntpl_" + dd.Basename + ".root";
