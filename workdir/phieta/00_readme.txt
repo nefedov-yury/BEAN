@@ -101,13 +101,13 @@ cross_section.cpp:
 15Jun23: mass_KK_fit, MCGPJ_03
 
 //--------------------------------------------------------------------
---- Study of uncertainties
+Study of uncertainties
 //--------------------------------------------------------------------
 sys_lumi.py
 # systematic uncertainties for luminosity (pb-1)
 -> sys_lumi.h
 
-cmpr_cs.cc
+-- cmpr_cs.cc
 // compare cross-sections
 //   -> cmpr_cs_XXXX.pdf
 

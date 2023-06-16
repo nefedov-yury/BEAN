@@ -136,33 +136,38 @@ void prtTable( FILE* fp, bool TeX, string title,
       const vector<double>& eff,
       const vector<double> nd[], const vector<double> cs[] ) {
 //--------------------------------------------------------------------
-   string pm = ((TeX) ? "$\\pm$" : " +/- ");
-   auto cpm = pm.c_str();
-   string amp = ((TeX) ? "&" : " ");
-   auto ca = amp.c_str();
-   string send = ((TeX) ? "\\\\" : "");
-   auto ce = send.c_str();
-
    int n = e.size();
    fprintf(fp,"\n");
    fprintf(fp,"  %s\n", title.c_str());
    if ( TeX ) {
+      const char* pm = "$\\pm$";
+      const char* ca = "&";
+      const char* ce = "\\\\";
       fprintf(fp,
-         "  E(GeV)& Lum.(pb$^{-1}$)& Signal&    Eff.(\\%%)&"
+         "  E(MeV)& Lum.(pb$^{-1}$)& Signal&    Eff.(\\%%)&"
          "  Cross Section(nb)\\\\\n");
+      for ( int i = 0; i < n; ++i ) {
+         fprintf(fp,
+               " %-9.3f%s %8.6g%s  %5.1f%s%4.1f%s  %6.2f%s"
+               " %6.3f%s%5.3f%s\n",
+               e[i],ca,lumi[i],ca,nd[0][i],pm,nd[1][i],ca,
+               eff[i]*100,ca,cs[0][i]*1e-3,pm,cs[1][i]*1e-3,ce);
+      }
    } else {
+      const char* pm = " +/- ";
+      const char* ca = " ";
       fprintf(fp,
          "  E(GeV)    Lum.(pb-1)     Signal      Eff.(%%)"
          "   Cross Section(nb)\n");
+      for ( int i = 0; i < n; ++i ) {
+         fprintf(fp,
+               " %-9.6f%s %8.6g%s %5.1f%s%4.1f%s  %6.2f%s"
+               "   %6.4f%s%6.4f\n",
+               e[i]*1e-3,ca,lumi[i],ca,nd[0][i],pm,nd[1][i],ca,
+               eff[i]*100,ca,cs[0][i]*1e-3,pm,cs[1][i]*1e-3);
+      }
+      fprintf(fp,"\n");
    }
-   for ( int i = 0; i < n; ++i ) {
-      fprintf(fp,
-            " %-9.6f%s %8.6g%s %5.1f%s%4.1f%s  %6.2f%s"
-            "   %6.4f%s%6.4f%s\n",
-            e[i]*1e-3,ca,lumi[i],ca,nd[0][i],cpm,nd[1][i],ca,
-            eff[i]*100,ca,cs[0][i]*1e-3,cpm,cs[1][i]*1e-3,ce);
-   }
-   fprintf(fp,"\n");
 }
 
 // {{{1 efficiency && cross-sections
@@ -802,8 +807,8 @@ void get_cross_section( bool UseFitMkk,
    if ( UseFitMkk ) {
       Tinfo="Fitting the Mkk distributions";
    }
-   string t12("J/Psi scan 2012, Note: 0.55MeV is already subtracted");
-   string t18("scan 2018");
+   string t12("J/Psi scan 2012");
+   string t18("J/Psi scan 2018");
    string tR("R-scan 2015");
    FILE* fp = stdout;  // by default
    if ( !prtCS.empty() ) {
