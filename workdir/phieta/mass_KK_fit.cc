@@ -1449,9 +1449,9 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    fitter.Config().ParSettings(4).SetLimits(0., 5.);       // F
 
    // fitter.Config().ParSettings(5).SetLimits(-M_PI,M_PI);//vartheta
-   fitter.Config().ParSettings(5).SetValue(0.); // MEMO
+   // fitter.Config().ParSettings(5).SetValue(0.); // MEMO
    // fitter.Config().ParSettings(5).SetValue(0.58); // + 1sigma
-   // fitter.Config().ParSettings(5).SetValue(-0.58); // - 1sigma
+   fitter.Config().ParSettings(5).SetValue(-0.58); // - 1sigma
    fitter.Config().ParSettings(5).Fix();
 
    // NetaKK limits
@@ -1767,11 +1767,11 @@ void mass_KK_fit(int interference=1) {
       // -- 2019 3080 no lum! 0
       // {"3080_2019",3.08,"2019: 3080MeV"},
       //-- R-scan 2015: 1-6
-      {"2900_rs",2.90, "R-scan: 2900MeV"},
-      {"2950_rs",2.95, "R-scan: 2950MeV"},
-      {"2981_rs",2.981,"R-scan: 2981MeV"},
-      {"3000_rs",3.0,  "R-scan: 3000MeV"},
-      {"3020_rs",3.02, "R-scan: 3020MeV"},
+      // {"2900_rs",2.90, "R-scan: 2900MeV"},
+      // {"2950_rs",2.95, "R-scan: 2950MeV"},
+      // {"2981_rs",2.981,"R-scan: 2981MeV"},
+      // {"3000_rs",3.0,  "R-scan: 3000MeV"},
+      // {"3020_rs",3.02, "R-scan: 3020MeV"},
       {"3080_rs",3.08, "R-scan: 3080MeV"},
       //-- tau-scan 2018: 7-14
       {"J1", 3.087593, "2018: 3087.593MeV"},
@@ -1807,7 +1807,10 @@ void mass_KK_fit(int interference=1) {
    if ( interference == 1 ) {
       for ( const auto& dd : DD ) {
          string Filename = "ntpl_" + dd.Basename + ".root";
-         string outdir("mkk_inter/");
+         // string outdir("mkk_inter/Std/");
+         // string outdir("mkk_inter/Ch2_60/");
+         // string outdir("mkk_inter/Weta2/");
+         string outdir("mkk_inter/AngM/");
          string pdfout = outdir + "mkk_" + dd.Basename; //+".pdf"
          string txtout = outdir + "mkk_" + dd.Basename + ".txt";
          fflush(stdout);

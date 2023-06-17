@@ -84,6 +84,9 @@ mass_KK_fit.cc
 //    'mkk_inter/' for interference model BW with Argus
 //    'mkk_noint/' for model with sum BW + Argus
 
+get_table.py: -- memo --
+# print a summary table with fitting results
+
 //--------------------------------------------------------------------
 Cross section
 //--------------------------------------------------------------------

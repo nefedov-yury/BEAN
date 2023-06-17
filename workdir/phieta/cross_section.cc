@@ -318,11 +318,12 @@ void getCrossSection( const vector<string>& names,
 }
 
 //--------------------------------------------------------------------
-void read_mkk_file(const vector<string>& names, vector<double> Nd[]) {
+void read_mkk_file(const vector<string>& names,
+      vector<double> Nd[], string DIR) {
 //--------------------------------------------------------------------
 // read Mkk fitting results: Nphi and errNphi
    // directory to read files
-   const string DIR("mkk_inter/");
+   // const string DIR("mkk_inter/");
    int N = names.size();
    Nd[0].resize(N,0.);
    Nd[1].resize(N,0.);
@@ -723,7 +724,7 @@ void setRscan15all( vector<string>& names, vector<double>& ebeam,
 //--------------------------------------------------------------------
 void get_cross_section( bool UseFitMkk,
       string pdfeff="eff", string pdfcs="cs", string prtCS="cs",
-      bool TeX = false ) {
+      bool TeX=false, string dir="" ) {
 //--------------------------------------------------------------------
    // set names, energies and lumi
    vector<string> name12,  name18,  nameR;
@@ -784,9 +785,13 @@ void get_cross_section( bool UseFitMkk,
          // drawHstRes( csR,  ebeamR,  HisDR,  false, SigR );
       // }
    } else { // NEW: read after mass_KK_fit()
-      read_mkk_file(name12,Nd12);
-      read_mkk_file(name18,Nd18);
-      read_mkk_file(nameR, NdR);
+      string mkkdir("mkk_inter/");
+      if ( !dir.empty() ) {
+         mkkdir += dir + "/";
+      }
+      read_mkk_file(name12,Nd12,mkkdir);
+      read_mkk_file(name18,Nd18,mkkdir);
+      read_mkk_file(nameR, NdR,mkkdir);
       CrossSection( Nd12,lumi12,Eff12[0], Sig12 );
       CrossSection( Nd18,lumi18,Eff18[0], Sig18 );
       CrossSection( NdR, lumiR, EffR[0],  SigR );
@@ -813,6 +818,9 @@ void get_cross_section( bool UseFitMkk,
    FILE* fp = stdout;  // by default
    if ( !prtCS.empty() ) {
       string ftxt = prtCS + ((TeX) ? ".tex" : ".txt"); // to file
+      if ( !dir.empty() ) {
+         ftxt = "mkk_inter/"+dir+"/" + ftxt;
+      }
       fp = fopen(ftxt.c_str(),"w");
       if ( !fp ) {
          printf("Error open file %s\n",ftxt.c_str());
@@ -836,6 +844,9 @@ void get_cross_section( bool UseFitMkk,
    if ( !prtCS.empty() ) {
       // print cpp-code with cross-section in file
       string fcpp = prtCS + "_results.h";
+      if ( !dir.empty() ) {
+         fcpp = "mkk_inter/"+dir+"/" + fcpp;
+      }
       FILE* fp = fopen(fcpp.c_str(),"w");
       if ( !fp ) {
          printf("Error open file %s\n", fcpp.c_str());
@@ -874,23 +885,24 @@ void cross_section() {
       dat="SB_"+dat;
    }
 
-   get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat);
+   // get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat);
 
    // for TeX tables
    // bool TeX = true;
    // get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat,TeX);
 
-   // systematic: tables only, txt format, variation param in name
-   // dat="test";
+   // === systematic:
+   //     tables only, txt format, variation param in name,
+   //     last argument is the directory in mkk_inter/
 
-   // dat="angP";
-   // dat="angM";
+   // dat="Ch2_100";
+   // dat="Ch2_60";
 
-   // dat="ch2_60";
-   // dat="ch2_100";
+   // dat="Weta4";
+   // dat="Weta2";
 
-   // dat="weta_2";
-   // dat="weta_4";
+   // dat="AngP";
+   dat="AngM";
 
-   // get_cross_section(UseFitMkk,"","","cs_"+dat);
+   get_cross_section(UseFitMkk,"","","cs_"+dat,false,dat);
 }

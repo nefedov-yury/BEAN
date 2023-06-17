@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# print a summary table with fitting results
 
 import os
 import fnmatch
