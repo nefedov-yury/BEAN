@@ -15,23 +15,23 @@ constexpr double SQ(double x) {
 // {{{1 Get histograms
 // 1) "nominal" histograms
 //--------------------------------------------------------------------
-tuple<TH1D*,TH1D*> getIniFin(string name) {
+tuple<TH1D*,TH1D*> getIniFin(string dir, string name) {
 //--------------------------------------------------------------------
 #include "cuts.h"
 
-   string fname = "Ntpls/ntpl_mcgpj_" + name + ".root";
+   string fname = dir + "/ntpl_mcgpj_" + name + ".root";
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cout << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
-   froot -> cd("SelectKKgg");
-   TH1D* Xisr_ini = (TH1D*)gROOT -> FindObject("mcisr_1x");
+   froot->cd("SelectKKgg");
+   TH1D* Xisr_ini = (TH1D*)gROOT->FindObject("mcisr_1x");
    if( !Xisr_ini ) {
       cout << " file: " << fname << endl;
       cout << " can not find mcisr_1x histo" << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
 
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
@@ -44,8 +44,8 @@ tuple<TH1D*,TH1D*> getIniFin(string name) {
    c_here += c_phi;     // [2*Mk, 1.08GeV]
 
    TH1D* Xisr_fin = new TH1D("Xisr_fin", ";1-s'/s", 100,0.,1.);
-   Xisr_fin -> Sumw2();
-   a4c -> Draw("(1.-xisr)>>Xisr_fin",c_here,"goff");
+   Xisr_fin->Sumw2();
+   a4c->Draw("(1.-xisr)>>Xisr_fin",c_here,"goff");
 
    return make_tuple(Xisr_ini, Xisr_fin);
 }
@@ -58,14 +58,14 @@ TH1D* getHst(string dir, string name) {
    if ( name[4] == '_' ) {
       name = name.substr(0,4) + "R"; // replace '_rs' -> 'R'
    }
-   string fname = "Ntpls/" + dir + "/phieta_" + name + "mc.root";
+   string fname = dir + "/phieta_" + name + "mc.root";
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cout << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
-   froot -> cd();
-   TH1D* X_ini = (TH1D*)gROOT -> FindObject("h_x");
+   froot->cd();
+   TH1D* X_ini = (TH1D*)gROOT->FindObject("h_x");
 
    return X_ini;
 }
@@ -80,21 +80,22 @@ tuple<double,double> getReff( string dir, string name,
 
    TH1D* Xini = nullptr;
    TH1D* Xfin = nullptr;
-   tie(Xini,Xfin) = getIniFin(name);
+   string basedir = dir + "/..";
+   tie(Xini,Xfin) = getIniFin(basedir,name);
 
    TH1D* Xh_ini = getHst(dir,name);
    TH1D* Xh_div = (TH1D*)Xh_ini->Clone("Xh_div");
-   Xh_div -> Divide(Xh_ini,Xini);
+   Xh_div->Divide(Xh_ini,Xini);
 
    Xhst = {Xini, Xfin, Xh_ini, Xh_div}; // return vector
 
-   int nb = Xini -> GetNbinsX();
-   // double Nini = Xini -> Integral();
+   int nb = Xini->GetNbinsX();
+   // double Nini = Xini->Integral();
    // int ib_max = nb+1;
 
    // Nini in [0,0.1] interval
    int ib_max = int(rint(X1_max*nb))+1;
-   double Xlow = Xini -> GetBinLowEdge(ib_max);
+   double Xlow = Xini->GetBinLowEdge(ib_max);
    if ( fabs(Xlow-X1_max) > 1e-6 ) {
       cout << " name: " << name << endl;
       cout << " wrong bin for X1_max: ib_max = " << ib_max
@@ -102,16 +103,16 @@ tuple<double,double> getReff( string dir, string name,
          << endl;
       exit(0);
    }
-   double Nini = Xini -> Integral(0,ib_max-1);
-   // double Nini_h = Xh_ini -> Integral(0,ib_max-1);
+   double Nini = Xini->Integral(0,ib_max-1);
+   // double Nini_h = Xh_ini->Integral(0,ib_max-1);
    // printf("ib_max= %d, Xlow= %.2f, Nini= %f, Nini_h= %f\n",
          // ib_max,Xlow,Nini,Nini_h);
 
    double eff0 = 0, err0 = 0;
    double eff1 = 0, err1 = 0;
    for( int i = 0; i < ib_max; ++i ) {
-      double a  = Xfin -> GetBinContent(i);
-      double b  = Xh_div -> GetBinContent(i);
+      double a  = Xfin->GetBinContent(i);
+      double b  = Xh_div->GetBinContent(i);
       if( a == 0 || b == 0 ) {
          continue;
       }
@@ -119,8 +120,8 @@ tuple<double,double> getReff( string dir, string name,
       eff0 += a;
       eff1 += a*b;
 
-      double ea = Xfin -> GetBinError(i);
-      double eb = Xh_div -> GetBinError(i);
+      double ea = Xfin->GetBinError(i);
+      double eb = Xh_div->GetBinError(i);
       err0 += SQ(ea);
       err1 += SQ(a*eb) + SQ(b*ea);
    }
@@ -207,13 +208,13 @@ TGraphErrors* getGraph(string dir, string pdf) {
    TCanvas* c1 = nullptr;
    if ( !pdf.empty() ) {
       c1 = new TCanvas("c1","...",0,0,800,800);
-      c1 -> Divide(1,2);
-      c1 -> cd(1);
-      gPad -> SetGrid();
-      gPad -> SetLogy();
-      c1 -> cd(2);
-      gPad -> SetGrid();
-      c1 -> Print((pdf+"[").c_str()); // just open pdf-file
+      c1->Divide(1,2);
+      c1->cd(1);
+      gPad->SetGrid();
+      gPad->SetLogy();
+      c1->cd(2);
+      gPad->SetGrid();
+      c1->Print((pdf+"[").c_str()); // just open pdf-file
    }
 
    vector<TH1D*> Xhst;
@@ -226,40 +227,40 @@ TGraphErrors* getGraph(string dir, string pdf) {
       vErrR.push_back(100*errR);
 
       if ( c1 ) {
-         c1 -> cd(1);
+         c1->cd(1);
          auto& Xini = Xhst[0];
          auto& Xh_ini = Xhst[2];
-         Xini -> SetTitle(";1 - s'/s");
-         // Xini -> SetAxisRange(1.,2.e5,"Y");
-         Xini -> SetLineColor(kRed-7);
-         Xini -> SetFillColor(kRed-7); // for "E" options
-         Xini -> DrawCopy("E3");
-         Xh_ini -> SetLineColor(kBlue-7);
-         Xh_ini -> SetFillColor(kBlue-7); // for "E" options
-         Xh_ini -> DrawCopy("E3,SAME");
+         Xini->SetTitle(";1 - s'/s");
+         // Xini->SetAxisRange(1.,2.e5,"Y");
+         Xini->SetLineColor(kRed-7);
+         Xini->SetFillColor(kRed-7); // for "E" options
+         Xini->DrawCopy("E3");
+         Xh_ini->SetLineColor(kBlue-7);
+         Xh_ini->SetFillColor(kBlue-7); // for "E" options
+         Xh_ini->DrawCopy("E3,SAME");
          TLegend* leg = new TLegend(0.60,0.70,0.89,0.88);
-         leg -> SetHeader( Form("%s",name.c_str()),"C");
-         leg -> AddEntry( Xini,"Nominal","L");
-         leg -> AddEntry( Xh_ini,"MCGPJ","L");
-         leg -> Draw();
+         leg->SetHeader( Form("%s",name.c_str()),"C");
+         leg->AddEntry( Xini,"Nominal","L");
+         leg->AddEntry( Xh_ini,"MCGPJ","L");
+         leg->Draw();
 
-         c1 -> cd(2);
+         c1->cd(2);
          auto& Xh_div = Xhst[3];
-         Xh_div -> SetTitle(";1 - s'/s");
-         Xh_div -> SetAxisRange(0.,0.19,"X");
-         // Xh_div -> SetAxisRange(0.5,1.5,"Y");
-         Xh_div -> SetAxisRange(0.,2,"Y");
-         Xh_div -> SetLineColor(kBlue+1);
-         Xh_div -> DrawCopy("E1");
+         Xh_div->SetTitle(";1 - s'/s");
+         Xh_div->SetAxisRange(0.,0.19,"X");
+         // Xh_div->SetAxisRange(0.5,1.5,"Y");
+         Xh_div->SetAxisRange(0.,2,"Y");
+         Xh_div->SetLineColor(kBlue+1);
+         Xh_div->DrawCopy("E1");
          TPaveText* pt = new TPaveText(0.60,0.79,0.89,0.88,"NDC");
-         pt -> SetTextAlign(12);
-         pt -> SetTextFont(42);
-         pt -> AddText(Form("Reff = %.2f #pm %.2f %%",
+         pt->SetTextAlign(12);
+         pt->SetTextFont(42);
+         pt->AddText(Form("Reff = %.2f #pm %.2f %%",
                   Reff*100, errR*100));
-         pt -> Draw();
+         pt->Draw();
 
-         c1 -> Update();
-         c1 -> Print(pdf.c_str()); // add to pdf-file
+         c1->Update();
+         c1->Print(pdf.c_str()); // add to pdf-file
 
          delete leg;
          delete pt;
@@ -288,12 +289,12 @@ TGraphErrors* getGraph(string dir, string pdf) {
    gr->SetMarkerColor(kMagenta+1);
 
    if ( c1 ) {
-      c1 -> cd();
-      c1 -> Clear();
-      gPad -> SetGrid();
-      gr -> Draw("AP");
-      c1 -> Update();
-      c1 -> Print(pdf.c_str()); // add to pdf-file
+      c1->cd();
+      c1->Clear();
+      gPad->SetGrid();
+      gr->Draw("AP");
+      c1->Update();
+      c1->Print(pdf.c_str()); // add to pdf-file
 
       c1->Print((pdf+"]").c_str()); // just close pdf-file
       delete c1;
@@ -338,11 +339,10 @@ void prtSysRel(FILE* fp, string title, const vector<double>& Rel) {
 }
 
 //--------------------------------------------------------------------
-void PlotAllGraph(string pdf, string header) {
+void PlotAllGraph(string DIR,string pdf, string header) {
 //--------------------------------------------------------------------
 
    // phi+sigma(phi) A+sigma(A), phi-sigma(phi), A-sigma(A)
-   string DIR="MCGPJ_01/";
    vector<string> dirs { "un_pp", "un_ap", "un_pm", "un_am" };
    int mrks[]          {  22,      26,       23,      32    };
    int clrs[]          { kRed+1,  kGreen+2, kRed+1, kGreen+2};
@@ -351,33 +351,33 @@ void PlotAllGraph(string pdf, string header) {
    TGraphErrors* gr[4];
    for ( int i = 0; i < 4; ++i ) {
       gr[i] = getGraph(DIR+dirs[i],"");
-      gr[i] -> SetMarkerStyle(mrks[i]);
-      gr[i] -> SetMarkerColor(clrs[i]);
-      gr[i] -> SetLineColor(clrs[i]);
+      gr[i]->SetMarkerStyle(mrks[i]);
+      gr[i]->SetMarkerColor(clrs[i]);
+      gr[i]->SetLineColor(clrs[i]);
    }
 
    TCanvas* c = new TCanvas("c","...",0,0,900,900);
-   c -> cd();
-   gPad -> SetGrid();
+   c->cd();
+   gPad->SetGrid();
 
    TLegend* leg = new TLegend(0.14,0.67,0.89,0.89);
-   leg -> SetNColumns(2);
-   leg -> SetHeader("varying MCGPJ parameters","C");
-   leg -> AddEntry( gr[0], "#varphi #plus #sigma(#varphi)", "PE" );
-   leg -> AddEntry( gr[1], "A #plus #sigma(A)", "PE" );
-   leg -> AddEntry( gr[2], "#varphi #minus #sigma(#varphi)", "PE" );
-   leg -> AddEntry( gr[3], "A #minus #sigma(A)", "PE" );
+   leg->SetNColumns(2);
+   leg->SetHeader("varying MCGPJ parameters","C");
+   leg->AddEntry( gr[0], "#varphi #plus #sigma(#varphi)", "PE" );
+   leg->AddEntry( gr[1], "A #plus #sigma(A)", "PE" );
+   leg->AddEntry( gr[2], "#varphi #minus #sigma(#varphi)", "PE" );
+   leg->AddEntry( gr[3], "A #minus #sigma(A)", "PE" );
 
-   gr[0] -> SetMaximum(8);
-   gr[0] -> Draw("AP");
-   gr[1] -> Draw("P");
-   gr[2] -> Draw("P");
-   gr[3] -> Draw("P");
-   leg -> Draw();
+   gr[0]->SetMaximum(8);
+   gr[0]->Draw("AP");
+   gr[1]->Draw("P");
+   gr[2]->Draw("P");
+   gr[3]->Draw("P");
+   leg->Draw();
 
-   gPad -> RedrawAxis();
-   c -> Update();
-   c -> Print(pdf.c_str());
+   gPad->RedrawAxis();
+   c->Update();
+   c->Print(pdf.c_str());
 
    // print to file or to stdout
    FILE* fp = stdout;
@@ -389,10 +389,10 @@ void PlotAllGraph(string pdf, string header) {
       }
    }
 
-   int Nd = gr[0] -> GetN();
+   int Nd = gr[0]->GetN();
    vector<double> maxR(Nd,0.);
    for ( int i = 0; i < 4; ++i ) {
-      const double* R = gr[i] -> GetY();
+      const double* R = gr[i]->GetY();
       for ( int j = 0; j < Nd; ++j ) {
          auto r = fabs(R[j] * 1e-2 ); // % in gr[]
          if ( r > maxR[j] ) {
@@ -412,21 +412,27 @@ void sys_mcgpj() {
    gStyle->SetOptFit(0);
    // gStyle->SetLegendTextSize(0.05);
 
+   // tested directory (see DIR/00_readme)
+   string DIR="Ntpls/MCGPJ_03/";
+
    // plot each variation separatly
-   string DIR="MCGPJ_01/";
-   // getGraph(DIR+"un_0", "sys_mcgpj_un_0.pdf"); // no variation
-   // getGraph(DIR+"un_am", "sys_mcgpj_un_am.pdf");
-   // getGraph(DIR+"un_ap", "sys_mcgpj_un_ap.pdf");
-   // getGraph(DIR+"un_pm", "sys_mcgpj_un_pm.pdf");
-   // getGraph(DIR+"un_pp", "sys_mcgpj_un_pp.pdf");
+   // -- getGraph(DIR+"un_0", "sys_mcgpj_un_0.pdf"); // no variation
+   // getGraph(DIR+"un_am", "sys_mcgpj03_un_am.pdf");
+   // getGraph(DIR+"un_ap", "sys_mcgpj03_un_ap.pdf");
+   // getGraph(DIR+"un_pm", "sys_mcgpj03_un_pm.pdf");
+   // getGraph(DIR+"un_pp", "sys_mcgpj03_un_pp.pdf");
+   // return;
 
-   time_t temp = time(NULL);
-   struct tm * timeptr = localtime(&temp);
-   char buf[32];
-   strftime(buf,sizeof(buf),"%d%b%y",timeptr);
-   string dat(buf);
+   // get current time
+   // time_t temp = time(NULL);
+   // struct tm * timeptr = localtime(&temp);
+   // char buf[32];
+   // strftime(buf,sizeof(buf),"%d%b%y",timeptr);
+   // string dat(buf);
 
-   string pdf = "sys_mcgpj_" + dat + ".pdf";
-   string header = "sys_mcgpj_" + dat + ".h";
-   PlotAllGraph(pdf,header);
+   string dat("15Jun23");
+
+   string pdf = "sys_mcgpj03_" + dat + ".pdf";
+   string header = "sys_mcgpj03_" + dat + ".h";
+   PlotAllGraph(DIR,pdf,header);
 }

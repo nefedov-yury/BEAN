@@ -110,7 +110,7 @@ sys_lumi.py
 # systematic uncertainties for luminosity (pb-1)
 -> sys_lumi.h
 
- cmpr_cs.cc
+cmpr_cs.cc
 // calculation tables of systematic uncertainties for
 //  1) variation of the chi^2
 //  2) variation of the Eta-window
@@ -124,16 +124,10 @@ chi^2: rat= 1.75 %, E= 3.096203
 Weta: rat= 3.25 %, E= 3.097654
 Weta: rat= 3.17 %, E= 3.095726
 
-
--- sys_mcgpj.cc
+sys_mcgpj.cc
 // study of systematic uncertainties in efficiency due to the
 // variation of parameters A and phi within their errors
 // in MCGPJ generator
+// DIR is the tested directory (see DIR/00_readme)
 //    -> sys_mcgpj_DATE.pdf
-
-MCGPJ_02: A 2.8 [2.40,3.20],  phi 2.35 [2.05,2.65]
--> sys_mcgpj_27Mar23.h
-
-MCGPJ_01: A 3.3 [2.83,3.56] phi 2.5 [2.30,3.14]
--> sys_mcgpj_03Apr23.h
 
