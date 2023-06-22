@@ -6,4 +6,11 @@ Mcgpj.EmQCDampl = 3.3;          // A_mix
       BW for phi with cut Minv(K+K-) < 1083 MeV
       Xisr - no cut
 
-   variation of MCGPJ parameters: not yet done
+variation of MCGPJ parameters: (250000)
+#   nominal, min,  max
+A = [3.3, 2.9, 3.7]
+Phi = [2.6, 2.3, 3.14]
+
+dirs = ['un_am', 'un_ap', 'un_pm', 'un_pp']
+Adir = [A[1],    A[2],    A[0],    A[0]]
+Pdir = [Phi[0],  Phi[0],  Phi[1],  Phi[2]]

@@ -885,7 +885,7 @@ void cross_section() {
       dat="SB_"+dat;
    }
 
-   // get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat);
+   get_cross_section(UseFitMkk,"eff_"+dat,"cs_"+dat,"cs_"+dat);
 
    // for TeX tables
    // bool TeX = true;
@@ -902,7 +902,7 @@ void cross_section() {
    // dat="Weta2";
 
    // dat="AngP";
-   dat="AngM";
+   // dat="AngM";
 
-   get_cross_section(UseFitMkk,"","","cs_"+dat,false,dat);
+   // get_cross_section(UseFitMkk,"","","cs_"+dat,false,dat);
 }

@@ -1216,7 +1216,7 @@ void do_fit(string fname, double Eee, bool bkgfit,
    fbkg->SetLineStyle(kDashed);
 
    // set min/max to draw
-   hst->SetMinimum(-5.);
+   hst->SetMinimum(-2.);
    int maxbin = hst->GetMaximumBin();
    double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
    double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
@@ -1226,7 +1226,8 @@ void do_fit(string fname, double Eee, bool bkgfit,
    }
 
    //-----------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
+   // TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
    c1->cd();
    gPad->SetGrid();
    // gPad->SetLogy(true);
@@ -1449,9 +1450,9 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    fitter.Config().ParSettings(4).SetLimits(0., 5.);       // F
 
    // fitter.Config().ParSettings(5).SetLimits(-M_PI,M_PI);//vartheta
-   // fitter.Config().ParSettings(5).SetValue(0.); // MEMO
+   fitter.Config().ParSettings(5).SetValue(0.); // MEMO
    // fitter.Config().ParSettings(5).SetValue(0.58); // + 1sigma
-   fitter.Config().ParSettings(5).SetValue(-0.58); // - 1sigma
+   // fitter.Config().ParSettings(5).SetValue(-0.58); // - 1sigma
    fitter.Config().ParSettings(5).Fix();
 
    // NetaKK limits
@@ -1528,22 +1529,26 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    fdr->SetNpx(500);
 
    // set max/min to draw
-   fdr->SetParameter(0, 1); // BW
-   int maxbin = hst->GetMaximumBin();
-   double hmax = hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
-   double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
-   hmax = floor(1.1 * max( hmax, fmax ));
-   if ( hmax > 0 ) {
+   if ( Nev < 15 ) { // use defaults
+      hst->SetMaximum();
+   } else {
+      fdr->SetParameter(0, 1); // BW
+      int maxbin = hst->GetMaximumBin();
+      double hmax =
+         hst->GetBinContent(maxbin)+hst->GetBinError(maxbin);
+      double fmax = fdr->GetMaximum( 1.01, 1.03, 1e-6);
+      hmax = floor(1.1 * max( hmax, fmax ));
       hst->SetMaximum(hmax);
    }
 
    fdr->SetParameter(0, 3);   // interference
-   double hmin = fdr->GetMinimum( 1.01, 1.03, 1e-6);
-   hmin = floor(1.15 * min( -5., hmin ));
+   double fmin = fdr->GetMinimum( 1.01, 1.03, 1e-6);
+   double hmin = min( -1.5, 1.15*fmin );
    hst->SetMinimum(hmin);
 
    //-----------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   // TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
    c1->cd();
    gPad->SetGrid();
 
@@ -1557,7 +1562,8 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    hst->Draw("EP");
 
    double yleg = 0.89 - 0.03*5;
-   TLegend* leg = new TLegend(0.55,yleg,0.89,0.89);
+   // TLegend* leg = new TLegend(0.55,yleg,0.89,0.89);
+   TLegend* leg = new TLegend(0.60,yleg,0.89,0.89);
    leg->AddEntry(hst,title.c_str(),"LEP");
 
    fdr->SetParameter(0, 0); // SUM
@@ -1586,7 +1592,8 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    leg->Draw();
 
    double ypt = yleg - 0.03*8;
-   TPaveText* pt = new TPaveText(0.55,ypt,0.89,yleg-0.01,"NDC");
+   // TPaveText* pt = new TPaveText(0.55,ypt,0.89,yleg-0.01,"NDC");
+   TPaveText* pt = new TPaveText(0.60,ypt,0.89,yleg-0.01,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    pt->AddText( Form("#chi^{2}/ndf= %.2f / %u",chi2,Ndf) );
@@ -1596,7 +1603,8 @@ void do_fitI(string fname, double Eee, string title, string pdf="") {
    // pt->AddText( Form("a= %s",PE.Eform(3,".1f")) );
    pt->AddText( Form("F= %s",PE.Eform(4,".2f")) );
    pt->AddText( Form("#vartheta= %s",PE.Eform(5,".2f")) );
-   pt->AddText( Form("N_{#etaKK}= %s",PE.Eform(6,".1f")) );
+   // pt->AddText( Form("N_{#etaKK}= %s",PE.Eform(6,".1f")) );
+   pt->AddText( Form("N_{KK}= %s",PE.Eform(6,".1f")) ); // memo
    pt->AddText( Form("N_{#phi}= %.1f #pm %.1f",Nphi,err_Nphi) );
    pt->Draw();
 
@@ -1807,10 +1815,10 @@ void mass_KK_fit(int interference=1) {
    if ( interference == 1 ) {
       for ( const auto& dd : DD ) {
          string Filename = "ntpl_" + dd.Basename + ".root";
-         // string outdir("mkk_inter/Std/");
+         string outdir("mkk_inter/Std2/");
          // string outdir("mkk_inter/Ch2_60/");
          // string outdir("mkk_inter/Weta2/");
-         string outdir("mkk_inter/AngM/");
+         // string outdir("mkk_inter/AngM/");
          string pdfout = outdir + "mkk_" + dd.Basename; //+".pdf"
          string txtout = outdir + "mkk_" + dd.Basename + ".txt";
          fflush(stdout);
@@ -1876,12 +1884,12 @@ void mass_KK_fit(int interference=1) {
    // do_fitI( "ntpl_3080.root", 3.079645,
          // "2012: 3079.645MeV", "mkk_3080");     // 35, sb=0
 
-   // do_fitI( "ntpl_J1.root", 3.087659,
-         // "2018: 3087.659MeV","mkk_J1" ); // 8,sb=1
+   do_fitI( "ntpl_J1.root", 3.087659,
+         "2018: 3087.659MeV","mkk_J1" ); // 8,sb=1
    // do_fitI( "ntpl_J3.root", 3.096203,
          // "2018: 3096.203MeV","mkk_J3" ); // 985,sb=31
-   do_fitI( "ntpl_J4.root", 3.096986,
-         "2018: 3096.986MeV","mkk_J4" ); // 866
+   // do_fitI( "ntpl_J4.root", 3.096986,
+         // "2018: 3096.986MeV","mkk_J4" ); // 866
 
    // do_fitI( "ntpl_3050.root", 3.049663,
          // "2012: 3049.663MeV","mkk_3050" ); // 22
