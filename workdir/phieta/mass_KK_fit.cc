@@ -524,7 +524,7 @@ void sig_fit_mc(string Ename, double Eee, string pdf) {
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.89);
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy();
@@ -660,7 +660,7 @@ void sig_fit(string Ename, double Eee, string pdf) {
    fdr->SetNpx(500);
 
    //-----------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy();
@@ -1743,8 +1743,8 @@ void mass_KK_fit(int interference=1) {
    //-----------------------------------------------------------------
    // -> fit signal MC
 
-   // string Ename("3080_rs");
-   // double Eee = 3.08;
+   string Ename("3080_rs");
+   double Eee = 3.08;
    // string Ename("J4");
    // double Eee = 3.096986;
    // --------------

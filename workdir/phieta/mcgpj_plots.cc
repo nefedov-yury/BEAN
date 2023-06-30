@@ -205,7 +205,7 @@ void Xisr(string Ename, double Eee, string pdf) {
    hf->SetLineWidth(2);
    hf->SetLineColor(kRed+1);
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy();

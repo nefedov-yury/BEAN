@@ -155,7 +155,7 @@ void get_eff(string fname, string title, string pdf="") {
    //-----------------------------------------------------------------
    // Draw results + fit
    //-----------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,1000,800);
    c1->cd();
    gPad->SetGrid();
 
