@@ -33,6 +33,7 @@ tuple<TH1D*,TH1D*> getIniFin(string dir, string name) {
       cout << " can not find mcisr_1x histo" << endl;
       exit(EXIT_FAILURE);
    }
+   Xisr_ini->Sumw2();
 
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
@@ -271,7 +272,7 @@ TGraphErrors* getGraph(string dir, string pdf) {
    TGraphErrors* gr = new TGraphErrors(Ng,
          Energy.data(), vReff.data(), ErrE.data(), vErrR.data());
    string title = string(";center of mass energy (GeV)"
-         ";relative difference (%)");
+         ";relative efficiency difference (%)");
    gr->SetTitle(title.c_str());
    gr->GetXaxis()->CenterTitle();
    gr->GetYaxis()->CenterTitle();
@@ -280,7 +281,7 @@ TGraphErrors* getGraph(string dir, string pdf) {
    gr->GetXaxis()->SetLabelSize(0.03);
    gr->GetYaxis()->SetLabelSize(0.03);
    // gr->GetXaxis()->SetTitleOffset(1.1);
-   gr->GetYaxis()->SetTitleOffset(1.1);
+   // gr->GetYaxis()->SetTitleOffset(1.1);
 
    gr->SetMinimum(-5.);
    gr->SetMaximum(+5.);
@@ -294,8 +295,8 @@ TGraphErrors* getGraph(string dir, string pdf) {
       gPad->SetGrid();
       gr->Draw("AP");
       c1->Update();
-      c1->Print(pdf.c_str()); // add to pdf-file
 
+      c1->Print(pdf.c_str()); // add to pdf-file
       c1->Print((pdf+"]").c_str()); // just close pdf-file
       delete c1;
    }
@@ -344,7 +345,7 @@ void PlotAllGraph(string DIR,string pdf, string header) {
 
    // phi+sigma(phi) A+sigma(A), phi-sigma(phi), A-sigma(A)
    vector<string> dirs { "un_pp", "un_ap", "un_pm", "un_am" };
-   int mrks[]          {  22,      26,       23,      32    };
+   int mrks[]          {  26,      22,       32,      23    };
    int clrs[]          { kRed+1,  kGreen+2, kRed+1, kGreen+2};
    // int clrs[]          { kGreen+2, kRed+1, kYellow+3,kOrange-3};
 
@@ -356,17 +357,19 @@ void PlotAllGraph(string DIR,string pdf, string header) {
       gr[i]->SetLineColor(clrs[i]);
    }
 
-   TCanvas* c = new TCanvas("c","...",0,0,900,900);
+   TCanvas* c = new TCanvas("c","...",0,0,1000,800);
    c->cd();
    gPad->SetGrid();
 
    TLegend* leg = new TLegend(0.14,0.67,0.89,0.89);
    leg->SetNColumns(2);
-   leg->SetHeader("varying MCGPJ parameters","C");
-   leg->AddEntry( gr[0], "#varphi #plus #sigma(#varphi)", "PE" );
-   leg->AddEntry( gr[1], "A #plus #sigma(A)", "PE" );
-   leg->AddEntry( gr[2], "#varphi #minus #sigma(#varphi)", "PE" );
-   leg->AddEntry( gr[3], "A #minus #sigma(A)", "PE" );
+   leg->SetHeader( "Variation of MCGPJ parameters", "C" );
+   leg->AddEntry( gr[0],
+         "#varphi #plus #sigma(#varphi) = 180^{o}", "PE" );
+   leg->AddEntry( gr[1], "A #plus #sigma(A) = 3.7", "PE" );
+   leg->AddEntry( gr[2],
+         "#varphi #minus #sigma(#varphi) = 132^{o}","PE" );
+   leg->AddEntry( gr[3], "A #minus #sigma(A) = 2.9", "PE" );
 
    gr[0]->SetMaximum(8);
    gr[0]->Draw("AP");
@@ -400,7 +403,7 @@ void PlotAllGraph(string DIR,string pdf, string header) {
          }
       }
    }
-   prtSysRel(fp,"varying MCGPJ parameters",maxR);
+   prtSysRel(fp,"Variation of MCGPJ parameters",maxR);
 }
 
 // {{{1~ Main
