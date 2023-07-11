@@ -403,10 +403,15 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 
    //  ChargedTracksPiPi:
    // angle between tracks of one charge
-   hst[6] = new TH1D("ang_pip","cos(ang) between all pairs of pi+",
-         200,-1.,1.);
-   hst[7] = new TH1D("ang_pim","cos(ang) between all pairs of pi-",
-         200,-1.,1.);
+   hst[5] = new TH1D("ang_pip","cos(ang) pairs of pi+", 200,-1.,1.);
+   hst[6] = new TH1D("ang_pim","cos(ang) pairs of pi-", 200,-1.,1.);
+   hst[7] = new TH1D("ang_pi","cos(ang) pi+/-", 100,0.998,1.);
+   hst[8] = new TH2D("ang_2d","dP vs cos(ang) pairs of pi+/-",
+         100,0.998,1., 100,-0.01,+0.01);
+   hst[9] = new TH1D("ang_pi_rm","deleted cos(ang) pi+/-",
+         100,0.999,1.);
+   hst[10] = new TH1D("ntrk_rm","ini Ntrk to delete",
+         21,-10.5,+10.5);
 
    hst[11] = new TH1D("Rxy","R_{xy}", 200,-2.,2.);
    hst[12] = new TH1D("Rz","R_{z}", 200,-20.,20.);
@@ -588,8 +593,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          120,-0.06,0.06);
    hst[163] = new TH1D("mc_dPz1","MC-REC dPz #pi^{+}",
          120,-0.06,0.06);
-   hst[164] = new TH1D("mc_dPa1","MC-REC delta angle #pi^{+}",
-         100,0.,0.1);
+   hst[164] = new TH1D("mc_dPa1","MC-REC cos(angle) #pi^{+}",
+         100,0.998,1.0); // acos(0.998) = 0.06
    hst[165] = new TH1D("mc_dP1m","MC-REC min dP #pi^{+}",
          200,-0.1,0.1);
    hst[166] = new TH1D("mc_dPx2","MC-REC dPx #pi^{-}",
@@ -598,8 +603,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          120,-0.06,0.06);
    hst[168] = new TH1D("mc_dPz2","MC-REC dPz #pi^{-}",
          120,-0.06,0.06);
-   hst[169] = new TH1D("mc_dPa2","MC-REC delta angle #pi^{-}",
-         100,0.,0.1);
+   hst[169] = new TH1D("mc_dPa2","MC-REC cos(angle) #pi^{-}",
+         100,0.998,1.0); // acos(0.995) = 0.1
    hst[170] = new TH1D("mc_dP2m","MC-REC min dP #pi^{-}",
          200,-0.1,0.1);
    hst[171] = new TH1D("mc_mcP1","no MC-REC #pi^{+} P", 100,0.,0.5);
@@ -610,6 +615,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          100,-1.,1.);
    hst[175] = new TH1D("mc_mch","0(no) 1(yes) 2(select), ",
          3,-0.5,2.5);
+   hst[176] = new TH1D("mv_ang_pi","cos(ang) pi pairs", 100,0.999,1.);
+
    hst[177] = new TH1D("mc_Mrs","signal Mrec(pi+pi-)", 100,3.,3.2);
    hst[178] = new TH1D("mc_cosPMs", "signal cos Theta(pi+pi-)",
          100,-1.0,1.0);
@@ -1247,7 +1254,8 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
    //            passes all the selection criteria
 
    const static double maxdp = 0.1;   // 100MeV
-   const static double debug_dp = 0.01;   // 10MeV
+   // const static double debug_dp = 0.01;   // 10MeV
+   const static double debug_dp = 0.005;   // 5MeV
 
    if ( !isMC ) {
       return;
@@ -1269,7 +1277,7 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
       if ( fabs(Pip[0]-Slct.mcPip[0]) < maxdp
             && fabs(Pip[1]-Slct.mcPip[1]) < maxdp
             && fabs(Pip[2]-Slct.mcPip[2]) < maxdp ) {
-         hst[164]->Fill( Slct.mcPip.angle(Pip) );
+         hst[164]->Fill( cos(Slct.mcPip.angle(Pip)) );
          if ( fabs(Pip_mag - mcPip_mag) < fabs(mindp_pip) ) {
             mindp_pip = Pip_mag - mcPip_mag;
             trp   = tr;
@@ -1303,7 +1311,7 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
       if ( fabs(Pim[0]-Slct.mcPim[0]) < maxdp
             && fabs(Pim[1]-Slct.mcPim[1]) < maxdp
             && fabs(Pim[2]-Slct.mcPim[2]) < maxdp ) {
-         hst[169]->Fill( Slct.mcPim.angle(Pim) );
+         hst[169]->Fill( cos(Slct.mcPim.angle(Pim)) );
          if ( fabs(Pim_mag - mcPim_mag) < fabs(mindp_pim) ) {
             mindp_pim = Pim_mag - mcPim_mag;
             trm   = tr;
@@ -1330,7 +1338,7 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
    }
    hst[175]->Fill(1.);
 
-   // print cases of two or more candidates for true pi+/pi-
+   // DEBUG: if there are two or more candidates for a true pi+/pi-
    if ( npipdp > 1 || npimdp > 1 ) {
       printf("DEBUG: run# %i, ev# %i -> npipdp= %d. npimdp= %d\n",
             Slct.runNo, Slct.event, npipdp, npimdp);
@@ -1341,7 +1349,7 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
                " th= %6.2f deg\n",
                P.x(),P.y(),P.z(),P.mag(),P.theta()*180/M_PI);
       };
-      // MC tracks:
+      // print true MC tracks:
       printf("MC pi+: ");
       printP(Slct.mcPip);
       printf("MC pi-: ");
@@ -1349,6 +1357,7 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
       printf("\n");
 
       // pi+ reconstructed candidates
+      vector<RecMdcKalTrack*> trk_clone;
       for ( const auto& tr : Slct.good_pip ) {
          Hep3Vector Pip(tr->px(), tr->py(), tr->pz());
          double Pip_mag = Pip.mag();
@@ -1360,9 +1369,21 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
                   tr->getTrackId(),tr->stat(),tr->chi2(),tr->ndof());
             printf("        ");
             printP(Pip);
+            trk_clone.push_back(tr);
          }
       }
+      if ( trk_clone.size() > 1 ) {
+         const auto& t0 = trk_clone[0];
+         Hep3Vector Vp0(t0->px(), t0->py(), t0->pz());
+         const auto& t1 = trk_clone[1];
+         Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
+         double ang = Vp1.angle(Vp0);
+         double ca = cos(ang);
+         hst[176]->Fill(ca);
+      }
+
       // pi- reconstructed candidates
+      trk_clone.clear();
       for ( const auto& tr : Slct.good_pim ) {
          Hep3Vector Pim(tr->px(), tr->py(), tr->pz());
          double Pim_mag = Pim.mag();
@@ -1374,9 +1395,19 @@ static void MatchMcRecMr(ReadDst* selector, Select& Slct) {
                   tr->getTrackId(),tr->stat(),tr->chi2(),tr->ndof());
             printf("        ");
             printP(Pim);
+            trk_clone.push_back(tr);
          }
       }
       printf("\n");
+      if ( trk_clone.size() > 1 ) {
+         const auto& t0 = trk_clone[0];
+         Hep3Vector Vp0(t0->px(), t0->py(), t0->pz());
+         const auto& t1 = trk_clone[1];
+         Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
+         double ang = Vp1.angle(Vp0);
+         double ca = cos(ang);
+         hst[176]->Fill(ca);
+      }
    }
 
    // pass these pi+ pi- through the selection
@@ -1554,13 +1585,15 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 
    int Ntrkp = trk_p.size();
    int Ntrkm = trk_m.size();
-   hst[20]->Fill(Ntrkp,Ntrkm);
    if ( Ntrkp < 1 || Ntrkm < 1 ) {
       return false;
    }
-   hst[1]->Fill(1); // "cuts"
 
-   // check angle between tracks of one charge
+   // Search for clone tracks
+   double maxCos = 0.9998; // ~1. degrees
+   double maxDp  = 0.005;  // 5 MeV
+   set<RecMdcKalTrack*> trk_clone;
+   // checking the angle between tracks of the same charge
    for ( int i = 1; i < Ntrkp; ++i ) {
       const auto& t1 = trk_p[i];
       Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
@@ -1568,9 +1601,37 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
          const auto& t2 = trk_p[ii];
          Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
          double ang = Vp1.angle(Vp2);
-         hst[6]->Fill(cos(ang));
+         double ca = cos(ang);
+         double dp = Vp1.mag()-Vp2.mag();
+         hst[5]->Fill(ca);
+         hst[7]->Fill(ca);
+         hst[8]->Fill(ca,dp);
+         if ( ca > maxCos && fabs(dp) < maxDp ) {
+            auto tb = t2;
+            if ( abs(t1->ndof() - t2->ndof()) < 4 ) {
+               if ( t1->chi2() > t2->chi2() ) {
+                  tb = t1;
+               }
+            } else {
+               if ( t1->ndof() < t2->ndof() ) {
+                  tb = t1;
+               }
+            }
+            trk_clone.insert(tb);
+            // printf("rm PI+ #1 [Id=%d]: chi2 %.2f, ndof %d\n",
+                  // tb->getTrackId(),tb->chi2(),tb->ndof());
+            hst[9]->Fill(ca);
+            hst[10]->Fill(Ntrkp);
+         }
       }
    }
+   // remove clone tracks
+   auto check = [&trk_clone](RecMdcKalTrack* tr) {
+      return trk_clone.find(tr) != end(trk_clone);
+   };
+   trk_p.erase(remove_if(begin(trk_p),end(trk_p),check), end(trk_p));
+   trk_clone.clear();
+
    for ( int i = 1; i < Ntrkm; ++i ) {
       const auto& t1 = trk_m[i];
       Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
@@ -1578,9 +1639,40 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
          const auto& t2 = trk_m[ii];
          Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
          double ang = Vp1.angle(Vp2);
-         hst[7]->Fill(cos(ang));
+         double ca = cos(ang);
+         double dp = Vp1.mag()-Vp2.mag();
+         hst[6]->Fill(ca);
+         hst[7]->Fill(ca);
+         hst[8]->Fill(ca,dp);
+         if ( ca > maxCos && fabs(dp) < maxDp ) {
+            auto tb = t2;
+            if ( abs(t1->ndof() - t2->ndof()) < 4 ) {
+               if ( t1->chi2() > t2->chi2() ) {
+                  tb = t1;
+               }
+            } else {
+               if ( t1->ndof() < t2->ndof() ) {
+                  tb = t1;
+               }
+            }
+            trk_clone.insert(tb);
+            // printf("rm PI- #1 [Id=%d]: chi2 %.2f, ndof %d\n",
+                  // tb->getTrackId(),tb->chi2(),tb->ndof());
+            hst[9]->Fill(ca);
+            hst[10]->Fill(-Ntrkm);
+         }
       }
    }
+   // remove clone tracks
+   trk_m.erase(remove_if(begin(trk_m),end(trk_m),check), end(trk_m));
+
+   Ntrkp = trk_p.size();
+   Ntrkm = trk_m.size();
+   hst[20]->Fill(Ntrkp,Ntrkm);
+   if ( Ntrkp < 1 || Ntrkm < 1 ) {
+      return false;
+   }
+   hst[1]->Fill(1); // "cuts"
 
    // 2) calculate recoil mass of all pairs of pi+ pi-
    double delta_min = 1e3;
