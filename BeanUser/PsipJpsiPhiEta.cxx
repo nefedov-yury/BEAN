@@ -1819,7 +1819,6 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 
    // signal (only MC)
    xnt1.Mrs = Slct.Mrec_sig;
-   xnt1.Mrs = Slct.Mrec_sig;
    if ( Slct.Pip_sig && Slct.Pim_sig ) {
       double ptp = Slct.Pip_sig->pxy();
       double wp  = ReWeightTrkPid(DataPeriod,0,ptp);
