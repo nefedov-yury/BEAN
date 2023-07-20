@@ -18,8 +18,7 @@
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
-// static const string dir("prod-12/");  // must be the same as prod-11
-string dir("prod_v709/");
+string Dir;
 
 //--------------------------------------------------------------------
 constexpr double SQ(double x) {
@@ -83,8 +82,8 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
    // type = 2 background for dec==64 (pi+pi-J/Psi)
    // type = 3 background for dec!=64 (other Psi' decays)
 
-   fname = dir + fname;
-   // fname = dir + "NoHC/" + fname; // ho helix corrections (test)
+   fname = Dir + fname;
+   // fname = Dir + "NoHC/" + fname; // ho helix corrections (test)
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {
@@ -104,13 +103,17 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
          );
    hst->Sumw2(true);
 
-   string dr = string("Mrec>>") + hname;
+   string dr("Mrec");
    TCut cut;
    switch ( type ) {
       case 0:
          break;
       case 1:
-         dr = string("Mrs>>") + hname;
+         dr = string("Mrs");
+         // {
+            // double shift = 0.000226; // 2009
+            // dr = string(Form("(%.6f+Mrs)",shift));
+         // }
          cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
          break;
       case 2:
@@ -119,20 +122,23 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
       case 3:
          cut = TCut("dec!=64");
          break;
-      case 10: // I/O check all: Mrs+Mrec
-         dr = string("Mrs>>") + hname;
-         nt1->Draw(dr.c_str(),"","goff");
-         dr = string("Mrec>>+") + hname;
-         break;
-      case 11: // I/O check signal
-         dr = string("Mrs>>") + hname;
-         cut = TCut("dec==64");
-         break;
+      // case 10: // I/O check all: Mrs+Mrec
+         // dr = string("Mrs>>") + hname;
+         // nt1->Draw(dr.c_str(),"","goff");
+         // dr = string("Mrec>>+") + hname;
+         // break;
+      // case 11: // I/O check signal
+         // dr = string("Mrs>>") + hname;
+         // cut = TCut("dec==64");
+         // break;
       default:
          cerr << "ERROR in "<< __func__
             << ": unknown type= " << type << endl;
          exit(EXIT_FAILURE);
    }
+
+   dr += string( Form(">>%s",hname.c_str()) );
+   cout << " fill_mrec::INFO dr= " << dr << endl;
 
    nt1->Draw(dr.c_str(),cut,"goff");
    return hst;
@@ -152,7 +158,7 @@ vector<TH1D*> fill_hist(int date) {
    vector<TH1D*> hst(hname.size(),nullptr);
 
    // read from cache file
-   string cachef = dir + string(Form("MrecFitSB_%i.root",date));
+   string cachef = Dir + string(Form("MrecFitSB_%i.root",date));
    if ( std::filesystem::exists( cachef )  ) {
       TFile* froot = TFile::Open(cachef.c_str(),"READ");
       if ( !froot ) {
@@ -204,7 +210,7 @@ vector<TH1D*> fill_hist_IOcheck(int date) {
    vector<TH1D*> hst(hname.size(),nullptr);
 
    // check cache file
-   string cachef = dir + string(Form("MrecFitSB_%i_IO.root",date));
+   string cachef = Dir + string(Form("MrecFitSB_%i_IO.root",date));
    if ( std::filesystem::exists( cachef )  ) {
       TFile* froot = TFile::Open(cachef.c_str(),"READ");
       if ( !froot ) {
@@ -520,6 +526,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
    min_opt.Print();
 
    // Npol is the order of polynomial, systematic study: +/-1
+   // const size_t Npol = 6; // debug
    const size_t Npol = (date==2009) ? 4 : 5;
    chi2_fit.SetNpol(Npol);
 
@@ -777,6 +784,12 @@ void MrecFitSB() {
    gStyle->SetOptFit(112);
    gStyle->SetStatFont(62);
    gStyle->SetLegendFont(42);
+
+   //========================================================
+   // set the name of the folder with the root files
+   // Dir = "prod-12/";  // must be the same as prod-11
+   Dir = "prod_v709/";
+   //========================================================
 
    int date=2009;
    // int date=2012;

@@ -8,8 +8,7 @@ typedef TH1D* (*FILL_H)(string, string, string);
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // global name of folder with root files
-// static string dir("prod-11/");
-string dir("prod_v709/");
+string Dir;
 
 //--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
@@ -41,7 +40,7 @@ void SetHstFace(TH1* hst) {
 //--------------------------------------------------------------------
 TH1D* get_hst(string fname, string hname) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -156,6 +155,16 @@ void plot_hist(string hname, int date) {
             ";cos #Theta_{#pi^{#minus}}"
             ";Events/0.02" );
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
+   } else if ( hname == "Bnch") {
+      box = nullptr;
+      hst[0]->SetTitle(
+            ";Number of charged tracks"
+            ";Events");
+      hst[0]->SetAxisRange(1.,17.,"X");
+      hst[0]->SetMinimum(1.);
+      hst[0]->SetMaximum(); // default
+      gPad->SetLogy(true);
+      hst[0]->GetYaxis()->SetTitleOffset(1.2);
    }
 
    hst[0]->Draw("E"); // data
@@ -184,7 +193,7 @@ void plot_hist(string hname, int date) {
 
    TLegend* leg;
    if ( pos == 0 ) { // default
-      leg = new TLegend(0.53,0.65,0.89,0.89);
+      leg = new TLegend(0.53,0.65+0.07*(box==nullptr),0.89,0.89);
    } else if ( pos == 1 ) {
       leg = new TLegend(0.60,0.75,0.92,0.92);
    } else if ( pos == 2 ) {
@@ -212,7 +221,7 @@ void plot_hist(string hname, int date) {
 //--------------------------------------------------------------------
 TH1D* fill_nch(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -240,7 +249,7 @@ TH1D* fill_nch(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_Nm(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -259,7 +268,7 @@ TH1D* fill_Nm(string fname, string hname, string hcut) {
          );
    hst->Sumw2();
 
-   string dr = string("Nm+(Mrs>0)>>") + hname;
+   string dr = string("@Mrec.size()+(Mrs>0)>>") + hname;
    nt1->Draw(dr.c_str(),hcut.c_str(),"goff");
 
    return hst;
@@ -268,7 +277,7 @@ TH1D* fill_Nm(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_ppip(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -296,7 +305,7 @@ TH1D* fill_ppip(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_ppim(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -324,7 +333,7 @@ TH1D* fill_ppim(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_cpip(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -352,7 +361,7 @@ TH1D* fill_cpip(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_cpim(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -380,7 +389,7 @@ TH1D* fill_cpim(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_cosPM(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -408,7 +417,7 @@ TH1D* fill_cosPM(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
 TH1D* fill_invPM(string fname, string hname, string hcut) {
 //--------------------------------------------------------------------
-   fname = dir + fname;
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -538,6 +547,9 @@ void pipi_dataMC() {
    // gStyle->SetLegendTextSize(0.03);
 
    //========================================================
+   // set the name of the folder with the root files
+   Dir = "prod_v709/";
+   //========================================================
 
    // plot_hist("cosPM",2009);
    // plot_hist("cosPM",2012);
@@ -554,12 +566,14 @@ void pipi_dataMC() {
    // plot_hist("Pip_P",2021);
    // plot_hist("Pim_P",2021);
 
+   // plot_hist("Bnch",2009); // Nch
+   // plot_hist("Bnch",2012); // Nch
+   // plot_hist("Bnch",2021); // Nch
+
+   // slow
    // plot_One(2009,"Nm",fill_Nm);
-   // plot_One(2009,"Nch",fill_nch);
    // plot_One(2012,"Nm",fill_Nm);
-   // plot_One(2012,"Nch",fill_nch);
    // plot_One(2021,"Nm",fill_Nm);
-   // plot_One(2021,"Nch",fill_nch);
 
    // ugly
    // plot_hist("Pip_C",2021); // or log see fun()
