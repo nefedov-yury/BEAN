@@ -73,7 +73,7 @@ void get_hist(int date, string hname, TH1D* hst[]) {
    hst[0]->GetYaxis()->SetMaxDigits(3);
    // cout << " Integral(data)= " << hst[0]->Integral() << endl;
 
-   hst[1]=get_hst("data_3650_all.root", hname);
+   hst[1]=get_hst("data_3650_2021.root", hname);
    hst[1]->Scale(C_Dat.at(date));
    hst[1]->SetLineColor(kBlue+1);
    hst[1]->SetLineWidth(2);
@@ -458,7 +458,7 @@ void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[]) {
    cout << " Integral(data)= " << hst[0]->Integral() << endl;
 
    string hn1 = var + string("_3650");
-   hst[1]=fill_h("data_3650_all.root", hn1, "");
+   hst[1]=fill_h("data_3650_2021.root", hn1, "");
    hst[1]->Scale(C_Dat.at(date));
    hst[1]->SetLineColor(kBlue+1);
    hst[1]->SetLineWidth(2);

@@ -177,7 +177,7 @@ vector<TH1D*> fill_hist(int date) {
 
    hst[0]=fill_mrec(datafile, hname[0]);
 
-   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
+   hst[1]=fill_mrec("data_3650_2021.root", hname[1]);
    hst[1]->Scale(C_Dat.at(date));
 
    hst[2]=fill_mrec(mcincfile,hname[2],1);
@@ -538,11 +538,11 @@ void DoFitSB(int date, bool isIOcheck = false) {
    }
    vector<double> par_ini;
    if ( date == 2009 ) {
-      par_ini = { 1.095, 0.009, 0.004, 0.002, 0.002 };
+      par_ini = { 1.087, 0.008, 0.005, 0.002, 0.002 };
    } else if ( date == 2012 ) {
-      par_ini = { 1.119, 0.016, 0.005, 0.002, 0.002, 0.002 };
+      par_ini = { 1.105, 0.015, 0.006, 0.002, 0.002, 0.002 };
    } else if ( date == 2021 ) {
-      par_ini = { 1.067, 0.000, 0.007, 0.002, 0.001, 0.001 };
+      par_ini = { 1.070, 0.000, 0.007, 0.002, 0.002, 0.001 };
    }
    if ( par_ini.size() != Npar ) {
       par_ini.resize(Npar,0.);
@@ -791,13 +791,15 @@ void MrecFitSB() {
    Dir = "prod_v709/";
    //========================================================
 
+   // for ( int date : { 2009,2012,2021 } ) {
+      // bool zoom = true;
+      // MrecDraw(date, !zoom);
+      // MrecDraw(date,  zoom);
+   // }
+
    int date=2009;
    // int date=2012;
    // int date=2021;
-
-   bool zoom = true;
-   // MrecDraw(date, !zoom);
-   // MrecDraw(date,  zoom);
 
    DoFitSB(date);
 

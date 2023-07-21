@@ -11,8 +11,8 @@
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
-// static const string dir("prod-12/");
-string dir("prod_v709/");
+string Dir;
+bool USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
 
 //--------------------------------------------------------------------
 constexpr double SQ(double x) {
@@ -78,10 +78,10 @@ TH1D* fill_mrec(string fname, string hname, int type=0,
    // type = 3 background for dec!=64 (other Psi' decays)
    // type = 11 the same as type=1 but without helix corrections
 
-   if ( type == 11 ) {
-      fname = dir + "NoHC/" + fname;
+   if ( type == 11 && USE_NOHC_SIGNAL_MC ) {
+      fname = Dir + "NoHC/" + fname;
    } else {
-      fname = dir + fname;
+      fname = Dir + fname;
    }
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -128,8 +128,9 @@ TH1D* fill_mrec(string fname, string hname, int type=0,
          exit(EXIT_FAILURE);
    }
 
-   // only for MC: small energy shift
-   if ( type > 0 && fabs(shift) > 1e-6 ) {
+   // only for MC: energy shift
+   // if ( type == 11 && fabs(shift) > 1e-6 ) { // only signal MC
+   if ( type > 0 && fabs(shift) > 1e-6 ) { // all MC
       dr = string(Form("(%.6f+%s)",shift,dr.c_str())); // shift+dr
    }
    dr += string( Form(">>%s",hname.c_str()) );
@@ -141,33 +142,22 @@ TH1D* fill_mrec(string fname, string hname, int type=0,
 }
 
 //--------------------------------------------------------------------
-vector<TH1D*> fill_hist(int date, bool NoHC=false) {
+vector<TH1D*> fill_hist(int date) {
 //--------------------------------------------------------------------
 #include "norm.h"
    double shift = 0.0;
    if ( date == 2009 ) {
-      // shift = 0.00022; // chi2(M2) = 3378
-      // shift = 0.000225; // chi2(M2) = 3317
-      shift = 0.000226; // chi2(M2) = 3252 ***
-      // shift = 0.000227; // chi2(M2) = 3283
-      // shift = 0.00023; // chi2(M2) = 3354*
-      // shift = 0.00024; // chi2(M2) = 3668
+      // shift = 0.000225; // chi2(M2) = 3106?
+      shift = 0.000226; // chi2(M2) = 3057 ***
+      // shift = 0.000227; // chi2(M2) = 3077?
    } else if ( date == 2012 ) {
-      // shift = 0.00038; // chi2(M2) = 7641*
-      // shift = 0.000385; // chi2(M2) = 7488
-      shift = 0.000386; // chi2(M2) = 7314 ***
-      // shift = 0.000387; // chi2(M2) = 7460
-      // shift = 0.000388; // chi2(M2) = 7610
-      // shift = 0.00039; // chi2(M2) = 7537
-      // shift = 0.00040; // chi2(M2) = 8306
+      // shift = 0.000385; // chi2(M2) = 6183?
+      shift = 0.000386; // chi2(M2) = 6013 ***
+      // shift = 0.000387; // chi2(M2) = 6168?
    } else if ( date == 2021 ) {
-      // shift = 0.00059; // chi2(M2) = 36 848
-      // shift = 0.00060; // chi2(M2) = 30 013*
-      // shift = 0.00061; // chi2(M2) = 29 575
-      // shift = 0.000605; // chi2(M2) = 28 911
-      // shift = 0.000606; // chi2(M2) = 28 131
-      shift = 0.000607; // chi2(M2) = 27 267***
-      // shift = 0.000608; // chi2(M2) = 27 768
+      // shift = 0.000606; // chi2(M2) = 23 481
+      shift = 0.000607; // chi2(M2) = 22 637***
+      // shift = 0.000608; // chi2(M2) = 23 122
    }
 
    string sd(Form("%02i",date%100));
@@ -180,15 +170,12 @@ vector<TH1D*> fill_hist(int date, bool NoHC=false) {
    vector<TH1D*> hst(hname.size(),nullptr);
 
    // read from cache file
-   string cachef = dir + string(Form("MrecFit_%i",date));
-   if ( NoHC ) {
-      cachef += "_nohc";
-   }
+   string cachef = Dir + (USE_NOHC_SIGNAL_MC ? "NoHC/" : "")
+      + string(Form("MrecFit_%i",date));
    if ( fabs(shift) > 1e-7 ) {
       cachef += ((shift<0) ? "_m" : "_")
          + to_string(int(fabs(shift*1e6)));
    }
-
    cachef += ".root";
    if ( std::filesystem::exists( cachef )  ) {
       TFile* froot = TFile::Open(cachef.c_str(),"READ");
@@ -208,10 +195,10 @@ vector<TH1D*> fill_hist(int date, bool NoHC=false) {
 
    hst[0]=fill_mrec(datafile, hname[0]);
 
-   hst[1]=fill_mrec("data_3650_all.root", hname[1]);
+   hst[1]=fill_mrec("data_3650_2021.root", hname[1]);
    hst[1]->Scale(C_Dat.at(date));
 
-   int type1 = ( !NoHC ) ? 1 : 11 ;
+   int type1 = ( !USE_NOHC_SIGNAL_MC ) ? 1 : 11 ;
    hst[2]=fill_mrec(mcincfile,hname[2],type1,shift);
    hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
    hst[2]->Scale(MC_Dat.at(date));
@@ -860,8 +847,7 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
 
 // {{{1 print efficiency and error on it
 //--------------------------------------------------------------------
-void print_eff(int date, bool NoHC,
-      const TH1D* MCsig, const myChi2& ch2,
+void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
       const vector<double>& par, const vector<double> er_par,
       double Emin, double Emax) {
 //--------------------------------------------------------------------
@@ -871,7 +857,8 @@ void print_eff(int date, bool NoHC,
 
    string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
-   string fname = dir + (NoHC ? "NoHC/" : "") + mcincfile;
+   string fname = Dir + (USE_NOHC_SIGNAL_MC ? "NoHC/" : "")
+      + mcincfile;
    // cout << endl << " Eff file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -967,9 +954,7 @@ void plot_diff(const TH1D* Data, const TH1D* SumMC,
 //--------------------------------------------------------------------
 void DoFit(int date) {
 //--------------------------------------------------------------------
-   // bool USE_NOHC_SIGNAL_MC = false;
-   bool USE_NOHC_SIGNAL_MC = true;
-   vector<TH1D*> hst = fill_hist(date, USE_NOHC_SIGNAL_MC);
+   vector<TH1D*> hst = fill_hist(date);
 
    // limits for drawing, bin size ten times smaller than FitSB
    double maxWin = 0, minWin = 0;
@@ -1030,26 +1015,26 @@ void DoFit(int date) {
    if ( date == 2009 ) {
       if ( Model == 1 ) {
          par_ini = { 0.969, 0.86e-3,
-            1.094,0.005,-0.027,-0.001 }; // +0.23MeV
+            1.094,0.005,-0.027,-0.001 }; // old +0.23MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.987, 3.24e-3, 0.62e-3, 0.88,
-            1.103,0.007,0.006,0.001,0.0129 }; // +0.23MeV
+         par_ini = { 0.979, 3.18e-3, 0.62e-3, 0.87,
+            1.095,0.007,0.006,0.001,0.013 }; // +0.226MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
          par_ini = { 0.982, 0.98e-3,
-            1.118,0.008,-0.030,-0.006 }; // +0.38MeV
+            1.118,0.008,-0.030,-0.006 }; // old +0.38MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 1.002, 3.41e-3, 0.70e-3, 0.86,
-            1.128,0.024,0.008,0.008,0.014,0.008 }; // +0.38MeV
+         par_ini = { 0.989, 3.40e-3, 0.70e-3, 0.86,
+            1.113,0.023,0.008,0.008,0.014,0.008 }; // +0.386MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
          par_ini = { 0.945, 0.89-3,
-            1.066,-0.006,-0.020,-0.002 }; // +0.60MeV
+            1.066,-0.006,-0.020,-0.002 }; // old +0.60MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.962, 3.06e-3, 0.62e-3, 0.86,
-            1.073,0.004,0.009,0.006,0.010,0.05 }; // +0.60MeV
+         par_ini = { 0.964, 3.06e-3, 0.62e-3, 0.86,
+            1.076,0.004,0.009,0.006,0.010,0.005 }; // +0.607MeV
       }
    }
    if ( par_ini.size() != Npar ) {
@@ -1204,10 +1189,8 @@ void DoFit(int date) {
    print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
    printf("%s\n",sepline.c_str());
 
-   print_eff(date, USE_NOHC_SIGNAL_MC,
-         hst[5], chi2_fit, par, er_par, 3.092,3.102);
-   print_eff(date, USE_NOHC_SIGNAL_MC,
-         hst[5], chi2_fit, par, er_par, 3.055,3.145);
+   print_eff(date, hst[5], chi2_fit, par, er_par, 3.092,3.102);
+   print_eff(date, hst[5], chi2_fit, par, er_par, 3.055,3.145);
    printf("%s\n",sepline.c_str());
 }
 
@@ -1220,6 +1203,13 @@ void MrecFit() {
    gStyle->SetOptFit(112);
    gStyle->SetLegendFont(42);
    // gStyle->SetFitFormat(".8g"); // DEBUG
+
+   //========================================================
+   // set the name of the folder with the root files
+   // Dir = "prod-12/";  // must be the same as prod-11
+   Dir = "prod_v709/";
+   USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
+   //========================================================
 
    int date=2009;
    // int date=2012;

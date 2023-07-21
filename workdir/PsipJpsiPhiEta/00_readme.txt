@@ -7,7 +7,7 @@ Scripts for Psi' -> Jpsi pi+pi-
 masses.h   -> masses of particles (GeV) from PDG 2021
 
 norm.h     -> normalization constants for inclusive MC and for
-              non-resonance data. v709 not good?
+              non-resonance data; BOSS v709
 
 cuts.h     -> List of cuts for
               1) Psi' -> J/Psi pi+ pi-
