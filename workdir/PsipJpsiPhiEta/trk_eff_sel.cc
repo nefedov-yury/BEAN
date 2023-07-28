@@ -1,13 +1,21 @@
 // trk_eff_sel.cc - Pictures for presentation/memo
 // Study of the track reconstruction efficiency for pi and K
 
-//----------------------------------------------------------------------
-// Common parameters:
+// {{{1 Common parameters: Params
+//--------------------------------------------------------------------
 struct Params {
-   // names of files to use
-   vector<string> fnames;
+   Params(int dat, int kpi, int pm, int rew);
 
-   int date;    // 2009 or 2012
+   TFile* OpenFile(int mc);
+   TTree* GetEff(int mc);
+   const char* Sdate() { return Form("%i",date); }
+
+   // name of folder with root files
+   string Dir;
+   string datafile;
+   string mcincfile;
+
+   int date;    // 2009 ...
    int use_kpi; // 1: kaons; 2: pions
    int use_pm;  //  0: sum "+" and "-"
                 //  1: "+" only
@@ -21,83 +29,80 @@ struct Params {
    TCut CKPtC;  // cuts for Pt and cos(Theta) of kaons
    TCut Cpion;  // std cuts for pions
    TCut CPiPtC; // cuts for Pt and cos(Theta) of pions
-
-   //-----------------------------------------------------------------
-   Params(int dat = 2012, int kpi = 1, int pm = 0, int rew = 0) {
-   //-----------------------------------------------------------------
-      date = dat;
-      use_kpi = kpi;
-      use_pm = pm;
-      use_rew = rew;
-
-      // name of folder with root-files
-//       string dir("prod-13eff/");
-      string dir("prod-11/");
-      fnames = {
-         "data_09psip_all.root", "mcinc_09psip_all.root",
-         "data_12psip_all.root", "mcinc_12psip_all.root"
-      };
-      for ( auto& fn : fnames ) {
-         fn = dir + fn;
-      }
-      // mc-signal
-      Cmcsig = TCut("good==1");
-
-      // std cuts for kaons: mk**2 = 0.243717 (GeV**2)
-      Ckaon = TCut("fabs(Mrec-3.097)<0.002&&"
-                   "fabs(Mrk2-0.243717)<0.025");
-      // cuts for Pt and cos(Theta) of kaons
-      CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
-
-      // std cuts for pions: mpi**2 = 0.0194797849
-      Cpion = TCut("fabs(MppKK-3.096)<0.009&&"
-                   "fabs(Mrpi2-0.0194798)<0.025");
-      // cuts for Pt and cos(Theta) of pions
-      CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
-   }
-
-   //-----------------------------------------------------------------
-   TFile* OpenFile(int mc) {  // 1 for MC
-   //-----------------------------------------------------------------
-      // open file
-      int idx = mc + ((date==2009) ? 0 : 2);
-      string dfname = fnames[idx];
-      TFile* froot = TFile::Open(dfname.c_str(),"READ");
-      if( froot == 0 ) {
-         cerr << "can not open " << dfname << endl;
-         exit(0);
-      }
-//       cout << " file: " << dfname << endl;
-      froot->cd("PipPimKpKm");
-      return froot;
-   }
-
-   //-----------------------------------------------------------------
-   TTree* GetEff(int mc = 0) { // get tree for K or Pi
-   //-----------------------------------------------------------------
-      TFile* froot = this->OpenFile(mc);
-      string name( ((use_kpi == 1) ? "eff_K" : "eff_Pi") );
-      TTree* eff = (TTree*)gDirectory->Get(name.c_str());
-      if ( !eff ) {
-         cout << "can not find " << name << " in "
-            << froot->GetName() << endl;
-         exit(0);
-      }
-      return eff;
-   }
-
 };
-//----------------------------------------------------------------------
 
-//----------------------------------------------------------------------
+// {{{2 > ctor
+//--------------------------------------------------------------------
+Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
+//--------------------------------------------------------------------
+   date = dat;
+   use_kpi = kpi;
+   use_pm = pm;
+   use_rew = rew;
+
+   // set the names:
+   // Dir = "prod-11/";
+   Dir = "prod_v709/";
+   datafile  = string( Form("data_%02ipsip_all.root",date%100) );
+   mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
+
+   // mc-signal
+   Cmcsig = TCut("good==1");
+
+   // std cuts for kaons: mk**2 = 0.243717 (GeV**2)
+   Ckaon = TCut("fabs(Mrec-3.097)<0.002&&"
+         "fabs(Mrk2-0.243717)<0.025");
+   // cuts for Pt and cos(Theta) of kaons
+   CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
+
+   // std cuts for pions: mpi**2 = 0.0194797849 TODO?3.096?
+   Cpion = TCut("fabs(MppKK-3.096)<0.009&&"
+         "fabs(Mrpi2-0.0194798)<0.025");
+   // cuts for Pt and cos(Theta) of pions
+   CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
+}
+
+// {{{2 > OpenFile()
+//--------------------------------------------------------------------
+TFile* Params::OpenFile(int mc) {  // 1 for MC
+//--------------------------------------------------------------------
+   string dfname = Dir + ( (mc!=1) ? datafile : mcincfile );
+   // cout " OpenFile: " << dfname << endl;
+   TFile* froot = TFile::Open(dfname.c_str(),"READ");
+   if( froot == 0 ) {
+      cerr << "can not open " << dfname << endl;
+      exit(EXIT_FAILURE);
+   }
+   froot->cd("PipPimKpKm");
+   return froot;
+}
+
+// {{{2 > GetEff()
+//--------------------------------------------------------------------
+TTree* Params::GetEff(int mc = 0) { // get tree for K or Pi
+//--------------------------------------------------------------------
+   TFile* froot = this->OpenFile(mc);
+   string name( ((use_kpi == 1) ? "eff_K" : "eff_Pi") );
+   TTree* eff = (TTree*)gDirectory->Get(name.c_str());
+   if ( !eff ) {
+      cout << "can not find " << name << " in "
+         << froot->GetName() << endl;
+      exit(EXIT_FAILURE);
+   }
+   return eff;
+}
+
+
+// {{{1 helper functions and constants
+//--------------------------------------------------------------------
 constexpr double SQ(double x) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    return x*x;
 }
 
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -121,11 +126,12 @@ void SetHstFace(TH1* hst) {
    }
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Fill histograms
+//--------------------------------------------------------------------
 void get_hst( Params* p, int mc,
       const vector<string> hns, vector<TH1D*>& hst ) {
-//-------------------------------------------------------------------------
-// get set of histograms from file "fname" according of "hns"
+//--------------------------------------------------------------------
+// read set of histograms to "hst" according of names "hns"
 
    int Nh = hns.size();
    hst.clear();
@@ -137,23 +143,22 @@ void get_hst( Params* p, int mc,
       hst[i] = (TH1D*)gROOT->FindObject(hns[i].c_str());
       if ( !hst[i] ) {
          cout << " can not find histo:" << hns[i] << endl;
-         exit(1);
+         exit(EXIT_FAILURE);
       }
       hst[i]->Sumw2(true);
       SetHstFace(hst[i]);
 
       // rename:
-      string name = string((mc==1) ? "MC_" : "Dat") +
-                    string((p->date==2009) ? "09_"  : "12_") +
-                    string( hst[i]->GetName() );
+      string name( Form("%s_%02i_%s", (mc==1) ? "MC_" : "Dat",
+               p->date, hst[i]->GetName()) );
       hst[i]->SetName( name.c_str() );
-//       hst[i]->SetTitle("");
    }
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Plot pi0
+//--------------------------------------------------------------------
 void plot_pi0(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S1b_Mg2"};
@@ -165,66 +170,69 @@ void plot_pi0(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-//    double scale = hdat[0] -> Integral(26,150) / hmc[0] -> Integral(26,150);
-   double scale = hdat[0] -> Integral(60,109) / hmc[0] -> Integral(60,109);
+   double scale = hdat[0]->Integral(60,109)/hmc[0]->Integral(60,109);
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
    TBox* box = new TBox;
-   box -> SetFillStyle(3001);
-   box -> SetFillColor(kRed-10);
-   box -> SetLineColor(kRed-9);
-   box -> SetLineWidth(1);
+   box->SetFillStyle(3001);
+   box->SetFillColor(kRed-10);
+   box->SetLineColor(kRed-9);
+   box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg -> SetHeader( Form("%i",date),"C");
+   leg->SetHeader( par->Sdate(),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1 -> cd(0);
-   gPad -> SetGrid();
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
 
    // Data
-   hdat[0] -> SetAxisRange(0.005,0.03,"X");
-   hdat[0] -> SetTitle(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
-                        ";Entries/0.0002 GeV^{2}/c^{4}");
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
+   hdat[0]->SetAxisRange(0.005,0.03,"X");
+   hdat[0]->SetTitle(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
+         ";Entries/0.0002 GeV^{2}/c^{4}");
+   if ( date > 2009 ) {
+      hdat[0]->GetYaxis()->SetMaxDigits(3);
+   }
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
 
    double ymax=1.05*hdat[0]->GetMaximum();
-   box -> DrawBox(0.012,.0,0.022,ymax);
-   hdat[0] -> Draw("E,SAME");
+   box->DrawBox(0.012,.0,0.022,ymax);
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kGreen+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kGreen+1);
-//    hmc[1] -> Draw("HIST,SAME");
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kGreen+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kGreen+1);
+   // hmc[1]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP`");
    leg->AddEntry(hmc[0], "MC","L");
-//    leg->AddEntry(hmc[1], "MC signal","F");
+   // leg->AddEntry(hmc[1], "MC signal","F");
    leg->AddEntry(box, "Rejection area","F");
    leg->Draw();
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_pi0_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_pi0_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Plot MmisK
+//--------------------------------------------------------------------
 void plot_MmisK(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S3_M2K"};
@@ -236,10 +244,10 @@ void plot_MmisK(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-//    double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   // double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -252,54 +260,54 @@ void plot_MmisK(int date) {
    double M2l = SQ(mk)-0.025;
    double M2r = SQ(mk)+0.025;
    double dh = 0.0012; // bin width
-   double bg = hmc[2] -> Integral(int((M2l-0.125)/dh),int((M2r-0.125)/dh));
-   double sum = hmc[0] -> Integral(int((M2l-0.125)/dh),int((M2r-0.125)/dh));
-//    cout << " bg=" << bg << " sum= " << sum << " R= " << bg/sum << endl;
-   printf(" %i background is %.1f%%",date,bg/sum*100);
+   double bg =
+      hmc[2]->Integral(int((M2l-0.125)/dh),int((M2r-0.125)/dh));
+   double sum =
+      hmc[0]->Integral(int((M2l-0.125)/dh),int((M2r-0.125)/dh));
+   printf("%i background is %.1f%%\n", date, bg/sum*100);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader(to_string(date).c_str(),"C");
+   leg->SetHeader( par->Sdate(),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
 
    // Data
-   hdat[0] -> SetAxisRange(0.15,0.35,"X");
-   hdat[0] -> SetTitle(
+   hdat[0]->SetAxisRange(0.15,0.35,"X");
+   hdat[0]->SetTitle(
          ";M^{2}_{recoil}(2(#pi^{+}#pi^{-})K^{#pm}), GeV^{2}/c^{4}"
          ";Entries/0.0012 GeV^{2}/c^{4}"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
    if ( date == 2009 ) {
-      hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
+      hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    }
-   hdat[0] -> Draw("E");
+   hdat[0]->Draw("E");
 
-   double ymax = hdat[0] -> GetMaximum();
+   double ymax = hdat[0]->GetMaximum();
    if ( date == 2009 ) {
       ymax *= 1.07;
-   } else if ( date == 2012) {
+   } else {
       ymax *= 1.065;
    }
    box->DrawBox(0.15,0.,M2l,ymax);
    box->DrawBox(M2r,0.,0.35,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -309,13 +317,312 @@ void plot_MmisK(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_MmK_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_MmK_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Plot PtKp(Km) CKp(Km)
+//--------------------------------------------------------------------
+void plot_PtKp(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,1); // Kaons
+   auto hPt = [](string nm) {
+      return (new TH1D(nm.c_str(),"",60,0.,1.5));
+   };
+
+   TTree* effKd = par->GetEff(0); // data
+   vector<TH1D*> hdat { hPt("hdat") };
+   TCut cutD = par->Ckaon  + TCut("Zk>0") + TCut("fabs(Ck)<0.8");
+   effKd->Draw("Ptk>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+      // cout<<h->GetName()<<" Entries= "<<h->GetEntries()<<endl;
+   }
+
+   TTree* effKmc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
+   effKmc->Draw("Ptk>>hmc",cutD,"goff");
+   effKmc->Draw("Ptk>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i  K^{#plus}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   hdat[0]->SetTitle(
+         ";P_{t}(K), GeV/c"
+         ";Entries/0.025 GeV/c"
+         );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_PtKp_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+//--------------------------------------------------------------------
+void plot_PtKm(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date, 1); // Kaons
+   auto hPt = [](string nm) {
+      return (new TH1D(nm.c_str(),"",60,0.,1.5));
+   };
+
+   TTree* effKd = par->GetEff(0); // data
+   vector<TH1D*> hdat { hPt("hdat") };
+   TCut cutD = par->Ckaon  + TCut("Zk<0") + TCut("fabs(Ck)<0.8");
+   effKd->Draw("Ptk>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effKmc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
+   effKmc->Draw("Ptk>>hmc",cutD,"goff");
+   effKmc->Draw("Ptk>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i  K^{#minus}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   hdat[0]->SetTitle(
+         ";P_{t}(K), GeV/c"
+         ";Entries/0.025 GeV/c"
+         );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_PtKm_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+//--------------------------------------------------------------------
+void plot_CKp(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,1); // Kaons
+   auto hC = [](string nm) {
+      return (new TH1D(nm.c_str(),"",40,-1.,1.));
+   };
+
+   TTree* effKd = par->GetEff(0); // data
+   vector<TH1D*> hdat { hC("hdat") };
+   TCut cutD = par->Ckaon + TCut("Zk>0") + TCut("0.1<Ptk&&Ptk<1.4");
+   effKd->Draw("Ck>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effKmc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
+   effKmc->Draw("Ck>>hmc",cutD,"goff");
+   effKmc->Draw("Ck>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i  K^{#plus}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   double ymax=1.5*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->SetTitle(
+         ";cos(#Theta_{K}) "
+         ";Entries/0.05 "
+                       );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_CKp_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+//--------------------------------------------------------------------
+void plot_CKm(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,1);
+   auto hC = [](string nm) {
+      return (new TH1D(nm.c_str(),"",40,-1.,1.));
+   };
+
+   TTree* effKd = par->GetEff(0); // data
+   vector<TH1D*> hdat { hC("hdat") };
+   TCut cutD = par->Ckaon  + TCut("Zk<0") + TCut("0.1<Ptk&&Ptk<1.4");
+   effKd->Draw("Ck>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effKmc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
+   effKmc->Draw("Ck>>hmc",cutD,"goff");
+   effKmc->Draw("Ck>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i  K^{#minus}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   double ymax=1.5*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->SetTitle(
+         ";cos(#Theta_{K}) "
+         ";Entries/0.05 "
+         );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_CKm_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+// {{{1 Plot dPk dThK
+//--------------------------------------------------------------------
 void plot_dPK(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S3_dPK"};
@@ -327,10 +634,10 @@ void plot_dPK(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-//    double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -341,49 +648,44 @@ void plot_dPK(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader( to_string(date).c_str(),"C");
+   leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
-   hdat[0] -> SetAxisRange(-0.15,0.15,"X");
-   hdat[0] -> SetMinimum(1.);
-   hdat[0] -> SetTitle(
+   hdat[0]->SetAxisRange(-0.15,0.15,"X");
+   hdat[0]->SetMinimum(1.);
+   hdat[0]->SetTitle(
          ";#deltaP(K), GeV/c"
          ";Entries/0.002 GeV/c"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
-   hdat[0] -> Draw("E");
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->Draw("E");
 
-//    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax = hdat[0] -> GetMaximum(); // Log
-   if ( date == 2009 ) {
-      ymax *= 1.9;
-   } else if (date == 2012 ) {
-      ymax *= 1.9;
-   }
+   // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
+   double ymax = hdat[0]->GetMaximum(); // Log
+   ymax *= 1.9;
    box->DrawBox(-0.15,0.,-0.12,ymax);
    box->DrawBox(0.08,0.,0.15,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -393,13 +695,13 @@ void plot_dPK(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_dPK_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_dPK_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void plot_dThK(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S3_dThK"};
@@ -411,10 +713,10 @@ void plot_dThK(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-//    double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -425,43 +727,42 @@ void plot_dThK(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader( to_string(date).c_str(),"C" );
+   leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
-//    hdat[0] -> SetAxisRange(-0.15,0.15,"X");
-   hdat[0] -> SetMinimum(1.);
-   hdat[0] -> SetTitle(
+   // hdat[0]->SetAxisRange(-0.15,0.15,"X");
+   hdat[0]->SetMinimum(1.);
+   hdat[0]->SetTitle(
          ";#delta#Theta(K), deg"
          ";Entries/0.2 deg"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
-   hdat[0] -> Draw("E");
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->Draw("E");
 
-//    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
+   // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
    double ymax=1.9*hdat[0]->GetMaximum(); // Log
    box->DrawBox(10.,0.,20.,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -471,305 +772,14 @@ void plot_dThK(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_dThK_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_dThK_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
-void plot_PtKp(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,1); // Kaons
-   auto hPt = [](string nm) {return (new TH1D(nm.c_str(),"",60,0.,1.5));};
-
-   TTree* effKd = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hPt("hdat") };
-   TCut cutD = par -> Ckaon  + TCut("Zk>0") + TCut("fabs(Ck)<0.8");
-   effKd->Draw("Ptk>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effKmc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
-   effKmc->Draw("Ptk>>hmc",cutD,"goff");
-   effKmc->Draw("Ptk>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{#plus}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   hdat[0] -> SetTitle(
-         ";P_{t}(K), GeV/c"
-         ";Entries/0.025 GeV/c"
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_PtKp_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
-void plot_PtKm(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date, 1); // Kaons
-   auto hPt = [](string nm) {return (new TH1D(nm.c_str(),"",60,0.,1.5));};
-
-   TTree* effKd = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hPt("hdat") };
-   TCut cutD = par -> Ckaon  + TCut("Zk<0") + TCut("fabs(Ck)<0.8");
-   effKd->Draw("Ptk>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effKmc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
-   effKmc->Draw("Ptk>>hmc",cutD,"goff");
-   effKmc->Draw("Ptk>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{#minus}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   hdat[0] -> SetTitle(
-         ";P_{t}(K), GeV/c"
-         ";Entries/0.025 GeV/c"
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_PtKm_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
-void plot_CKp(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,1); // Kaons
-   auto hC = [](string nm) {return (new TH1D(nm.c_str(),"",40,-1.,1.));};
-
-   TTree* effKd = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hC("hdat") };
-   TCut cutD = par -> Ckaon  + TCut("Zk>0") + TCut("0.1<Ptk&&Ptk<1.4");
-   effKd->Draw("Ck>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effKmc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
-   effKmc->Draw("Ck>>hmc",cutD,"goff");
-   effKmc->Draw("Ck>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral(5,36) / hmc[0] -> Integral(5,36);
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{#plus}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   double ymax=1.5*hdat[0]->GetMaximum();
-   hdat[0] -> SetMaximum(ymax);
-   hdat[0] -> SetTitle(
-         ";cos(#Theta_{K}) "
-         ";Entries/0.05 "
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_CKp_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
-void plot_CKm(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,1);
-   auto hC = [](string nm) {return (new TH1D(nm.c_str(),"",40,-1.,1.));};
-
-   TTree* effKd = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hC("hdat") };
-   TCut cutD = par -> Ckaon  + TCut("Zk<0") + TCut("0.1<Ptk&&Ptk<1.4");
-   effKd->Draw("Ck>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effKmc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
-   effKmc->Draw("Ck>>hmc",cutD,"goff");
-   effKmc->Draw("Ck>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral(5,36) / hmc[0] -> Integral(5,36);
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i  K^{#minus}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   double ymax=1.5*hdat[0]->GetMaximum();
-   hdat[0] -> SetMaximum(ymax);
-   hdat[0] -> SetTitle(
-         ";cos(#Theta_{K}) "
-         ";Entries/0.05 "
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_CKm_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
+// {{{1 Plot MinvJ
+//--------------------------------------------------------------------
 void plot_MinvJ(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S4_MppKKb"};
@@ -781,10 +791,10 @@ void plot_MinvJ(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-//    double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   // double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -795,43 +805,41 @@ void plot_MinvJ(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.61,0.69,0.895,0.895);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader( to_string(date).c_str(),"C" );
+   leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
 
    // Data
-   hdat[0] -> SetAxisRange(3.06,3.13,"X");
-   hdat[0] -> SetTitle(
-       ";M^{ inv}_{#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}}, GeV/c^{2}"
-       ";Entries/0.0009 GeV/c^{2}"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   if ( date == 2009 ) {
-      hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
-   }
-   hdat[0] -> Draw("E");
+   hdat[0]->SetAxisRange(3.06,3.13,"X");
+   hdat[0]->SetTitle(
+         ";M^{ inv}_{#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}},"
+         " GeV/c^{2}"
+         ";Entries/0.0009 GeV/c^{2}"
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->Draw("E");
 
-   double ymax = 1.06 * hdat[0] -> GetMaximum();
+   double ymax = 1.06 * hdat[0]->GetMaximum();
    box->DrawBox(3.06,0.,3.087,ymax);
    box->DrawBox(3.105,0.,3.13,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -841,13 +849,14 @@ void plot_MinvJ(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_MiJ_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_MiJ_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Plot MmisP
+//--------------------------------------------------------------------
 void plot_MmisP(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S5_M2Pi"};
@@ -859,10 +868,10 @@ void plot_MmisP(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-//    double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   // double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -875,56 +884,50 @@ void plot_MmisP(int date) {
    double M2l = SQ(mpi)-0.01;
    double M2r = SQ(mpi)+0.01;
    double dh = 0.0003; // bin width
-   double bg = hmc[2] -> Integral(int((M2l+0.01)/dh),int((M2r+0.01)/dh));
-   double sum = hmc[0] -> Integral(int((M2l+0.01)/dh),int((M2r+0.01)/dh));
-//    cout << " bg=" << bg << " sum= " << sum << " R= " << bg/sum << endl;
-   printf(" %i background is %.1f%%",date,bg/sum*100);
+   double bg =
+      hmc[2]->Integral(int((M2l+0.01)/dh),int((M2r+0.01)/dh));
+   double sum =
+      hmc[0]->Integral(int((M2l+0.01)/dh),int((M2r+0.01)/dh));
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-//    leg->SetHeader( (string("#bf{")+to_string(date)+"}").c_str(),"C");
-   leg->SetHeader( to_string(date).c_str(),"C" );
+   leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
 
    // Data
-//    hdat[0] -> SetAxisRange(3.06,3.13,"X");
-   hdat[0] -> SetTitle(
+   // hdat[0]->SetAxisRange(3.06,3.13,"X");
+   hdat[0]->SetTitle(
          ";M^{2}_{recoil}"
          "(#pi^{#pm}#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}),"
          " GeV^{2}/c^{4}"
          ";Entries/0.0003 GeV^{2}/c^{4}"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   if ( date == 2009 ) {
-      hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
-   }
-   hdat[0] -> Draw("E");
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->Draw("E");
 
-   double ymax = hdat[0] -> GetMaximum();
-   if ( date == 2009 ) {
-      ymax *= 1.07;
-   } else if ( date == 2012 ) {
-      ymax *= 1.06;
-   }
+   double ymax = hdat[0]->GetMaximum();
+   ymax *= 1.07;
    box->DrawBox(-0.01,0.,M2l,ymax);
    box->DrawBox(M2r,0.,0.05,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -934,13 +937,313 @@ void plot_MmisP(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_MmP_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_MmP_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Plot PtPip(Pim) CPip(Pim)
+//--------------------------------------------------------------------
+void plot_PtPip(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,2); // Pions
+   auto hPt = [](string nm) {
+      return (new TH1D(nm.c_str(),"",40,0.,0.4));
+   };
+
+   TTree* effPid = par->GetEff(0); // data
+   vector<TH1D*> hdat { hPt("hdat") };
+   TCut cutD = par->Cpion  + TCut("Zpi>0") + TCut("fabs(Cpi)<0.8");
+   effPid->Draw("Ptpi>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effPimc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
+   effPimc->Draw("Ptpi>>hmc",cutD,"goff");
+   effPimc->Draw("Ptpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
+   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   hdat[0]->SetTitle(
+         ";P_{t}(#pi), GeV/c"
+         ";Entries/0.01 GeV/c"
+         );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_PtPip_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+//--------------------------------------------------------------------
+void plot_PtPim(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,2); // pi
+   auto hPt = [](string nm) {
+      return (new TH1D(nm.c_str(),"",40,0.,0.4));
+   };
+
+   TTree* effPid = par->GetEff(0); // data
+   vector<TH1D*> hdat { hPt("hdat") };
+   TCut cutD = par->Cpion  + TCut("Zpi<0") + TCut("fabs(Cpi)<0.8");
+   effPid->Draw("Ptpi>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effPimc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
+   effPimc->Draw("Ptpi>>hmc",cutD,"goff");
+   effPimc->Draw("Ptpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
+   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   hdat[0]->SetTitle(
+         ";P_{t}(#pi), GeV/c"
+         ";Entries/0.01 GeV/c"
+                       );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_PtPim_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+//--------------------------------------------------------------------
+void plot_CPip(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,2);
+   auto hC = [](string nm) {
+      return (new TH1D(nm.c_str(),"",40,-1.,1.));
+   };
+
+   TTree* effPid = par->GetEff(0); // data
+   vector<TH1D*> hdat { hC("hdat") };
+   TCut cutD = par->Cpion  + TCut("Zpi>0")
+      + TCut("0.05<Ptpi&&Ptpi<0.4");
+   effPid->Draw("Cpi>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effPimc = par->GetEff(1); // MC
+   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
+   effPimc->Draw("Cpi>>hmc",cutD,"goff");
+   effPimc->Draw("Cpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
+   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   double ymax=1.5*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->SetTitle(
+         ";cos(#Theta_{#pi}) "
+         ";Entries/0.05 "
+                       );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_CPip_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+//--------------------------------------------------------------------
+void plot_CPim(int date) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,2);
+   auto hC = [](string nm) {
+      return (new TH1D(nm.c_str(),"",40,-1.,1.));
+   };
+
+   TTree* effPid = par->GetEff(0); // data, pi
+   vector<TH1D*> hdat { hC("hdat") };
+   TCut cutD = par->Cpion  + TCut("Zpi<0")
+      + TCut("0.05<Ptpi&&Ptpi<0.4");
+   effPid->Draw("Cpi>>hdat",cutD,"goff");
+   for ( auto& h : hdat ) {
+      SetHstFace(h);
+   }
+
+   TTree* effPimc = par->GetEff(1); // MC, pi
+   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
+   effPimc->Draw("Cpi>>hmc",cutD,"goff");
+   effPimc->Draw("Cpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
+   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
+
+   double bg = hmc[1]->Integral(); // [bin1,bin2]
+   double sum = hmc[0]->Integral();
+   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
+   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd(0);
+   gPad->SetGrid();
+
+   // Data
+   double ymax=1.5*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->SetTitle(
+         ";cos(#Theta_{#pi}) "
+         ";Entries/0.05 "
+         );
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->Draw("E");
+
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[1]->SetLineWidth(1);
+   hmc[1]->SetLineColor(kBlue+1);
+   hmc[1]->SetFillStyle(3001);
+   hmc[1]->SetFillColor(kBlue+1);
+   hmc[1]->Draw("HIST,SAME");
+
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[1], "MC background","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "trkeff_CPim_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
+// {{{1 Plot dPpi dThPi
+//--------------------------------------------------------------------
 void plot_dPpi(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S5_dPpi"};
@@ -952,10 +1255,10 @@ void plot_dPpi(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-//    double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -966,43 +1269,43 @@ void plot_dPpi(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg -> SetHeader( to_string(date).c_str(),"C" );
+   leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
-   hdat[0] -> SetAxisRange(-0.15,0.15,"X");
-   hdat[0] -> SetMinimum(1.);
-   hdat[0] -> SetTitle(
+   hdat[0]->SetAxisRange(-0.15,0.15,"X");
+   hdat[0]->SetMinimum(1.);
+   hdat[0]->SetTitle(
          ";#deltaP(#pi), GeV/c"
          ";Entries/0.002 GeV/c"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
-   hdat[0] -> Draw("E");
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->Draw("E");
 
-//    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax = 1.9 * hdat[0] -> GetMaximum(); // Log
+   // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
    box->DrawBox(-0.15,0.,-0.12,ymax);
    box->DrawBox(0.08,0.,0.15,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -1012,13 +1315,13 @@ void plot_dPpi(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_dPpi_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_dPpi_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
 void plot_dThPi(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hndat {"S5_dThPi"};
@@ -1030,10 +1333,10 @@ void plot_dThPi(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-//    double scale = hdat[0] -> GetMaximum() / hmc[0] -> GetMaximum();
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
-      h -> Scale(scale);
+      h->Scale(scale);
    }
 
    // box to show cut
@@ -1044,42 +1347,43 @@ void plot_dThPi(int date) {
    box->SetLineWidth(1);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg -> SetHeader( to_string(date).c_str(),"C" );
+   leg->SetHeader( par->Sdate(), "C" );
+
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
-//    hdat[0] -> SetAxisRange(-0.15,0.15,"X");
-   hdat[0] -> SetMinimum(1.);
-   hdat[0] -> SetTitle(
+   // hdat[0]->SetAxisRange(-0.15,0.15,"X");
+   hdat[0]->SetMinimum(1.);
+   hdat[0]->SetTitle(
          ";#delta#Theta(#pi), deg"
          ";Entries/0.2 deg"
-                       );
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-   hdat[0] -> GetYaxis() -> SetTitleOffset(1.2);
-   hdat[0] -> Draw("E");
+         );
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetMarkerStyle(20);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->Draw("E");
 
-//    double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax = 1.9 * hdat[0] -> GetMaximum(); // Log
+   // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
    box->DrawBox(15.,0.,20.,ymax);
-   hdat[0] -> Draw("E,SAME");
+   hdat[0]->Draw("E,SAME");
 
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
+   hmc[0]->SetLineWidth(1);
+   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->Draw("HIST,SAME");
 
-   hmc[2] -> SetLineWidth(1);
-   hmc[2] -> SetLineColor(kBlue+1);
-   hmc[2] -> SetFillStyle(3001);
-   hmc[2] -> SetFillColor(kBlue+1);
-   hmc[2] -> Draw("HIST,SAME");
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
 
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
@@ -1089,305 +1393,14 @@ void plot_dThPi(int date) {
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_dThPi_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_dThPi_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
-void plot_PtPip(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,2); // Pions
-   auto hPt = [](string nm) {return (new TH1D(nm.c_str(),"",40,0.,0.4));};
-
-   TTree* effPid = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hPt("hdat") };
-   TCut cutD = par -> Cpion  + TCut("Zpi>0") + TCut("fabs(Cpi)<0.8");
-   effPid->Draw("Ptpi>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effPimc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
-   effPimc->Draw("Ptpi>>hmc",cutD,"goff");
-   effPimc->Draw("Ptpi>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   hdat[0] -> SetTitle(
-         ";P_{t}(#pi), GeV/c"
-         ";Entries/0.01 GeV/c"
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_PtPip_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
-void plot_PtPim(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,2); // pi
-   auto hPt = [](string nm) {return (new TH1D(nm.c_str(),"",40,0.,0.4));};
-
-   TTree* effPid = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hPt("hdat") };
-   TCut cutD = par -> Cpion  + TCut("Zpi<0") + TCut("fabs(Cpi)<0.8");
-   effPid->Draw("Ptpi>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effPimc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
-   effPimc->Draw("Ptpi>>hmc",cutD,"goff");
-   effPimc->Draw("Ptpi>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral() / hmc[0] -> Integral();
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg -> SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   hdat[0] -> SetTitle(
-         ";P_{t}(#pi), GeV/c"
-         ";Entries/0.01 GeV/c"
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_PtPim_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
-void plot_CPip(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,2);
-   auto hC = [](string nm) {return (new TH1D(nm.c_str(),"",40,-1.,1.));};
-
-   TTree* effPid = par -> GetEff(0); // data
-   vector<TH1D*> hdat { hC("hdat") };
-   TCut cutD = par -> Cpion  + TCut("Zpi>0") + TCut("0.05<Ptpi&&Ptpi<0.4");
-   effPid->Draw("Cpi>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effPimc = par->GetEff(1); // MC
-   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
-   effPimc->Draw("Cpi>>hmc",cutD,"goff");
-   effPimc->Draw("Cpi>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral(5,36) / hmc[0] -> Integral(5,36);
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg -> SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   double ymax=1.5*hdat[0]->GetMaximum();
-   hdat[0] -> SetMaximum(ymax);
-   hdat[0] -> SetTitle(
-         ";cos(#Theta_{#pi}) "
-         ";Entries/0.05 "
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_CPip_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
-void plot_CPim(int date) {
-//-------------------------------------------------------------------------
-   Params* par = new Params(date,2);
-   auto hC = [](string nm) {return (new TH1D(nm.c_str(),"",40,-1.,1.));};
-
-   TTree* effPid = par -> GetEff(0); // data, pi
-   vector<TH1D*> hdat { hC("hdat") };
-   TCut cutD = par -> Cpion  + TCut("Zpi<0") + TCut("0.05<Ptpi&&Ptpi<0.4");
-   effPid->Draw("Cpi>>hdat",cutD,"goff");
-   for ( auto& h : hdat ) {
-      SetHstFace(h);
-//       cout << h->GetName() << " Entries= " << h->GetEntries() << endl;
-   }
-
-   TTree* effPimc = par->GetEff(1); // MC, pi
-   vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
-   effPimc->Draw("Cpi>>hmc",cutD,"goff");
-   effPimc->Draw("Cpi>>hmcBG",cutD + !(par -> Cmcsig),"goff");
-//    cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
-
-   double bg = hmc[1] -> Integral(); // [bin1,bin2]
-   double sum = hmc[0] -> Integral();
-   printf(" %i %s background is %.1f%%",date,__func__,bg/sum*100);
-
-   // normalization on DATA
-   double scale = hdat[0] -> Integral(5,36) / hmc[0] -> Integral(5,36);
-   for ( auto& h : hmc ) {
-      h -> Scale(scale);
-   }
-
-   TLegend* leg = new TLegend(0.11,0.69,0.38,0.89);
-   leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
-
-   // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,600);
-   c1->cd(0);
-   gPad->SetGrid();
-
-   // Data
-   double ymax=1.5*hdat[0]->GetMaximum();
-   hdat[0] -> SetMaximum(ymax);
-   hdat[0] -> SetTitle(
-         ";cos(#Theta_{#pi}) "
-         ";Entries/0.05 "
-                       );
-   hdat[0] -> GetYaxis() -> SetMaxDigits(3);
-//    hdat[0] -> GetYaxis() -> SetTitleOffset(1.);
-   hdat[0] -> SetLineWidth(2);
-   hdat[0] -> SetMarkerStyle(20);
-   hdat[0] -> SetLineColor(kBlack);
-   hdat[0] -> Draw("E");
-
-   hmc[0] -> SetLineWidth(1);
-   hmc[0] -> SetLineColor(kRed+2);
-   hmc[0] -> Draw("HIST,SAME");
-
-   hmc[1] -> SetLineWidth(1);
-   hmc[1] -> SetLineColor(kBlue+1);
-   hmc[1] -> SetFillStyle(3001);
-   hmc[1] -> SetFillColor(kBlue+1);
-   hmc[1] -> Draw("HIST,SAME");
-
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC background","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = string("trkeff_CPim_") + to_string(date) + string(".pdf");
-   c1->Print(pdf.c_str());
-}
-
-//-------------------------------------------------------------------------
+// {{{1 Plot ...
+//--------------------------------------------------------------------
 void plot_Weights(int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    Params* par = new Params(date);
 
    vector<string> hnmc {"MC_3_WK", "MC_5_WPi"};
@@ -1399,92 +1412,83 @@ void plot_Weights(int date) {
 
    // Draw:
    TCanvas* c1 = new TCanvas("c1","...",0,0,1200,600);
-   c1 -> Divide(2,1);
-//    gPad->SetGrid();
+   c1->Divide(2,1);
+   // gPad->SetGrid();
 
    // Kaons
-   c1 -> cd(1);
-//    hmc[0] -> SetAxisRange(-0.15,0.15,"X");
-   hmc[0] -> SetTitle(
-         ";weights for K"
-                       );
-   hmc[0] -> SetLineWidth(2);
-   hmc[0] -> SetLineColor(kBlue+1);
-   hmc[0] -> GetYaxis() -> SetMaxDigits(3);
-   hmc[0] -> Draw("HIST");
+   c1->cd(1);
+   // hmc[0]->SetAxisRange(-0.15,0.15,"X");
+   hmc[0]->SetTitle(";weights for K");
+   hmc[0]->SetLineWidth(2);
+   hmc[0]->SetLineColor(kBlue+1);
+   hmc[0]->GetYaxis()->SetMaxDigits(3);
+   hmc[0]->Draw("HIST");
    leg->Draw();
 
    // Pions
-   c1 -> cd(2);
-   hmc[1] -> SetTitle(
-         ";weights for #pi"
-                       );
-   hmc[1] -> SetLineWidth(2);
-   hmc[1] -> SetLineColor(kRed+1);
-   hmc[1] -> GetYaxis() -> SetMaxDigits(3);
-   hmc[1] -> Draw("HIST");
+   c1->cd(2);
+   hmc[1]->SetTitle(";weights for #pi");
+   hmc[1]->SetLineWidth(2);
+   hmc[1]->SetLineColor(kRed+1);
+   hmc[1]->GetYaxis()->SetMaxDigits(3);
+   hmc[1]->Draw("HIST");
    leg->Draw();
 
-//    leg->AddEntry(hmc[0], "Weights for K","L");
-//    leg->AddEntry(hmc[1], "Weights for #pi","L");
+   // leg->AddEntry(hmc[0], "Weights for K","L");
+   // leg->AddEntry(hmc[1], "Weights for #pi","L");
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("trkeff_WW_") + to_string(date) + string(".pdf");
+   string pdf = "trkeff_WW_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
-//-------------------------------------------------------------------------
+
+// {{{1 Main
+//--------------------------------------------------------------------
 void trk_eff_sel() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
-//    gStyle->SetStatFont(62); // ?
+   // gStyle->SetStatFont(62); // ?
 
-   // -- pi0 rejection, fig.27
-//    plot_pi0(2009);
-//    plot_pi0(2012);
+   for ( auto date : {2009, 2012, 2021} ) {
+      // -- pi0 rejection, fig.28
+      // plot_pi0(date);
 
-   // ---- K+ K- ---- fig 28..30
-//    plot_MmisK(2009);
-//    plot_MmisK(2012);
+      // ---- K+ K- ----
+      // + fig 29
+      // plot_MmisK(date);
 
-//    plot_PtKp(2009);
-//    plot_PtKm(2009);
-//    plot_CKp(2009);
-//    plot_CKm(2009);
-//    plot_PtKp(2012);
-//    plot_PtKm(2012);
-//    plot_CKp(2012);
-//    plot_CKm(2012);
+      // + fig 30
+      // plot_PtKp(date);
+      // plot_CKp(date);
+      // plot_PtKm(date);
+      // plot_CKm(date);
 
-//    plot_dPK(2009);
-//    plot_dPK(2012);
-//    plot_dThK(2009);
-//    plot_dThK(2012);
+      // + fig 31
+      // plot_dPK(date);
+      // plot_dThK(date);
 
-   // ---- pi+ pi- ---- fig 31..34
-//    plot_MinvJ(2009);
-//    plot_MinvJ(2012);
+      // ---- pi+ pi- ----
+      // + fig 32
+      // plot_MinvJ(date);
 
-//    plot_MmisP(2009);
-//    plot_MmisP(2012);
+      // + fig 33
+      // plot_MmisP(date);
 
-//    plot_PtPip(2009);
-//    plot_PtPim(2009);
-//    plot_CPip(2009);
-//    plot_CPim(2009);
-//    plot_PtPip(2012);
-//    plot_PtPim(2012);
-//    plot_CPip(2012);
-//    plot_CPim(2012);
+      // + fig 34
+      // plot_PtPip(date);
+      // plot_CPip(date);
+      // plot_PtPim(date);
+      // plot_CPim(date);
 
-//    plot_dPpi(2009);
-//    plot_dPpi(2012);
-//    plot_dThPi(2009);
-//    plot_dThPi(2012);
+      // + fig 35
+      // plot_dPpi(date);
+      plot_dThPi(date);
+   }
 
-   // other -> do not use
-//    plot_Weights(2012);
-//    plot_Weights(2009);
+   // other: do not use
+   // plot_Weights(2012);
+   // plot_Weights(2009);
 }
