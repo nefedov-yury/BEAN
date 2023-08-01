@@ -194,6 +194,11 @@ bool PsipHelixParCorEvent( ReadDst* selector,
          continue;
       }
 
+      RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+         continue;
+      }
+
       // require Kalman fit
       RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
       if ( !mdcKalTrk ) {

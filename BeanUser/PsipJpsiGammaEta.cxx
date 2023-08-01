@@ -172,6 +172,17 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
 //--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
+      printf("Masses of particles from PDG\n");
+      printf("M_Psi(2S) = %f MeV\n", mpsip*1e3);
+      printf("M_J/Psi   = %f MeV\n", mjpsi*1e3);
+      printf("M_pi^\\pm  = %f MeV\n", mpi*1e3);
+      printf("M_pi^0    = %f MeV\n", mpi0*1e3);
+      printf("M_eta     = %f MeV\n", meta*1e3);
+      printf("Momega    = %f MeV\n", momega*1e3);
+      printf("M_K^\\pm   = %f MeV\n", mk*1e3);
+      printf("M_K^0     = %f MeV\n", mk0*1e3);
+      printf("M_phi     = %f MeV\n", mphi*1e3);
+      printf("M_n       = %f MeV\n", Mn*1e3);
    }
 
    hst.resize(300,nullptr);
@@ -771,6 +782,9 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+         continue;
+      }
 
       double theta = mdcTrk->theta();
       double cosTheta = cos(theta);

@@ -37,6 +37,7 @@ SET( CXX_FILES
   PsipPiPiKK.cxx
   PsipJpsiGammaEta.cxx
   PsipHelixParCor.cxx
+  DelClonedTrks.cxx
   )
 
 #---------------------------------------------------------------------

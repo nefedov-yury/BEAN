@@ -13,6 +13,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <set>
 #include <algorithm>
 
 #include <TH1.h>
@@ -52,7 +53,6 @@ using CLHEP::HepLorentzVector;
 
 using namespace std;
 
-//--------------------------------------------------------------------
 // {{{1 Structure with job options
 //--------------------------------------------------------------------
 struct JobOption {
@@ -72,8 +72,8 @@ struct JobOption {
       Minv_min{mimin}, Minv_max{mimax}, M2Piwin{m2piw}, M2Pisb{m2pisb}
    {}
 };
-
 //--------------------------------------------------------------------
+
 // {{{1 Structure to save variables for a single event
 //--------------------------------------------------------------------
 struct PipPimKpKm {
@@ -118,8 +118,8 @@ struct PipPimKpKm {
       Eg_sum{0}, Eg_max{0},
       Mrec{0.}, Minv{0.} {}
 };
-
 //--------------------------------------------------------------------
+
 // {{{1 Global variables
 //--------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
@@ -151,8 +151,8 @@ static map<string,int> warning_msg;
 // expect one data taking period for all events
 static int DataPeriod = 0;
 static bool isMC = false;
-
 //--------------------------------------------------------------------
+
 // {{{1 Functions: use C-linkage names
 //--------------------------------------------------------------------
 #ifdef __cplusplus
@@ -280,7 +280,7 @@ static void CloneHistograms(int Hmin, int Hmax) {
             cout << "        shift= " << sh << endl;
             cout << "        Hrange= [" << Hmin << ", " << Hmax
                << "]\n";
-            exit(1);
+            exit(EXIT_FAILURE);
          }
 
          if ( hst[ih] ) {
@@ -300,6 +300,16 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
 //--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
+      printf("Masses of particles from PDG\n");
+      printf("M_Psi(2S) = %f MeV\n", mpsip*1e3);
+      printf("M_J/Psi   = %f MeV\n", mjpsi*1e3);
+      printf("M_pi^\\pm  = %f MeV\n", mpi*1e3);
+      printf("M_pi^0    = %f MeV\n", mpi0*1e3);
+      printf("M_eta     = %f MeV\n", meta*1e3);
+      printf("Momega    = %f MeV\n", momega*1e3);
+      printf("M_K^\\pm   = %f MeV\n", mk*1e3);
+      printf("M_K^0     = %f MeV\n", mk0*1e3);
+      printf("M_phi     = %f MeV\n", mphi*1e3);
    }
 
    // mk^2  = 0.244  sigma = 0.015 (18)
@@ -669,16 +679,6 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
          18,-0.9,0.9, 7,0.05,0.4);
    CloneHistograms(271, 289);
 
-
-   // Cloned tracks study:
-   hst[300] = new TH1D("S0_ntr","Ntrk initial", 21,-10.5,+10.5);
-   hst[301] = new TH1D("S0_pp","cos(ang) pairs of +", 200,-1.,1.);
-   hst[302] = new TH1D("S0_mm","cos(ang) pairs of -", 200,-1.,1.);
-   hst[303] = new TH1D("S0_ang","cos(ang) + and -", 100,0.998,1.);
-   hst[304] = new TH1D("S0_dpp","dP for + and -", 200,-0.02,0.02);
-   hst[307] = new TH1D("S0_nrm","Ntrk to delete", 21,-10.5,+10.5);
-
-
    // ntuples for K and pi reconstruction efficiency
    m_tuple[0] = new TNtupleD("eff_K","K reconstruction efficiency",
          "Zk:Ptk:Ck:"      // Z, Pt and cos(Theta) of K
@@ -745,7 +745,7 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
       cout << " FATAL ERROR:"
          " Cannot obtain vertex information for run#" << runNo
          << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    save_runNo = runNo;
@@ -968,155 +968,10 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
    ParticleID* pid = ParticleID::instance();
 
-   // 1) study cloned tracks
-   double maxCos = 0.9998; // ~1. degrees
-   double maxDp  = 0.005;  // 5 MeV
-   vector<DstEvtRecTracks*> trk_p; // plus
-   vector<DstEvtRecTracks*> trk_m; // minus
-   for ( int i = 0; i < evtRecEvent->totalCharged(); i++ ) {
-      DstEvtRecTracks* itTrk =
-         static_cast<DstEvtRecTracks*>(evtRecTrkCol->At(i));
-      if( !itTrk->isMdcTrackValid() ) {
-         continue;
-      }
-      if( !itTrk->isMdcKalTrackValid() ) {
-         continue;
-      }
-
-      RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-
-      double theta = mdcTrk->theta();
-      double cosTheta = cos(theta);
-
-      HepVector a = mdcTrk->helix();
-      HepSymMatrix Ea = mdcTrk->err();
-      HepPoint3D point0(0.,0.,0.);   // initial point for MDC rec.
-      HepPoint3D IP(ppKK.xorig[0],ppKK.xorig[1],ppKK.xorig[2]);
-      VFHelix helixip(point0,a,Ea);
-      helixip.pivot(IP);
-      HepVector vecipa = helixip.a();
-      // the nearest distance to IP
-      double Rvxy0 = vecipa[0]; // in xy plane
-      double Rvz0  = vecipa[3]; // in z direction
-
-      if( fabs(Rvxy0) >= Rvxy0_max ) {
-         continue;
-      }
-      if( fabs(Rvz0) >= Rvz0_max ) {
-         continue;
-      }
-      if ( fabs(cosTheta) >= cosTheta_max ) {
-         continue;
-      }
-
-      // require Kalman fit
-      RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
-      if ( !mdcKalTrk ) {
-         continue;
-      }
-      if ( std::isnan(mdcKalTrk->px())
-            || std::isnan(mdcKalTrk->py())
-            || std::isnan(mdcKalTrk->pz()) ) {
-         continue;
-      }
-
-      if( mdcKalTrk->charge() > 0 ) {
-         trk_p.push_back(itTrk);
-      } else {
-         trk_m.push_back(itTrk);
-      }
-   }
-
-   // Search for cloned tracks
-   int Ntrkp = trk_p.size();
-   int Ntrkm = trk_m.size();
-   hst[300]->Fill(Ntrkp);
-   hst[300]->Fill(-Ntrkm);
-   set<DstEvtRecTracks*> trk_clone;
-
-   for ( int i = 1; i < Ntrkp; ++i ) { // positive trks
-      const auto& ti = trk_p[i];
-      const auto& t1 = ti->mdcKalTrack();
-      Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
-      for ( int j = 0; j < i; ++j ) {
-         const auto& tj = trk_p[j];
-         const auto& t2 = tj->mdcKalTrack();
-         Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
-         double ang = Vp1.angle(Vp2);
-         double ca = cos(ang);
-         hst[301]->Fill(ca);
-         hst[303]->Fill(ca);
-         if ( ca > maxCos ) {
-            double dp = Vp1.mag()-Vp2.mag();
-            hst[304]->Fill(dp);
-            if ( fabs(dp) < maxDp ) {
-               auto tb = tj;
-               if ( abs(t1->ndof() - t2->ndof()) < 4 ) {
-                  if ( t1->chi2() > t2->chi2() ) {
-                     tb = ti;
-                  }
-               } else {
-                  if ( t1->ndof() < t2->ndof() ) {
-                     tb = ti;
-                  }
-               }
-               trk_clone.insert(tb);
-               hst[307]->Fill(Ntrkp);
-            }
-         }
-      }
-   }
-   // remove positive cloned tracks
-   auto check = [&trk_clone](DstEvtRecTracks* tr) {
-      return trk_clone.find(tr) != end(trk_clone);
-   };
-   trk_p.erase(remove_if(begin(trk_p),end(trk_p),check), end(trk_p));
-   trk_clone.clear();
-
-   for ( int i = 1; i < Ntrkm; ++i ) { // negative trks
-      const auto& ti = trk_m[i];
-      const auto& t1 = ti->mdcKalTrack();
-      Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
-      for ( int j = 0; j < i; ++j ) {
-         const auto& tj = trk_m[j];
-         const auto& t2 = tj->mdcKalTrack();
-         Hep3Vector Vp2(t2->px(), t2->py(), t2->pz());
-         double ang = Vp1.angle(Vp2);
-         double ca = cos(ang);
-         hst[302]->Fill(ca);
-         hst[303]->Fill(ca);
-         if ( ca > maxCos ) {
-            double dp = Vp1.mag()-Vp2.mag();
-            hst[304]->Fill(dp);
-            if ( fabs(dp) < maxDp ) {
-               auto tb = tj;
-               if ( abs(t1->ndof() - t2->ndof()) < 4 ) {
-                  if ( t1->chi2() > t2->chi2() ) {
-                     tb = ti;
-                  }
-               } else {
-                  if ( t1->ndof() < t2->ndof() ) {
-                     tb = ti;
-                  }
-               }
-               trk_clone.insert(tb);
-               hst[307]->Fill(-Ntrkm);
-            }
-         }
-      }
-   }
-   // remove negative cloned tracks
-   trk_m.erase(remove_if(begin(trk_m),end(trk_m),check), end(trk_m));
-
-   // conactinate and use as input
-   trk_p.insert( end(trk_p), begin(trk_m), end(trk_m) );
-
-   // 2) further normal analysis
    int Nzpi = 0;   // charge of pions
    int Nzk  = 0;   // charge of kaons
-   int Nzo  = 0;   // charge of oth.
+   int Nzo  = 0;   // charge of other tracks
 
-   /*
    for ( int i = 0; i < evtRecEvent->totalCharged(); i++ ) {
       DstEvtRecTracks* itTrk =
          static_cast<DstEvtRecTracks*>(evtRecTrkCol->At(i));
@@ -1128,6 +983,9 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+         continue;
+      }
 
       double theta = mdcTrk->theta();
       double cosTheta = cos(theta);
@@ -1163,11 +1021,7 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
             || std::isnan(mdcKalTrk->pz()) ) {
          continue;
       }
-   */
 
-   for ( size_t i = 0; i < trk_p.size(); ++i ) {
-      DstEvtRecTracks* itTrk = trk_p.at(i);
-      RecMdcKalTrack* mdcKalTrk = itTrk->mdcKalTrack();
       Hep3Vector Vkt(mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz());
 
       // PID information

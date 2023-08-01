@@ -151,6 +151,15 @@ void SelectKKggStartJob(ReadDst* selector) {
 //--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
+      printf("Masses of particles from PDG\n");
+      printf("M_J/Psi   = %f MeV\n", mjpsi*1e3);
+      printf("M_pi^\\pm  = %f MeV\n", mpi*1e3);
+      printf("M_pi^0    = %f MeV\n", mpi0*1e3);
+      printf("M_eta     = %f MeV\n", meta*1e3);
+      printf("Momega    = %f MeV\n", momega*1e3);
+      printf("M_K^\\pm   = %f MeV\n", mk*1e3);
+      printf("M_K^0     = %f MeV\n", mk0*1e3);
+      printf("M_phi     = %f MeV\n", mphi*1e3);
    }
 
    hst.resize(500,nullptr);

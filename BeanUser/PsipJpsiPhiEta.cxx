@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 #include <algorithm>
 
 #include <TH1.h>
@@ -133,7 +134,6 @@ struct Xnt1 {
    float Mrs;           // recoil mass of true pi+pi- (decPsip==64)
    float Ptsp;          // reconstructed Pt(pi+) from Mrs
    float Ptsm;          // reconstructed Pt(pi-) from Mrs
-   float MrsW;          // weight of Mrs (corrects MC eff.)
    float Mrbest;        // recoil mass closest to M(J/Psi)
    float Ptp;           // Pt(pi+) for best
    float Cpls;          // cos(Theta(pi+)) for best
@@ -142,6 +142,7 @@ struct Xnt1 {
    int   decPsip;       // decay code of Psi(2S)
    float mcmkk;         // true inv. mass of K+K-
 } xnt1;
+   // float MrsW;          // weight of Mrs (corrects MC eff.)
    // float Mrs_mindp;      // min delta momentum to find Mrs
    // UShort_t nch;         // N charged tracks
    // UShort_t Nm;          // number of els in Mrec: use @Mrec.size()
@@ -263,83 +264,22 @@ static bool SelectPM(double cosPM, double invPM) {
    return ret;
 }
 
-// copy ReWeightTrkPid_11.h
-//-----------------------------------------------------------------
-static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
-//-----------------------------------------------------------------
-// The corrections are based on production-11 (helix corrections
-// for MC). They do not dependent of the sign of the particle and
-// cos(Theta) of the track. Input parameters are following.
-// Kp is the type of the particle: 1 for kaon and 0 for pion.
-// Pt is the transverse momentum if the particle.
-// The return value is the weight of MC event with such a particle.
-
-   // parameters
-   static const vector<double> K09 {0.991,-0.018};
-   static const double K09_first = 0.922;
-   static const vector<double> pi09 {0.9872,0.0243};
-
-   static const vector<double>
-      K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
-   static const vector<double> pi12 {0.9851,0.032};
-
-   double W = 1.;
-   if ( DataPeriod != 2009 && DataPeriod != 2012 ) {
-      return W;
-   }
-
-   if ( Kp == 1 ) {             // kaons
-      const double Ptmin = 0.1, Ptmax = 1.4;
-      Pt = max( Ptmin, Pt );
-      Pt = min( Ptmax, Pt );
-
-      int nch = (DataPeriod == 2009) ? 1 : 4;
-      double xmin = Ptmin, xmax = Ptmax;
-      auto Lchb = [nch,xmin,xmax](double xx, const double* p) {
-         if (nch == 0) { return p[0]; }
-         // [xmin,xmax] -> [-1,+1]
-         double x = (2*xx-xmin-xmax)/(xmax-xmin);
-         double sum = p[0] + x*p[1];
-         if (nch == 1) { return sum; }
-         double T0 = 1, T1 = x;
-         for ( int i = 2; i <= nch; ++i ) {
-            double Tmp = 2*x*T1 - T0;
-            sum += p[i]*Tmp;
-            T0 = T1;
-            T1 = Tmp;
-         }
-         return sum;
-      };
-
-      if ( DataPeriod == 2009 ) {
-         W = Lchb(Pt,K09.data());
-         if ( Pt < 0.2 ) {
-            W = K09_first;
-         }
-      } else if ( DataPeriod == 2012 ) {
-         W = Lchb( Pt, K12.data() );
-      }
-   } else if ( Kp == 0 ) {      // pions
-      const double Ptmin = 0.05, Ptmax = 0.4;
-      Pt = max( Ptmin, Pt );
-      Pt = min( Ptmax, Pt );
-
-      auto CUBE = [](double x)-> double{return x*x*x;};
-      if ( DataPeriod == 2009 ) {
-         W = pi09[0] + CUBE(pi09[1]/Pt);
-      } else if ( DataPeriod == 2012 ) {
-         W = pi12[0] + CUBE(pi12[1]/Pt);
-      }
-   }
-   return W;
-}
-
 // {{{1 StartJob, book histograms
 //--------------------------------------------------------------------
 void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 //--------------------------------------------------------------------
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
+      printf("Masses of particles from PDG\n");
+      printf("M_Psi(2S) = %f MeV\n", mpsip*1e3);
+      printf("M_J/Psi   = %f MeV\n", mjpsi*1e3);
+      printf("M_pi^\\pm  = %f MeV\n", mpi*1e3);
+      printf("M_pi^0    = %f MeV\n", mpi0*1e3);
+      printf("M_eta     = %f MeV\n", meta*1e3);
+      printf("Momega    = %f MeV\n", momega*1e3);
+      printf("M_K^\\pm   = %f MeV\n", mk*1e3);
+      printf("M_K^0     = %f MeV\n", mk0*1e3);
+      printf("M_phi     = %f MeV\n", mphi*1e3);
    }
 
    hst.resize(500,nullptr);
@@ -403,15 +343,13 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 
    //  ChargedTracksPiPi:
    // angle between tracks of one charge
-   hst[5] = new TH1D("ang_pip","cos(ang) pairs of pi+", 200,-1.,1.);
-   hst[6] = new TH1D("ang_pim","cos(ang) pairs of pi-", 200,-1.,1.);
-   hst[7] = new TH1D("ang_pi","cos(ang) pi+/-", 100,0.998,1.);
-   hst[8] = new TH2D("ang_2d","dP vs cos(ang) pairs of pi+/-",
+   hst[5] = new TH1D("ang_pip","cos(ang) pi+", 100,0.998,1.);
+   hst[6] = new TH2D("ang_2dp","dP vs cos(ang) pi+",
          100,0.998,1., 100,-0.01,+0.01);
-   hst[9] = new TH1D("ang_pi_rm","deleted cos(ang) pi+/-",
-         100,0.999,1.);
-   hst[10] = new TH1D("ntrk_rm","ini Ntrk to delete",
-         21,-10.5,+10.5);
+   hst[7] = new TH1D("ang_pim","cos(ang) pi-", 100,0.998,1.);
+   hst[8] = new TH2D("ang_2dm","dP vs cos(ang) pi-",
+         100,0.998,1., 100,-0.01,+0.01);
+   hst[9] = new TH1D("ang_ncl","N cloned", 10,0.5,+10.5);
 
    hst[11] = new TH1D("Rxy","R_{xy}", 200,-2.,2.);
    hst[12] = new TH1D("Rz","R_{z}", 200,-20.,20.);
@@ -500,7 +438,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[94] = new TH1D("Pim_P","P(#pi-)", 100,0.,0.5);
    hst[95] = new TH1D("Pim_T","Pt(#pi-)", 100,0.,0.5);
    hst[96] = new TH1D("Pim_C","cos #Theta(#pi-)", 200,-1.0,1.0);
-   hst[99] = new TH1D("Pi_W","weights for Mr(sig)", 200,0.9,1.1);
+   // hst[99] = new TH1D("Pi_W","weights for Mr(sig)", 200,0.9,1.1);
 
    // Monte Carlo histograms:
    hst[100] = new TH1D("mc_dec0", "decPsi(2S) nocut",256,-0.5,255.5);
@@ -696,7 +634,6 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt1->Branch("Mrs"     , &xnt1.Mrs       );
    m_nt1->Branch("Ptsp"    , &xnt1.Ptsp      );
    m_nt1->Branch("Ptsm"    , &xnt1.Ptsm      );
-   m_nt1->Branch("MrsW"    , &xnt1.MrsW      );
    m_nt1->Branch("Mrb"     , &xnt1.Mrbest    );
    m_nt1->Branch("Ptp"     , &xnt1.Ptp       );
    m_nt1->Branch("Cpls"    , &xnt1.Cpls      );
@@ -704,12 +641,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt1->Branch("Cmns"    , &xnt1.Cmns      );
    m_nt1->Branch("dec"     , &xnt1.decPsip   );
    m_nt1->Branch("mcmkk"   , &xnt1.mcmkk     );
-
-   // m_nt1->Branch("mdp"     , &xnt1.Mrs_mindp );
-   // m_nt1->Branch("nch"     , &xnt1.nch       );
-   // m_nt1->Branch("Nm"      , &xnt1.Nm        );
-   // m_nt1->Branch("mcmkpet" , &xnt1.mcmkpet   );
-   // m_nt1->Branch("mccosT"  , &xnt1.mccosT    );
+   // m_nt1->Branch("MrsW"    , &xnt1.MrsW      );
 
    // final TTree for
    //   Psi(2S) -> pi+ pi- J/Psi
@@ -1466,6 +1398,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    // 1) select soft pion candidates (check PID information)
 
    int Ncharged = 0; // counter for all good charged tracks
+   int Ncl      = 0; // number of cloned tracks
 
    // temporary vectors for soft pions
    vector<RecMdcKalTrack*> trk_p; // plus
@@ -1483,6 +1416,10 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+         Ncl++;
+         continue;
+      }
 
       double theta = mdcTrk->theta();
       double cosTheta = cos(theta);
@@ -1585,16 +1522,15 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
 
    int Ntrkp = trk_p.size();
    int Ntrkm = trk_m.size();
+   hst[20]->Fill(Ntrkp,Ntrkm);
+   hst[9]->Fill(Ncl);
    if ( Ntrkp < 1 || Ntrkm < 1 ) {
       return false;
    }
+   hst[1]->Fill(1); // "cuts"
 
-   // Search for clone tracks
-   double maxCos = 0.9998; // ~1. degrees
-   double maxDp  = 0.005;  // 5 MeV
-   set<RecMdcKalTrack*> trk_clone;
-   // checking the angle between tracks of the same charge
-   for ( int i = 1; i < Ntrkp; ++i ) {
+   // fill histograms with angle between tracks of the same charge
+   for ( int i = 1; i < Ntrkp; ++i ) { // positive
       const auto& t1 = trk_p[i];
       Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
       for ( int ii = 0; ii < i; ++ii ) {
@@ -1604,35 +1540,10 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
          double ca = cos(ang);
          double dp = Vp1.mag()-Vp2.mag();
          hst[5]->Fill(ca);
-         hst[7]->Fill(ca);
-         hst[8]->Fill(ca,dp);
-         if ( ca > maxCos && fabs(dp) < maxDp ) {
-            auto tb = t2;
-            if ( abs(t1->ndof() - t2->ndof()) < 4 ) {
-               if ( t1->chi2() > t2->chi2() ) {
-                  tb = t1;
-               }
-            } else {
-               if ( t1->ndof() < t2->ndof() ) {
-                  tb = t1;
-               }
-            }
-            trk_clone.insert(tb);
-            // printf("rm PI+ #1 [Id=%d]: chi2 %.2f, ndof %d\n",
-                  // tb->getTrackId(),tb->chi2(),tb->ndof());
-            hst[9]->Fill(ca);
-            hst[10]->Fill(Ntrkp);
-         }
+         hst[6]->Fill(ca,dp);
       }
    }
-   // remove clone tracks
-   auto check = [&trk_clone](RecMdcKalTrack* tr) {
-      return trk_clone.find(tr) != end(trk_clone);
-   };
-   trk_p.erase(remove_if(begin(trk_p),end(trk_p),check), end(trk_p));
-   trk_clone.clear();
-
-   for ( int i = 1; i < Ntrkm; ++i ) {
+   for ( int i = 1; i < Ntrkm; ++i ) { // negative
       const auto& t1 = trk_m[i];
       Hep3Vector Vp1(t1->px(), t1->py(), t1->pz());
       for ( int ii = 0; ii < i; ++ii ) {
@@ -1641,38 +1552,11 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
          double ang = Vp1.angle(Vp2);
          double ca = cos(ang);
          double dp = Vp1.mag()-Vp2.mag();
-         hst[6]->Fill(ca);
          hst[7]->Fill(ca);
          hst[8]->Fill(ca,dp);
-         if ( ca > maxCos && fabs(dp) < maxDp ) {
-            auto tb = t2;
-            if ( abs(t1->ndof() - t2->ndof()) < 4 ) {
-               if ( t1->chi2() > t2->chi2() ) {
-                  tb = t1;
-               }
-            } else {
-               if ( t1->ndof() < t2->ndof() ) {
-                  tb = t1;
-               }
-            }
-            trk_clone.insert(tb);
-            // printf("rm PI- #1 [Id=%d]: chi2 %.2f, ndof %d\n",
-                  // tb->getTrackId(),tb->chi2(),tb->ndof());
-            hst[9]->Fill(ca);
-            hst[10]->Fill(-Ntrkm);
-         }
       }
    }
-   // remove clone tracks
-   trk_m.erase(remove_if(begin(trk_m),end(trk_m),check), end(trk_m));
 
-   Ntrkp = trk_p.size();
-   Ntrkm = trk_m.size();
-   hst[20]->Fill(Ntrkp,Ntrkm);
-   if ( Ntrkp < 1 || Ntrkm < 1 ) {
-      return false;
-   }
-   hst[1]->Fill(1); // "cuts"
 
    // 2) calculate recoil mass of all pairs of pi+ pi-
    double delta_min = 1e3;
@@ -1820,19 +1704,11 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    // signal (only MC)
    xnt1.Mrs = Slct.Mrec_sig;
    if ( Slct.Pip_sig && Slct.Pim_sig ) {
-      double ptp = Slct.Pip_sig->pxy();
-      double wp  = ReWeightTrkPid(DataPeriod,0,ptp);
-      hst[99]->Fill(wp);
-      double ptm = Slct.Pim_sig->pxy();
-      double wm  = ReWeightTrkPid(DataPeriod,0,ptm);
-      hst[99]->Fill(wm);
-      xnt1.Ptsp = ptp;
-      xnt1.Ptsm = ptm;
-      xnt1.MrsW = wp*wm;
+      xnt1.Ptsp = Slct.Pip_sig->pxy();
+      xnt1.Ptsm = Slct.Pim_sig->pxy();
    } else {
       xnt1.Ptsp = 0;
       xnt1.Ptsm = 0;
-      xnt1.MrsW = 0;
    }
 
    // the best: Mrec and momentums
@@ -1882,6 +1758,9 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+         continue;
+      }
 
       double theta = mdcTrk->theta();
       double cosTheta = cos(theta);
