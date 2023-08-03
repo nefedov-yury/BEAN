@@ -1416,7 +1416,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+      if ( mdcTrk->stat() == -222 ) { // skip cloned track
          Ncl++;
          continue;
       }
@@ -1758,7 +1758,7 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+      if ( mdcTrk->stat() == -222 ) { // skip cloned track
          continue;
       }
 

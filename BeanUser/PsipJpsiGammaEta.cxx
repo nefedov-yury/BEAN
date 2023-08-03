@@ -782,7 +782,7 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+      if ( mdcTrk->stat() == -222 ) { // skip cloned track
          continue;
       }
 

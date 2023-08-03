@@ -32,10 +32,6 @@
 
 using namespace std;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // {{{1 Global variables
 //--------------------------------------------------------------------
 // static bool isMC = false;
@@ -45,6 +41,13 @@ static vector<TH1*> hst;
 
 // container for warnings
 static map<string,int> warning_msg;
+
+// {{{1 Functions: use C-linkage names
+//--------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //--------------------------------------------------------------------
 static inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
@@ -72,6 +75,7 @@ void DelClonedTrksStartJob(ReadDst* selector) {
    hst[5] = new TH1D("ct_dpp","dP for + and -", 200,-0.02,0.02);
    hst[7] = new TH1D("ct_nrm","Ntrk to delete", 21,-10.5,+10.5);
    hst[8] = new TH1D("ct_ncl","N cloned", 10,0.5,+10.5);
+   hst[9] = new TH1D("ct_status","status of tracks", 1001,-0.5,+1000.5);
 
    // register in selector to save in given directory
    const char* SaveDir = "DelClonedTrks";
@@ -180,6 +184,7 @@ bool DelClonedTrksEvent( ReadDst* selector,
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
+      hst[9]->Fill( double(mdcTrk->stat()) );
 
       double theta = mdcTrk->theta();
       double cosTheta = cos(theta);
@@ -312,7 +317,7 @@ bool DelClonedTrksEvent( ReadDst* selector,
             static_cast<DstEvtRecTracks*>(evtRecTrkCol->At(i));
          if ( trk_clone.find(itTrk) != end(trk_clone) ) {
             RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-            mdcTrk->setStat(222); // set label that track clone
+            mdcTrk->setStat(-222); // set label that track clone
             if ( selector->Verbose() ) {
                cout << " +++++ Cloned Track +++++" << endl;
                cout << " trackId= " << mdcTrk->trackId() << endl;

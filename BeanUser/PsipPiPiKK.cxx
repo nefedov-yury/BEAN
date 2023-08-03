@@ -312,8 +312,6 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
       printf("M_phi     = %f MeV\n", mphi*1e3);
    }
 
-   // mk^2  = 0.244  sigma = 0.015 (18)
-   // mpi^2 = 0.0195 sigma = 0.0045 (6)
    // set job options:
    //   Hshift,                                 :for CloneHistograms()
    //   Mrec_min, Mrec_max, M2Kwin, M2Ksb       :see KTrkRecEff()
@@ -324,6 +322,10 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    Jobs.push_back( new JobOption( 400,
                                   3.092,3.102, 0.05,  0.06,
                                   3.080,3.112, 0.02,  0.025 ) );
+   // Note:
+   // M2Ksb and M2Pisb are not used anywhere
+   // mk^2  = 0.244  sigma = 0.015 (18)
+   // mpi^2 = 0.0195 sigma = 0.0045 (6)
    // 0   -> mk2 in [.219;.269] mpi2 in [ .0095; .0295]
    // 400 -> mk2 in [.194;.294] mpi2 in [-.0005; .0395]
 
@@ -396,6 +398,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[4] = new TH1D("S1a_Zpi","1A) Z(#pi)", 9,-4.5,4.5);
    hst[5] = new TH1D("S1a_Zk", "1A) Z(K)", 9,-4.5,4.5);
    hst[6] = new TH1D("S1a_Zo", "1A) Z(oth)", 9,-4.5,4.5);
+   hst[8] = new TH1D("S1A_Ncl","1A) N cloned", 10,0.5,+10.5);
    hst[9] = new TH1D("S1a_Nt", "1A) Ntot", 10,-0.5,9.5);
 
    // NeutralTracks:
@@ -419,15 +422,11 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
          100,3.085,3.11);
    hst[22] = new TH1D("S2_MrecZ","2) Mrec(#pi^{+}#pi^{-})",
          100,3.,3.2);
-   hst[23] = new TH1D("S2_cosB", "2) cos(Theta_pi+_pi-) bad",
+   hst[23] = new TH1D("S2_cos", "2) cos(Theta_pi+_pi-)",
          100,-1.0,1.0);
-   hst[24] = new TH1D("S2_invMB","2) Minv(pi+ pi-) bad",
+   hst[24] = new TH1D("S2_invM","2) Minv(pi+ pi-)",
          500,0.25,0.75);
-   hst[25] = new TH1D("S2_cos", "2) cos(Theta_pi+_pi-)",
-         100,-1.0,1.0);
-   hst[26] = new TH1D("S2_invM","2) Minv(pi+ pi-) good",
-         500,0.25,0.75);
-   hst[27] = new TH1D("S2_Mrb", "2) best Mrec(pi+pi-) good",
+   hst[27] = new TH1D("S2_Mrb", "2) best Mrec(pi+pi-)",
          100,3.085,3.11);
 
    // KTrkRecEff:
@@ -968,6 +967,7 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
    ParticleID* pid = ParticleID::instance();
 
+   int Ncl  = 0;   // number of cloned tracks
    int Nzpi = 0;   // charge of pions
    int Nzk  = 0;   // charge of kaons
    int Nzo  = 0;   // charge of other tracks
@@ -983,7 +983,8 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+      if ( mdcTrk->stat() == -222 ) { // skip cloned track
+         Ncl++;
          continue;
       }
 
@@ -1022,8 +1023,6 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
          continue;
       }
 
-      Hep3Vector Vkt(mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz());
-
       // PID information
       pid->init();
       pid->setMethod(pid->methodProbability());
@@ -1056,9 +1055,12 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 
             ppKK.trk_Pi.push_back(mdcKalTrk);
             Nzpi += mdcKalTrk->charge();
+            Hep3Vector tmp(
+                  mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz()
+                  );
             ppKK.LVpi.push_back(
-               HepLorentzVector( Vkt, sqrt(Vkt.mag2()+SQ(mpi)) )
-            );
+                  HepLorentzVector( tmp, sqrt(tmp.mag2()+SQ(mpi)) )
+                  );
          } else
             // check that track is kaon:
             if ( (pid->probKaon() > 0.001)             &&
@@ -1070,17 +1072,23 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
 
                ppKK.trk_K.push_back(mdcKalTrk);
                Nzk += mdcKalTrk->charge();
+               Hep3Vector tmp(
+                     mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz()
+                     );
                ppKK.LVk.push_back(
-                  HepLorentzVector( Vkt, sqrt(Vkt.mag2()+SQ(mk)) )
-               );
+                     HepLorentzVector( tmp, sqrt(tmp.mag2()+SQ(mk)) )
+                     );
             }
       } // end IsPidInfoValid
 
       // all other tracks
       if ( flag_pik == 0 ) {
+         mdcKalTrk->setPidType(RecMdcKalTrack::pion);
          ppKK.trk_o.push_back(mdcKalTrk);
          Nzo += mdcKalTrk->charge();
-         ppKK.Vo.push_back(Vkt);
+         ppKK.Vo.push_back( Hep3Vector(
+                  mdcKalTrk->px(),mdcKalTrk->py(),mdcKalTrk->pz()
+                  ));
       }
    } // end for charged tracks loop
 
@@ -1091,6 +1099,7 @@ static bool ChargedTracks(ReadDst* selector, PipPimKpKm& ppKK) {
    hst[1]->Fill(Npi);
    hst[2]->Fill(Nk);
    hst[3]->Fill(No);
+   hst[8]->Fill(Ncl);
 
    // select (3pi + 2K) or (4pi + 1K) or (4pi + 2K)
    if ( Npi < 3 || Npi > 4 ) {
@@ -1283,7 +1292,7 @@ static void MrecPiPi(PipPimKpKm& ppKK) {
       return;
    }
 
-   for ( int i = 1; i < Npi; i++  ) {
+   for ( int i = 1; i < Npi; ++i ) {
       auto trki = ppKK.trk_Pi[i];
       if ( trki->p() > 0.45 ) {
          continue;
@@ -1291,14 +1300,18 @@ static void MrecPiPi(PipPimKpKm& ppKK) {
       int zi = trki->charge();
       const auto& LVi = ppKK.LVpi[i];
 
-      for ( int j = 0; j < i; j++ ) {
+      for ( int j = 0; j < i; ++j ) {
          auto trkj = ppKK.trk_Pi[j];
          if ( trkj->p() > 0.45 || trkj->charge() != -zi ) {
             continue;
          }
          const auto& LVj = ppKK.LVpi[j];
 
-         double Mrec = (ppKK.LVcms - LVi - LVj).m();
+         double Mrec2 = (ppKK.LVcms - LVi - LVj).m2();
+         if( Mrec2 < 0 ) {
+            continue;
+         }
+         double Mrec = sqrt(Mrec2);
 
          hst[21]->Fill(Mrec);
          hst[22]->Fill(Mrec);
@@ -1309,20 +1322,18 @@ static void MrecPiPi(PipPimKpKm& ppKK) {
 
          // Theta(pi+ pi-)
          double cosPM = Hep3Vector(LVj).cosTheta(Hep3Vector(LVi));
+         hst[23]->Fill( cosPM );
 
          // Minv( pi+ pi-)
          double invPM = (LVi+LVj).m();
+         hst[24]->Fill( invPM );
 
          // check Mrec candidate
          if ( !SelectPM( cosPM, invPM ) ) {
-            hst[23]->Fill( cosPM );
-            hst[24]->Fill( invPM );
             continue;
-         } else {
-            hst[25]->Fill( cosPM );
-            hst[26]->Fill( invPM );
          }
 
+         // the best candidate (closest to M(J/Psi))
          if ( fabs(Mrec-mjpsi) < fabs(ppKK.Mrec-mjpsi) ) {
             ppKK.Mrec = Mrec;
          }

@@ -36,13 +36,8 @@
 
 using namespace std;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // {{{1 Global variables
 //--------------------------------------------------------------------
-
 // TrackCorrection class for the helix parameters corrections for MC
 static TrackCorrection* helix_cor = nullptr;
 
@@ -55,6 +50,13 @@ static vector<TH1*> hst;
 
 // container for warnings
 static map<string,int> warning_msg;
+
+// {{{1 Functions: use C-linkage names
+//--------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //--------------------------------------------------------------------
 static inline void Warning(const string& msg) {
    warning_msg[msg] += 1;
@@ -195,7 +197,7 @@ bool PsipHelixParCorEvent( ReadDst* selector,
       }
 
       RecMdcTrack* mdcTrk = itTrk->mdcTrack();
-      if ( mdcTrk->stat() == 222 ) { // skip cloned track
+      if ( mdcTrk->stat() == -222 ) { // skip cloned track
          continue;
       }
 
