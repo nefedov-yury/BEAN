@@ -1,5 +1,5 @@
-// Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data
-// using side-band method.
+// MrecFitSB.cc - Calculate number of Psi(2S) -> J/Psi pi+ pi- decays
+// in data using side-band method.
 //    DoFitSB()  -> Mrec_YEAR_fsb.pdf
 // - just plot pictures:
 //    MrecDraw() -> Mrec_YEAR.pdf
@@ -11,9 +11,7 @@
 // The contribution of the continuum is taken into account.
 // Number of signal events is calculated by subtracting the estimated
 // background from the data.
-
-// for prod-12 it should be commented
-// #include "ReWeightTrkPid_11.h"
+// TODO: add helix-correction switch
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
@@ -73,17 +71,49 @@ void set_draw_opt(vector<TH1D*>& hst) {
    hst[4]->SetLineWidth(2);
 }
 
+// {{{1 RewTrk functions
+//--------------------------------------------------------------------
+double RewTrkPi(int DataPeriod, double Pt, double Z) {
+//--------------------------------------------------------------------
+   // Corrections for the efficiency of reconstruction a pion having
+   // transverse momentum Pt and sign Z.
+   // The return value is the weight for the MC event.
+   // v709, DelClonedTrk, NO helix corrections
+
+   const double Ptmin = 0.05, Ptmax = 0.4;
+   Pt = max( Ptmin, Pt );
+   Pt = min( Ptmax, Pt );
+
+   double W = 1.;
+   if ( DataPeriod == 2009 ) {
+      if ( Z > 0 ) {
+         W = 0.991 - 0.017 * Pt;
+      } else {
+         W = 0.975 + 0.064 * Pt;
+      }
+   } else if ( DataPeriod == 2012 ) {
+      auto SQ = [](double x) -> double{return x*x;};
+      if ( Z > 0 ) {
+         W = 0.9806 + SQ(0.0150/Pt);
+      } else {
+         W = 0.9891 + SQ(0.0131/Pt);
+      }
+   } else if ( DataPeriod == 2021 ) {
+      if ( Z > 0 ) {
+         W = 0.9825;
+      } else {
+         W = 0.9874;
+      }
+   }
+   return W;
+}
+
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
-TH1D* fill_mrec(string fname, string hname, int type=0) {
+vector<TH1D*> fill_mrec(string fname, string hname,
+      int date, bool isMC = false) {
 //--------------------------------------------------------------------
-   // type = 0 all recoil masses (default)
-   // type = 1 recoil mass of true pi+pi- pair (MC)
-   // type = 2 background for dec==64 (pi+pi-J/Psi)
-   // type = 3 background for dec!=64 (other Psi' decays)
-
    fname = Dir + fname;
-   // fname = Dir + "NoHC/" + fname; // ho helix corrections (test)
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {
@@ -95,6 +125,33 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
    froot->cd("PsipJpsiPhiEta");
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
 
+   //Declaration of leaves types
+   //        those not used here are commented out
+   vector<float> * Mrec = nullptr; // must be !
+   Float_t         Mrs;
+   Float_t         Ptsp;
+   Float_t         Ptsm;
+   // Float_t         Mrb;
+   // Float_t         Ptp;
+   // Float_t         Cpls;
+   // Float_t         Ptm;
+   // Float_t         Cmns;
+   Int_t           dec;
+   // Float_t         mcmkk;
+
+   // Set branch addresses.
+   nt1->SetBranchAddress("Mrec",&Mrec);
+   nt1->SetBranchAddress("Mrs",&Mrs);
+   nt1->SetBranchAddress("Ptsp",&Ptsp);
+   nt1->SetBranchAddress("Ptsm",&Ptsm);
+   // nt1->SetBranchAddress("Mrb",&Mrb);
+   // nt1->SetBranchAddress("Ptp",&Ptp);
+   // nt1->SetBranchAddress("Cpls",&Cpls);
+   // nt1->SetBranchAddress("Ptm",&Ptm);
+   // nt1->SetBranchAddress("Cmns",&Cmns);
+   nt1->SetBranchAddress("dec",&dec);
+   // nt1->SetBranchAddress("mcmkk",&mcmkk);
+
    TH1D* hst = new TH1D(hname.c_str(),
          ";M^{rec}_{#pi^{#plus}#pi^{#minus }}, GeV/c^{2}"
          ";Entries/1 MeV/c^{2}",
@@ -103,45 +160,51 @@ TH1D* fill_mrec(string fname, string hname, int type=0) {
          );
    hst->Sumw2(true);
 
-   string dr("Mrec");
-   TCut cut;
-   switch ( type ) {
-      case 0:
-         break;
-      case 1:
-         dr = string("Mrs");
-         // {
-            // double shift = 0.000226; // 2009
-            // dr = string(Form("(%.6f+Mrs)",shift));
-         // }
-         cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
-         break;
-      case 2:
-         cut = TCut("dec==64");
-         break;
-      case 3:
-         cut = TCut("dec!=64");
-         break;
-      // case 10: // I/O check all: Mrs+Mrec
-         // dr = string("Mrs>>") + hname;
-         // nt1->Draw(dr.c_str(),"","goff");
-         // dr = string("Mrec>>+") + hname;
-         // break;
-      // case 11: // I/O check signal
-         // dr = string("Mrs>>") + hname;
-         // cut = TCut("dec==64");
-         // break;
-      default:
-         cerr << "ERROR in "<< __func__
-            << ": unknown type= " << type << endl;
-         exit(EXIT_FAILURE);
+   Long64_t nentries = nt1->GetEntries();
+
+   if ( !isMC ) { // data: return all recoil masses
+      for ( Long64_t i = 0; i < nentries; ++i ) {
+         nt1->GetEntry(i);
+         for (const auto& mr : *Mrec ) {
+            hst->Fill(mr);
+         }
+      }
+      return vector<TH1D*> { hst };
    }
 
-   dr += string( Form(">>%s",hname.c_str()) );
-   cout << " fill_mrec::INFO dr= " << dr << endl;
+   // MC return:
+   // 0 recoil mass of true pi+pi- pair (MC)
+   // 1 background for dec==64 (pi+pi-J/Psi)
+   // 2 background for dec!=64 (other Psi' decays)
 
-   nt1->Draw(dr.c_str(),cut,"goff");
-   return hst;
+   vector<TH1D*> hist(3,nullptr);
+   vector<string> hn = { hname+"sig", hname+"bg1", hname+"bg2" };
+   for ( size_t i = 0; i < hist.size(); ++i ) {
+      hist[i] = (TH1D*)hst->Clone(hn[i].c_str());
+   }
+   delete hst;
+   hst = nullptr;
+
+   for ( Long64_t i = 0; i < nentries; ++i ) {
+      nt1->GetEntry(i);
+      // cerr<<" size Mrec="<<Mrec->size()<<" dec="<<dec<<endl;
+      // cerr<<" Mrs= "<<Mrs<<" Pt="<<Ptsp<<","<<Ptsm<<endl;
+      if ( dec == 64 ) {
+         if ( Mrs > 1 ) {
+            double wp = RewTrkPi( date, Ptsp, +1.);
+            double wm = RewTrkPi( date, Ptsm, -1.);
+            hist[0]->Fill(Mrs,wp*wm);
+         }
+         for (const auto& mr : *Mrec ) {
+            hist[1]->Fill(mr);
+         }
+      } else {
+         for (const auto& mr : *Mrec ) {
+            hist[2]->Fill(mr);
+         }
+      }
+   }
+   return hist;
 }
 
 //--------------------------------------------------------------------
@@ -175,19 +238,25 @@ vector<TH1D*> fill_hist(int date) {
    string datafile( Form("data_%02ipsip_all.root",date%100) );
    string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
 
-   hst[0]=fill_mrec(datafile, hname[0]);
+   auto hs = fill_mrec(datafile, hname[0], date);
+   hst[0] = hs[0];
 
-   hst[1]=fill_mrec("data_3650_2021.root", hname[1]);
+   hs = fill_mrec("data_3650_2021.root", hname[1], 2021);
+   hst[1] = hs[0];
    hst[1]->Scale(C_Dat.at(date));
 
-   hst[2]=fill_mrec(mcincfile,hname[2],1);
+   hs = fill_mrec(mcincfile, "mc"+sd, date, true);
+   hst[2]=hs[0];
    hst[2]->Scale(MC_Dat.at(date));
+   cerr<<"done [2]"<<endl;
 
-   hst[3]=fill_mrec(mcincfile,hname[3],2);
+   hst[3]=hs[1];
    hst[3]->Scale(MC_Dat.at(date));
+   cerr<<"done [3]"<<endl;
 
-   hst[4]=fill_mrec(mcincfile,hname[4],3);
+   hst[4]=hs[2];
    hst[4]->Scale(MC_Dat.at(date));
+   cerr<<"done [4]"<<endl;
 
    // save histos in cache file
    TFile* froot = TFile::Open(cachef.c_str(),"NEW");
@@ -198,6 +267,7 @@ vector<TH1D*> fill_hist(int date) {
    return hst;
 }
 
+/*
 //--------------------------------------------------------------------
 vector<TH1D*> fill_hist_IOcheck(int date) {
 //--------------------------------------------------------------------
@@ -244,6 +314,7 @@ vector<TH1D*> fill_hist_IOcheck(int date) {
    froot->Close();
    return hst;
 }
+*/
 
 // {{{1 Function for fitting
 //--------------------------------------------------------------------
@@ -488,8 +559,8 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* SumBG,
 //--------------------------------------------------------------------
 void DoFitSB(int date, bool isIOcheck = false) {
 //--------------------------------------------------------------------
-   vector<TH1D*> hst =
-      (!isIOcheck) ? fill_hist(date) : fill_hist_IOcheck(date);
+   vector<TH1D*> hst = fill_hist(date);
+      // (!isIOcheck) ? fill_hist(date) : fill_hist_IOcheck(date);
 
    // limits for drawing
    double maxWin = 0, minWin = 0;
@@ -538,11 +609,11 @@ void DoFitSB(int date, bool isIOcheck = false) {
    }
    vector<double> par_ini;
    if ( date == 2009 ) {
-      par_ini = { 1.087, 0.008, 0.005, 0.002, 0.002 };
+      par_ini = { 1.089, 0.010, 0.005, 0.002, 0.002 };
    } else if ( date == 2012 ) {
-      par_ini = { 1.105, 0.015, 0.006, 0.002, 0.002, 0.002 };
+      par_ini = { 1.108, 0.018, 0.006, 0.002, 0.002, 0.002 };
    } else if ( date == 2021 ) {
-      par_ini = { 1.070, 0.000, 0.007, 0.002, 0.002, 0.001 };
+      par_ini = { 1.073, 0.002, 0.006, 0.002, 0.002, 0.001 };
    }
    if ( par_ini.size() != Npar ) {
       par_ini.resize(Npar,0.);
@@ -711,7 +782,8 @@ void MrecDraw(int date, bool zoom=false) {
       }
    }
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   TCanvas* c1 = new TCanvas(Form("c_%i",date),Form("%i",date),
+         0,0,800,800);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(!zoom);
@@ -787,8 +859,7 @@ void MrecFitSB() {
 
    //========================================================
    // set the name of the folder with the root files
-   // Dir = "prod-12/";  // must be the same as prod-11
-   Dir = "prod_v709/";
+   Dir = "prod_v709n3/";
    //========================================================
 
    // for ( int date : { 2009,2012,2021 } ) {
@@ -797,7 +868,7 @@ void MrecFitSB() {
       // MrecDraw(date,  zoom);
    // }
 
-   int date=2009;
+   // int date=2009;
    // int date=2012;
    // int date=2021;
 

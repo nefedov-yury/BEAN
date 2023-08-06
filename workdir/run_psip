@@ -135,14 +135,15 @@ fi
 if [ 1 -eq 1 ]; then
   printf "run local mcinc_21\n"
   ${BEAN7} \
-    -u PsipHelixParCor \
+    -u DelClonedTrks \
+    -u PsipJpsiPhiEta \
     -u PsipPiPiKK \
+    -u PsipJpsiGammaEta\
     -h PsipJpsiPhiEta/local/mcinc_21psip.root \
     -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
     > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &
 fi
-    #  -u PsipJpsiPhiEta \
-    #  -u PsipJpsiGammaEta\
+    #  -u PsipHelixParCor \
     #  -L PsipJpsiPhiEta/local/Lists/mcincl_09_709.list \
 
 ######################## TEST-DEBUG ########################
@@ -151,13 +152,15 @@ if [ 0 -eq 1 ]; then
   printf " TEST\n"
   gdb -ex=r --args \
     ${BEAN7} \
+    -u DelClonedTrks \
     -u PsipHelixParCor \
     -u PsipJpsiPhiEta \
     -u PsipPiPiKK \
     -u PsipJpsiGammaEta\
     -h /dev/null \
-    ${DSTDIR}/psip2021_stream001_run66839_file*.dst \
-    > >(tee test.out) 2>&1
+    -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list
+      #  \
+    #  > >(tee test.out) 2>&1
 #
     #  -N 10 \
     #  > test_2608.out 2>&1
@@ -165,6 +168,7 @@ if [ 0 -eq 1 ]; then
 #         -u PsipJpsiPhiEta \
 #         -u PsipMuMuGamma\
 #         -L PsipJpsiPhiEta/local/Lists/mckketa_09psip.list \
+    #  ${DSTDIR}/psip2021_stream001_run66839_file*.dst \
     #  -L PsipJpsiPhiEta/local/Lists/mcsig_12psip.list \
 fi
 

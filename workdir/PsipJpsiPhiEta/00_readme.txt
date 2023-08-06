@@ -17,13 +17,6 @@ p10a4c.h   -> declaration of variables in prod-10 a4c ntuple
 p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
               ntuple
 
-ReWeightEtaEff.h -> function to re-weight MC for eta->2gamma
-                    efficiency
-
-ReWeightTrkPid_11.h  -> function to re-weight MC for K and Pi trk+pid
-                        efficiency (prod-11)
-                        for other versions see archive/
-
 //--------------------------------------------------------------------
 1) Selection Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
@@ -151,6 +144,15 @@ eta_eff.cc -     Study of the eta -> 2gamma reconstruction efficiency
 //--------------------------------------------------------------------
 Lmedian.cc - calculate confidence interval
 
+//--------------------------------------------------------------------
 OLD:
+//--------------------------------------------------------------------
 br_aver.py - average of two periods of data taking
+
+ReWeightEtaEff.h -> function to re-weight MC for eta->2gamma
+                    efficiency
+
+ReWeightTrkPid_11.h  -> function to re-weight MC for K and Pi trk+pid
+                        efficiency (prod-11)
+                        for other versions see archive/
 

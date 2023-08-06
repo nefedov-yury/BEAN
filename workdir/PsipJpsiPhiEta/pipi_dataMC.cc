@@ -1,4 +1,5 @@
-// plot data distributions vs MC
+// pipi_dataMC.cc - plot data distributions vs MC
+// TODO: add helix-correction switch
 // for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
 //      -> VarName_YEAR.pdf
 
@@ -548,7 +549,7 @@ void pipi_dataMC() {
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709/";
+   Dir = "prod_v709n3/";
    //========================================================
 
    // plot_hist("cosPM",2009);

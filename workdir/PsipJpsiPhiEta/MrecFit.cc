@@ -1,5 +1,5 @@
-// Data fitting by correcting of MC signal and scaling of MC
-// background
+// MrecFit.cc - Data fitting by correcting of MC signal and scaling of
+// MC background
 //   -> Mrec_{YEAR}_M{MODEL}_T{Npol}_[hohc].pdf
 // - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
 //   and efficiency of selection;
