@@ -11,7 +11,8 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   string Dir;
+   // string Dir = "prod_v709/";
+   const string Dir = "prod_v709n3/";
    string datafile;
    string mcincfile;
 
@@ -40,9 +41,7 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    use_pm = pm;
    use_rew = rew;
 
-   // set the names:
-   // Dir = "prod-11/";
-   Dir = "prod_v709/";
+   // set the names of data and mc files
    datafile  = string( Form("data_%02ipsip_all.root",date%100) );
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
 
@@ -55,7 +54,7 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    // cuts for Pt and cos(Theta) of kaons
    CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
 
-   // std cuts for pions: mpi**2 = 0.0194797849 TODO?3.096?
+   // std cuts for pions: mpi**2 = 0.0194798 (GeV**2)
    Cpion = TCut("fabs(MppKK-3.096)<0.009&&"
          "fabs(Mrpi2-0.0194798)<0.025");
    // cuts for Pt and cos(Theta) of pions
@@ -201,9 +200,10 @@ void plot_pi0(int date) {
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.05*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=1.05*hdat[0]->GetMaximum();
    box->DrawBox(0.012,.0,0.022,ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -229,7 +229,7 @@ void plot_pi0(int date) {
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot MmisK
+// {{{1 ++++ K-eff: Plot MmisK
 //--------------------------------------------------------------------
 void plot_MmisK(int date) {
 //--------------------------------------------------------------------
@@ -256,15 +256,6 @@ void plot_MmisK(int date) {
    box->SetFillColor(kRed-10);
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
-   const double mk   = 0.493677; // 493.677  +/- 0.016 MeV
-   double M2l = SQ(mk)-0.025;
-   double M2r = SQ(mk)+0.025;
-   double dh = 0.0012; // bin width
-   double bg =
-      hmc[2]->Integral(int((M2l-0.125)/dh),int((M2r-0.125)/dh));
-   double sum =
-      hmc[0]->Integral(int((M2l-0.125)/dh),int((M2r-0.125)/dh));
-   printf("%i background is %.1f%%\n", date, bg/sum*100);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
    leg->SetHeader( par->Sdate(),"C");
@@ -287,17 +278,25 @@ void plot_MmisK(int date) {
    if ( date == 2009 ) {
       hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    }
+   double ymax = 1.06*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax = hdat[0]->GetMaximum();
-   if ( date == 2009 ) {
-      ymax *= 1.07;
-   } else {
-      ymax *= 1.065;
-   }
+   const double mk   = 0.493677; // 493.677  +/- 0.016 MeV
+   double M2l = SQ(mk)-0.025;
+   double M2r = SQ(mk)+0.025;
    box->DrawBox(0.15,0.,M2l,ymax);
    box->DrawBox(M2r,0.,0.35,ymax);
    hdat[0]->Draw("E,SAME");
+
+   double dh  = hdat[0]->GetBinWidth(1);
+   double bl  = hdat[0]->GetBinLowEdge(1);
+   double sum =
+      hmc[0]->Integral(int((M2l-bl)/dh)-1,int((M2r-bl)/dh)+1);
+   double bg  =
+      hmc[2]->Integral(int((M2l-bl)/dh)-1,int((M2r-bl)/dh)+1);
+   printf("%i: background in the selection window is %.1f%%\n",
+      date, bg/sum*100);
 
    hmc[0]->SetLineWidth(1);
    hmc[0]->SetLineColor(kRed+2);
@@ -668,11 +667,11 @@ void plot_dPK(int date) {
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
+   double ymax = 1.9*hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
-   double ymax = hdat[0]->GetMaximum(); // Log
-   ymax *= 1.9;
    box->DrawBox(-0.15,0.,-0.12,ymax);
    box->DrawBox(0.08,0.,0.15,ymax);
    hdat[0]->Draw("E,SAME");
@@ -747,10 +746,11 @@ void plot_dThK(int date) {
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
-   hdat[0]->Draw("E");
-
    // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
    double ymax=1.9*hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->Draw("E");
+
    box->DrawBox(10.,0.,20.,ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -776,7 +776,7 @@ void plot_dThK(int date) {
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot MinvJ
+// {{{1 ++++ Pi-eff: Plot MinvJ
 //--------------------------------------------------------------------
 void plot_MinvJ(int date) {
 //--------------------------------------------------------------------
@@ -824,11 +824,16 @@ void plot_MinvJ(int date) {
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   double ymax = 1.06 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax = 1.06 * hdat[0]->GetMaximum();
+   // fabs(MppKK-3.096)<0.009
    box->DrawBox(3.06,0.,3.087,ymax);
    box->DrawBox(3.105,0.,3.13,ymax);
+   // [3.08, 3.11]
+   // box->DrawBox(3.06,0.,3.08,ymax);
+   // box->DrawBox(3.11,0.,3.13,ymax);
    hdat[0]->Draw("E,SAME");
 
    hmc[0]->SetLineWidth(1);
@@ -880,15 +885,6 @@ void plot_MmisP(int date) {
    box->SetFillColor(kRed-10);
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
-   const double mpi  = 0.13957;  // 139.57018 +/- 0.00035 MeV
-   double M2l = SQ(mpi)-0.01;
-   double M2r = SQ(mpi)+0.01;
-   double dh = 0.0003; // bin width
-   double bg =
-      hmc[2]->Integral(int((M2l+0.01)/dh),int((M2r+0.01)/dh));
-   double sum =
-      hmc[0]->Integral(int((M2l+0.01)/dh),int((M2r+0.01)/dh));
-   printf("%i %s background is %.1f%%\n",date,__func__,bg/sum*100);
 
    TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
    leg->SetHeader( par->Sdate(), "C" );
@@ -911,13 +907,25 @@ void plot_MmisP(int date) {
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.25);
+   double ymax = 1.07*hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax = hdat[0]->GetMaximum();
-   ymax *= 1.07;
+   const double mpi  = 0.13957;  // 139.57018 +/- 0.00035 MeV
+   double M2l = SQ(mpi)-0.01;
+   double M2r = SQ(mpi)+0.01;
    box->DrawBox(-0.01,0.,M2l,ymax);
    box->DrawBox(M2r,0.,0.05,ymax);
    hdat[0]->Draw("E,SAME");
+
+   double dh  = hdat[0]->GetBinWidth(1);
+   double bl  = hdat[0]->GetBinLowEdge(1);
+   double sum =
+      hmc[0]->Integral(int((M2l-bl)/dh)-1,int((M2r-bl)/dh)+1);
+   double bg  =
+      hmc[2]->Integral(int((M2l-bl)/dh)-1,int((M2r-bl)/dh)+1);
+   printf("%s %i: background in the selection window is %.1f%%\n",
+      __func__, date, bg/sum*100);
 
    hmc[0]->SetLineWidth(1);
    hmc[0]->SetLineColor(kRed+2);
@@ -1289,10 +1297,11 @@ void plot_dPpi(int date) {
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
-   hdat[0]->Draw("E");
-
    // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
    double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->Draw("E");
+
    box->DrawBox(-0.15,0.,-0.12,ymax);
    box->DrawBox(0.08,0.,0.15,ymax);
    hdat[0]->Draw("E,SAME");
@@ -1368,10 +1377,11 @@ void plot_dThPi(int date) {
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
-   hdat[0]->Draw("E");
-
    // double ymax=1.06*hdat[0]->GetMaximum(); // Lin
    double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
+   hdat[0]->Draw("E");
+
    box->DrawBox(15.,0.,20.,ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -1452,6 +1462,7 @@ void trk_eff_sel() {
    gStyle->SetLegendFont(42);
    // gStyle->SetStatFont(62); // ?
 
+   // for ( auto date : {2009, 2012} ) {
    for ( auto date : {2009, 2012, 2021} ) {
       // -- pi0 rejection, fig.28
       // plot_pi0(date);
@@ -1485,7 +1496,7 @@ void trk_eff_sel() {
 
       // + fig 35
       // plot_dPpi(date);
-      plot_dThPi(date);
+      // plot_dThPi(date);
    }
 
    // other: do not use

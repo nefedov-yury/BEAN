@@ -1,11 +1,9 @@
-// The reconstruction efficiency (data and MC)
+// trk_eff_fit.cc - The reconstruction efficiency (data and MC)
 // and their ratio (data/MC) for pions and kaons.
 // Get corrections as function of P_t
 // by fitting the ratio.
 // Kolmogorov–Smirnov  && Chi2 probability tests to
 // compare the ratios for K+ and K- (pi+ and pi-)
-
-#include "ReWeightTrkPid_11.h"
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -17,7 +15,8 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   string Dir;
+   // string Dir = "prod_v709/";
+   const string Dir = "prod_v709n3/";
    string datafile;
    string mcincfile;
 
@@ -46,9 +45,7 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    use_pm = pm;
    use_rew = rew;
 
-   // set the names:
-   // Dir = "prod-11/";
-   Dir = "prod_v709/";
+   // set the names of data and mc files
    datafile  = string( Form("data_%02ipsip_all.root",date%100) );
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
 
@@ -83,9 +80,9 @@ TFile* Params::OpenFile(int mc) {  // 1 for MC
    return froot;
 }
 
-// {{{2 > GetEff()
+// {{{2 > GetEff() : root-tree for K or Pi
 //--------------------------------------------------------------------
-TTree* Params::GetEff(int mc = 0) { // get tree for K or Pi
+TTree* Params::GetEff(int mc = 0) {
 //--------------------------------------------------------------------
    TFile* froot = this->OpenFile(mc);
    string name( ((use_kpi == 1) ? "eff_K" : "eff_Pi") );
@@ -150,6 +147,43 @@ void SetHstFaceTbl(TH1* hst) {
       Y->SetTitleFont(42);
       Y->SetTitleSize(0.06);
    }
+}
+
+// {{{1 RewTrk functions
+//--------------------------------------------------------------------
+double RewTrkPi(int DataPeriod, double Pt, double Z) {
+//--------------------------------------------------------------------
+   // Corrections for the efficiency of reconstruction a pion having
+   // transverse momentum Pt and sign Z.
+   // The return value is the weight for the MC event.
+   // v709, DelClonedTrk, NO helix corrections
+
+   const double Ptmin = 0.05, Ptmax = 0.4;
+   Pt = max( Ptmin, Pt );
+   Pt = min( Ptmax, Pt );
+
+   double W = 1.;
+   if ( DataPeriod == 2009 ) {
+      if ( Z > 0 ) {
+         W = 0.991 - 0.017 * Pt;
+      } else {
+         W = 0.975 + 0.064 * Pt;
+      }
+   } else if ( DataPeriod == 2012 ) {
+      auto SQ = [](double x) -> double{return x*x;};
+      if ( Z > 0 ) {
+         W = 0.9806 + SQ(0.0150/Pt);
+      } else {
+         W = 0.9891 + SQ(0.0131/Pt);
+      }
+   } else if ( DataPeriod == 2021 ) {
+      if ( Z > 0 ) {
+         W = 0.9825;
+      } else {
+         W = 0.9874;
+      }
+   }
+   return W;
 }
 
 // {{{1 Fill histograms
@@ -604,9 +638,9 @@ void Fill_Khst( Params* p, int mc, TH1D* hst[],
 
       // reweiting
       double W = 1;
-      if ( rew == 1 ) {
-         W = ReWeightTrkPid(p->date, 1, Ptk);
-      }
+      // if ( rew == 1 ) {
+         // W = ReWeightTrkPid(p->date, 1, Ptk);
+      // }
 
       hst[0]->Fill(Ck);
       if ( fl > 1.5 ) {         // trk && pid id!
@@ -623,39 +657,40 @@ void Fill_PIhst( Params* p, int mc, TH1D* hst[],
    TTree* eff_Pi = p->GetEff(mc);
 
    //Declaration of leaves types
+   //        those not used here are commented out
    Double_t        Zpi;
    Double_t        Ptpi;
    Double_t        Cpi;
    Double_t        fl;
-   Double_t        dP;
-   Double_t        dTh;
+   // Double_t        dP;
+   // Double_t        dTh;
    Double_t        MppKK;
    Double_t        Mrpi2;
-   Double_t        Egsum;
-   Double_t        Egmax;
-   Double_t        good;
+   // Double_t        Egsum;
+   // Double_t        Egmax;
+   // Double_t        good;
 
    // Set branch addresses.
    eff_Pi->SetBranchAddress("Zpi",&Zpi);
    eff_Pi->SetBranchAddress("Ptpi",&Ptpi);
    eff_Pi->SetBranchAddress("Cpi",&Cpi);
    eff_Pi->SetBranchAddress("fl",&fl);
-   eff_Pi->SetBranchAddress("dP",&dP);
-   eff_Pi->SetBranchAddress("dTh",&dTh);
+   // eff_Pi->SetBranchAddress("dP",&dP);
+   // eff_Pi->SetBranchAddress("dTh",&dTh);
    eff_Pi->SetBranchAddress("MppKK",&MppKK);
    eff_Pi->SetBranchAddress("Mrpi2",&Mrpi2);
-   eff_Pi->SetBranchAddress("Egsum",&Egsum);
-   eff_Pi->SetBranchAddress("Egmax",&Egmax);
-   eff_Pi->SetBranchAddress("good",&good);
+   // eff_Pi->SetBranchAddress("Egsum",&Egsum);
+   // eff_Pi->SetBranchAddress("Egmax",&Egmax);
+   // eff_Pi->SetBranchAddress("good",&good);
 
    // List of cuts:
    auto c_pion = [](double MppKK, double Mrpi2)->bool{
       return (fabs(MppKK-3.096)<0.009) &&
              (fabs(Mrpi2-0.0194798)<0.025);
    };
-//    auto c_PiPtC = [](double Ptpi, double Cpi)->bool {
-//       return (0.05<Ptpi && Ptpi<0.4) && (fabs(Cpi)<0.8);
-//    };
+   // auto c_PiPtC = [](double Ptpi, double Cpi)->bool {
+      // return (0.05<Ptpi && Ptpi<0.4) && (fabs(Cpi)<0.8);
+   // };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt)->bool {
       return (Ptmin<=Pt && Pt<Ptmax);
    };
@@ -668,16 +703,24 @@ void Fill_PIhst( Params* p, int mc, TH1D* hst[],
    Long64_t nentries = eff_Pi->GetEntries();
    for ( Long64_t i = 0; i < nentries; ++i ) {
       eff_Pi->GetEntry(i);
-      if ( !c_pion(MppKK,Mrpi2) ) continue;
-      int signPi = (Zpi > 0) ? 1 : -1;
-      if ( p->use_pm == 1  && signPi == -1 ) continue;
-      if ( p->use_pm == -1  && signPi == 1 ) continue;
-      if ( !c_Ptbin(Ptpi) ) continue;
+      if ( !c_pion(MppKK,Mrpi2) ) {
+         continue;
+      }
+      if ( !c_Ptbin(Ptpi) ) {
+         continue;
+      }
+
+      if ( p->use_pm == 1  && Zpi < 0 ) {
+         continue;
+      }
+      if ( p->use_pm == -1  && Zpi > 0 ) {
+         continue;
+      }
 
       // reweiting
       double W = 1;
       if ( rew == 1 ) {
-         W = ReWeightTrkPid(p->date, 0, Ptpi);
+         W = RewTrkPi(p->date, Ptpi, Zpi);
       }
 
       hst[0]->Fill(Cpi);
@@ -788,15 +831,22 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
             fit2->SetParameters(0.98, 0.01);
          }
       } else {             // Pions
-         // functions to the second fit of pions
-         auto fPi = [](const double* x, const double* p)->double {
-            double t = p[1]/x[0];
-            return p[0] + t*t*t;
-         };
-         fit2 = new TF1("fit2", fPi, Ptmin, Ptmax, 2);
-         fit2->SetParNames("a","b");
-         // fit2->SetParameters(0.98, 0.02);
-         fit2->SetParameters(1., 0.);
+         if ( date == 2009 ) {
+            fit2 = (TF1*)gROOT->GetFunction("pol1")->Clone("fit2");
+            fit2->SetRange(Ptmin,Ptmax);
+         } else if ( date == 2012 ) {
+            // functions to the second fit of pions
+            auto fPi = [](const double* x, const double* p)->double {
+               double t = p[1]/x[0];
+               return p[0] + t*t;
+            };
+            fit2 = new TF1("fit2", fPi, Ptmin, Ptmax, 2);
+            fit2->SetParNames("a","b");
+            fit2->SetParameters(1., 1.e-2);
+         } else if ( date == 2021 ) {
+            fit2 = (TF1*)gROOT->GetFunction("pol0")->Clone("fit2");
+            fit2->SetRange(Ptmin,Ptmax);
+         }
       }
    }
    fit2->SetLineColor(kRed);
@@ -948,6 +998,13 @@ void trk_eff_fit() {
    gStyle->SetStatY(0.89);
    // gStyle->SetStatW(0.25);
 
+   // plot_pict_pi(2009,1);  // +
+   // plot_pict_pi(2009,-1); // -
+   // plot_pict_pi(2012,1);
+   // plot_pict_pi(2012,-1);
+   // plot_pict_pi(2021,1);
+   // plot_pict_pi(2021,-1);
+
    // plot_pict_K(2009,1);  // +
    // plot_pict_K(2009,-1); // -
    // plot_pict_K(2012,1);
@@ -955,30 +1012,22 @@ void trk_eff_fit() {
    // plot_pict_K(2021,1);
    // plot_pict_K(2021,-1);
 
-   // plot_pict_pi(2009,1);
-   // plot_pict_pi(2009,-1);
-   // plot_pict_pi(2012,1);
-   // plot_pict_pi(2012,-1);
-   // plot_pict_pi(2021,1);
-   // plot_pict_pi(2021,-1);
-
-   /*
-   int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
-   for ( auto date : {2009, 2012, 2021} ) {
-      test_PM(date,1,test); // Kaons
+   // int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
+   // for ( auto date : {2009, 2012, 2021} ) {
+      // test_PM(date,1,test); // Kaons
       // test_PM(date,2,test); // Pions
-   }
-   */
+   // }
 
-   // FitRatio(2009,1,0); // 2009, Kaons, (1=K+, -1=K-, 0=K+/-)
-   // FitRatio(2009,2,0); // 2009, Pions, (1=K+, -1=K-, 0=K+/-)
-   //- FitRatio(2009,1,0,1); // re-weighted
+   // FitRatio(2009,2,0); // 2009, Pions, (1=+, -1=-, 0=+/-)
+   // FitRatio(2009,1,0); // 2009, Kaons
+   // FitRatio(2009,2,0,1); // re-weighted
 
-   // FitRatio(2012,1,0); // 2012, Kaons, (1=K+, -1=K-, 0=K+/-)
-   // FitRatio(2012,2,0); // 2012, Pions, (1=K+, -1=K-, 0=K+/-)
-   //- FitRatio(2012,2,0,1); // re-weighted
+   // FitRatio(2012,2,0); // 2012, Pions, (1=+, -1=-, 0=+/-)
+   // FitRatio(2012,1,0); // 2012, Kaons
+   // FitRatio(2012,2,0,1); // re-weighted
 
-   // FitRatio(2021,1,0); // 2021, Kaons, (1=K+, -1=K-, 0=K+/-)
-   // FitRatio(2021,2,0); // 2012, Pions, (1=K+, -1=K-, 0=K+/-)
+   // FitRatio(2021,2,-1); // 2012, Pions, (1=+, -1=-, 0=+/-)
+   // FitRatio(2021,1,0); // 2021, Kaons, (1=K+
+   // FitRatio(2021,2,0,1); // re-weighted
 
 }
