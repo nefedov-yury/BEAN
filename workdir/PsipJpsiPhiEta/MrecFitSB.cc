@@ -11,7 +11,6 @@
 // The contribution of the continuum is taken into account.
 // Number of signal events is calculated by subtracting the estimated
 // background from the data.
-// TODO: add helix-correction switch
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
@@ -71,9 +70,46 @@ void set_draw_opt(vector<TH1D*>& hst) {
    hst[4]->SetLineWidth(2);
 }
 
-// {{{1 RewTrk functions
+// {{{1 RewTrk functions with HC
 //--------------------------------------------------------------------
 double RewTrkPi(int DataPeriod, double Pt, double Z) {
+//--------------------------------------------------------------------
+   // Corrections for the efficiency of reconstruction a pion having
+   // transverse momentum Pt and sign Z.
+   // The return value is the weight for the MC event.
+   // v709, DelClonedTrk, helix corrections
+
+   const double Ptmin = 0.05, Ptmax = 0.4;
+   Pt = max( Ptmin, Pt );
+   Pt = min( Ptmax, Pt );
+
+   double W = 1.;
+   if ( DataPeriod == 2009 ) {
+      if ( Z > 0 ) {
+         W = 0.992 - 0.022 * Pt;
+      } else {
+         W = 0.977 + 0.056 * Pt;
+      }
+   } else if ( DataPeriod == 2012 ) {
+      auto SQ = [](double x) -> double{return x*x;};
+      if ( Z > 0 ) {
+         W = 0.9803 + SQ(0.0161/Pt);
+      } else {
+         W = 0.9888 + SQ(0.0139/Pt);
+      }
+   } else if ( DataPeriod == 2021 ) {
+      if ( Z > 0 ) {
+         W = 0.9828;
+      } else {
+         W = 0.9876;
+      }
+   }
+   return W;
+}
+
+// {{{1 RewTrk functions noHC
+//--------------------------------------------------------------------
+double RewTrkPi0(int DataPeriod, double Pt, double Z) {
 //--------------------------------------------------------------------
    // Corrections for the efficiency of reconstruction a pion having
    // transverse momentum Pt and sign Z.
@@ -124,6 +160,11 @@ vector<TH1D*> fill_mrec(string fname, string hname,
 
    froot->cd("PsipJpsiPhiEta");
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
+   if ( !nt1 ) {
+      cerr << "ERROR in "<< __func__
+         << " can not find nt1" << endl;
+      exit(EXIT_FAILURE);
+   }
 
    //Declaration of leaves types
    //        those not used here are commented out
@@ -248,15 +289,12 @@ vector<TH1D*> fill_hist(int date) {
    hs = fill_mrec(mcincfile, "mc"+sd, date, true);
    hst[2]=hs[0];
    hst[2]->Scale(MC_Dat.at(date));
-   cerr<<"done [2]"<<endl;
 
    hst[3]=hs[1];
    hst[3]->Scale(MC_Dat.at(date));
-   cerr<<"done [3]"<<endl;
 
    hst[4]=hs[2];
    hst[4]->Scale(MC_Dat.at(date));
-   cerr<<"done [4]"<<endl;
 
    // save histos in cache file
    TFile* froot = TFile::Open(cachef.c_str(),"NEW");
@@ -609,11 +647,11 @@ void DoFitSB(int date, bool isIOcheck = false) {
    }
    vector<double> par_ini;
    if ( date == 2009 ) {
-      par_ini = { 1.089, 0.010, 0.005, 0.002, 0.002 };
+      par_ini = { 1.088, 0.009, 0.005, 0.002, 0.002 };
    } else if ( date == 2012 ) {
-      par_ini = { 1.108, 0.018, 0.006, 0.002, 0.002, 0.002 };
+      par_ini = { 1.106, 0.016, 0.006, 0.002, 0.002, 0.002 };
    } else if ( date == 2021 ) {
-      par_ini = { 1.073, 0.002, 0.006, 0.002, 0.002, 0.001 };
+      par_ini = { 1.071, 0.001, 0.006, 0.002, 0.002, 0.001 };
    }
    if ( par_ini.size() != Npar ) {
       par_ini.resize(Npar,0.);
@@ -872,7 +910,7 @@ void MrecFitSB() {
    // int date=2012;
    // int date=2021;
 
-   DoFitSB(date);
+   // DoFitSB(date);
 
    // IO check: trivially get the exact result!
    // bool isIOcheck = true;

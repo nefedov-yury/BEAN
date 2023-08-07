@@ -1,5 +1,4 @@
 // pipi_dataMC.cc - plot data distributions vs MC
-// TODO: add helix-correction switch
 // for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
 //      -> VarName_YEAR.pdf
 

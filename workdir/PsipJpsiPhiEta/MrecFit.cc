@@ -5,9 +5,6 @@
 //   and efficiency of selection;
 // - estimate systematic associated with a fit model
 
-// for prod-12 it should be commented
-// #include "ReWeightTrkPid_11.h"
-
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
@@ -67,22 +64,86 @@ void set_draw_opt(vector<TH1D*>& hst) {
    hst[4]->SetLineWidth(2);
 }
 
+// {{{1 RewTrk functions with HC
+//--------------------------------------------------------------------
+double RewTrkPi(int DataPeriod, double Pt, double Z) {
+//--------------------------------------------------------------------
+   // Corrections for the efficiency of reconstruction a pion having
+   // transverse momentum Pt and sign Z.
+   // The return value is the weight for the MC event.
+   // v709, DelClonedTrk, helix corrections
+
+   const double Ptmin = 0.05, Ptmax = 0.4;
+   Pt = max( Ptmin, Pt );
+   Pt = min( Ptmax, Pt );
+
+   double W = 1.;
+   if ( DataPeriod == 2009 ) {
+      if ( Z > 0 ) {
+         W = 0.992 - 0.022 * Pt;
+      } else {
+         W = 0.977 + 0.056 * Pt;
+      }
+   } else if ( DataPeriod == 2012 ) {
+      auto SQ = [](double x) -> double{return x*x;};
+      if ( Z > 0 ) {
+         W = 0.9803 + SQ(0.0161/Pt);
+      } else {
+         W = 0.9888 + SQ(0.0139/Pt);
+      }
+   } else if ( DataPeriod == 2021 ) {
+      if ( Z > 0 ) {
+         W = 0.9828;
+      } else {
+         W = 0.9876;
+      }
+   }
+   return W;
+}
+
+// {{{1 RewTrk functions noHC
+//--------------------------------------------------------------------
+double RewTrkPi0(int DataPeriod, double Pt, double Z) {
+//--------------------------------------------------------------------
+   // Corrections for the efficiency of reconstruction a pion having
+   // transverse momentum Pt and sign Z.
+   // The return value is the weight for the MC event.
+   // v709, DelClonedTrk, NO helix corrections
+
+   const double Ptmin = 0.05, Ptmax = 0.4;
+   Pt = max( Ptmin, Pt );
+   Pt = min( Ptmax, Pt );
+
+   double W = 1.;
+   if ( DataPeriod == 2009 ) {
+      if ( Z > 0 ) {
+         W = 0.991 - 0.017 * Pt;
+      } else {
+         W = 0.975 + 0.064 * Pt;
+      }
+   } else if ( DataPeriod == 2012 ) {
+      auto SQ = [](double x) -> double{return x*x;};
+      if ( Z > 0 ) {
+         W = 0.9806 + SQ(0.0150/Pt);
+      } else {
+         W = 0.9891 + SQ(0.0131/Pt);
+      }
+   } else if ( DataPeriod == 2021 ) {
+      if ( Z > 0 ) {
+         W = 0.9825;
+      } else {
+         W = 0.9874;
+      }
+   }
+   return W;
+}
+
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
-TH1D* fill_mrec(string fname, string hname, int type=0,
-      double shift=0.) {
+vector<TH1D*> fill_mrec(string fname, string hname,
+      int date, bool isMC = false, double shift = 0.) {
 //--------------------------------------------------------------------
-   // type = 0 all recoil masses (default)
-   // type = 1 recoil mass of true pi+pi- pair (MC)
-   // type = 2 background for dec==64 (pi+pi-J/Psi)
-   // type = 3 background for dec!=64 (other Psi' decays)
-   // type = 11 the same as type=1 but without helix corrections
-
-   if ( type == 11 && USE_NOHC_SIGNAL_MC ) {
-      fname = Dir + "NoHC/" + fname;
-   } else {
-      fname = Dir + fname;
-   }
+   fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if ( froot == 0 ) {
@@ -99,6 +160,33 @@ TH1D* fill_mrec(string fname, string hname, int type=0,
       exit(EXIT_FAILURE);
    }
 
+   //Declaration of leaves types
+   //        those not used here are commented out
+   vector<float> * Mrec = nullptr; // must be !
+   Float_t         Mrs;
+   Float_t         Ptsp;
+   Float_t         Ptsm;
+   // Float_t         Mrb;
+   // Float_t         Ptp;
+   // Float_t         Cpls;
+   // Float_t         Ptm;
+   // Float_t         Cmns;
+   Int_t           dec;
+   // Float_t         mcmkk;
+
+   // Set branch addresses.
+   nt1->SetBranchAddress("Mrec",&Mrec);
+   nt1->SetBranchAddress("Mrs",&Mrs);
+   nt1->SetBranchAddress("Ptsp",&Ptsp);
+   nt1->SetBranchAddress("Ptsm",&Ptsm);
+   // nt1->SetBranchAddress("Mrb",&Mrb);
+   // nt1->SetBranchAddress("Ptp",&Ptp);
+   // nt1->SetBranchAddress("Cpls",&Cpls);
+   // nt1->SetBranchAddress("Ptm",&Ptm);
+   // nt1->SetBranchAddress("Cmns",&Cmns);
+   nt1->SetBranchAddress("dec",&dec);
+   // nt1->SetBranchAddress("mcmkk",&mcmkk);
+
    TH1D* hst = new TH1D(hname.c_str(),
          ";M^{rec}_{#pi^{#plus}#pi^{#minus }}, GeV/c^{2}"
          ";Entries/0.1 MeV/c^{2}",
@@ -106,39 +194,54 @@ TH1D* fill_mrec(string fname, string hname, int type=0,
          );
    hst->Sumw2(true);
 
-   string dr("Mrec");
-   TCut cut;
-   switch ( type ) {
-      case 0:
-         break;
-      case 1:
-      case 11:
-         dr = string("Mrs");
-         cut = TCut("MrsW*(dec==64)"); // MrsW pi+pi- corrections
-         break;
-      case 2:
-         cut = TCut("dec==64");
-         break;
-      case 3:
-         cut = TCut("dec!=64");
-         break;
-      default:
-         cerr << "ERROR in "<< __func__
-            << ": unknown type= " << type << endl;
-         exit(EXIT_FAILURE);
+   Long64_t nentries = nt1->GetEntries();
+
+   if ( !isMC ) { // data: return all recoil masses
+      for ( Long64_t i = 0; i < nentries; ++i ) {
+         nt1->GetEntry(i);
+         for (const auto& mr : *Mrec ) {
+            hst->Fill(mr);
+         }
+      }
+      return vector<TH1D*> { hst };
    }
 
-   // only for MC: energy shift
-   // if ( type == 11 && fabs(shift) > 1e-6 ) { // only signal MC
-   if ( type > 0 && fabs(shift) > 1e-6 ) { // all MC
-      dr = string(Form("(%.6f+%s)",shift,dr.c_str())); // shift+dr
+   // MC return:
+   // 0 recoil mass of true pi+pi- pair (MC)
+   // 1 background for dec==64 (pi+pi-J/Psi)
+   // 2 background for dec!=64 (other Psi' decays)
+
+   vector<TH1D*> hist(3,nullptr);
+   vector<string> hn = { hname+"sig", hname+"bg1", hname+"bg2" };
+   for ( size_t i = 0; i < hist.size(); ++i ) {
+      hist[i] = (TH1D*)hst->Clone(hn[i].c_str());
    }
-   dr += string( Form(">>%s",hname.c_str()) );
-   cout << " fill_mrec::INFO dr= " << dr << endl;
+   delete hst;
+   hst = nullptr;
 
-   nt1->Draw(dr.c_str(),cut,"goff");
+   typedef double (*REWFUN) (int, double, double);
+   REWFUN RewFun = (USE_NOHC_SIGNAL_MC) ? RewTrkPi0 : RewTrkPi;
 
-   return hst;
+   for ( Long64_t i = 0; i < nentries; ++i ) {
+      nt1->GetEntry(i);
+      // cerr<<" size Mrec="<<Mrec->size()<<" dec="<<dec<<endl;
+      // cerr<<" Mrs= "<<Mrs<<" Pt="<<Ptsp<<","<<Ptsm<<endl;
+      if ( dec == 64 ) {
+         if ( Mrs > 1 ) {
+            double wp = RewFun( date, Ptsp, +1.);
+            double wm = RewFun( date, Ptsm, -1.);
+            hist[0]->Fill(Mrs+shift,wp*wm);
+         }
+         for (const auto& mr : *Mrec ) {
+            hist[1]->Fill(mr+shift);
+         }
+      } else {
+         for (const auto& mr : *Mrec ) {
+            hist[2]->Fill(mr+shift);
+         }
+      }
+   }
+   return hist;
 }
 
 //--------------------------------------------------------------------
@@ -148,15 +251,15 @@ vector<TH1D*> fill_hist(int date) {
    double shift = 0.0;
    if ( date == 2009 ) {
       // shift = 0.000225; // chi2(M2) = 3106?
-      shift = 0.000226; // chi2(M2) = 3057 ***
+      shift = 0.000226; // chi2(M2) = 3144 ? 3057 ***
       // shift = 0.000227; // chi2(M2) = 3077?
    } else if ( date == 2012 ) {
       // shift = 0.000385; // chi2(M2) = 6183?
-      shift = 0.000386; // chi2(M2) = 6013 ***
+      shift = 0.000386; // chi2(M2) = 6185 ? 6013 ***
       // shift = 0.000387; // chi2(M2) = 6168?
    } else if ( date == 2021 ) {
       // shift = 0.000606; // chi2(M2) = 23 481
-      shift = 0.000607; // chi2(M2) = 22 637***
+      shift = 0.000607; // chi2(M2) = 22 947 ?22 637***
       // shift = 0.000608; // chi2(M2) = 23 122
    }
 
@@ -192,21 +295,26 @@ vector<TH1D*> fill_hist(int date) {
 
    string datafile( Form("data_%02ipsip_all.root",date%100) );
    string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
+   if ( USE_NOHC_SIGNAL_MC ) {
+      mcincfile = "NoHC/" +  mcincfile;
+   }
 
-   hst[0]=fill_mrec(datafile, hname[0]);
+   auto hs = fill_mrec(datafile, hname[0], date);
+   hst[0] = hs[0];
 
-   hst[1]=fill_mrec("data_3650_2021.root", hname[1]);
+   hs = fill_mrec("data_3650_2021.root", hname[1], 2021);
+   hst[1] = hs[0];
    hst[1]->Scale(C_Dat.at(date));
 
-   int type1 = ( !USE_NOHC_SIGNAL_MC ) ? 1 : 11 ;
-   hst[2]=fill_mrec(mcincfile,hname[2],type1,shift);
+   hs = fill_mrec(mcincfile, "mc"+sd, date, true, shift);
+   hst[2]=hs[0];
    hst[5] = (TH1D*)hst[2]->Clone( hname[5].c_str() );
    hst[2]->Scale(MC_Dat.at(date));
 
-   hst[3]=fill_mrec(mcincfile,hname[3],2,shift);
+   hst[3]=hs[1];
    hst[3]->Scale(MC_Dat.at(date));
 
-   hst[4]=fill_mrec(mcincfile,hname[4],3,shift);
+   hst[4]=hs[2];
    hst[4]->Scale(MC_Dat.at(date));
 
    // save histos in cache file
@@ -1017,24 +1125,24 @@ void DoFit(int date) {
          par_ini = { 0.969, 0.86e-3,
             1.094,0.005,-0.027,-0.001 }; // old +0.23MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.979, 3.18e-3, 0.62e-3, 0.87,
-            1.095,0.007,0.006,0.001,0.013 }; // +0.226MeV
+         par_ini = { 0.984, 3.20e-3, 0.62e-3, 0.87,
+            1.098,0.008,0.007,0.000,0.013 }; // n3 +0.226MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
          par_ini = { 0.982, 0.98e-3,
             1.118,0.008,-0.030,-0.006 }; // old +0.38MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.989, 3.40e-3, 0.70e-3, 0.86,
-            1.113,0.023,0.008,0.008,0.014,0.008 }; // +0.386MeV
+         par_ini = { 0.992, 3.40e-3, 0.70e-3, 0.86,
+            1.116,0.026,0.008,0.008,0.014,0.008 }; // n3 +0.386MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
          par_ini = { 0.945, 0.89-3,
             1.066,-0.006,-0.020,-0.002 }; // old +0.60MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.964, 3.06e-3, 0.62e-3, 0.86,
-            1.076,0.004,0.009,0.006,0.010,0.005 }; // +0.607MeV
+         par_ini = { 0.994, 3.05e-3, 0.62e-3, 0.86,
+            1.078,0.006,0.009,0.006,0.010,0.005 }; // n3 +0.607MeV
       }
    }
    if ( par_ini.size() != Npar ) {
@@ -1207,13 +1315,13 @@ void MrecFit() {
    //========================================================
    // set the name of the folder with the root files
    // Dir = "prod-12/";  // must be the same as prod-11
-   Dir = "prod_v709/";
+   Dir = "prod_v709n3/";
    USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
    //========================================================
 
-   int date=2009;
+   // int date=2009;
    // int date=2012;
-   // int date=2021;
+   int date=2021;
 
    DoFit(date);
 }
