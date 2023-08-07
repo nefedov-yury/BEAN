@@ -149,9 +149,46 @@ void SetHstFaceTbl(TH1* hst) {
    }
 }
 
-// {{{1 RewTrk functions
+// {{{1 RewTrk functions with HC
 //--------------------------------------------------------------------
 double RewTrkPi(int DataPeriod, double Pt, double Z) {
+//--------------------------------------------------------------------
+   // Corrections for the efficiency of reconstruction a pion having
+   // transverse momentum Pt and sign Z.
+   // The return value is the weight for the MC event.
+   // v709, DelClonedTrk, helix corrections
+
+   const double Ptmin = 0.05, Ptmax = 0.4;
+   Pt = max( Ptmin, Pt );
+   Pt = min( Ptmax, Pt );
+
+   double W = 1.;
+   if ( DataPeriod == 2009 ) {
+      if ( Z > 0 ) {
+         W = 0.992 - 0.022 * Pt;
+      } else {
+         W = 0.977 + 0.056 * Pt;
+      }
+   } else if ( DataPeriod == 2012 ) {
+      auto SQ = [](double x) -> double{return x*x;};
+      if ( Z > 0 ) {
+         W = 0.9803 + SQ(0.0161/Pt);
+      } else {
+         W = 0.9888 + SQ(0.0139/Pt);
+      }
+   } else if ( DataPeriod == 2021 ) {
+      if ( Z > 0 ) {
+         W = 0.9828;
+      } else {
+         W = 0.9876;
+      }
+   }
+   return W;
+}
+
+// {{{1 RewTrk functions noHC
+//--------------------------------------------------------------------
+double RewTrkPi0(int DataPeriod, double Pt, double Z) {
 //--------------------------------------------------------------------
    // Corrections for the efficiency of reconstruction a pion having
    // transverse momentum Pt and sign Z.
@@ -940,6 +977,11 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
                                              ex.data(),ey.data() );
    gX->GetHistogram()->SetMaximum(1.1);
    gX->GetHistogram()->SetMinimum(0.9);
+   if ( rew == 1 ) {
+      gX->GetHistogram()->SetMaximum(1.025);
+      gX->GetHistogram()->SetMinimum(0.975);
+      gX->GetYaxis()->SetNdivisions(1005);
+   }
    // if ( date == 2009 && kpi == 1 && pm == 1 && rew == 0 ) {
       // gX->GetHistogram()->SetMinimum(0.84);
    // }
@@ -1026,7 +1068,7 @@ void trk_eff_fit() {
    // FitRatio(2012,1,0); // 2012, Kaons
    // FitRatio(2012,2,0,1); // re-weighted
 
-   // FitRatio(2021,2,-1); // 2012, Pions, (1=+, -1=-, 0=+/-)
+   // FitRatio(2021,2,0); // 2012, Pions, (1=+, -1=-, 0=+/-)
    // FitRatio(2021,1,0); // 2021, Kaons, (1=K+
    // FitRatio(2021,2,0,1); // re-weighted
 

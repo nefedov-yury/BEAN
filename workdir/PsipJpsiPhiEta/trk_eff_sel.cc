@@ -244,8 +244,10 @@ void plot_MmisK(int date) {
    get_hst(par, 1, hnmc, hmc);
 
    // normalization on DATA
-   // double scale = hdat[0]->Integral() / hmc[0]->Integral();
-   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
+   int nm = hdat[0]->GetNbinsX() / 2;
+   double scale = hdat[0]->Integral(nm-10,nm+10) /
+      hmc[0]->Integral(nm-10,nm+10);
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
