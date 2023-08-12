@@ -17,6 +17,7 @@ struct Params {
    // name of folder with root files
    // string Dir = "prod_v709/";
    const string Dir = "prod_v709n3/";
+   const bool use_nohc = false;
    string datafile;
    string mcincfile;
 
@@ -48,6 +49,11 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    // set the names of data and mc files
    datafile  = string( Form("data_%02ipsip_all.root",date%100) );
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
+   if ( use_nohc ) {
+      mcincfile = "NoHC/" + mcincfile;
+      printf("ATTENTION:"
+            " You are using MC without helix corrections\n");
+   }
 
    // mc-signal
    Cmcsig = TCut("good==1");
@@ -157,6 +163,7 @@ double RewTrkPi(int DataPeriod, double Pt, double Z) {
    // transverse momentum Pt and sign Z.
    // The return value is the weight for the MC event.
    // v709, DelClonedTrk, helix corrections
+   // Note: This function works well for MC without helix corrections
 
    const double Ptmin = 0.05, Ptmax = 0.4;
    Pt = max( Ptmin, Pt );
@@ -180,7 +187,6 @@ double RewTrkPi(int DataPeriod, double Pt, double Z) {
       double dx = x - (fXmin + klow * fDelta);
       return fY[klow] + dx*(fB[klow] + dx*(fC[klow] + dx*fD[klow]));
    };
-
 
    double W = 1.;
    if ( DataPeriod == 2021 ) {
@@ -353,43 +359,6 @@ double RewTrk_K(int DataPeriod, double Pt, double Z) {
          } else {
             W = ( Pt > 0.2 ) ? 0.996 : 1.004;
          }
-      }
-   }
-   return W;
-}
-
-// {{{1 RewTrk functions noHC
-//--------------------------------------------------------------------
-double RewTrkPi0(int DataPeriod, double Pt, double Z) {
-//--------------------------------------------------------------------
-   // Corrections for the efficiency of reconstruction a pion having
-   // transverse momentum Pt and sign Z.
-   // The return value is the weight for the MC event.
-   // v709, DelClonedTrk, NO helix corrections
-
-   const double Ptmin = 0.05, Ptmax = 0.4;
-   Pt = max( Ptmin, Pt );
-   Pt = min( Ptmax, Pt );
-
-   double W = 1.;
-   if ( DataPeriod == 2009 ) {
-      if ( Z > 0 ) {
-         W = 0.991 - 0.017 * Pt;
-      } else {
-         W = 0.975 + 0.064 * Pt;
-      }
-   } else if ( DataPeriod == 2012 ) {
-      auto SQ = [](double x) -> double{return x*x;};
-      if ( Z > 0 ) {
-         W = 0.9806 + SQ(0.0150/Pt);
-      } else {
-         W = 0.9891 + SQ(0.0131/Pt);
-      }
-   } else if ( DataPeriod == 2021 ) {
-      if ( Z > 0 ) {
-         W = 0.9825;
-      } else {
-         W = 0.9874;
       }
    }
    return W;
@@ -1202,6 +1171,7 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    if ( pm == 0 ) { p_leg += "^{#kern[0.25]{#pm}}"; }
    if ( pm == 1 ) { p_leg += "^{#kern[0.25]{#plus}}"; }
    if ( pm == -1 ){ p_leg += "^{#kern[0.25]{#minus}}"; }
+   if ( par->use_nohc ) { p_leg += " noHC"; }
    TLegend* leg = nullptr;
    if ( fit2 ) {
       leg = new TLegend(0.20,0.82,0.50,0.89);
@@ -1253,7 +1223,7 @@ void trk_eff_fit() {
 
    // FitRatio(2009,2,1); // 2009, Pions, (1=+, -1=-, 0=+/-)
    // FitRatio(2009,1,1); // 2009, Kaons
-   // FitRatio(2009,2,1,1); // re-weighted
+   FitRatio(2009,2,1,1); // re-weighted
 
    // FitRatio(2012,2,1); // 2012, Pions, (1=+, -1=-, 0=+/-)
    // FitRatio(2012,1,1); // 2012, Kaons
