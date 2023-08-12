@@ -780,7 +780,7 @@ void plot_dThK(int date) {
 
 // {{{1 ++++ Pi-eff: Plot MinvJ
 //--------------------------------------------------------------------
-void plot_MinvJ(int date) {
+void plot_MinvJ(int date, bool fitgs=false) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -806,7 +806,12 @@ void plot_MinvJ(int date) {
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.61,0.69,0.895,0.895);
+   TLegend* leg = nullptr;
+   if ( fitgs ) {
+      leg = new TLegend(0.12,0.69,0.405,0.895);
+   } else {
+      leg = new TLegend(0.61,0.69,0.895,0.895);
+   }
    leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
@@ -828,7 +833,17 @@ void plot_MinvJ(int date) {
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    double ymax = 1.06 * hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   hdat[0]->Draw("E");
+
+   if ( fitgs ) {
+      gStyle->SetStatY(0.895);
+      TF1* gs = (TF1*)gROOT->GetFunction("gaus");
+      gs->SetLineWidth(2);
+      gs->SetLineStyle(5);
+      gs->SetLineColor(kMagenta);
+      hdat[0]->Fit(gs,"Q","",3.087,3.105);
+   } else {
+      hdat[0]->Draw("E");
+   }
 
    // fabs(MppKK-3.096)<0.009
    box->DrawBox(3.06,0.,3.087,ymax);
@@ -1486,6 +1501,7 @@ void trk_eff_sel() {
       // ---- pi+ pi- ----
       // + fig 32
       // plot_MinvJ(date);
+      // plot_MinvJ(date,true); // fit J/Psi peak position
 
       // + fig 33
       // plot_MmisP(date);
