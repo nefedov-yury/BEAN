@@ -5467,8 +5467,8 @@ void combineSBBR_Intfr_scan(string sname) {
 
       // == Fit
       fitter.FitFCN(Npar,my_fcn,nullptr,Ndat,false); // likelihood
-//       fitter.CalculateHessErrors();
-//       fitter.CalculateMinosErrors();
+      // fitter.CalculateHessErrors();
+      // fitter.CalculateMinosErrors();
 
       ROOT::Fit::FitResult res = fitter.Result();
       Fpar = res.Parameters();

@@ -22,9 +22,9 @@
    TCut c_MCmkk("mcmkk<1.08"); // cut for MC generated events
 
    // chi^2 cut: NO uncertainties study! (helix correction)
-//    double chi2M = 60; // OLD standard: 60; 
+   // double chi2M = 60; // OLD standard: 60; 
    double chi2M = 40; // std: v15a
-//    double chi2M = 100; // scan: 20,30,40,50,60,80,100
+   // double chi2M = 100; // scan: 20,30,40,50,60,80,100
    string str_c_chi2 = string("ch2<") + to_string(chi2M);
    TCut c_chi2( str_c_chi2.c_str() );
 
@@ -39,7 +39,7 @@
    // Meta: side-band
    // 'shift_eta' is the start of the side-band
    double shift_eta = 7*seta; // new for prod-11
-//    double shift_eta = 6*seta; // old (prod<=10)
+   // double shift_eta = 6*seta; // old (prod<=10)
    string str_c_sbgg( Form("abs(Mgg-%.6f)>%.6f&&abs(Mgg-%.6f)<%.6f",
             Meta,shift_eta,Meta,shift_eta+weta) );
    TCut c_sbgg(str_c_sbgg.c_str());
