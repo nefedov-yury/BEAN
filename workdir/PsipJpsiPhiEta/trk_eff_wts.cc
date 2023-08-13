@@ -1,11 +1,12 @@
 // plot weights for K+K- and pi+ pi- pairs:
 // -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
 
-#include "ReWeightTrkPid_11.h"
+#include "RewTrkPiK.hpp"    // RewTrk functions with HC
 
-//----------------------------------------------------------------------
+// {{{1 helper functions
+//--------------------------------------------------------------------
 void SetHstFace(TH1* hst) {
-//----------------------------------------------------------------------
+//--------------------------------------------------------------------
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -29,13 +30,14 @@ void SetHstFace(TH1* hst) {
    }
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Pion weights, use nt1-tree
+//--------------------------------------------------------------------
 void plot_WPi(string fname, int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
    cout << " file: " << fname << endl;
 
@@ -43,106 +45,110 @@ void plot_WPi(string fname, int date) {
 
    // Psi(2S) -> pi+ pi- J/Psi
    TTree* nt1 = (TTree*)gDirectory->Get("nt1");
-
-//Declaration of leaves types
-   Float_t         Mrs;
-   Float_t         mdp;
-   Float_t         MrsW;
-//    vector<float>   Mrec;
-   Float_t         Mrb;
-   Float_t         Ptp;
-   Float_t         Cpls;
-   Float_t         Ptm;
-   Float_t         Cmns;
-   UShort_t        nch;
-   UShort_t        Nm;
-   UShort_t        dec;
-//    Float_t         mcmkk;
-//    Float_t         mcmkpet;
-//    Float_t         mccosT;
-
-   // Set branch addresses.
-   nt1->SetBranchAddress("Mrs",&Mrs);
-   nt1->SetBranchAddress("mdp",&mdp);
-   nt1->SetBranchAddress("MrsW",&MrsW);
-//    nt1->SetBranchAddress("Mrec",&Mrec);
-   nt1->SetBranchAddress("Mrb",&Mrb);
-   nt1->SetBranchAddress("Ptp",&Ptp);
-   nt1->SetBranchAddress("Cpls",&Cpls);
-   nt1->SetBranchAddress("Ptm",&Ptm);
-   nt1->SetBranchAddress("Cmns",&Cmns);
-   nt1->SetBranchAddress("nch",&nch);
-   nt1->SetBranchAddress("Nm",&Nm);
-   nt1->SetBranchAddress("dec",&dec);
-//    nt1->SetBranchAddress("mcmkk",&mcmkk);
-//    nt1->SetBranchAddress("mcmkpet",&mcmkpet);
-//    nt1->SetBranchAddress("mccosT",&mccosT);
-
-
-   TH1D* hstMrsW = new TH1D("hstMrsW",
-         ";correction factor;Entries/0.001",
-         200,0.9,1.1);
-
-   nt1->Draw("MrsW>>hstMrsW","dec==64","goff");
-
-   TH1D* hstMrbW = new TH1D("hstMrbW",
-         ";correction factor;Entries/0.001",
-         200,0.9,1.1);
-
-   TH1D* hstDelta = new TH1D("hstDelta",
-         ";delta MrsW-MrbW;Entries/0.0001",
-         200,-0.01,0.01);
-
-   Long64_t nentries = nt1 -> GetEntries();
-   for (Long64_t i=0; i<nentries;i++) {
-      nt1 -> GetEntry(i);
-
-      if ( dec != 64 ) continue;
-      if ( Mrb < 3.0 || Mrb > 3.2 ) continue;
-
-      // correction for pi+,pi- eff:
-      double wp = ReWeightTrkPid(date,0,Ptp);
-      double wm = ReWeightTrkPid(date,0,Ptm);
-      double MrbW = wp*wm;
-
-      hstMrbW -> Fill(MrbW);
-
-      double delta = MrsW - MrbW;
-      hstDelta -> Fill(delta);
+   if ( !nt1 ) {
+      cerr << "ERROR in "<< __func__
+         << " can not find nt1" << endl;
+      exit(EXIT_FAILURE);
    }
 
-   TLegend* leg = new TLegend(0.59,0.79,0.89,0.89);
-   leg->SetHeader(Form("#pi^{#plus}#pi^{#minus} pairs %i",date),"C");
+   //Declaration of leaves types
+   //        those not used here are commented out
+   // vector<float> * Mrec = nullptr; // must be !
+   Float_t         Mrs;
+   Float_t         Ptsp;
+   Float_t         Ptsm;
+   // Float_t         Mrb;
+   // Float_t         Ptp;
+   // Float_t         Cpls;
+   // Float_t         Ptm;
+   // Float_t         Cmns;
+   Int_t           dec;
+   // Float_t         mcmkk;
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,700,700);
+   // Set branch addresses.
+   // nt1->SetBranchAddress("Mrec",&Mrec);
+   nt1->SetBranchAddress("Mrs",&Mrs);
+   nt1->SetBranchAddress("Ptsp",&Ptsp);
+   nt1->SetBranchAddress("Ptsm",&Ptsm);
+   // nt1->SetBranchAddress("Mrb",&Mrb);
+   // nt1->SetBranchAddress("Ptp",&Ptp);
+   // nt1->SetBranchAddress("Cpls",&Cpls);
+   // nt1->SetBranchAddress("Ptm",&Ptm);
+   // nt1->SetBranchAddress("Cmns",&Cmns);
+   nt1->SetBranchAddress("dec",&dec);
+   // nt1->SetBranchAddress("mcmkk",&mcmkk);
+
+   TH1D* hstWpiP = new TH1D("hstWpiP",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
+   TH1D* hstWpiM = new TH1D("hstWpiM",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
+   TH1D* hstWpi = new TH1D("hstWpi",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
+
+   Long64_t nentries = nt1->GetEntries();
+
+   for ( Long64_t i = 0; i < nentries; ++i ) {
+      nt1->GetEntry(i);
+
+      if ( dec == 64 ) {
+         if ( Mrs > 1 ) {
+            double wp = RewTrkPi( date, Ptsp, +1.);
+            double wm = RewTrkPi( date, Ptsm, -1.);
+            hstWpiP->Fill(wp);
+            hstWpiM->Fill(wm);
+            hstWpi->Fill(wp*wm);
+         }
+      }
+   }
+
+   double hmax = hstWpi->GetMaximum();
+   hmax = max( hmax,hstWpiP->GetMaximum() );
+   hmax = max( hmax,hstWpiM->GetMaximum() );
+   cout << "hmax= " << hmax << endl;
+
+   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
    c1->cd();
    gPad->SetGrid();
 
-   TH1D* hstWpi = hstMrbW;
+   gPad->SetLogy(true);
+   hstWpi->SetMinimum(1.);
+   hstWpi->SetMaximum(2*hmax);
+
    SetHstFace(hstWpi);
-   hstWpi -> SetLineWidth(2);
-//    hstWK -> SetLineColor(kBlack);
-//    hstWpi -> GetYaxis() -> SetMaxDigits(3);
-   hstWpi -> GetYaxis() -> SetTitleOffset(1.25);
-   hstWpi -> Draw("HIST");
+   hstWpi->SetLineWidth(3);
+   hstWpi->GetYaxis()->SetMaxDigits(3);
+   hstWpi->GetYaxis()->SetTitleOffset(1.2);
+   hstWpi->Draw("HIST");
 
-   // test
-//    hstMrsW -> SetLineWidth(1);
-//    hstMrsW -> SetLineColor(kRed);
-//    hstMrsW -> Draw("HIST SAME");
-//    hstDelta -> Draw("HIST");
+   hstWpiP->SetLineColor(kRed+1);
+   hstWpiM->SetLineColor(kGreen+3);
+   hstWpiP->SetLineStyle(kDashed);
+   hstWpiM->SetLineStyle(kDashed);
+   hstWpiP->SetLineWidth(2);
+   hstWpiM->SetLineWidth(2);
+   hstWpiP->Draw("SAME HIST");
+   hstWpiM->Draw("SAME HIST");
 
+   TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
+   leg->SetHeader( Form("MC %i",date), "C" );
+   leg->AddEntry( hstWpi, "pair of #pi^{#plus}#pi^{#minus}", "L");
+   leg->AddEntry( hstWpiP, "#pi^{#plus} only", "L");
+   leg->AddEntry( hstWpiM, "#pi^{#minus} only", "L");
    leg->Draw();
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("wts_PiPi_") + to_string(date) + string(".pdf");
+   string pdf = "wts_PiPi_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Kaon weights
+//--------------------------------------------------------------------
 void plot_WK(string fname, int date) {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
@@ -200,24 +206,31 @@ void plot_WK(string fname, int date) {
    a4c->SetBranchAddress("decj",&decj);
 
    // this is cut for a4c-tuple
-   auto c_Mrec = [](double Mrec)->bool{return fabs(Mrec-3.097)<0.005;};
+   auto c_Mrec = [](double Mrec)->bool{
+      return fabs(Mrec-3.097)<0.005;
+   };
 
    // Cuts for a4c: (see cuts.h)
-   auto c_chi2 = [](double ch2)->bool{return ch2<80;}; // std
-//    auto c_chi2 = [](double ch2)->bool{return ch2<100;}; // unc: 60, 100
+   auto c_chi2 = [](double ch2)->bool{
+      return ch2<80;
+   }; // std
 
    // Mphi cut: [dL, dU] (see mass_kk_fit.cc)
    const double mk   = 0.493677; // 493.677  +/- 0.016 MeV
    const double dL = 2*mk; // the left cutoff
    const double dU = 1.08; // MUST BE < 1.0835 !!!
-   auto c_phi = [dL,dU](double Mkk)->bool{return (Mkk>dL && Mkk<dU);};
+   auto c_phi = [dL,dU](double Mkk)->bool{
+      return (Mkk>dL && Mkk<dU);
+   };
 
    // Meta: central part
    const double meta = 0.547862; //  547.862 +/- 0.017 MeV
    const double seta = 0.008;
    const double weta = 3*seta; // standard
 //    const double weta = 4*seta; // uncertainties study: 2x, 4x
-   auto c_cpgg = [meta,weta](double Mgg)->bool{return fabs(Mgg-meta)<weta;};
+   auto c_cpgg = [meta,weta](double Mgg)->bool{
+      return fabs(Mgg-meta)<weta;
+   };
 
    TH1D* hstWK = new TH1D("hst_WK",
          ";correction factor;Entries/0.001",
@@ -232,8 +245,10 @@ void plot_WK(string fname, int date) {
       if ( !c_cpgg(Mgg) ) continue;
 
       // correction for K+,K- eff:
-      double wp = ReWeightTrkPid(date,1,Ptkp);
-      double wm = ReWeightTrkPid(date,1,Ptkm);
+      // double wp = ReWeightTrkPid(date,1,Ptkp);
+      // double wm = ReWeightTrkPid(date,1,Ptkm);
+      double wp = 1;
+      double wm = 1;
       double w = wp*wm;
       hstWK -> Fill(w);
    }
@@ -258,21 +273,25 @@ void plot_WK(string fname, int date) {
    c1->Print(pdf.c_str());
 }
 
-//-------------------------------------------------------------------------
+// {{{1 Main
+//--------------------------------------------------------------------
 void trk_eff_wts() {
-//-------------------------------------------------------------------------
+//--------------------------------------------------------------------
    gROOT->Reset();
-   gStyle->SetStatFont(42);
-   gStyle->SetOptStat(1100);
-   gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.79);
-   gStyle->SetStatW(0.3);
+   gStyle->SetOptStat(0);
+   // gStyle->SetOptStat(1100);
+   // gStyle->SetStatX(0.89);
+   // gStyle->SetStatY(0.79);
+   // gStyle->SetStatW(0.3);
+   // gStyle->SetStatFont(42);
    gStyle->SetLegendFont(42);
 
-//    plot_WK("prod-11/mcsig_kkmc_09.root", 2009);
-//    plot_WK("prod-11/mcsig_kkmc_12.root", 2012);
+   const string Dir = "prod_v709n3/";
+   int date = 2009;
+   string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
+   string mcsigfile( Form("mcsig_kkmc_%02i.root",date%100) );
 
-//    plot_WPi("prod-11/mcsig_kkmc_09.root", 2009);
-//    plot_WPi("prod-11/mcsig_kkmc_12.root", 2012);
+   plot_WPi(Dir + mcincfile, date);
 
+   // plot_WK("prod-11/mcsig_kkmc_09.root", 2009);
 }

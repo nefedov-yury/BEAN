@@ -5,6 +5,8 @@
 //   and efficiency of selection;
 // - estimate systematic associated with a fit model
 
+#include "RewTrkPiK.hpp"    // RewTrk functions with HC
+
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
@@ -62,80 +64,6 @@ void set_draw_opt(vector<TH1D*>& hst) {
    // MC bg not pi+pi-J/Psi
    hst[4]->SetLineColor(kMagenta+1);
    hst[4]->SetLineWidth(2);
-}
-
-// {{{1 RewTrk functions with HC
-//--------------------------------------------------------------------
-double RewTrkPi(int DataPeriod, double Pt, double Z) {
-//--------------------------------------------------------------------
-   // Corrections for the efficiency of reconstruction a pion having
-   // transverse momentum Pt and sign Z.
-   // The return value is the weight for the MC event.
-   // v709, DelClonedTrk, helix corrections
-
-   const double Ptmin = 0.05, Ptmax = 0.4;
-   Pt = max( Ptmin, Pt );
-   Pt = min( Ptmax, Pt );
-
-   double W = 1.;
-   if ( DataPeriod == 2009 ) {
-      if ( Z > 0 ) {
-         W = 0.992 - 0.022 * Pt;
-      } else {
-         W = 0.977 + 0.056 * Pt;
-      }
-   } else if ( DataPeriod == 2012 ) {
-      auto SQ = [](double x) -> double{return x*x;};
-      if ( Z > 0 ) {
-         W = 0.9803 + SQ(0.0161/Pt);
-      } else {
-         W = 0.9888 + SQ(0.0139/Pt);
-      }
-   } else if ( DataPeriod == 2021 ) {
-      if ( Z > 0 ) {
-         W = 0.9828;
-      } else {
-         W = 0.9876;
-      }
-   }
-   return W;
-}
-
-// {{{1 RewTrk functions noHC
-//--------------------------------------------------------------------
-double RewTrkPi0(int DataPeriod, double Pt, double Z) {
-//--------------------------------------------------------------------
-   // Corrections for the efficiency of reconstruction a pion having
-   // transverse momentum Pt and sign Z.
-   // The return value is the weight for the MC event.
-   // v709, DelClonedTrk, NO helix corrections
-
-   const double Ptmin = 0.05, Ptmax = 0.4;
-   Pt = max( Ptmin, Pt );
-   Pt = min( Ptmax, Pt );
-
-   double W = 1.;
-   if ( DataPeriod == 2009 ) {
-      if ( Z > 0 ) {
-         W = 0.991 - 0.017 * Pt;
-      } else {
-         W = 0.975 + 0.064 * Pt;
-      }
-   } else if ( DataPeriod == 2012 ) {
-      auto SQ = [](double x) -> double{return x*x;};
-      if ( Z > 0 ) {
-         W = 0.9806 + SQ(0.0150/Pt);
-      } else {
-         W = 0.9891 + SQ(0.0131/Pt);
-      }
-   } else if ( DataPeriod == 2021 ) {
-      if ( Z > 0 ) {
-         W = 0.9825;
-      } else {
-         W = 0.9874;
-      }
-   }
-   return W;
 }
 
 // {{{1 Fill histograms
@@ -219,17 +147,14 @@ vector<TH1D*> fill_mrec(string fname, string hname,
    delete hst;
    hst = nullptr;
 
-   typedef double (*REWFUN) (int, double, double);
-   REWFUN RewFun = (USE_NOHC_SIGNAL_MC) ? RewTrkPi0 : RewTrkPi;
-
    for ( Long64_t i = 0; i < nentries; ++i ) {
       nt1->GetEntry(i);
       // cerr<<" size Mrec="<<Mrec->size()<<" dec="<<dec<<endl;
       // cerr<<" Mrs= "<<Mrs<<" Pt="<<Ptsp<<","<<Ptsm<<endl;
       if ( dec == 64 ) {
          if ( Mrs > 1 ) {
-            double wp = RewFun( date, Ptsp, +1.);
-            double wm = RewFun( date, Ptsm, -1.);
+            double wp = RewTrkPi( date, Ptsp, +1.);
+            double wm = RewTrkPi( date, Ptsm, -1.);
             hist[0]->Fill(Mrs+shift,wp*wm);
          }
          for (const auto& mr : *Mrec ) {

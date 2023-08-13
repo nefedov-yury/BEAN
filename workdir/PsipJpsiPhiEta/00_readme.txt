@@ -114,17 +114,22 @@ mrec_4C.cc - Here we use special selection with 4C-kinematic
 //--------------------------------------------------------------------
 //      K & Pi track+PID efficiencies
 //--------------------------------------------------------------------
-trk_eff_sel.cc - Pictures for presentation/memo
-                 Study of the track reconstruction efficiency for
-                 pi and K
+RewTrkPiK.hpp:
+// functions with corrections for efficiency of
+// reconstruction Pions and Kaons (including PID) for MC events
+
+trk_eff_sel.cc:
+// Pictures for presentation/memo
+// Study of the track reconstruction efficiency for pi and K
 
 
-trk_eff_fit.cc - The reconstruction efficiency (data and MC)
-                 and their ratio (data/MC) for pions and kaons.
-                 Get corrections as function of P_t
-                 by fitting the ratio.
-                 Kolmogorov–Smirnov  && Chi2 probability tests to
-                 compare the ratios for K+ and K- (pi+ and pi-)
+trk_eff_fit.cc:
+// The reconstruction efficiency (data and MC)
+// and their ratio (data/MC) for pions and kaons.
+// Get corrections as function of P_t and Z.
+//
+// Kolmogorov–Smirnov  && Chi2 probability tests to
+// compare the ratios for K+ and K- (pi+ and pi-)
 
 trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
                  -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
