@@ -1031,6 +1031,6 @@ void trk_eff_fit() {
    // FitRatio(date,Pions,Z,rew);
 
    // FitRatio(date,Kaons,Z);
-   FitRatio(date,Kaons,Z,rew);
+   // FitRatio(date,Kaons,Z,rew);
 
 }

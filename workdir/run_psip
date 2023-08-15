@@ -1,17 +1,15 @@
 #!/bin/bash
 
-BEAN="./bean_6.6.4.exe"
 BEAN7="./bean_7.0.9.exe"
 
 PROD="local"
 # PROD="prod-12"
 
-######################## MC SIGNAL: PHI ETA ########################
-# save in prod-dir
-
-if [ 0 -eq 1 ]; then
+#################### MC SIGNAL: PHI ETA ####################
+if [ 1 -eq 1 ]; then
   printf "run mcsig_kkmc_09\n"
   ${BEAN7} \
+    -u DelClonedTrks \
     -u PsipHelixParCor \
     -u PsipJpsiPhiEta \
     -L PsipJpsiPhiEta/local/Lists/mcsig_09_709.list \
@@ -19,9 +17,10 @@ if [ 0 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mcsig_kkmc_09.out 2>&1 &
 fi
 
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   printf "run mcsig_kkmc_12\n"
   ${BEAN7} \
+    -u DelClonedTrks \
     -u PsipHelixParCor \
     -u PsipJpsiPhiEta \
     -L PsipJpsiPhiEta/local/Lists/mcsig_12_709.list \
@@ -29,9 +28,10 @@ if [ 0 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mcsig_kkmc_12.out 2>&1 &
 fi
 
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   printf "run mcsig_kkmc_21\n"
   ${BEAN7} \
+    -u DelClonedTrks \
     -u PsipHelixParCor \
     -u PsipJpsiPhiEta \
     -L PsipJpsiPhiEta/local/Lists/mcsig_21_709.list \
@@ -39,7 +39,79 @@ if [ 0 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mcsig_kkmc_21.out 2>&1 &
 fi
 
-######################## MC BACKGROUND K+K-ETA ######################
+#################### MC INCLUSIVE PSI(2S) ##################
+#  DSTDIR="/data/bes3/709/psip/21mc/dst"
+if [ 0 -eq 1 ]; then
+  printf "run local mcinc_21\n"
+  ${BEAN7} \
+    -u DelClonedTrks \
+    -u PsipJpsiPhiEta \
+    -u PsipPiPiKK \
+    -u PsipJpsiGammaEta\
+    -h PsipJpsiPhiEta/local/mcinc_21psip.root \
+    -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
+    > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &
+fi
+    #  -u PsipHelixParCor \
+    #  -L PsipJpsiPhiEta/local/Lists/mcincl_09_709.list \
+
+#################### TEST-DEBUG ############################
+if [ 0 -eq 1 ]; then
+  printf " TEST\n"
+  gdb -ex=r --args \
+    ${BEAN7} \
+    -u DelClonedTrks \
+    -u PsipHelixParCor \
+    -u PsipJpsiPhiEta \
+    -u PsipPiPiKK \
+    -u PsipJpsiGammaEta\
+    -h /dev/null \
+    -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list
+      #  \
+    #  > >(tee test.out) 2>&1
+#
+    #  -N 10 \
+    #  > test_2608.out 2>&1
+#         -u PsipPiPiKK \
+#         -u PsipJpsiPhiEta \
+#         -u PsipMuMuGamma\
+#         -L PsipJpsiPhiEta/local/Lists/mckketa_09psip.list \
+    #  ${DSTDIR}/psip2021_stream001_run66839_file*.dst \
+    #  -L PsipJpsiPhiEta/local/Lists/mcsig_12psip.list \
+fi
+
+######################## OLD, UNUSED #######################
+
+if false
+then
+BEAN="./bean_6.6.4.exe"
+
+######################## 664 MC INCLUSIVE PSI(2S) ##########
+if [ 0 -eq 1 ]; then
+  printf "run local mcinc_09\n"
+  ${BEAN} \
+    -u PsipHelixParCor \
+    -u PsipJpsiPhiEta \
+    -u PsipPiPiKK \
+    -u PsipJpsiGammaEta\
+    -L PsipJpsiPhiEta/local/Lists/mcinc_09_664.list \
+    -h PsipJpsiPhiEta/local/mcinc_09psip.root \
+    > PsipJpsiPhiEta/local/mcinc_09psip.out 2>&1 &
+fi
+
+if [ 0 -eq 1 ]; then
+  printf "run local mcinc_12\n"
+  ${BEAN} \
+    -u PsipHelixParCor \
+    -u PsipJpsiPhiEta \
+    -u PsipPiPiKK \
+    -u PsipJpsiGammaEta\
+    -L PsipJpsiPhiEta/local/Lists/mcincl_12_664.list \
+    -h PsipJpsiPhiEta/local/mcinc_12psip.root \
+    > PsipJpsiPhiEta/local/mcinc_12psip.out 2>&1 &
+fi
+
+######################## 664 MC BACKGROUND K+K-ETA #########
 # save in prod-dir
 
 if [ 0 -eq 1 ]; then
@@ -62,9 +134,7 @@ if [ 0 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mckketa_kkmc_12.out 2>&1 &
 fi
 
-######################## MC ETA EFF ######################
-# save in prod-dir
-
+######################## 664 MC ETA EFF ####################
 if [ 0 -eq 1 ]; then
   printf "run mc gammaeta_kkmc_09\n"
   ${BEAN} \
@@ -105,78 +175,7 @@ if [ 0 -eq 1 ]; then
     > PsipJpsiPhiEta/$PROD/mcphieta2_kkmc_12.out 2>&1 &
 fi
 
-######################## MC INCLUSIVE PSI(2S) #######################
-# save in local-dir
-
-if [ 0 -eq 1 ]; then
-  printf "run local mcinc_09\n"
-  ${BEAN} \
-    -u PsipHelixParCor \
-    -u PsipJpsiPhiEta \
-    -u PsipPiPiKK \
-    -u PsipJpsiGammaEta\
-    -L PsipJpsiPhiEta/local/Lists/mcinc_09_664.list \
-    -h PsipJpsiPhiEta/local/mcinc_09psip.root \
-    > PsipJpsiPhiEta/local/mcinc_09psip.out 2>&1 &
-fi
-
-if [ 0 -eq 1 ]; then
-  printf "run local mcinc_12\n"
-  ${BEAN} \
-    -u PsipHelixParCor \
-    -u PsipJpsiPhiEta \
-    -u PsipPiPiKK \
-    -u PsipJpsiGammaEta\
-    -L PsipJpsiPhiEta/local/Lists/mcincl_12_664.list \
-    -h PsipJpsiPhiEta/local/mcinc_12psip.root \
-    > PsipJpsiPhiEta/local/mcinc_12psip.out 2>&1 &
-fi
-
-if [ 1 -eq 1 ]; then
-  printf "run local mcinc_21\n"
-  ${BEAN7} \
-    -u DelClonedTrks \
-    -u PsipJpsiPhiEta \
-    -u PsipPiPiKK \
-    -u PsipJpsiGammaEta\
-    -h PsipJpsiPhiEta/local/mcinc_21psip.root \
-    -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
-    > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &
-fi
-    #  -u PsipHelixParCor \
-    #  -L PsipJpsiPhiEta/local/Lists/mcincl_09_709.list \
-
-######################## TEST-DEBUG ########################
-if [ 0 -eq 1 ]; then
-  DSTDIR="/data/bes3/709/psip/21mc/dst"
-  printf " TEST\n"
-  gdb -ex=r --args \
-    ${BEAN7} \
-    -u DelClonedTrks \
-    -u PsipHelixParCor \
-    -u PsipJpsiPhiEta \
-    -u PsipPiPiKK \
-    -u PsipJpsiGammaEta\
-    -h /dev/null \
-    -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list
-      #  \
-    #  > >(tee test.out) 2>&1
-#
-    #  -N 10 \
-    #  > test_2608.out 2>&1
-#         -u PsipPiPiKK \
-#         -u PsipJpsiPhiEta \
-#         -u PsipMuMuGamma\
-#         -L PsipJpsiPhiEta/local/Lists/mckketa_09psip.list \
-    #  ${DSTDIR}/psip2021_stream001_run66839_file*.dst \
-    #  -L PsipJpsiPhiEta/local/Lists/mcsig_12psip.list \
-fi
-
-######################## OLD, UNUSED ########################
-
-if false
-then
-######################## MC BACKGROUND rho eta ######################
+######################## MC BACKGROUND rho eta #############
 # save in prod-dir
 MCDIR="/data/user/nefedov/bes3/psip_jpsi_rhoeta"
 
@@ -196,7 +195,7 @@ if [ 0 -eq 1 ]; then
         > PsipJpsiPhiEta/$PROD/mcrhoeta_kkmc_12.out 2>&1 &
 fi
 
-######################## PHOTON EFF ######################
+######################## PHOTON EFF ########################
 # save in PROD_PH
 # PROD_PH="prod-6ph"
 PROD_PH="local"
@@ -233,4 +232,4 @@ if [ 0 -eq 1 ]; then
 fi
 
 fi
-######################## END ########################
+########################### END ############################

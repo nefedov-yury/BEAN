@@ -131,18 +131,21 @@ trk_eff_fit.cc:
 // Kolmogorov–Smirnov  && Chi2 probability tests to
 // compare the ratios for K+ and K- (pi+ and pi-)
 
-trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
-                 -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
+trk_eff_wts.cc:
+// trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
+// -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
 
 //--------------------------------------------------------------------
 //      eta->2gamma reconstruction efficiencies
 //--------------------------------------------------------------------
-eta_eff_sel.cc - Pictures for presentation/memo
-                 Study of the eta -> 2gamma reconstruction efficiency
+eta_eff_sel.cc:
+// eta_eff_sel.cc - Pictures for presentation/memo
+// Study of the eta->2gamma reconstruction efficiency
 
-eta_eff.cc -     Study of the eta -> 2gamma reconstruction efficiency
-                 single photon rec.efficiency
-                 -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
+eta_eff.cc:
+// eta_eff.cc: Study of the eta -> 2gamma reconstruction efficiency
+//             and single photon rec.efficiency
+// -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
 //--------------------------------------------------------------------
 // Calculation of branching:

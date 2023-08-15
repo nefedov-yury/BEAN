@@ -7,15 +7,17 @@ struct Params {
    Params(int dat, int slc, int rew);
 
    TFile* OpenFile(int mc);
-   TTree* GetEff(int mc);
+   TTree* GetEffEta(int mc);
+   double W_g_eta();    // wights for MC-gamma-eta2
+   double W_phi_eta();  // wights for MC-phi-eta2
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   string Dir;
+   const string Dir = "prod_v709n3/";
    string datafile;
    string mcincfile;
-   string mcsig1; // TODO
-   string mcsig2;
+   string mcsigf1;  // MC for gamma eta
+   string mcsigf2;  // MC for phi eta
 
    int date;
    int slct;    // >0: g-eta; <0: phi-eta
@@ -30,7 +32,6 @@ struct Params {
 
    const double Br_eta_2gamma = 0.3936; // PDG 2023
    const double Br_phi_KK = 0.491; // PDG 2023
-
 };
 
 // {{{2 > ctor
@@ -42,12 +43,12 @@ Params::Params(int dat, int slc = 2, int rew = 0) {
    use_rew = rew;
 
    // set the names:
-   // Dir = "prod-11/";
-   Dir = "prod_v709/";
    datafile  = string( Form("data_%02ipsip_all.root",date%100) );
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
-   mcsigf1 = string( Form("mcgammaeta_kkmc_%02i.root",date%100) );
-   mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
+   // mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
+   // mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
+   mcsigf1 = mcincfile; // debug
+   mcsigf2 = string( Form("mcsig_kkmc_%02i.root",date%100) ); // debug
 
    // mc-signal
    if ( slct > 0 ) {    // gamma-eta
@@ -95,9 +96,9 @@ TFile* Params::OpenFile(int mc) {
       dfname += mcincfile;
    } else if ( mc == 2 ) {
       if ( slct > 0 ) {
-         dfname += mcsig1; // gamma-eta signal
+         dfname += mcsigf1; // gamma-eta-2
       } else {
-         dfname += mcsig2; // phi-eta signal
+         dfname += mcsigf2; // phi-eta-2
       }
    }
    // cout " OpenFile: " << dfname << endl;
@@ -115,33 +116,44 @@ TFile* Params::OpenFile(int mc) {
 }
 
 // {{{2 > GetEffEta : root-tree for eta
-//-----------------------------------------------------------------
+//--------------------------------------------------------------------
 TTree* Params::GetEffEta(int mc = 0) {
-//-----------------------------------------------------------------
+//--------------------------------------------------------------------
    TFile* froot = this->OpenFile(mc);
    TTree* eff_eta = (TTree*)gDirectory->Get("eff_eta");
    if ( !eff_eta ) {
       cout << "can not find eff_eta in " << froot->GetName() << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
    return eff_eta;
 }
 
-// {{{2 > W_g_eta() : wights for MC-gamma-eta TODO
-//-----------------------------------------------------------------
-double Params::W_g_eta() {
-//-----------------------------------------------------------------
+// {{{2 > W_g_eta() & W_phi_eta()
+//--------------------------------------------------------------------
+double Params::W_g_eta() { // wights for MC-gamma-eta
+//--------------------------------------------------------------------
    // normalization on numbers in "official inclusive MC"
-   double W = ((date==2012) ? (137258./5e5) : (35578./1.5e5));
+   // 664: ((date==2012) ? (137258./5e5) : (35578./1.5e5))
+   double W = 1;
+   // switch (date) {
+      // case 2009: W =  41553./150e3; break;
+      // case 2012: W = 130865./500e3; break;
+      // case 2021: W = 883676./2.5e6; break;
+   // }
    return W;
 }
 
-// {{{2 > W_phi_eta() : wights for MC-sig TODO
-//-----------------------------------------------------------------
+//--------------------------------------------------------------------
 double Params::W_phi_eta() { // wights for MC-sig
-//-----------------------------------------------------------------
+//--------------------------------------------------------------------
    // normalization on numbers in "official inclusive MC"
-   double W = ((date==2012) ? (104950./5e5) : (27274./1.5e5));
+   // 664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
+   double W = 1;
+   switch (date) {
+      case 2009: W =  27547./200e3; break;
+      case 2012: W =  89059./600e3; break;
+      case 2021: W = 598360./3.0e6; break;
+   }
    return W * Br_phi_KK;
 }
 
@@ -235,12 +247,9 @@ void plot_pi0(int date) {
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
@@ -253,19 +262,15 @@ void plot_pi0(int date) {
    } else {
       hdat[0]->GetYaxis()->SetMaxDigits(3);
    }
-   hdat[0]->GetYaxis()->SetTitleOffset(1.);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.1 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.075;
-   } else {
-      ymax *= 1.1;
-   }
-   box->DrawBox(0.013,.0,0.022,ymax); // OK!
+   box->DrawBox(0.013,.0,0.022,ymax);
    hdat[0]->Draw("E,SAME");
 
    hmc[0]->SetLineWidth(1);
@@ -278,6 +283,8 @@ void plot_pi0(int date) {
    hmc[1]->SetFillColor(kGreen+1);
    hmc[1]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[1], "MC signal","F");
@@ -290,9 +297,9 @@ void plot_pi0(int date) {
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 ++ J/Psi -> gamma eta ++ Plot recoil mass pi+pi-gamma
 //--------------------------------------------------------------------
-void plot_Mpipig(int date) { // recoil mass pi+ pi- gamma
+void plot_Mpipig(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -340,21 +347,17 @@ void plot_Mpipig(int date) { // recoil mass pi+ pi- gamma
    double M2l = SQ(meta)-0.2;
    double M2r = SQ(meta)+0.2;
 
-   TLegend* leg = new TLegend(0.12,0.65,0.42,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
-//    hdat[0]->SetAxisRange(-0.1,0.7,"X");
+   // hdat[0]->SetAxisRange(-0.1,0.7,"X");
    hdat[0]->SetTitle(
          ";M^{2}_{recoil}(#pi^{#plus}#pi^{#minus}#gamma),"
          " GeV^{2}/c^{4}"
-         ";Entries/0.01 GeV^{2}/c^{4}"
-         );
+         ";Entries/0.01 GeV^{2}/c^{4}");
    if ( date == 2009 ) {
       hdat[0]->GetYaxis()->SetNdivisions(1005);
    }
@@ -363,14 +366,10 @@ void plot_Mpipig(int date) { // recoil mass pi+ pi- gamma
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.07 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.08;
-   } else {
-      ymax *= 1.10;
-   }
    box->DrawBox(-0.2,0.,M2l,ymax);
    box->DrawBox( M2r,0.,0.8,ymax);
    hdat[0]->Draw("E,SAME");
@@ -385,15 +384,17 @@ void plot_Mpipig(int date) { // recoil mass pi+ pi- gamma
 
    hmc[2]->SetLineWidth(1);
    hmc[2]->SetLineColor(kBlue+1);
-//    hmc[2]->SetFillStyle(3001);
-//    hmc[2]->SetFillColor(kBlue+1);
+   // hmc[2]->SetFillStyle(3001);
+   // hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
    hmc[3]->SetLineWidth(1);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kGreen+1);
-//    hmc[3]->Draw("HIST,SAME"); // true gamma from J/Psi decay!
+   // hmc[3]->Draw("HIST,SAME"); // true gamma from J/Psi decay!
 
+   TLegend* leg = new TLegend(0.12,0.65,0.42,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[1], "MC signal","L");
    leg->AddEntry(hmc[2], "MC background","L");
@@ -407,8 +408,7 @@ void plot_Mpipig(int date) { // recoil mass pi+ pi- gamma
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
-// inv.mass of 2nd photon and «missing photon»
+// {{{1 Plot invariant mass of 2nd photon and «missing photon»
 //--------------------------------------------------------------------
 void plot_Minv2g(int date) {
 //--------------------------------------------------------------------
@@ -454,19 +454,16 @@ void plot_Minv2g(int date) {
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
    hdat[0]->SetAxisRange(0.198,0.4019,"X");
    hdat[0]->SetTitle(
-            ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
-            ";Entries/0.003 GeV^{2}/c^{4}");
+         ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
+         ";Entries/0.003 GeV^{2}/c^{4}");
    if ( date == 2009 ) {
       hdat[0]->GetYaxis()->SetNdivisions(1005);
    }
@@ -475,14 +472,10 @@ void plot_Minv2g(int date) {
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.07 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.08;
-   } else {
-      ymax *= 1.11;
-   }
    box->DrawBox(0.198,0.,0.25, ymax);
    box->DrawBox(0.34, 0.,0.402,ymax);
    hdat[0]->Draw("E,SAME");
@@ -500,8 +493,10 @@ void plot_Minv2g(int date) {
    hmc[3]->SetLineWidth(1);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kGreen+1);
-//    hmc[3]->Draw("HIST,SAME"); // true gamma or true eta->2gamma
+   // hmc[3]->Draw("HIST,SAME"); // true gamma or true eta->2gamma
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -514,9 +509,9 @@ void plot_Minv2g(int date) {
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot missing mass of pi+ pi- gamma gamma
 //--------------------------------------------------------------------
-void plot_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
+void plot_M2mis(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -562,22 +557,19 @@ void plot_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
-//    gPad->SetGrid();
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
+   gPad->SetGrid();
    gPad->SetLogy(true);
 
    // Data
    hdat[0]->SetAxisRange(0.,0.0079,"X");
    hdat[0]->SetMinimum(0.5);
    hdat[0]->SetTitle(
-            ";M^{2}_{missing}(#pi^{#plus}#pi^{#minus}#gamma#gamma),"
-            " GeV^{2}/c^{4}"
-            ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
+         ";M^{2}_{missing}(#pi^{#plus}#pi^{#minus}#gamma#gamma),"
+         " GeV^{2}/c^{4}"
+         ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
    hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
@@ -585,14 +577,10 @@ void plot_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.9;
-   } else {
-      ymax *= 1.92;
-   }
    box->DrawBox(0.002,0.5,0.008, ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -609,8 +597,10 @@ void plot_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    hmc[3]->SetLineWidth(1);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kGreen+1);
-//    hmc[3]->Draw("HIST,SAME"); // true gamma or true eta->2gamma
+   // hmc[3]->Draw("HIST,SAME"); // true gamma or true eta->2gamma
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -623,9 +613,9 @@ void plot_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot E of gamma from decay eta->2gamms
 //--------------------------------------------------------------------
-void plot_Eg(int date) { // E of gamma from decay eta->2gamms
+void plot_Eg(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -684,28 +674,23 @@ void plot_Eg(int date) { // E of gamma from decay eta->2gamms
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
    SetHstFace(hdat[0]);
-   double ymax=1.08*hmc[0]->GetMaximum();
+   double ymax = hmc[0]->GetMaximum();
+   ymax = 1.08 * max(ymax,hdat[0]->GetMaximum());
    hdat[0]->SetMaximum(ymax);
 
    hdat[0]->SetTitle(
-            ";E_{#gamma}, GeV"
-            ";Entries/0.025 GeV"); // OK!
-   if ( date == 2012 ) {
-      hdat[0]->GetYaxis()->SetMaxDigits(2);
-   } else {
-      hdat[0]->GetYaxis()->SetNdivisions(504);
-   }
-   hdat[0]->GetYaxis()->SetTitleOffset(1.);
+         ";E_{#gamma}, GeV"
+         ";Entries/0.025 GeV"); // OK!
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   // hdat[0]->GetYaxis()->SetNdivisions(504);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -727,8 +712,10 @@ void plot_Eg(int date) { // E of gamma from decay eta->2gamms
    hmc[3]->SetLineWidth(2);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kBlue+3);
-//    hmc[3]->Draw("HIST,SAME"); // wrong gamma
+   // hmc[3]->Draw("HIST,SAME"); // wrong gamma
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -741,9 +728,9 @@ void plot_Eg(int date) { // E of gamma from decay eta->2gamms
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot: match Energy and Theta
 //--------------------------------------------------------------------
-void plot_rE(int date) { // match Energy
+void plot_rE(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -768,35 +755,28 @@ void plot_rE(int date) { // match Energy
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetLogy(true);
 
    // Data
    hdat[0]->SetMinimum(1.);
    hdat[0]->SetTitle(
-            ";E_{#gamma}(pred) / E_{#gamma}(rec)"
-            ";Entries / 0.01");
-//    hdat[0]->GetXaxis()->SetNdivisions(1004);
+         ";E_{#gamma}(pred) / E_{#gamma}(rec)"
+         ";Entries / 0.01");
+   // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->SetAxisRange(0.0,2.0,"X");
    hdat[0]->GetYaxis()->SetMaxDigits(2);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
-//    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.95;
-   } else {
-      ymax *= 2.0;
-   }
    box->DrawBox(0., 1.,0.4, ymax);
    box->DrawBox(1.8,1.,2.01, ymax);
    hdat[0]->Draw("E,SAME");
@@ -811,6 +791,8 @@ void plot_rE(int date) { // match Energy
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -823,9 +805,9 @@ void plot_rE(int date) { // match Energy
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+
 //--------------------------------------------------------------------
-void plot_dTh(int date) { // match Theta
+void plot_dTh(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -850,12 +832,9 @@ void plot_dTh(int date) { // match Theta
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetLogy(true);
 
    // Data
@@ -863,20 +842,16 @@ void plot_dTh(int date) { // match Theta
    hdat[0]->SetTitle(
          ";#delta#Theta(#gamma), deg."
          ";Entries / 0.2 deg.");
-//    hdat[0]->GetXaxis()->SetNdivisions(1004);
+   // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
-//    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.95;
-   } else {
-      ymax *= 2.0;
-   }
    box->DrawBox(10., 1.,20., ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -890,6 +865,8 @@ void plot_dTh(int date) { // match Theta
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -902,9 +879,9 @@ void plot_dTh(int date) { // match Theta
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot of Mgg
 //--------------------------------------------------------------------
-void plot_Mgg(int date) { // plot of Mgg
+void plot_Mgg(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -946,8 +923,7 @@ void plot_Mgg(int date) { // plot of Mgg
    // fit function
    TF1* gs = (TF1*)gROOT->GetFunction("gaus");
    gs->SetLineWidth(2);
-   gs->SetLineColor(kGreen+1);
-   gStyle->SetFitFormat(".4g");
+   gs->SetLineColor(kGreen+2);
 
    // box to show cut
    TBox* box = new TBox;
@@ -956,42 +932,40 @@ void plot_Mgg(int date) { // plot of Mgg
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.11,0.64,0.36,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
+   gPad->SetGrid();
+
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.19);
    gStyle->SetStatH(0.12);
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
-   gPad->SetGrid();
+   gStyle->SetFitFormat(".3g");
 
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetTitle(
-            ";M_{inv}(#gamma#gamma), GeV/c^{2}"
-            ";Entries/0.001 GeV/c^{2}");
-   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+         ";M_{inv}(#gamma#gamma), GeV/c^{2}"
+         ";Entries/0.001 GeV/c^{2}");
+   hdat[0]->GetYaxis()->SetNdivisions(1005);
+   hdat[0]->GetYaxis()->SetMaxDigits(2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetLineColor(kBlack);
    hdat[0]->SetMarkerStyle(20);
-   hdat[0]->Fit(gs,"QM","",meta-weta,meta+weta);
+   double ymax = 1.12 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
+   double Mmin = meta-weta, Mmax = meta+weta;
+   hdat[0]->Fit(gs,"QM","",Mmin,Mmax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.11;
-   } else {
-      ymax *= 1.155;
-   }
    box->DrawBox( 0.51,      0., meta-weta, ymax);
    box->DrawBox( meta+weta, 0., 0.59,      ymax);
    hdat[0]->Draw("E,SAME");
 
    hmc[0]->SetLineWidth(2);
-   hmc[0]->SetLineColor(kRed+2);
+   hmc[0]->SetLineColor(kRed+1);
    hmc[0]->Draw("HIST,SAME");
 
    hmc[2]->SetLineWidth(1);
@@ -1000,6 +974,8 @@ void plot_Mgg(int date) { // plot of Mgg
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.11,0.64,0.36,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(gs, "Fit of data","L");
    leg->AddEntry(hmc[0], "MC","L");
@@ -1013,9 +989,9 @@ void plot_Mgg(int date) { // plot of Mgg
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot predicted P(eta) and cos(Theta(eta))
 //--------------------------------------------------------------------
-void plot_Peta(int date) { // P(eta)
+void plot_Peta(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -1066,20 +1042,18 @@ void plot_Peta(int date) { // P(eta)
       h->Scale(scale);
    }
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetTitle(
-            ";P_{#eta}, GeV/c"
-            ";Entries/0.01 GeV/c");
-   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+         ";P_{#eta}, GeV/c"
+         ";Entries/0.01 GeV/c");
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1098,8 +1072,10 @@ void plot_Peta(int date) { // P(eta)
    hmc[3]->SetLineWidth(2);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kBlue+3);
-//    hmc[3]->Draw("HIST,SAME"); // wrong gamma
+   // hmc[3]->Draw("HIST,SAME"); // wrong gamma
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1112,11 +1088,10 @@ void plot_Peta(int date) { // P(eta)
 }
 
 //--------------------------------------------------------------------
-void plot_Ceta(int date) { // cos(Theta(eta))
+void plot_Ceta(int date) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
-//    int Nbins = ( (date==2012) ? 40 : 20 );
    int Nbins = 40;
    auto hst = [Nbins](string nm) {
       TH1D* h = new TH1D(nm.c_str(),"", Nbins,-1.,1.);
@@ -1165,12 +1140,9 @@ void plot_Ceta(int date) { // cos(Theta(eta))
       h->Scale(scale);
    }
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
@@ -1181,8 +1153,9 @@ void plot_Ceta(int date) { // cos(Theta(eta))
    hdat[0]->SetTitle( Form(
             ";cos(#Theta_{#eta}) "
             ";Entries/%g",2./Nbins));
-   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
-//    hdat[0]->GetXaxis()->SetNdivisions(504);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   // hdat[0]->GetXaxis()->SetNdivisions(504);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1201,8 +1174,10 @@ void plot_Ceta(int date) { // cos(Theta(eta))
    hmc[3]->SetLineWidth(2);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kBlue+3);
-//    hmc[3]->Draw("HIST,SAME"); // wrong gamma
+   // hmc[3]->Draw("HIST,SAME"); // wrong gamma
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1214,13 +1189,9 @@ void plot_Ceta(int date) { // cos(Theta(eta))
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 ++ J/Psi -> phi eta ++ Plot invariant mass of K+K-
 //--------------------------------------------------------------------
-// phi-eta
-//--------------------------------------------------------------------
-
-//--------------------------------------------------------------------
-void plot2_MKK(int date) { // inv mass K+K-
+void plot2_MKK(int date) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1246,7 +1217,7 @@ void plot2_MKK(int date) { // inv mass K+K-
    hmc[0]->Add( hmc[1], hmc[2] );
 
    // normalization on DATA
-//    double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
    double scale = hdat[0]->Integral(49,69) / hmc[0]->Integral(49,69);
    for ( auto& h : hmc ) {
       h->Scale(scale);
@@ -1259,12 +1230,9 @@ void plot2_MKK(int date) { // inv mass K+K-
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
@@ -1272,19 +1240,15 @@ void plot2_MKK(int date) { // inv mass K+K-
    hdat[0]->SetTitle(
          ";M^{2}_{inv}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}"
          ";Entries/0.001 GeV^{2}/c^{4}");
-//    hdat[0]->GetYaxis()->SetMaxDigits(2);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.25);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.1 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.085;
-   } else {
-      ymax *= 1.11;
-   }
    box->DrawBox(0.98,0.,1.01,ymax);
    box->DrawBox(1.07,0.,1.1,ymax);
    hdat[0]->Draw("E,SAME");
@@ -1297,8 +1261,10 @@ void plot2_MKK(int date) { // inv mass K+K-
    hmc[2]->SetLineColor(kBlue+1);
    hmc[2]->SetFillStyle(3001);
    hmc[2]->SetFillColor(kBlue+1);
-//    hmc[2]->Draw("HIST,SAME");
+   // hmc[2]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1311,8 +1277,7 @@ void plot2_MKK(int date) { // inv mass K+K-
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
-// inv.mass of photon and «missing photon»
+// {{{1 Plot invariant mass of photon and «missing photon»
 //--------------------------------------------------------------------
 void plot2_Minv2g(int date) {
 //--------------------------------------------------------------------
@@ -1342,7 +1307,8 @@ void plot2_Minv2g(int date) {
    hmc[3]->Scale( par->W_phi_eta() );
 
    // normalization on DATA
-   double scale = hdat[0]->Integral(84,113)/hmc[0]->Integral(84,113);
+   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
+   // double scale = hdat[0]->Integral(84,113)/hmc[0]->Integral(84,113);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1354,31 +1320,25 @@ void plot2_Minv2g(int date) {
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
    hdat[0]->SetAxisRange(0.198,0.4019,"X");
    hdat[0]->SetTitle(
-            ";M^{2}_{inv}(#gamma#gamma_{missing} ), GeV^{2}/c^{4}"
-            ";Entries/0.003 GeV^{2}/c^{4}");
-   hdat[0]->GetYaxis()->SetTitleOffset(1.3);
+         ";M^{2}_{inv}(#gamma#gamma_{missing} ), GeV^{2}/c^{4}"
+         ";Entries/0.003 GeV^{2}/c^{4}");
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.1 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.1;
-   } else {
-      ymax *= 1.14;
-   }
    box->DrawBox(0.198,0.,0.25, ymax);
    box->DrawBox(0.34, 0.,0.402,ymax);
    hdat[0]->Draw("E,SAME");
@@ -1396,8 +1356,10 @@ void plot2_Minv2g(int date) {
    hmc[3]->SetLineWidth(1);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kGreen+1);
-//    hmc[3]->Draw("HIST,SAME"); // true eta->2gamma decay
+   // hmc[3]->Draw("HIST,SAME"); // true eta->2gamma decay
 
+   TLegend* leg = new TLegend(0.59,0.69,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1410,9 +1372,9 @@ void plot2_Minv2g(int date) {
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot missing mass of pi+ pi- gamma gamma
 //--------------------------------------------------------------------
-void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
+void plot2_M2mis(int date) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1459,12 +1421,9 @@ void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(true);
 
@@ -1472,24 +1431,20 @@ void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    hdat[0]->SetAxisRange(0.,0.0079,"X");
    hdat[0]->SetMinimum(0.5);
    hdat[0]->SetTitle( ";M^{2}_{missing}"
-            "(#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}#gamma),"
-            " GeV^{2}/c^{4}"
-            ";Entries/0.0002 GeV^{2}/c^{4}");
+         "(#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}#gamma),"
+         " GeV^{2}/c^{4}"
+         ";Entries/0.0002 GeV^{2}/c^{4}");
    hdat[0]->GetXaxis()->SetNdivisions(1005);
-   hdat[0]->GetYaxis()->SetMaxDigits(2);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 1.9;
-   } else {
-      ymax *= 1.92;
-   }
    box->DrawBox(0.002,0.5,0.008, ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -1506,8 +1461,10 @@ void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    hmc[3]->SetLineWidth(1);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kGreen+1);
-//    hmc[3]->Draw("HIST,SAME"); // true eta->2gamma decay
+   // hmc[3]->Draw("HIST,SAME"); // true eta->2gamma decay
 
+   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1520,9 +1477,9 @@ void plot2_M2mis(int date) { // missing mass of pi+ pi- gamma gamma
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot: match Energy and Theta
 //--------------------------------------------------------------------
-void plot2_rE(int date) { // match Energy
+void plot2_rE(int date) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1548,33 +1505,27 @@ void plot2_rE(int date) { // match Energy
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetLogy(true);
 
    // Data
    hdat[0]->SetMinimum(0.5);
    hdat[0]->SetTitle(
-            ";E_{#gamma}(pred) / E_{#gamma}(rec)"
-            ";Entries/0.01");
+         ";E_{#gamma}(pred) / E_{#gamma}(rec)"
+         ";Entries/0.01");
    hdat[0]->SetAxisRange(0.0,2.0,"X");
-   hdat[0]->GetYaxis()->SetMaxDigits(2);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 2.0;
-   } else {
-      ymax *= 2.1;
-   }
    box->DrawBox(0., 0.5,0.4, ymax);
    box->DrawBox(1.8,0.5,2.01, ymax);
    hdat[0]->Draw("E,SAME");
@@ -1589,6 +1540,8 @@ void plot2_rE(int date) { // match Energy
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1601,9 +1554,8 @@ void plot2_rE(int date) { // match Energy
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
 //--------------------------------------------------------------------
-void plot2_dTh(int date) { // match Theta
+void plot2_dTh(int date) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1629,12 +1581,9 @@ void plot2_dTh(int date) { // match Theta
    box->SetLineColor(kRed-9);
    box->SetLineWidth(1);
 
-   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,700);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetLogy(true);
 
    // Data
@@ -1642,20 +1591,16 @@ void plot2_dTh(int date) { // match Theta
    hdat[0]->SetTitle(
          ";#delta#Theta(#gamma), deg."
          ";Entries/0.2 deg.");
-//    hdat[0]->GetXaxis()->SetNdivisions(1004);
-   hdat[0]->GetYaxis()->SetMaxDigits(2);
-//    hdat[0]->GetXaxis()->SetTitleOffset(1.);
+   // hdat[0]->GetXaxis()->SetNdivisions(1004);
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
+   double ymax = 1.9 * hdat[0]->GetMaximum(); // Log
+   hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   double ymax=hdat[0]->GetMaximum();
-   if ( date == 2012 ) {
-      ymax *= 2.0;
-   } else {
-      ymax *= 2.1;
-   }
    box->DrawBox(10.,0.5,20.,ymax);
    hdat[0]->Draw("E,SAME");
 
@@ -1669,6 +1614,8 @@ void plot2_dTh(int date) { // match Theta
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
+   TLegend* leg = new TLegend(0.59,0.67,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1681,9 +1628,9 @@ void plot2_dTh(int date) { // match Theta
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot predicted P(eta) and cos(Theta(eta))
 //--------------------------------------------------------------------
-void plot2_Peta(int date) { // P(eta)
+void plot2_Peta(int date) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1699,7 +1646,7 @@ void plot2_Peta(int date) { // P(eta)
 
    // cuts for selection eta ++ without Peta & Ceta cuts ++
    TCut Ceta;
-//    Ceta += TCut("fabs(Ceta)<0.9");
+   // Ceta += TCut("fabs(Ceta)<0.9");
    Ceta += TCut("fabs(Cg2)<0.8||(fabs(Cg2)>0.85&&fabs(Cg2)<0.92)");
 
    TCut cutD = par->Cbg + Ceta;
@@ -1736,22 +1683,18 @@ void plot2_Peta(int date) { // P(eta)
       h->Scale(scale);
    }
 
-   TLegend* leg = new TLegend(0.59,0.71,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetTitle(
-            ";P_{#eta}, GeV/c"
-            ";Entries/0.01 GeV/c");
-   if ( date == 2012 ) {
-      hdat[0]->GetYaxis()->SetTitleOffset(1.3);
-   }
+         ";P_{#eta}, GeV/c"
+         ";Entries/0.01 GeV/c");
+   hdat[0]->GetYaxis()->SetMaxDigits(3);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1770,8 +1713,10 @@ void plot2_Peta(int date) { // P(eta)
    hmc[3]->SetLineWidth(2);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kBlue+3);
-//    hmc[3]->Draw("HIST,SAME"); // wrong eta!
+   // hmc[3]->Draw("HIST,SAME"); // wrong eta!
 
+   TLegend* leg = new TLegend(0.59,0.71,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1783,14 +1728,12 @@ void plot2_Peta(int date) { // P(eta)
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
 //--------------------------------------------------------------------
-void plot2_Ceta(int date) { // cos(Theta(eta))
+void plot2_Ceta(int date) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
-//    int Nbins = ( (date==2012) ? 40 : 20 );
    int Nbins = 40;
    auto hst = [Nbins](string nm) {
       TH1D* h = new TH1D(nm.c_str(),"", Nbins,-1.,1.);
@@ -1803,7 +1746,7 @@ void plot2_Ceta(int date) { // cos(Theta(eta))
 
    // cuts for selection eta ++ without Peta & Ceta cuts ++
    TCut Ceta;
-//    Ceta += TCut("fabs(Ceta)<0.9");
+   // Ceta += TCut("fabs(Ceta)<0.9");
    Ceta += TCut("fabs(Cg2)<0.8||(fabs(Cg2)>0.85&&fabs(Cg2)<0.92)");
 
    TCut cutD = par->Cbg + Ceta;
@@ -1840,12 +1783,9 @@ void plot2_Ceta(int date) { // cos(Theta(eta))
       h->Scale(scale);
    }
 
-   TLegend* leg = new TLegend(0.59,0.71,0.89,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
-   c1->cd(0);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   c1->cd();
    gPad->SetGrid();
 
    // Data
@@ -1856,10 +1796,8 @@ void plot2_Ceta(int date) { // cos(Theta(eta))
    hdat[0]->SetTitle( Form (
             ";cos(#Theta_{#eta}) "
             ";Entries/%1g",2./Nbins));
-   if ( date == 2012 ) {
-      hdat[0]->GetYaxis()->SetTitleOffset(1.3);
-   }
    hdat[0]->GetXaxis()->SetNdivisions(504);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.25);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1878,8 +1816,10 @@ void plot2_Ceta(int date) { // cos(Theta(eta))
    hmc[3]->SetLineWidth(2);
    hmc[3]->SetLineStyle(kDashed);
    hmc[3]->SetLineColor(kBlue+3);
-//    hmc[3]->Draw("HIST,SAME"); // wrong eta!
+   // hmc[3]->Draw("HIST,SAME"); // wrong eta!
 
+   TLegend* leg = new TLegend(0.59,0.71,0.89,0.89);
+   leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
@@ -1898,58 +1838,43 @@ void eta_eff_sel() {
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
-   // gStyle->SetStatFont(62);
-   // gStyle->SetStatFontSize(0.07);
 
    for ( auto date : {2009, 2012, 2021} ) {
-      // -- pi0 rejection, fig.50
-      plot_pi0(date);
+   // for ( auto date : {2009} ) {
+      // ++ pi0 rejection, fig.50
+      // plot_pi0(date);
+
+      // J/Psi -> gamma eta
+      // +fig 51
+      // plot_Mpipig(date);
+      // +fig 52
+      // plot_Minv2g(date);
+      // +fig 53
+      // plot_M2mis(date);
+      // +fig 54
+      // plot_Eg(date);
+      // +fig 55
+      // plot_rE(date);
+      // plot_dTh(date);
+      // +fig 56
+      // plot_Mgg(date);
+      // +fig 57
+      // plot_Peta(date);
+      // plot_Ceta(date);
+
+      // J/Psi -> phi eta
+      // +fig 60
+      // plot2_MKK(date);
+      // +fig 61
+      // plot2_Minv2g(date);
+      // +fig 62
+      // plot2_M2mis(date);
+      // +fig 63
+      // plot2_rE(date);
+      // plot2_dTh(date);
+      // +fig 64
+      // plot2_Peta(date);
+      // plot2_Ceta(date);
    }
-
-   // -- J/Psi -> gamma eta, fig 50..56
-//    plot_Mpipig(2009);
-//    plot_Mpipig(2012);
-
-//    plot_Minv2g(2009);
-//    plot_Minv2g(2012);
-
-//    plot_M2mis(2009);
-//    plot_M2mis(2012);
-
-//    plot_Eg(2009);
-//    plot_Eg(2012);
-
-//    plot_rE(2009);
-//    plot_rE(2012);
-//    plot_dTh(2009);
-//    plot_dTh(2012);
-
-//    plot_Mgg(2009);
-//    plot_Mgg(2012);
-
-//    plot_Peta(2009);
-//    plot_Peta(2012);
-//    plot_Ceta(2009);
-//    plot_Ceta(2012);
-
-   // -- J/Psi -> phi eta, fig 59..63
-//    plot2_MKK(2009);
-//    plot2_MKK(2012);
-
-//    plot2_Minv2g(2009);
-//    plot2_Minv2g(2012);
-
-//    plot2_M2mis(2009);
-//    plot2_M2mis(2012);
-
-//    plot2_rE(2009);
-//    plot2_rE(2012);
-//    plot2_dTh(2009);
-//    plot2_dTh(2012);
-
-//    plot2_Peta(2009);
-//    plot2_Peta(2012);
-//    plot2_Ceta(2009);
-//    plot2_Ceta(2012);
 
 }

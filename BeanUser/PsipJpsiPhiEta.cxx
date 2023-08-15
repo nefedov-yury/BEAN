@@ -1722,7 +1722,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    xnt1.decPsip = Slct.decPsip;
    xnt1.mcmkk   = Slct.mc_mkk; // for efficiency
 
-   m_nt1->Fill(); // ATTENTION!
+   // m_nt1->Fill(); // ATTENTION!
 
    return true;
 }
