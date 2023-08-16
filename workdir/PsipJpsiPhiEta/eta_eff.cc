@@ -298,7 +298,7 @@ void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0) {
    }
 }
 
-// {{{1 Get histograms and calculate efficiencies
+// {{{1 Get histograms and calculate efficiencies: data and MC
 //--------------------------------------------------------------------
 void get_eff_data(Params* p, vector<TH1D*>& eff ) {
 //--------------------------------------------------------------------
@@ -343,11 +343,10 @@ void get_eff_data(Params* p, vector<TH1D*>& eff ) {
    delete tmp;
 }
 
-// {{{1 Efficiency calculation:
-// signal from MC-"signal" and bg from inclusive MC
 //--------------------------------------------------------------------
 void get_eff_mc(Params* p, vector<TH1D*>& eff ) {
 //--------------------------------------------------------------------
+   // take signal from MC-"signal" and bg from inclusive MC
    vector<TH1D*> hst, hstBG;
    get_hst(p, 2, hst, 1);   // MC-"signal"
    get_hst(p, 1, hstBG, 2); // MC bg only
@@ -443,43 +442,40 @@ void plot_pict_gamma_eta(int date) {
 
    // for fit
    TF1* pl0 = (TF1*)gROOT->GetFunction("pol0")->Clone();
+   // TF1* pl0 = (TF1*)gROOT->GetFunction("pol1")->Clone(); // test
    pl0->SetLineColor(kRed);
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,1200,400);
-   c1->Divide(2,1);
-
-///////////////////////////////////////////////////////////////////
-   double eff_min = 0.6, eff_max = 1.0;
+   ///////////////////////////////////////////////////////////////////
+   double eff_min = 0.7, eff_max = 1.0;
    double rat_min = 0.9, rat_max = 1.1;
-///////////////////////////////////////////////////////////////////
-
-   // TLegend* leg = new TLegend(0.11,0.70,0.30,0.89);
-   TLegend* leg = new TLegend(0.11,0.71,0.50,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-   leg->SetNColumns(2);
-   leg->AddEntry(eff_d[0],  "  data ", "LP");
-   leg->AddEntry(eff_mc[0], "  MC ",   "LP");
-
-   gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.89);
-   gStyle->SetStatW(0.25);
-   gStyle->SetFitFormat(".3f");
+   if ( date == 2009 ) {
+      rat_min = 0.8; rat_max = 1.2;
+   }
+   ///////////////////////////////////////////////////////////////////
 
    // plot efficiencies
+   TCanvas* c1 = new TCanvas(Form("c1_%i",par->date),par->Sdate(),
+         0,0,1200,400);
+   c1->Divide(2,1);
+
+   TLegend* leg = new TLegend(0.61,0.74,0.89,0.89);
+   leg->SetHeader( Form("%i",date), "C" );
+   leg->SetNColumns(2);
+   leg->AddEntry(eff_d[0], "data", "LP");
+   leg->AddEntry(eff_mc[0], "MC", "LP");
+
    for (int i = 0; i < Nh; ++i ) {
       c1->cd(i+1);
       gPad->SetGrid();
       eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
-      string title;
       if (par->slct == 2 ) {
-         title = ((i==0) ? ";P, GeV/c" : ";cos(#Theta)")
-            + ";#epsilon(#eta)";
+         eff_d[i]->SetTitle( Form(";%s;#epsilon(#eta)",
+                  ( i == 0 ? "P, GeV/c" : "cos(#Theta)")) );
       } else {
-         title = ((i==0) ? ";E_{#gamma}, GeV" : ";cos(#Theta)")
-            + ";#epsilon(#gamma)";
+         eff_d[i]->SetTitle( Form(";%s;#epsilon(#gamma)",
+                  ( i == 0 ? "E_{#gamma}, GeV" : "cos(#Theta)")) );
       }
-      eff_d[i]->SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
       eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
       eff_d[i]->GetYaxis()->SetTitleOffset(1.);
@@ -499,24 +495,40 @@ void plot_pict_gamma_eta(int date) {
    }
    c1->Print( pdf1.c_str() );
 
-   TCanvas* c2 = new TCanvas("c2","...",0,500,1200,400);
-   c2->Divide(2,1);
    // plot ratio
+   TCanvas* c2 = new TCanvas(Form("c2_%i",par->date),par->Sdate(),
+      0,500,1200,400);
+   c2->Divide(2,1);
+
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.89);
+   // gStyle->SetStatW(0.25);
+   gStyle->SetFitFormat(".3f");
+
+   TLegend* leg2 = new TLegend(0.11,0.79,0.42,0.89);
+   if (par->slct == 2 ) {
+      leg2->SetHeader( Form("#eta, data/MC %i",date), "C" );
+   } else {
+      leg2->SetHeader( Form("#gamma, data/MC %i",date), "C" );
+   }
+
    for (int i = 0; i < Nh; ++i ) {
       c2->cd(i+1);
       gPad->SetGrid();
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
-      string title;
       if (par->slct == 2 ) {
-         title = string(Form("#eta, data/MC %i",date))
-            + ( (i==0) ? ";P, GeV/c" : ";cos(#Theta)" )
-            + string(";#epsilon(data) / #epsilon(MC)");
+         // rat0[i]->SetTitle( Form("#eta, data/MC %i;%s;"
+                  // "#epsilon(data) / #epsilon(MC)", date,
+                  // ( i == 0 ? "P, GeV/c" : "cos(#Theta)")) );
+         rat0[i]->SetTitle( Form(";%s;#epsilon(data) / #epsilon(MC)",
+                  ( i == 0 ? "P, GeV/c" : "cos(#Theta)")) );
       } else {
-         title = string(Form("#gamma, data/MC %i",date))
-            + ( (i==0) ? ";E_{#gamma}, GeV" : ";cos(#Theta)" )
-            + string(";#epsilon(data) / #epsilon(MC)");
+         // rat0[i]->SetTitle( Form("#gamma, data/MC %i;%s;"
+                  // "#epsilon(data) / #epsilon(MC)", date,
+                  // ( i == 0 ? "E_{#gamma}, GeV" : "cos(#Theta)" )) );
+         rat0[i]->SetTitle( Form(";%s;#epsilon(data) / #epsilon(MC)",
+                  ( i == 0 ? "E_{#gamma}, GeV" : "cos(#Theta)" )) );
       }
-      rat0[i]->SetTitle(title.c_str());
       SetHstFace(rat0[i]);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->GetYaxis()->SetTitleOffset(1.);
@@ -525,6 +537,7 @@ void plot_pict_gamma_eta(int date) {
       rat0[i]->SetLineColor(kBlack);
       rat0[i]->Fit( pl0, "" );
       rat0[i]->Draw("SAME E0");
+      leg2->Draw();
    }
 
    gPad->RedrawAxis();
@@ -574,39 +587,35 @@ void plot_pict_phi_eta(int date) {
    pl0->SetLineColor(kRed);
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,1200,400);
+   ///////////////////////////////////////////////////////////////////
+   double eff_min = 0.7, eff_max = 1.1;
+   double rat_min = 0.9, rat_max = 1.1;
+   if ( date == 2009 ) {
+      rat_min = 0.8; rat_max = 1.2;
+   }
+   ///////////////////////////////////////////////////////////////////
+
+   // plot efficiencies
+   TCanvas* c1 = new TCanvas(Form("c1_%i",par->date),par->Sdate(),
+         0,0,1200,400);
    c1->Divide(2,1);
 
-///////////////////////////////////////////////////////////////////
-   double eff_min = 0.6, eff_max = 1.1;
-//    double rat_min = 0.9, rat_max = 1.1;
-   double rat_min = 0.8, rat_max = 1.2;
-///////////////////////////////////////////////////////////////////
-
-//    TLegend* leg = new TLegend(0.12,0.70,0.35,0.89);
    TLegend* leg = new TLegend(0.11,0.71,0.50,0.89);
    leg->SetHeader( Form("%i",date),"C");
    leg->SetNColumns(2);
    leg->AddEntry(eff_d[0], " data ", "LP");
    leg->AddEntry(eff_mc[0], " MC ", "LP");
 
-   gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.89);
-   gStyle->SetStatW(0.25);
-   gStyle->SetFitFormat(".3f");
-
-   // plot efficiencies
    for (int i = 0; i < Nh; ++i ) {
       c1->cd(i+1);
       gPad->SetGrid();
       eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
-      string title = string( ((i==0) ? ";P, GeV/c" : ";cos(#Theta)") )
-         + string(";#epsilon(#eta)");
-      eff_d[i]->SetTitle(title.c_str());
+      eff_d[i]->SetTitle( Form(";%s;#epsilon(#eta)",
+               ( i == 0 ? "P, GeV/c" : "cos(#Theta)")) );
       SetHstFace(eff_d[i]);
       eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
       eff_d[i]->GetYaxis()->SetTitleOffset(1.);
-      // eff_d[i]->GetYaxis()->SetNdivisions(1005);
+      eff_d[i]->GetYaxis()->SetNdivisions(1005);
       eff_d[i]->Draw("E");
       eff_mc[i]->Draw("E SAME");
       leg->Draw();
@@ -617,17 +626,25 @@ void plot_pict_phi_eta(int date) {
    string pdf1 = "eta_phietaeff_" + to_string(date) + ".pdf";
    c1->Print( pdf1.c_str() );
 
-   TCanvas* c2 = new TCanvas("c2","...",0,500,1200,400);
-   c2->Divide(2,1);
    // plot ratio
+   TCanvas* c2 = new TCanvas(Form("c2_%i",par->date),par->Sdate(),
+      0,500,1200,400);
+   c2->Divide(2,1);
+
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.89);
+   // gStyle->SetStatW(0.25);
+   gStyle->SetFitFormat(".3f");
+
+   TLegend* leg2 = new TLegend(0.11,0.79,0.42,0.89);
+   leg2->SetHeader( Form("#eta, data/MC %i",date), "C" );
+
    for (int i = 0; i < Nh; ++i ) {
       c2->cd(i+1);
       gPad->SetGrid();
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
-      string title = string(Form("#eta, data/MC %i",date)) +
-                     ( (i==0) ? ";P, GeV/c" : ";cos(#Theta)" ) +
-                     string(";#epsilon(data) / #epsilon(MC)");
-      rat0[i]->SetTitle(title.c_str());
+      rat0[i]->SetTitle( Form(";%s;#epsilon(data) / #epsilon(MC)",
+               ( i == 0 ? "P, GeV/c" : "cos(#Theta)")) );
       SetHstFace(rat0[i]);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->GetYaxis()->SetTitleOffset(1.);
@@ -635,6 +652,7 @@ void plot_pict_phi_eta(int date) {
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
       rat0[i]->Fit( pl0, "" );
+      leg2->Draw();
    }
 
    gPad->RedrawAxis();
@@ -652,11 +670,13 @@ void eta_eff() {
    gStyle->SetLegendFont(42);
    // gStyle->SetStatFont(62);
 
-   // I. J/Psi->gamma eta, fig 58,59
-   plot_pict_gamma_eta(2009);
-   // plot_pict_gamma_eta(2012);
+   for ( auto date : {2009, 2012, 2021} ) {
+   // for ( auto date : {2009} ) {
+      // I. J/Psi->gamma eta, fig 58,59
+      // plot_pict_gamma_eta(date);
 
-   // II. J/Psi->phi eta, fig 65,66
-   // plot_pict_phi_eta(2009);
-   // plot_pict_phi_eta(2012);
+      // II. J/Psi->phi eta, fig 65,66
+      // plot_pict_phi_eta(date);
+   }
+
 }
