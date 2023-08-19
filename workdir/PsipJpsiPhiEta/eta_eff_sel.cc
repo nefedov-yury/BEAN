@@ -45,10 +45,12 @@ Params::Params(int dat, int slc = 2, int rew = 0) {
    // set the names:
    datafile  = string( Form("data_%02ipsip_all.root",date%100) );
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
-   // mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
-   // mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
-   mcsigf1 = mcincfile; // debug
-   mcsigf2 = string( Form("mcsig_kkmc_%02i.root",date%100) ); // debug
+   mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
+   mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
+   // mcinc: wrong angles in decay J/Psi->gamma eta
+   // mcsig: eta -> 2 gammas (no other decays)
+   // mcsigf1 = mcincfile;
+   // mcsigf2 = string( Form("mcsig_kkmc_%02i.root",date%100) );
 
    // mc-signal
    if ( slct > 0 ) {    // gamma-eta
@@ -135,11 +137,11 @@ double Params::W_g_eta() { // wights for MC-gamma-eta
    // normalization on numbers in "official inclusive MC"
    // 664: ((date==2012) ? (137258./5e5) : (35578./1.5e5))
    double W = 1;
-   // switch (date) {
-      // case 2009: W =  41553./150e3; break;
-      // case 2012: W = 130865./500e3; break;
-      // case 2021: W = 883676./2.5e6; break;
-   // }
+   switch (date) {
+      case 2009: W =  41553./150e3; break;
+      case 2012: W = 130865./500e3; break;
+      case 2021: W = 883676./2.5e6; break;
+   }
    return W;
 }
 
@@ -150,9 +152,9 @@ double Params::W_phi_eta() { // wights for MC-sig
    // 664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
    double W = 1;
    switch (date) {
-      case 2009: W =  27547./200e3; break;
-      case 2012: W =  89059./600e3; break;
-      case 2021: W = 598360./3.0e6; break;
+      case 2009: W =  27547./150e3; break;
+      case 2012: W =  89059./500e3; break;
+      case 2021: W = 598360./2.5e6; break;
    }
    return W * Br_phi_KK;
 }
@@ -539,10 +541,9 @@ void plot_M2mis(int date) {
 
    double bg = hmc[2]->Integral(1,10); // [bin1,bin2]
    double sum = hmc[0]->Integral(1,10);
-   printf(" %i %s background is %.2f%%\n",date,__func__,bg/sum*100);
    double bg_g = hmc[1]->Integral(1,10) - hmc[3]->Integral(1,10);
-   printf(" %i %s bg(wrong gamma) is %.2f%%\n",
-         date, __func__, bg_g/sum*100);
+   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
+         date,__func__,bg/sum*100,bg_g/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral(1,10) / hmc[0]->Integral(1,10);
@@ -656,10 +657,9 @@ void plot_Eg(int date) {
 
    double bg = hmc[2]->Integral(5,34); // [bin1,bin2]
    double sum = hmc[0]->Integral(5,34);
-   printf(" %i %s background is %.2f%%\n",date,__func__,bg/sum*100);
    double bg_g = hmc[3]->Integral(5,34);
-   printf(" %i %s bg(wrong gamma) is %.2f%%\n",
-         date, __func__, bg_g/sum*100);
+   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
+         date,__func__,bg/sum*100,bg_g/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral(5,34) / hmc[0]->Integral(5,34);
@@ -1031,10 +1031,9 @@ void plot_Peta(int date) {
 
    double bg = hmc[2]->Integral(6,45); // [bin1,bin2]
    double sum = hmc[0]->Integral(6,45);
-   printf(" %i %s background is %.2f%%\n",date,__func__,bg/sum*100);
    double bg_g = hmc[3]->Integral(6,45);
-   printf(" %i %s bg(wrong gamma) is %.2f%%\n",
-         date, __func__, bg_g/sum*100);
+   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
+         date,__func__,bg/sum*100,bg_g/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1129,10 +1128,9 @@ void plot_Ceta(int date) {
 
    double bg = hmc[2]->Integral(3,38); // [bin1,bin2]
    double sum = hmc[0]->Integral(3,38);
-   printf(" %i %s background is %.2f%%\n",date,__func__,bg/sum*100);
    double bg_g = hmc[3]->Integral(3,38);
-   printf(" %i %s bg(wrong gamma) is %.2f%%\n",
-         date, __func__, bg_g/sum*100);
+   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
+         date,__func__,bg/sum*100,bg_g/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1217,8 +1215,8 @@ void plot2_MKK(int date) {
    hmc[0]->Add( hmc[1], hmc[2] );
 
    // normalization on DATA
-   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
-   double scale = hdat[0]->Integral(49,69) / hmc[0]->Integral(49,69);
+   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
+   // double scale = hdat[0]->Integral(49,69) / hmc[0]->Integral(49,69);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1307,8 +1305,8 @@ void plot2_Minv2g(int date) {
    hmc[3]->Scale( par->W_phi_eta() );
 
    // normalization on DATA
-   double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
-   // double scale = hdat[0]->Integral(84,113)/hmc[0]->Integral(84,113);
+   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
+   double scale = hdat[0]->Integral(84,113)/hmc[0]->Integral(84,113);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1403,10 +1401,9 @@ void plot2_M2mis(int date) {
 
    double bg = hmc[2]->Integral(1,10); // [bin1,bin2]
    double sum = hmc[0]->Integral(1,10);
-   printf(" %i %s background is %.2f%%\n",date,__func__, bg/sum*100);
    double bg_eta = hmc[1]->Integral(1,10) - hmc[3]->Integral(1,10);
-   printf(" %i %s bg(eta not 2g) is %.2f%%\n",
-         date, __func__, bg_eta/sum*100);
+   printf(" %i %s background is %.2f%% + not eta->2g %.2f%%\n",
+         date,__func__,bg/sum*100,bg_eta/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral(1,10) / hmc[0]->Integral(1,10);
@@ -1672,10 +1669,9 @@ void plot2_Peta(int date) {
 
    double bg = hmc[2]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
-   printf(" %i %s background is %.2f%%\n",date,__func__, bg/sum*100);
    double bg_eta = hmc[3]->Integral();
-   printf(" %i %s bg(eta not 2g) is %.2f%%\n",
-         date, __func__, bg_eta/sum*100);
+   printf(" %i %s background is %.2f%% + not eta->2g %.2f%%\n",
+         date,__func__,bg/sum*100,bg_eta/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1772,10 +1768,9 @@ void plot2_Ceta(int date) {
 
    double bg = hmc[2]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
-   printf(" %i %s background is %.2f%%\n",date,__func__, bg/sum*100);
    double bg_eta = hmc[3]->Integral();
-   printf(" %i %s bg(eta not 2g) is %.2f%%\n",
-         date,__func__,bg_eta/sum*100);
+   printf(" %i %s background is %.2f%% + not eta->2g %.2f%%\n",
+         date,__func__,bg/sum*100,bg_eta/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1841,40 +1836,28 @@ void eta_eff_sel() {
 
    for ( auto date : {2009, 2012, 2021} ) {
    // for ( auto date : {2009} ) {
-      // ++ pi0 rejection, fig.50
-      // plot_pi0(date);
+      // ++ pi0 rejection ++
+      // plot_pi0(date); // fig.50
 
-      // J/Psi -> gamma eta
-      // +fig 51
-      // plot_Mpipig(date);
-      // +fig 52
-      // plot_Minv2g(date);
-      // +fig 53
-      // plot_M2mis(date);
-      // +fig 54
-      // plot_Eg(date);
-      // +fig 55
-      // plot_rE(date);
-      // plot_dTh(date);
-      // +fig 56
-      // plot_Mgg(date);
-      // +fig 57
-      // plot_Peta(date);
-      // plot_Ceta(date);
+      // ++ J/Psi -> gamma eta ++
+      // plot_Mpipig(date); // fig 51
+      // plot_Minv2g(date); // fig 52
+      // plot_M2mis(date);  // fig 53
+      // plot_Eg(date);     // fig 54
+      // plot_rE(date);     // fig 55 (top)
+      // plot_dTh(date);    // fig 55 (bottom)
+      // plot_Mgg(date);    // fig 56
+      // plot_Peta(date);   // fig 57 (top)
+      // plot_Ceta(date);   // fig 57 (bottom)
 
-      // J/Psi -> phi eta
-      // +fig 60
-      // plot2_MKK(date);
-      // +fig 61
-      // plot2_Minv2g(date);
-      // +fig 62
-      // plot2_M2mis(date);
-      // +fig 63
-      // plot2_rE(date);
-      // plot2_dTh(date);
-      // +fig 64
-      // plot2_Peta(date);
-      // plot2_Ceta(date);
+      // ++ J/Psi -> phi eta ++
+      // plot2_MKK(date);       // fig 60
+      // plot2_Minv2g(date);    // fig 61
+      // plot2_M2mis(date);     // fig 62
+      // plot2_rE(date);        // fig 63 (top)
+      // plot2_dTh(date);       // fig 63 (bottom)
+      // plot2_Peta(date);      // fig 64 (top)
+      // plot2_Ceta(date);      // fig 64 (bottom)
    }
 
 }

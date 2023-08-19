@@ -2412,7 +2412,8 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
          hst[309]->Fill(Mkk2);
       }
    }
-   if ( Mkk2 <= 1.01 || Mkk2 >= 1.07 ) { //CUT Mphi^2 = 1.039+/-0.006
+   // Mphi^2 = 1.039+/-0.006 (+/-0.005 for v709)
+   if ( Mkk2 <= 1.01 || Mkk2 >= 1.07 ) { // TODO v709: [1.02,1.06]
       return;
    }
 

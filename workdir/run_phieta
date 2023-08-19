@@ -32,7 +32,7 @@ fi
 ######################## SIGNAL MC ########################
 # MCGPJ: e+ e- --> phi eta --> K+K- eta
 #
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   # J/Psi 2012 MCGPJ:
   BDIR="${BDIR_MCGPJ}/MCGPJ_PhiEta"
   DSTS="3050 3060 3080 3083 3090 3093 3094 3095 "
@@ -46,7 +46,7 @@ if [ 1 -eq 1 ]; then
             > ${ODIR}/mcgpj_{}.out 2>&1"
 fi
 
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   # J/Psi 2018 MCGPJ:
   BDIR_J="${BDIR_MCGPJ}/MCGPJ_PhiEta_J2018"
   DSTJN="J1 J2 J3 J4 J5 J6 J7 J8"
@@ -58,7 +58,7 @@ if [ 1 -eq 1 ]; then
             > ${ODIR}/mcgpj_{}.out 2>&1"
 fi
 
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   # Rscan 2015 MCGPJ
   BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R"
   #  DSTRS="2900 2950 2981 3000 3020 3080"

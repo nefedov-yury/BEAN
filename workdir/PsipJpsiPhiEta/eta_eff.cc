@@ -2,7 +2,7 @@
 //             and single photon rec.efficiency
 // -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
-#include "ReWeightEtaEff.h"
+#include "RewEtaEff.hpp"
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -48,10 +48,12 @@ Params::Params(int dat, int slc = 2, int rew = 0) {
    // set the names:
    datafile  = string( Form("data_%02ipsip_all.root",date%100) );
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
-   // mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
-   // mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
-   mcsigf1 = mcincfile; // debug
-   mcsigf2 = string( Form("mcsig_kkmc_%02i.root",date%100) ); // debug
+   mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
+   mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
+   // mcinc: wrong angles in decay J/Psi->gamma eta
+   // mcsig: eta -> 2 gammas (no other decays)
+   // mcsigf1 = mcincfile;
+   // mcsigf2 = string( Form("mcsig_kkmc_%02i.root",date%100) );
 
    // mc-signal
    if ( slct > 0 ) {    // gamma-eta
@@ -375,8 +377,7 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff ) {
    // Re-weighting efficiency
    if ( p->use_rew == 1 ) {
       for ( int i = 0; i < 2; i++ ) {
-         double w = 1.;
-         // double w = ReWeightEtaEff(p->date); TODO
+         double w = RewEtaEff( p->date ); // Note: date is not used
          auto& hst = eff[i];
          int nx = hst->GetNbinsX();
          for ( int ix = 0; ix <= nx+1; ++ix ) {
@@ -410,10 +411,10 @@ void get_ratio( const vector<TH1D*>& effdat,
 
 // {{{1 Plot gamma-eta
 //--------------------------------------------------------------------
-void plot_pict_gamma_eta(int date) {
+void plot_pict_gamma_eta(int date, int rew=0) {
 //--------------------------------------------------------------------
-   Params* par = new Params(date,2,0); // date, eta_eff, no_rew
-   // Params* par = new Params(date,1,0); // date, gamma_eff, no_rew
+   Params* par = new Params(date,2,rew); // date, eta_eff, rew
+   // Params* par = new Params(date,1,rew); // date, gamma_eff, no_rew
 
    vector<TH1D*> eff_d, eff_mc, rat0;
    get_eff_data(par, eff_d);
@@ -553,9 +554,9 @@ void plot_pict_gamma_eta(int date) {
 
 // {{{1 Plot phi-eta
 //--------------------------------------------------------------------
-void plot_pict_phi_eta(int date) {
+void plot_pict_phi_eta(int date, int rew=0) {
 //--------------------------------------------------------------------
-   Params* par = new Params(date,-2,0); // date, phi-eta, no rew
+   Params* par = new Params(date,-2,rew); // date, phi-eta, rew
 
    vector<TH1D*> eff_d, eff_mc, rat0;
    get_eff_data(par, eff_d);
@@ -670,13 +671,15 @@ void eta_eff() {
    gStyle->SetLegendFont(42);
    // gStyle->SetStatFont(62);
 
+   bool use_rew = false;
+   // bool use_rew = true;
    for ( auto date : {2009, 2012, 2021} ) {
    // for ( auto date : {2009} ) {
       // I. J/Psi->gamma eta, fig 58,59
-      // plot_pict_gamma_eta(date);
+      // plot_pict_gamma_eta(date, int(use_rew));
 
       // II. J/Psi->phi eta, fig 65,66
-      // plot_pict_phi_eta(date);
+      // plot_pict_phi_eta(date,int(use_rew));
    }
 
 }
