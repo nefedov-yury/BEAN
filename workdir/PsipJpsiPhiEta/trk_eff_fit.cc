@@ -131,7 +131,7 @@ void SetHstFace(TH1* hst) {
    if ( Z ) {
       Z->SetLabelFont(62);
       Z->SetLabelSize(0.04);
-      Z->SetTitleFont(62);
+      Z->SetTitleFont(42);
       Z->SetTitleSize(0.04);
    }
 }

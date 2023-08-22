@@ -89,7 +89,8 @@ void get_hist(int date, string hname, TH1D* hst[]) {
 //--------------------------------------------------------------------
 void plot_hist(string hname, int date) {
 //--------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   TCanvas* c1 = new TCanvas(Form("c1_%s_%i",hname.c_str(),date),
+         Form("%i %s",date,hname.c_str()),0,0,800,800);
 
    TH1D* hst[10];
    get_hist(date, hname, hst);
@@ -99,7 +100,7 @@ void plot_hist(string hname, int date) {
    double win_max = 1.15 * hst_max;
 
    // relative normalisation
-   // hst[3]->Scale( hst[0]->Integral()/hst[3]->Integral() );
+   hst[3]->Scale( hst[0]->Integral()/hst[3]->Integral() );
 
    // box to show cut
    TBox* box = new TBox;
@@ -551,29 +552,18 @@ void pipi_dataMC() {
    Dir = "prod_v709n3/";
    //========================================================
 
-   // plot_hist("cosPM",2009);
-   // plot_hist("cosPM",2012);
-   // plot_hist("cosPM",2021);
+   for ( auto date : {2009, 2012, 2021} ) {
+      plot_hist("cosPM",date);
+      plot_hist("invPM",date);
 
-   // plot_hist("invPM",2009);
-   // plot_hist("invPM",2012);
-   // plot_hist("invPM",2021);
+      plot_hist("Pip_P",date);
+      plot_hist("Pim_P",date);
 
-   // plot_hist("Pip_P",2009);
-   // plot_hist("Pim_P",2009);
-   // plot_hist("Pip_P",2012);
-   // plot_hist("Pim_P",2012);
-   // plot_hist("Pip_P",2021);
-   // plot_hist("Pim_P",2021);
+      // plot_hist("Bnch",date); // Nch
 
-   // plot_hist("Bnch",2009); // Nch
-   // plot_hist("Bnch",2012); // Nch
-   // plot_hist("Bnch",2021); // Nch
-
-   // slow
-   // plot_One(2009,"Nm",fill_Nm);
-   // plot_One(2012,"Nm",fill_Nm);
-   // plot_One(2021,"Nm",fill_Nm);
+      // slow
+      // plot_One(date,"Nm",fill_Nm);
+   }
 
    // ugly
    // plot_hist("Pip_C",2021); // or log see fun()

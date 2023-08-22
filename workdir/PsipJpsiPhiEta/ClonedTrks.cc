@@ -1,4 +1,4 @@
-// ClonedTrks.cc
+// ClonedTrks.cc - plot pictures for cloned tracks study
 
 // {{{1 helper functions
 //--------------------------------------------------------------------
@@ -71,10 +71,11 @@ void TrkDel(string fname, string lhead, string pdf) {
    gPad->SetGrid();
    gPad->SetLogy(true);
 
-   hst[0]->SetTitle(";;Number of Tracks");
+   hst[0]->SetTitle(";;Events");
    hst[0]->GetYaxis()->SetMaxDigits(3);
    hst[0]->GetYaxis()->CenterTitle(true);
-   hst[0]->GetYaxis()->SetTitleOffset(1.);
+   hst[0]->GetYaxis()->SetTitleSize(0.05);
+   // hst[0]->GetYaxis()->SetTitleOffset(1.);
    hst[0]->SetMinimum(1.);
    hst[0]->Draw("HIST");
 
@@ -91,12 +92,16 @@ void TrkDel(string fname, string lhead, string pdf) {
    hr->Divide(hst[1],hst[0], 100., 1.,"B");
    hr->SetMinimum(1e-2);
    hr->SetMaximum(20);
-   hr->SetTitle(";Negative and Positive tracks;Cloned / All (%)");
-   hr->GetXaxis()->CenterTitle(true);
+   // hr->SetTitle(";Negative and Positive tracks;Cloned / All (%)");
+   hr->SetTitle(";Number of negative and positive tracks in event"
+         ";Cloned / All (%)");
    hr->GetYaxis()->CenterTitle(true);
+   hr->GetYaxis()->SetTitleSize(0.05);
+   // hr->GetYaxis()->SetTitleOffset(1.);
    hr->GetXaxis()->SetNdivisions(20);
-   hr->GetXaxis()->SetTitleOffset(1.25);
-   hr->GetYaxis()->SetTitleOffset(1.);
+   hr->GetXaxis()->CenterTitle(true);
+   hr->GetXaxis()->SetTitleSize(0.05);
+   // hr->GetXaxis()->SetTitleOffset(1.);
    hr->Draw("E1");
 
    TLegend* leg = new TLegend(0.38,0.75,0.71,0.98);
@@ -236,8 +241,8 @@ void ClonedTrks() {
    const string Dir = "prod_v709n3/";
    //========================================================
 
-   // for ( int date : {2009,2012,2021} ) {
-   for ( int date : {2021} ) {
+   for ( int date : {2009,2012,2021} ) {
+   // for ( int date : {2021} ) {
       // for ( int type : { 0, 1, 2 } ) { // data, mcinc, mcsig
       for ( int type : { 0, 1 } ) {
          string fname, lhead, pdf;
@@ -273,10 +278,10 @@ void ClonedTrks() {
          }
 
 
-         // TrkDel(Dir+fname,lhead,pdf);
+         TrkDel(Dir+fname,lhead,pdf);
          // ClnAng(Dir+fname,lhead,pdfA);
          // Cln_dP(Dir+fname,lhead,pdfP);
-         ClnNcl(Dir+fname,lhead,pdfN);
+         // ClnNcl(Dir+fname,lhead,pdfN);
       }
    }
 

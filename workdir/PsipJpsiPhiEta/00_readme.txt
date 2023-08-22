@@ -17,9 +17,51 @@ p10a4c.h   -> declaration of variables in prod-10 a4c ntuple
 p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
               ntuple
 
+//-------------------------------
+// K & Pi track+PID efficiencies
+//-------------------------------
+RewTrkPiK.hpp:
+// functions with corrections for efficiency of
+// reconstruction Pions and Kaons (including PID) for MC events
+
+trk_eff_sel.cc:
+// Pictures for presentation/memo
+// Study of the track reconstruction efficiency for pi and K
+
+trk_eff_fit.cc:
+// The reconstruction efficiency (data and MC)
+// and their ratio (data/MC) for pions and kaons.
+// Get corrections as function of P_t and Z.
+//
+// Kolmogorov–Smirnov  && Chi2 probability tests to
+// compare the ratios for K+ and K- (pi+ and pi-)
+
+trk_eff_wts.cc:
+// trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
+// -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
+
+//-----------------------------------------
+// eta->2gamma reconstruction efficiencies
+//-----------------------------------------
+// RewEtaEff.hpp - function with correction for efficiency of
+// reconstruction Eta for MC events
+
+eta_eff_sel.cc:
+// eta_eff_sel.cc - Pictures for presentation/memo
+// Study of the eta->2gamma reconstruction efficiency
+
+eta_eff.cc:
+// eta_eff.cc: Study of the eta -> 2gamma reconstruction efficiency
+//             and single photon rec.efficiency
+// -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
+
+
 //--------------------------------------------------------------------
 1) Selection Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
+ClonedTrks.cc:
+// ClonedTrks.cc - plot pictures for cloned tracks study
+
 pipi_dataMC.cc:
 // plot data distributions vs MC
 // for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
@@ -110,42 +152,6 @@ mrec_4C.cc - Here we use special selection with 4C-kinematic
              The 'Mrec' is drawn and the contribution of
              Psi(2S) -> pi+ pi- phi eta (non J/Psi) is calculated.
              -> mrec_4Cyear.pdf
-
-//--------------------------------------------------------------------
-//      K & Pi track+PID efficiencies
-//--------------------------------------------------------------------
-RewTrkPiK.hpp:
-// functions with corrections for efficiency of
-// reconstruction Pions and Kaons (including PID) for MC events
-
-trk_eff_sel.cc:
-// Pictures for presentation/memo
-// Study of the track reconstruction efficiency for pi and K
-
-
-trk_eff_fit.cc:
-// The reconstruction efficiency (data and MC)
-// and their ratio (data/MC) for pions and kaons.
-// Get corrections as function of P_t and Z.
-//
-// Kolmogorov–Smirnov  && Chi2 probability tests to
-// compare the ratios for K+ and K- (pi+ and pi-)
-
-trk_eff_wts.cc:
-// trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
-// -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
-
-//--------------------------------------------------------------------
-//      eta->2gamma reconstruction efficiencies
-//--------------------------------------------------------------------
-eta_eff_sel.cc:
-// eta_eff_sel.cc - Pictures for presentation/memo
-// Study of the eta->2gamma reconstruction efficiency
-
-eta_eff.cc:
-// eta_eff.cc: Study of the eta -> 2gamma reconstruction efficiency
-//             and single photon rec.efficiency
-// -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
 
 //--------------------------------------------------------------------
 // Calculation of branching:
