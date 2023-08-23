@@ -77,6 +77,10 @@ void set_draw_opt(vector<TH1D*>& hst) {
 vector<TH1D*> fill_mrec(string fname, string hname,
       int date, bool isMC = false) {
 //--------------------------------------------------------------------
+   // if ( isMC ) { // sys
+      // fname = "NoHC/" + fname;
+   // }
+
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
