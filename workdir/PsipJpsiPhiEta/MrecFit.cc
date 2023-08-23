@@ -864,7 +864,9 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
    bool short_print = true;
    if ( short_print ) {
       printf(" [%.3f, %.3f]: ", Emin_hst,Emax_hst);
-      printf(" NJpsi(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
+      // printf(" NJpsi(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
+      printf(" NJpsi(MCsig):   $%.3f \\pm %.3f$ $\\times10^6$\n",
+            nsig/1e6,er_sig/1e6);
       return;
    }
 
@@ -1050,15 +1052,15 @@ void DoFit(int date) {
          par_ini = { 0.969, 0.86e-3,
             1.094,0.005,-0.027,-0.001 }; // old +0.23MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.984, 3.20e-3, 0.62e-3, 0.87,
-            1.098,0.008,0.007,0.000,0.013 }; // n3 +0.226MeV
+         par_ini = { 0.983, 3.20e-3, 0.62e-3, 0.88,
+            1.097,0.008,0.007,0.000,0.013 }; // n3 +0.226MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
          par_ini = { 0.982, 0.98e-3,
             1.118,0.008,-0.030,-0.006 }; // old +0.38MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.992, 3.40e-3, 0.70e-3, 0.86,
+         par_ini = { 0.991, 3.40e-3, 0.70e-3, 0.86,
             1.116,0.026,0.008,0.008,0.014,0.008 }; // n3 +0.386MeV
       }
    } else if ( date == 2021 ) {
@@ -1066,7 +1068,7 @@ void DoFit(int date) {
          par_ini = { 0.945, 0.89-3,
             1.066,-0.006,-0.020,-0.002 }; // old +0.60MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.994, 3.05e-3, 0.62e-3, 0.86,
+         par_ini = { 0.993, 3.05e-3, 0.62e-3, 0.86,
             1.078,0.006,0.009,0.006,0.010,0.005 }; // n3 +0.607MeV
       }
    }
@@ -1138,6 +1140,22 @@ void DoFit(int date) {
 
    hst[0]->Draw("E"); // data
 
+   // boxes to show selection regions
+   TBox* box1 = new TBox;
+   box1->SetFillStyle(3001);
+   box1->SetFillColor(kGreen-10);
+   box1->SetLineColor(kGreen-10);
+   box1->DrawBox(3.060,minWin,3.092,maxWin);
+   box1->DrawBox(3.102,minWin,3.140,maxWin);
+
+   TBox* box2 = new TBox;
+   box2->SetFillStyle(3001);
+   box2->SetFillColor(kGreen-6);
+   box2->SetLineColor(kGreen-6);
+   box2->DrawBox(3.092,minWin,3.102,maxWin);
+
+   hst[0]->Draw("E SAME"); // redraw data
+
    TH1D* SumBG = (TH1D*)hst[1]->Clone("SumBG"); // clone Continuum
    // corrections for background
    TH1D* hstBG1 = rescale_bg( hst[3], par_bg);
@@ -1149,6 +1167,7 @@ void DoFit(int date) {
    // corrections for MC signal
    TH1D* MCsig_cor = cor_sig_hst(hst[2], chi2_fit, par);
    MCsig_cor->SetLineStyle(kDashed);
+   MCsig_cor->SetLineWidth(2);
    MCsig_cor->Draw("SAME,HIST");
 
    TH1D* SumMC =(TH1D*)MCsig_cor->Clone("SumMC");
@@ -1171,6 +1190,8 @@ void DoFit(int date) {
    leg->AddEntry(SumBG,
          Form("#color[%i]{Bkg + Cont}",
             SumBG->GetLineColor() ),"L");
+   leg->AddEntry(box2,"[3.092,3.102]","F");
+   leg->AddEntry(box1,"[3.060,3.140]","F");
 
    // leg->AddEntry(hstBG2,
          // Form("#color[%i]{MC bg non #pi^{#plus}#pi^{#minus}J/#Psi}",
@@ -1219,11 +1240,11 @@ void DoFit(int date) {
    printf("%s\n",sepline.c_str());
    // numbers for E in [Emin,Emax]
    print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
-   print_Numbers(hst,MCsig_cor,SumBG,3.055,3.145);// BAM-42
+   print_Numbers(hst,MCsig_cor,SumBG,3.060,3.140);// wide
    printf("%s\n",sepline.c_str());
 
    print_eff(date, hst[5], chi2_fit, par, er_par, 3.092,3.102);
-   print_eff(date, hst[5], chi2_fit, par, er_par, 3.055,3.145);
+   print_eff(date, hst[5], chi2_fit, par, er_par, 3.060,3.140);
    printf("%s\n",sepline.c_str());
 }
 
@@ -1244,9 +1265,9 @@ void MrecFit() {
    USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
    //========================================================
 
-   // int date=2009;
+   int date=2009;
    // int date=2012;
-   int date=2021;
+   // int date=2021;
 
    DoFit(date);
 }

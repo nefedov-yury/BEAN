@@ -75,20 +75,22 @@ void TrkDel(string fname, string lhead, string pdf) {
    hst[0]->GetYaxis()->SetMaxDigits(3);
    hst[0]->GetYaxis()->CenterTitle(true);
    hst[0]->GetYaxis()->SetTitleSize(0.05);
-   // hst[0]->GetYaxis()->SetTitleOffset(1.);
+   hst[0]->GetYaxis()->SetTitleOffset(0.9);
    hst[0]->SetMinimum(1.);
+   hst[0]->SetLineWidth(2);
    hst[0]->Draw("HIST");
 
-   hst[1]->SetLineColor(kRed);
+   hst[1]->SetLineColor(kRed+2);
    hst[1]->SetFillStyle(3001);
    hst[1]->SetFillColor(kRed-9);
+   hst[1]->SetLineWidth(2);
    hst[1]->Draw("HIST SAME");
 
    c1->cd(2);
    gPad->SetLogy(true);
    gPad->SetGrid();
 
-   TH1D* hr = (TH1D*) hst[1]->Clone("rat");
+   TH1D* hr = (TH1D*) hst[1]->Clone( Form("rat_%s",nc.c_str()) );
    hr->Divide(hst[1],hst[0], 100., 1.,"B");
    hr->SetMinimum(1e-2);
    hr->SetMaximum(20);
@@ -97,14 +99,17 @@ void TrkDel(string fname, string lhead, string pdf) {
          ";Cloned / All (%)");
    hr->GetYaxis()->CenterTitle(true);
    hr->GetYaxis()->SetTitleSize(0.05);
-   // hr->GetYaxis()->SetTitleOffset(1.);
+   hr->GetYaxis()->SetTitleOffset(0.9);
    hr->GetXaxis()->SetNdivisions(20);
    hr->GetXaxis()->CenterTitle(true);
    hr->GetXaxis()->SetTitleSize(0.05);
    // hr->GetXaxis()->SetTitleOffset(1.);
+   hr->SetLineColor(kRed+2);
+   hr->SetLineWidth(2);
    hr->Draw("E1");
 
-   TLegend* leg = new TLegend(0.38,0.75,0.71,0.98);
+   // TLegend* leg = new TLegend(0.38,0.75,0.71,0.98);
+   TLegend* leg = new TLegend(0.40,0.70,0.70,0.98);
    leg->SetHeader( lhead.c_str(),"C");
    leg->AddEntry(hst[0],"All tracks","L");
    leg->AddEntry(hst[1],"Cloned tracks","F");
@@ -260,7 +265,7 @@ void ClonedTrks() {
             case 1:
                fname = string(
                      Form("mcinc_%02ipsip_all.root",date%100) );
-               lhead = string( Form("MC inc. %i",date) );
+               lhead = string( Form("Inclusive MC %i",date) );
                pdf = string( Form("Cln_mcinc_%02i.pdf",date%100) );
                pdfA = string( Form("Ang_mcinc_%02i.pdf",date%100) );
                pdfP = string( Form("Mom_mcinc_%02i.pdf",date%100) );

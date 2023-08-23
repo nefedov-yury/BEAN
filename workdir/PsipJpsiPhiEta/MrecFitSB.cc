@@ -506,7 +506,9 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* SumBG,
    bool short_print = true;
    if ( short_print ) {
       printf(" [%.3f, %.3f]: ", Emin_hst,Emax_hst);
-      printf(" NJpsi(data-bg):  %9.0f +/- %4.0f\n", n1,er1);
+      // printf(" NJpsi(data-bg):  %9.0f +/- %4.0f\n", n1,er1);
+      printf(" NJpsi(data-bg): $%.3f \\pm %.3f$ $\\times10^6$\n",
+            n1/1e6,er1/1e6);
       return;
    }
 
@@ -563,7 +565,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
    min_opt.Print();
 
    // Npol is the order of polynomial, systematic study: +/-1
-   // const size_t Npol = 6; // debug
+   // const size_t Npol = 6; // test
    const size_t Npol = (date==2009) ? 4 : 5;
    chi2_fit.SetNpol(Npol);
 
@@ -637,7 +639,14 @@ void DoFitSB(int date, bool isIOcheck = false) {
    box->SetLineColor(kRed-10);
    box->SetLineWidth(2);
    box->DrawBox(ExMin,minWin,ExMax,maxWin);
-   hst[0]->Draw("E, SAME"); // data
+
+   TBox* box2 = new TBox;
+   box2->SetFillStyle(3001);
+   box2->SetFillColor(kGreen-6);
+   box2->SetLineColor(kGreen-6);
+   // box2->DrawBox(3.092,minWin,3.102,maxWin);
+
+   hst[0]->Draw("E, SAME"); // redraw data
 
    TH1D* SumBG = (TH1D*)hst[1]->Clone("SumBG"); // clone Continuum
    // rescale BG:
@@ -651,6 +660,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
    // rescale Signal
    MCsig->Scale(par[0]);
    MCsig->SetLineStyle(kDashed);
+   MCsig->SetLineWidth(2);
    MCsig->Draw("SAME,HIST");
 
    TH1D* SumMC =(TH1D*)MCsig->Clone("SumMC");
@@ -662,8 +672,6 @@ void DoFitSB(int date, bool isIOcheck = false) {
    // hstBG2->Draw("SAME,HIST"); // Rescaled Bg2
 
    TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
-   // leg->SetHeader(
-         // "#bf{Recoil Mass of #pi^{#plus}#pi^{#minus}}","C");
    if ( isIOcheck ) {
       leg->AddEntry(hst[0],Form("Pseudo-Data %i",date), "EP");
    } else {
@@ -688,6 +696,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
          // hstBG2->GetLineColor() ),"L");
 
    leg->AddEntry(box, "excluded from fit","F");
+   // leg->AddEntry(box2,"[3.092,3.102]","F");
    leg->Draw();
 
    double Ypt = 0.70 - 0.03*(Npol-3);
@@ -713,7 +722,7 @@ void DoFitSB(int date, bool isIOcheck = false) {
    // print for E in [Emin,Emax]
    printf("%s\n",sepline.c_str());
    print_Numbers(hst,SumBG,3.092,3.102,isIOcheck); // see cuts.h !
-   print_Numbers(hst,SumBG,3.055,3.145,isIOcheck); // BAM-42
+   print_Numbers(hst,SumBG,3.06,3.14,isIOcheck); // wide
    printf("%s\n",sepline.c_str());
 }
 
@@ -828,17 +837,17 @@ void MrecFitSB() {
    Dir = "prod_v709n3/";
    //========================================================
 
-   // for ( int date : { 2009,2012,2021 } ) {
-      // bool zoom = true;
+   for ( int date : { 2009,2012,2021 } ) {
+      bool zoom = true;
       // MrecDraw(date, !zoom);
       // MrecDraw(date,  zoom);
-   // }
+   }
 
    // int date=2009;
    // int date=2012;
-   // int date=2021;
+   int date=2021;
 
-   // DoFitSB(date);
+   DoFitSB(date);
 
    // IO check: trivially get the exact result!
    // bool isIOcheck = true;
