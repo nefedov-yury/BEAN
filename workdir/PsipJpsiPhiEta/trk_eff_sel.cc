@@ -1488,33 +1488,33 @@ void trk_eff_sel() {
       // + fig 29
       // plot_MmisK(date);
 
-      // + fig 30
+      // + fig 30-32
       // plot_PtKp(date);
-      // plot_CKp(date);
       // plot_PtKm(date);
+      // plot_CKp(date);
       // plot_CKm(date);
 
-      // + fig 31
-      // plot_dPK(date);
+      // + fig 33
       // plot_dThK(date);
+      // plot_dPK(date);
 
       // ---- pi+ pi- ----
-      // + fig 32
+      // + fig 34
       // plot_MinvJ(date);
       // plot_MinvJ(date,true); // fit J/Psi peak position
 
-      // + fig 33
+      // + fig 35
       // plot_MmisP(date);
 
-      // + fig 34
+      // + fig 36-37
       // plot_PtPip(date);
-      // plot_CPip(date);
       // plot_PtPim(date);
+      // plot_CPip(date);
       // plot_CPim(date);
 
-      // + fig 35
-      // plot_dPpi(date);
+      // + fig 38
       // plot_dThPi(date);
+      // plot_dPpi(date);
    }
 
    // other: do not use

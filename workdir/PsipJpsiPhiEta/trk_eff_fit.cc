@@ -305,9 +305,6 @@ void plot_pict_K(int date, int pm = 0) {
    pl0->SetLineColor(kRed);
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,1200,400);
-   c1->Divide(2,1);
-
    ////////////////////////////////////
    double eff_min = 0.2, eff_max = 1.0;
    double rat_min = 0.9, rat_max = 1.1;
@@ -316,64 +313,79 @@ void plot_pict_K(int date, int pm = 0) {
    if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{#plus}";}
    if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{#minus}";}
 
-   TLegend* leg = new TLegend(0.65,0.30,0.89,0.60);
+   vector<TCanvas*> cc(4,nullptr);
+   for ( size_t i = 0; i < cc.size(); ++i ) {
+      int x0 = 700*(i%2);
+      int y0 = 500*(i/2);
+      // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
+      auto name = Form("c%zu_%s_%i",1+i,p_pdf.c_str(),date);
+      cc[i] = new TCanvas( name,name, x0,y0,600,600);
+   }
+
+   // plot efficiencies
+   TLegend* leg = new TLegend(0.60,0.44,0.89,0.60);
    leg->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
    leg->AddEntry(eff_d[0],  "  data ", "LP");
    leg->AddEntry(eff_mc[0], "  MC ",   "LP");
+
+   for (int i = 0; i < Nh; ++i ) {
+      auto& ci = cc[0+i];
+      ci->cd();
+      gPad->SetGrid();
+      eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
+      string title =
+         string( ((i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)") ) +
+         string(";#epsilon (K)");
+      eff_d[i]->SetTitle(title.c_str());
+      SetHstFace(eff_d[i]);
+      eff_d[i]->GetYaxis()->SetTitleOffset(0.9);
+      eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
+      eff_d[i]->Draw("E");
+      eff_mc[i]->Draw("E SAME");
+      leg->Draw();
+
+      gPad->RedrawAxis();
+      ci->Update();
+      string pp = p_pdf + ( ( i == 0 ) ? "_pt" : "_cos" );
+      ci->Print( Form("trkeff_%s_%i.pdf",pp.c_str(),date) );
+   }
+
+   // plot ratio
+   TLegend* leg2 = new TLegend(0.14,0.81,0.40,0.89);
+   leg2->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
 
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
    gStyle->SetFitFormat(".3f");
 
-   // plot efficiencies
    for (int i = 0; i < Nh; ++i ) {
-      c1->cd(i+1);
-      gPad->SetGrid();
-      eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
-      string title =
-         string( ((i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)") ) +
-         string(";#epsilon(K)");
-      eff_d[i]->SetTitle(title.c_str());
-      SetHstFace(eff_d[i]);
-      eff_d[i]->GetYaxis()->SetTitleOffset(0.8);
-      eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
-      eff_d[i]->Draw("E");
-      eff_mc[i]->Draw("E SAME");
-      leg->Draw();
-   }
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf1 = "eff_" + p_pdf + "_" + to_string(date) + ".pdf";
-   c1->Print( pdf1.c_str() );
-
-   TCanvas* c2 = new TCanvas("c2","...",0,500,1200,400);
-   c2->Divide(2,1);
-   // plot ratio
-   for (int i = 0; i < Nh; ++i ) {
-      c2->cd(i+1);
+      auto& ci = cc[2+i];
+      ci->cd();
+      gPad->SetLeftMargin(gPad->GetLeftMargin()+0.02);
+      gPad->SetRightMargin(gPad->GetRightMargin()-0.02);
       gPad->SetGrid();
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
+         // string( Form("%s, data/MC %i",p_leg.c_str(),date) )
       string title =
-         string( Form("%s, data/MC %i",p_leg.c_str(),date) )
-         + ( (i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)" )
-         + string(";#epsilon(data) / #epsilon(MC)");
+         string( (i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)" ) +
+         string(";#epsilon (data) / #epsilon (MC)");
       rat0[i]->SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i]->GetYaxis()->SetTitleOffset(0.9);
+      rat0[i]->GetYaxis()->SetTitleOffset(1.15);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
       rat0[i]->Fit( pl0, "" );
       rat0[i]->Draw("SAME E0");
-   }
+      leg2->Draw();
 
-   gPad->RedrawAxis();
-   c2->Update();
-   string pdf2 = "rat_" + p_pdf + "_" + to_string(date) + ".pdf";
-   c2->Print( pdf2.c_str() );
+      gPad->RedrawAxis();
+      ci->Update();
+      string pp = p_pdf + ( ( i == 0 ) ? "_pt" : "_cos" );
+      ci->Print( Form("trkeff_rat_%s_%i.pdf",pp.c_str(),date) );
+   }
 }
 
 // {{{1 Plot Pi
@@ -411,30 +423,32 @@ void plot_pict_pi(int date, int pm = 0) {
    pl0->SetLineColor(kRed);
 
    // Draw:
-   TCanvas* c1 = new TCanvas("c1","...",0,0,1200,400);
-   c1->Divide(2,1);
-
    ////////////////////////////////////
-   double eff_min = 0.2, eff_max = 1.0;
+   double eff_min = 0.4, eff_max = 1.0;
    double rat_min = 0.9, rat_max = 1.1;
    ////////////////////////////////////
    string p_pdf("Pi"), p_leg("#pi");
    if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{#kern[0.25]{#plus}}";}
    if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{#kern[0.25]{#minus}}";}
 
-   TLegend* leg = new TLegend(0.65,0.30,0.89,0.60);
+   vector<TCanvas*> cc(4,nullptr);
+   for ( size_t i = 0; i < cc.size(); ++i ) {
+      int x0 = 700*(i%2);
+      int y0 = 500*(i/2);
+      // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
+      auto name = Form("c%zu_%s_%i",1+i,p_pdf.c_str(),date);
+      cc[i] = new TCanvas( name,name, x0,y0,600,600);
+   }
+
+   // plot efficiencies
+   TLegend* leg = new TLegend(0.60,0.44,0.89,0.60);
    leg->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
    leg->AddEntry(eff_d[0],  "  data ", "LP");
    leg->AddEntry(eff_mc[0], "  MC ",   "LP");
 
-   gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.89);
-   gStyle->SetStatW(0.25);
-   gStyle->SetFitFormat(".4f");
-
-   // plot efficiencies
    for (int i = 0; i < Nh; ++i ) {
-      c1->cd(i+1);
+      auto& ci = cc[0+i];
+      ci->cd();
       gPad->SetGrid();
       eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
       string title =
@@ -442,48 +456,54 @@ void plot_pict_pi(int date, int pm = 0) {
          string(";#epsilon(#pi)");
       eff_d[i]->SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
-      eff_d[i]->GetYaxis()->SetTitleOffset(0.8);
+      eff_d[i]->GetYaxis()->SetTitleOffset(0.9);
       eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
       eff_d[i]->Draw("E");
       eff_mc[i]->Draw("E SAME");
       leg->Draw();
+
+      gPad->RedrawAxis();
+      ci->Update();
+      string pp = p_pdf + ( ( i == 0 ) ? "_pt" : "_cos" );
+      ci->Print( Form("trkeff_%s_%i.pdf",pp.c_str(),date) );
    }
 
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf1 = "eff_" + p_pdf + "_" + to_string(date) + ".pdf";
-   c1->Print( pdf1.c_str() );
-   // return;
-
-   TCanvas* c2 = new TCanvas("c2","...",0,500,1200,400);
-   c2->Divide(2,1);
    // plot ratio
+   TLegend* leg2 = new TLegend(0.14,0.81,0.40,0.89);
+   leg2->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
+
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.89);
+   gStyle->SetStatW(0.25);
+   gStyle->SetFitFormat(".4f");
+
    for (int i = 0; i < Nh; ++i ) {
-      c2->cd(i+1);
+      auto& ci = cc[2+i];
+      ci->cd();
+      gPad->SetLeftMargin(gPad->GetLeftMargin()+0.02);
+      gPad->SetRightMargin(gPad->GetRightMargin()-0.02);
       gPad->SetGrid();
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
-      // if ( date == 2012 && i == 0 ) {
-         // rat0[i]->SetAxisRange(0.95,1.25,"Y");
-      // }
+         // string(Form("%s, data/MC %i",p_leg.c_str(),date)) +
       string title =
-         string(Form("%s, data/MC %i",p_leg.c_str(),date)) +
-         ( (i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)" ) +
+         string( (i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)" ) +
          string(";#epsilon(data) / #epsilon(MC)");
       rat0[i]->SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i]->GetYaxis()->SetTitleOffset(0.9);
+      rat0[i]->GetYaxis()->SetTitleOffset(1.15);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
       rat0[i]->Fit( pl0, "" );
       rat0[i]->Draw("SAME E0");
-   }
+      leg2->Draw();
 
-   gPad->RedrawAxis();
-   c2->Update();
-   string pdf2 = "rat_" + p_pdf + "_" + to_string(date) + ".pdf";
-   c2->Print( pdf2.c_str() );
+      gPad->RedrawAxis();
+      ci->Update();
+      string pp = p_pdf + ( ( i == 0 ) ? "_pt" : "_cos" );
+      ci->Print( Form("trkeff_rat_%s_%i.pdf",pp.c_str(),date) );
+   }
 }
 
 // {{{1 Test +/- identity
@@ -899,7 +919,7 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    c1->Print( (pdf1+"]").c_str() ); // close pdf-file
 
    // ++++ Second fit ++++
-   TCanvas* c2 = new TCanvas("c2","...",0,0,800,800);
+   TCanvas* c2 = new TCanvas("c2","...",0,0,800,750);
    c2->cd();
    gPad->SetGrid();
    gStyle->SetFitFormat(".4f");
@@ -1000,19 +1020,13 @@ void trk_eff_fit() {
    gStyle->SetStatY(0.89);
    // gStyle->SetStatW(0.25);
 
-   // plot_pict_pi(2009,1);  // +
-   // plot_pict_pi(2009,-1); // -
-   // plot_pict_pi(2012,1);
-   // plot_pict_pi(2012,-1);
-   // plot_pict_pi(2021,1);
-   // plot_pict_pi(2021,-1);
-
-   // plot_pict_K(2009,1);  // +
-   // plot_pict_K(2009,-1); // -
-   // plot_pict_K(2012,1);
-   // plot_pict_K(2012,-1);
-   // plot_pict_K(2021,1);
-   // plot_pict_K(2021,-1);
+   // for ( auto date : {2009, 2012, 2021} ) {
+   // for ( auto date : {2009} ) {
+      // for ( auto sign : {+1, -1} ) {
+         // plot_pict_pi(date,sign);
+         // plot_pictK(date,sign);
+      // }
+   // }
 
    // int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
    // for ( auto date : {2009, 2012, 2021} ) {
