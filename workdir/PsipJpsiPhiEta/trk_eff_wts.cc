@@ -107,9 +107,10 @@ void plot_WPi(string fname, int date) {
    double hmax = hstWpi->GetMaximum();
    hmax = max( hmax,hstWpiP->GetMaximum() );
    hmax = max( hmax,hstWpiM->GetMaximum() );
-   cout << "hmax= " << hmax << endl;
+   // cout << "hmax= " << hmax << endl;
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   auto cname = Form("c1_%i",date);
+   TCanvas* c1 = new TCanvas(cname,cname,0,0,800,800);
    c1->cd();
    gPad->SetGrid();
 
@@ -119,7 +120,7 @@ void plot_WPi(string fname, int date) {
 
    SetHstFace(hstWpi);
    hstWpi->SetLineWidth(3);
-   hstWpi->GetYaxis()->SetMaxDigits(3);
+   hstWpi->GetYaxis()->SetMaxDigits(4);
    hstWpi->GetYaxis()->SetTitleOffset(1.2);
    hstWpi->Draw("HIST");
 
@@ -149,10 +150,11 @@ void plot_WPi(string fname, int date) {
 //--------------------------------------------------------------------
 void plot_WK(string fname, int date) {
 //--------------------------------------------------------------------
+#include "masses.h"
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
-      exit(0);
+      exit(EXIT_FAILURE);
    }
    cout << " file: " << fname << endl;
 
@@ -160,78 +162,64 @@ void plot_WK(string fname, int date) {
 
    // J/Psi -> phi eta
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
+   if ( !a4c ) {
+      cerr << "ERROR in "<< __func__
+         << " can not find a4c" << endl;
+      exit(EXIT_FAILURE);
+   }
 
    // Declaration of leaves types
+   // #include "a4c_v709.h"
+   //        just the ones we use here
    Double_t        Mrec;
-   Double_t        ch2;
-   Double_t        Ptpip;
-   Double_t        Cpip;
-   Double_t        Ptpim;
-   Double_t        Cpim;
-   Double_t        Ptkp;
-   Double_t        Ckp;
-   Double_t        Ptkm;
-   Double_t        Ckm;
-   Double_t        Eg1;
-   Double_t        Cg1;
-   Double_t        Eg2;
-   Double_t        Cg2;
-   Double_t        Ptgg;
-   Double_t        Cgg;
-   Double_t        Mkk;
-   Double_t        Mgg;
-   Double_t        dec;
-   Double_t        decj;
-
-   // Set branch addresses.
    a4c->SetBranchAddress("Mrec",&Mrec);
+   Double_t        ch2;
    a4c->SetBranchAddress("ch2",&ch2);
-   a4c->SetBranchAddress("Ptpip",&Ptpip);
-   a4c->SetBranchAddress("Cpip",&Cpip);
-   a4c->SetBranchAddress("Ptpim",&Ptpim);
-   a4c->SetBranchAddress("Cpim",&Cpim);
-   a4c->SetBranchAddress("Ptkp",&Ptkp);
+   Double_t        Pkp;
+   a4c->SetBranchAddress("Pkp",&Pkp);
+   Double_t        Ckp;
    a4c->SetBranchAddress("Ckp",&Ckp);
-   a4c->SetBranchAddress("Ptkm",&Ptkm);
+   Double_t        Pkm;
+   a4c->SetBranchAddress("Pkm",&Pkm);
+   Double_t        Ckm;
    a4c->SetBranchAddress("Ckm",&Ckm);
-   a4c->SetBranchAddress("Eg1",&Eg1);
-   a4c->SetBranchAddress("Cg1",&Cg1);
-   a4c->SetBranchAddress("Eg2",&Eg2);
-   a4c->SetBranchAddress("Cg2",&Cg2);
-   a4c->SetBranchAddress("Ptgg",&Ptgg);
-   a4c->SetBranchAddress("Cgg",&Cgg);
+   Double_t        Mkk;
    a4c->SetBranchAddress("Mkk",&Mkk);
+   Double_t        Mgg;
    a4c->SetBranchAddress("Mgg",&Mgg);
-   a4c->SetBranchAddress("dec",&dec);
-   a4c->SetBranchAddress("decj",&decj);
+   Double_t        mcmkk;
+   a4c->SetBranchAddress("mcmkk",&mcmkk);
 
    // this is cut for a4c-tuple
    auto c_Mrec = [](double Mrec)->bool{
       return fabs(Mrec-3.097)<0.005;
    };
 
-   // Cuts for a4c: (see cuts.h)
+   // chi^2 cut
    auto c_chi2 = [](double ch2)->bool{
       return ch2<80;
-   }; // std
+   };
 
-   // Mphi cut: [dL, dU] (see mass_kk_fit.cc)
-   const double mk   = 0.493677; // 493.677  +/- 0.016 MeV
-   const double dL = 2*mk; // the left cutoff
-   const double dU = 1.08; // MUST BE < 1.0835 !!!
-   auto c_phi = [dL,dU](double Mkk)->bool{
-      return (Mkk>dL && Mkk<dU);
+   // Mphi cut: [dL, dU]
+   double dL = 2*Mk; // the left cutoff
+   double dU = 1.08; // MUST BE < 1.0835 for signal
+   auto c_phi = [dL,dU](double Mkk) -> bool{
+      return ( Mkk > dL && Mkk < dU);
    };
 
    // Meta: central part
-   const double meta = 0.547862; //  547.862 +/- 0.017 MeV
    const double seta = 0.008;
-   const double weta = 3*seta; // standard
-//    const double weta = 4*seta; // uncertainties study: 2x, 4x
-   auto c_cpgg = [meta,weta](double Mgg)->bool{
-      return fabs(Mgg-meta)<weta;
+   const double weta = 3*seta;
+   auto c_cpgg = [weta](double Mgg) -> bool{
+      return fabs(Mgg-Meta) < weta;
    };
 
+   TH1D* hstWKP = new TH1D("hst_WKP",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
+   TH1D* hstWKM = new TH1D("hst_WKM",
+         ";correction factor;Entries/0.001",
+         200,0.9,1.1);
    TH1D* hstWK = new TH1D("hst_WK",
          ";correction factor;Entries/0.001",
          200,0.9,1.1);
@@ -239,37 +227,62 @@ void plot_WK(string fname, int date) {
    Long64_t nentries = a4c->GetEntries();
    for (Long64_t i=0; i<nentries;i++) {
       a4c->GetEntry(i);
+      if ( !(mcmkk<1.08) ) continue;
       if ( !c_Mrec(Mrec) ) continue;
       if ( !c_chi2(ch2) ) continue;
       if ( !c_phi(Mkk) ) continue;
       if ( !c_cpgg(Mgg) ) continue;
 
       // correction for K+,K- eff:
-      // double wp = ReWeightTrkPid(date,1,Ptkp);
-      // double wm = ReWeightTrkPid(date,1,Ptkm);
-      double wp = 1;
-      double wm = 1;
-      double w = wp*wm;
-      hstWK -> Fill(w);
+      double Ptkp = Pkp*sqrt(1-Ckp*Ckp); // P -> Pt
+      double Ptkm = Pkm*sqrt(1-Ckm*Ckm);
+      double wp = RewTrk_K( date, Ptkp, +1.);
+      double wm = RewTrk_K( date, Ptkm, -1.);
+      hstWKP->Fill(wp);
+      hstWKM->Fill(wm);
+      hstWK->Fill(wp*wm);
    }
 
-   TLegend* leg = new TLegend(0.59,0.79,0.89,0.89);
-   leg->SetHeader( Form("K^{#plus}K^{#minus} pairs %i",date),"C");
+   double hmax = hstWK->GetMaximum();
+   hmax = max( hmax,hstWKP->GetMaximum() );
+   hmax = max( hmax,hstWKM->GetMaximum() );
+   // cout << "hmax= " << hmax << endl;
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,700,700);
+   auto cname = Form("c1_%i",date);
+   TCanvas* c1 = new TCanvas(cname,cname,0,0,800,800);
    c1->cd();
    gPad->SetGrid();
 
+   gPad->SetLogy(true);
+   hstWK->SetMinimum(1.);
+   hstWK->SetMaximum(2*hmax);
+   // hstWK->SetMaximum(1.1*hmax); // liner
+
    SetHstFace(hstWK);
-   hstWK -> SetLineWidth(2);
-//    hstWK -> SetLineColor(kBlack);
-   hstWK -> GetYaxis() -> SetMaxDigits(3);
-   hstWK -> Draw("HIST");
+   hstWK->SetLineWidth(3);
+   hstWK->GetYaxis()->SetMaxDigits(4);
+   hstWK->GetYaxis()->SetTitleOffset(1.2);
+   hstWK->Draw("HIST");
+
+   hstWKP->SetLineColor(kRed+1);
+   hstWKM->SetLineColor(kGreen+3);
+   hstWKP->SetLineStyle(kDashed);
+   hstWKM->SetLineStyle(kDashed);
+   hstWKP->SetLineWidth(2);
+   hstWKM->SetLineWidth(2);
+   hstWKP->Draw("SAME HIST");
+   hstWKM->Draw("SAME HIST");
+
+   TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
+   leg->SetHeader( Form("MC signal %i",date), "C" );
+   leg->AddEntry( hstWK, "pair of K^{#plus}K^{#minus}", "L");
+   leg->AddEntry( hstWKP, "K^{#plus} only", "L");
+   leg->AddEntry( hstWKM, "K^{#minus} only", "L");
    leg->Draw();
 
    gPad->RedrawAxis();
    c1->Update();
-   string pdf = string("wts_KK_") + to_string(date) + string(".pdf");
+   string pdf = "wts_KK_" + to_string(date) + ".pdf";
    c1->Print(pdf.c_str());
 }
 
@@ -287,11 +300,12 @@ void trk_eff_wts() {
    gStyle->SetLegendFont(42);
 
    const string Dir = "prod_v709n3/";
-   int date = 2009;
-   string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
-   string mcsigfile( Form("mcsig_kkmc_%02i.root",date%100) );
 
-   plot_WPi(Dir + mcincfile, date);
+   for ( auto date : {2009, 2012, 2021} ) {
+      // string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
+      // plot_WPi(Dir + mcincfile, date);
 
-   // plot_WK("prod-11/mcsig_kkmc_09.root", 2009);
+      // string mcsigfile( Form("mcsig_kkmc_%02i.root",date%100) );
+      // plot_WK(Dir + mcsigfile, date);
+   }
 }

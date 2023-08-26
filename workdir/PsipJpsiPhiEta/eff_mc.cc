@@ -100,7 +100,9 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
       exit(EXIT_FAILURE);
    }
 
-// #include "a4c_v709.h"
+   // Declaration of leaves types
+   // #include "a4c_v709.h"
+   //        just the ones we use here
    Double_t        Mrec;
    a4c->SetBranchAddress("Mrec",&Mrec);
    Double_t        ch2;
@@ -175,9 +177,9 @@ void get_eff(string fname, string pdf="", bool chkIO = false) {
       if ( date <= 2012
             && !chkIO   // disable corrections for I/O check
          ) {
-         double Ptkp = Pkp*sin(Ckp);
+         double Ptkp = Pkp*sin(Ckp); // ERROR Ckp == cos
          wp = ReWeightTrkPid(date,1,Ptkp);
-         double Ptkm = Pkm*sin(Ckm);
+         double Ptkm = Pkm*sin(Ckm); // ERROR
          wm = ReWeightTrkPid(date,1,Ptkm);
       }
       double w = wp*wm;
