@@ -63,7 +63,7 @@ void TrkDel(string fname, string lhead, string pdf) {
    vector<TH1D*> hst = get_hists(fname, {"ct_Ntrk","ct_nrm"});
 
    string nc = pdf.substr(4, pdf.find(".")-4);
-   TCanvas* c1 = new TCanvas(nc.c_str(),nc.c_str(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(nc.c_str(),nc.c_str(),0,0,800,720);
    c1->cd();
    c1->Divide(1,2,0.01,0.);
 
@@ -91,7 +91,8 @@ void TrkDel(string fname, string lhead, string pdf) {
    gPad->SetGrid();
 
    TH1D* hr = (TH1D*) hst[1]->Clone( Form("rat_%s",nc.c_str()) );
-   hr->Divide(hst[1],hst[0], 100., 1.,"B");
+   // hr->Divide(hst[1],hst[0], 100., 1.,"B");
+   hr->Divide(hst[1],hst[0], 100., 1.);
    hr->SetMinimum(1e-2);
    hr->SetMaximum(20);
    // hr->SetTitle(";Negative and Positive tracks;Cloned / All (%)");
@@ -274,7 +275,7 @@ void ClonedTrks() {
             case 2:
                fname = string(
                      Form("mcsig_kkmc_%02i.root",date%100) );
-               lhead = string( Form("MC sig. %i",date) );
+               lhead = string( Form("Signal MC %i",date) );
                pdf = string( Form("Cln_mcsig_%02i.pdf",date%100) );
                pdfA = string( Form("Ang_mcsig_%02i.pdf",date%100) );
                pdfP = string( Form("Mom_mcsig_%02i.pdf",date%100) );

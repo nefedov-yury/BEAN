@@ -134,7 +134,7 @@ void plot_WPi(string fname, int date) {
    hstWpiM->Draw("SAME HIST");
 
    TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
-   leg->SetHeader( Form("MC %i",date), "C" );
+   leg->SetHeader( Form("MC inclusive %i",date), "C" );
    leg->AddEntry( hstWpi, "pair of #pi^{#plus}#pi^{#minus}", "L");
    leg->AddEntry( hstWpiP, "#pi^{#plus} only", "L");
    leg->AddEntry( hstWpiM, "#pi^{#minus} only", "L");
