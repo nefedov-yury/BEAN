@@ -223,7 +223,7 @@ void get_hst( Params* p, int mc,
 
 // {{{1 Plot pi0
 //--------------------------------------------------------------------
-void plot_pi0(int date) {
+void plot_pi0(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -250,7 +250,7 @@ void plot_pi0(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -301,7 +301,7 @@ void plot_pi0(int date) {
 
 // {{{1 ++ J/Psi -> gamma eta ++ Plot recoil mass pi+pi-gamma
 //--------------------------------------------------------------------
-void plot_Mpipig(int date) {
+void plot_Mpipig(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -350,7 +350,7 @@ void plot_Mpipig(int date) {
    double M2r = SQ(meta)+0.2;
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -412,7 +412,7 @@ void plot_Mpipig(int date) {
 
 // {{{1 Plot invariant mass of 2nd photon and «missing photon»
 //--------------------------------------------------------------------
-void plot_Minv2g(int date) {
+void plot_Minv2g(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -457,7 +457,7 @@ void plot_Minv2g(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -513,7 +513,7 @@ void plot_Minv2g(int date) {
 
 // {{{1 Plot missing mass of pi+ pi- gamma gamma
 //--------------------------------------------------------------------
-void plot_M2mis(int date) {
+void plot_M2mis(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -559,7 +559,7 @@ void plot_M2mis(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -568,7 +568,7 @@ void plot_M2mis(int date) {
    hdat[0]->SetAxisRange(0.,0.0079,"X");
    hdat[0]->SetMinimum(0.5);
    hdat[0]->SetTitle(
-         ";M^{2}_{missing}(#pi^{#plus}#pi^{#minus}#gamma#gamma),"
+         ";M^{2}_{missing}(#pi^{#plus}#pi^{#minus}#gamma#gamma_{2}),"
          " GeV^{2}/c^{4}"
          ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
    hdat[0]->GetXaxis()->SetNdivisions(1004);
@@ -616,7 +616,7 @@ void plot_M2mis(int date) {
 
 // {{{1 Plot E of gamma from decay eta->2gamms
 //--------------------------------------------------------------------
-void plot_Eg(int date) {
+void plot_Eg(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -675,7 +675,7 @@ void plot_Eg(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -686,8 +686,8 @@ void plot_Eg(int date) {
    hdat[0]->SetMaximum(ymax);
 
    hdat[0]->SetTitle(
-         ";E_{#gamma}, GeV"
-         ";Entries/0.025 GeV"); // OK!
+         ";E(#gamma_{2}), GeV"
+         ";Entries/0.025 GeV");
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    // hdat[0]->GetYaxis()->SetNdivisions(504);
    hdat[0]->GetYaxis()->SetTitleOffset(1.25);
@@ -730,7 +730,7 @@ void plot_Eg(int date) {
 
 // {{{1 Plot: match Energy and Theta
 //--------------------------------------------------------------------
-void plot_rE(int date) {
+void plot_rE(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -756,14 +756,15 @@ void plot_rE(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetLogy(true);
 
    // Data
    hdat[0]->SetMinimum(1.);
    hdat[0]->SetTitle(
-         ";E_{#gamma}(pred) / E_{#gamma}(rec)"
+         ";E_{#gamma}#kern[0.1]{(pred)} / "
+         "E_{#gamma}#kern[0.1]{(rec)}"
          ";Entries / 0.01");
    // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->SetAxisRange(0.0,2.0,"X");
@@ -807,7 +808,7 @@ void plot_rE(int date) {
 
 
 //--------------------------------------------------------------------
-void plot_dTh(int date) {
+void plot_dTh(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -833,7 +834,7 @@ void plot_dTh(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetLogy(true);
 
@@ -881,7 +882,7 @@ void plot_dTh(int date) {
 
 // {{{1 Plot of Mgg
 //--------------------------------------------------------------------
-void plot_Mgg(int date) {
+void plot_Mgg(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -933,7 +934,7 @@ void plot_Mgg(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -991,7 +992,7 @@ void plot_Mgg(int date) {
 
 // {{{1 Plot predicted P(eta) and cos(Theta(eta))
 //--------------------------------------------------------------------
-void plot_Peta(int date) {
+void plot_Peta(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -1042,7 +1043,7 @@ void plot_Peta(int date) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1087,7 +1088,7 @@ void plot_Peta(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_Ceta(int date) {
+void plot_Ceta(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
@@ -1139,7 +1140,7 @@ void plot_Ceta(int date) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1189,7 +1190,7 @@ void plot_Ceta(int date) {
 
 // {{{1 ++ J/Psi -> phi eta ++ Plot invariant mass of K+K-
 //--------------------------------------------------------------------
-void plot2_MKK(int date) {
+void plot2_MKK(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1229,7 +1230,7 @@ void plot2_MKK(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1265,7 +1266,7 @@ void plot2_MKK(int date) {
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[2], "MC background","F");
+   // leg->AddEntry(hmc[2], "MC background","F");
    leg->AddEntry(box, "Rejection area","F");
    leg->Draw();
 
@@ -1277,7 +1278,7 @@ void plot2_MKK(int date) {
 
 // {{{1 Plot invariant mass of photon and «missing photon»
 //--------------------------------------------------------------------
-void plot2_Minv2g(int date) {
+void plot2_Minv2g(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1319,7 +1320,7 @@ void plot2_Minv2g(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1372,7 +1373,7 @@ void plot2_Minv2g(int date) {
 
 // {{{1 Plot missing mass of pi+ pi- gamma gamma
 //--------------------------------------------------------------------
-void plot2_M2mis(int date) {
+void plot2_M2mis(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1419,7 +1420,7 @@ void plot2_M2mis(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -1476,7 +1477,7 @@ void plot2_M2mis(int date) {
 
 // {{{1 Plot: match Energy and Theta
 //--------------------------------------------------------------------
-void plot2_rE(int date) {
+void plot2_rE(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1503,7 +1504,7 @@ void plot2_rE(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetLogy(true);
 
@@ -1552,7 +1553,7 @@ void plot2_rE(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot2_dTh(int date) {
+void plot2_dTh(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1579,7 +1580,7 @@ void plot2_dTh(int date) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetLogy(true);
 
@@ -1591,6 +1592,7 @@ void plot2_dTh(int date) {
    // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1625,9 +1627,119 @@ void plot2_dTh(int date) {
    c1->Print(pdf.c_str());
 }
 
+// {{{1 Plot of Mgg
+//--------------------------------------------------------------------
+void plot2_Mgg(int date, int Cx = 800, int Cy = 800) {
+//--------------------------------------------------------------------
+   Params* par = new Params(date,-2,0); // date, phieta, no_rew
+
+   auto hst = [](string nm) {
+      TH1D* h = new TH1D(nm.c_str(),"", 80,0.51,0.59);
+      h->Sumw2(true);
+      return h;
+   };
+
+   const double meta   = 0.547862; // 547.862   +/- 0.017   MeV
+   const double weta   = 3*0.008; // see cuts.h
+
+   TTree* eff_etaD = par->GetEffEta(0); // data
+   vector<TH1D*> hdat { hst("hdat") };
+
+   TCut cutD = par->Cbg + par->Ceta + TCut("fl>0.5");
+   eff_etaD->Draw("mggf>>hdat",cutD,"goff");
+
+   TTree* eff_etaMC = par->GetEffEta(1); // MC: bg only!
+   vector<TH1D*> hmc(3,nullptr);
+   hmc[2] = hst("hmcB");
+   eff_etaMC->Draw( "mggf>>hmcB",cutD +!par->Cmcsig,"goff");
+
+   TTree* eff_etaMC2 = par->GetEffEta(2); // MC-gamma-eta: signal
+   hmc[1] = hst("hmcS");
+   eff_etaMC2->Draw( "mggf>>hmcS",cutD + par->Cmcsig,"goff");
+
+   // sum of signal and bg.
+   hmc[0] = hst("hmcT");
+   hmc[0]->Add( hmc[1], hmc[2], par->W_g_eta(), 1.);
+   hmc[1]->Scale( par->W_g_eta() );
+
+   // normalization on DATA
+   double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   for ( auto& h : hmc ) {
+      h->Scale(scale);
+   }
+
+   // fit function
+   TF1* gs = (TF1*)gROOT->GetFunction("gaus");
+   gs->SetLineWidth(2);
+   gs->SetLineColor(kGreen+2);
+
+   // box to show cut
+   TBox* box = new TBox;
+   box->SetFillStyle(3001);
+   box->SetFillColor(kRed-10);
+   box->SetLineColor(kRed-9);
+   box->SetLineWidth(1);
+
+   // Draw:
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   c1->cd();
+   gPad->SetGrid();
+
+   gStyle->SetStatX(0.89);
+   gStyle->SetStatY(0.89);
+   gStyle->SetStatW(0.19);
+   gStyle->SetStatH(0.12);
+   gStyle->SetFitFormat(".3g");
+
+   // Data
+   SetHstFace(hdat[0]);
+   hdat[0]->SetTitle(
+         ";M_{inv}(#gamma#gamma), GeV/c^{2}"
+         ";Entries/0.001 GeV/c^{2}");
+   hdat[0]->GetYaxis()->SetNdivisions(1005);
+   hdat[0]->GetYaxis()->SetMaxDigits(2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->SetLineWidth(2);
+   hdat[0]->SetLineColor(kBlack);
+   hdat[0]->SetMarkerStyle(20);
+   double ymax = 1.12 * hdat[0]->GetMaximum();
+   hdat[0]->SetMaximum(ymax);
+   double Mmin = meta-weta, Mmax = meta+weta;
+   hdat[0]->Fit(gs,"QM","",Mmin,Mmax);
+   hdat[0]->Draw("E");
+
+   box->DrawBox( 0.51,      0., meta-weta, ymax);
+   box->DrawBox( meta+weta, 0., 0.59,      ymax);
+   hdat[0]->Draw("E,SAME");
+
+   hmc[0]->SetLineWidth(2);
+   hmc[0]->SetLineColor(kRed+1);
+   hmc[0]->Draw("HIST,SAME");
+
+   hmc[2]->SetLineWidth(1);
+   hmc[2]->SetLineColor(kBlue+1);
+   hmc[2]->SetFillStyle(3001);
+   hmc[2]->SetFillColor(kBlue+1);
+   hmc[2]->Draw("HIST,SAME");
+
+   TLegend* leg = new TLegend(0.11,0.64,0.36,0.89);
+   leg->SetHeader( Form("%i",date),"C");
+   leg->AddEntry(hdat[0], "Data","LEP");
+   leg->AddEntry(gs, "Fit of data","L");
+   leg->AddEntry(hmc[0], "MC","L");
+   leg->AddEntry(hmc[2], "MC background","F");
+   leg->AddEntry(box, "Rejection area","F");
+   leg->Draw();
+
+   gPad->RedrawAxis();
+   c1->Update();
+   string pdf = "etaphi_Mgg_" + to_string(date) + ".pdf";
+   c1->Print(pdf.c_str());
+}
+
 // {{{1 Plot predicted P(eta) and cos(Theta(eta))
 //--------------------------------------------------------------------
-void plot2_Peta(int date) {
+void plot2_Peta(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1680,7 +1792,7 @@ void plot2_Peta(int date) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1725,7 +1837,7 @@ void plot2_Peta(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot2_Ceta(int date) {
+void plot2_Ceta(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
@@ -1779,7 +1891,7 @@ void plot2_Ceta(int date) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1834,30 +1946,33 @@ void eta_eff_sel() {
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
 
+   size_t Cx = 880, Cy = 800; // canvas sizes
+
    for ( auto date : {2009, 2012, 2021} ) {
    // for ( auto date : {2009} ) {
       // ++ pi0 rejection ++
-      // plot_pi0(date); // fig.50
+      // plot_pi0(date,Cx,Cy); // fig.59
 
       // ++ J/Psi -> gamma eta ++
-      // plot_Mpipig(date); // fig 51
-      // plot_Minv2g(date); // fig 52
-      // plot_M2mis(date);  // fig 53
-      // plot_Eg(date);     // fig 54
-      // plot_rE(date);     // fig 55 (top)
-      // plot_dTh(date);    // fig 55 (bottom)
-      // plot_Mgg(date);    // fig 56
-      // plot_Peta(date);   // fig 57 (top)
-      // plot_Ceta(date);   // fig 57 (bottom)
+      // plot_Mpipig(date,Cx,Cy); // fig 60
+      // plot_Minv2g(date,Cx,Cy); // fig 61
+      // plot_M2mis(date,Cx,Cy);  // fig 62
+      // plot_Eg(date,Cx,Cy);     // fig 63
+      // plot_dTh(date,Cx,Cy);    // fig 64 (top)
+      // plot_rE(date,Cx,Cy);     // fig 64 (bottom)
+      // plot_Mgg(date,Cx,Cy);    // fig 65
+      // plot_Peta(date,Cx,Cy);   // fig 66 (top)
+      // plot_Ceta(date,Cx,Cy);   // fig 66 (bottom)
 
-      // ++ J/Psi -> phi eta ++
-      // plot2_MKK(date);       // fig 60
-      // plot2_Minv2g(date);    // fig 61
-      // plot2_M2mis(date);     // fig 62
-      // plot2_rE(date);        // fig 63 (top)
-      // plot2_dTh(date);       // fig 63 (bottom)
-      // plot2_Peta(date);      // fig 64 (top)
-      // plot2_Ceta(date);      // fig 64 (bottom)
+      // -- J/Psi -> phi eta ++
+      // plot2_MKK(date,Cx,Cy);       // fig 69
+      // plot2_Minv2g(date,Cx,Cy);    // fig 70
+      // plot2_M2mis(date,Cx,Cy);     // fig 71
+      // plot2_Mgg(date,Cx,Cy);       // fig 72
+      // plot2_dTh(date,Cx,Cy);       // fig 73 (top)
+      // plot2_rE(date,Cx,Cy);        // fig 73 (bottom)
+      // plot2_Peta(date,Cx,Cy);      // fig 74 (top)
+      // plot2_Ceta(date,Cx,Cy);      // fig 75 (bottom)
    }
 
 }

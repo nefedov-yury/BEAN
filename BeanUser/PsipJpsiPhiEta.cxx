@@ -255,6 +255,7 @@ static inline double SQ(double x) {
 static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
+   // TODO: cosPM > 0.9,
    bool ret = true;
    if ( (cosPM > 0.80) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
@@ -367,12 +368,14 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[21] = new TH1D("Mrec","recol mass of pi+ pi-", 100,3.,3.2);
    hst[22] = new TH2D("MrecNch","Mrec(pi+ pi-) vs Nch",
                       100,3.,3.2,10,1.5,11.5);
-   hst[23] = new TH1D("cosPM", "cos(Theta_pi+_pi-)", 100,-1.0,1.0);
-   hst[24] = new TH2D("cosPMNch", "cos(Theta_pi+_pi-) vs Nch",
-                      100,-1.0,1.0,10,1.5,11.5);
+   hst[23] = new TH1D("cosPM", "cos(Theta_pi+pi-)", 100,-1.0,1.0);
+   hst[24] = new TH1D("cosPMz", "cos(pi+pi-) zoom", 100,0.6,1.0);
+   // hst[24] = new TH2D("cosPMNch", "cos(Theta_pi+_pi-) vs Nch",
+                      // 100,-1.0,1.0,10,1.5,11.5);
    hst[25] = new TH1D("invPM", "inv.mass(pi+ pi-)", 100,0.25,0.75);
-   hst[26] = new TH2D("invPMNch", "inv.mass(pi+ pi-) vs Nch",
-                      100,0.25,0.75,10,1.5,11.5);
+   hst[26] = new TH1D("invPMz", "Minv(pi+pi-) zoom", 100,0.45,0.55);
+   // hst[26] = new TH2D("invPMNch", "inv.mass(pi+ pi-) vs Nch",
+                      // 100,0.25,0.75,10,1.5,11.5);
    hst[27] = new TH1D("NMrec","N good pi+ pi- pairs", 10,-0.5,9.5);
 
    hst[31] = new TH1D("BMrec","the best Mrec(pi+ pi-)",
@@ -1589,12 +1592,14 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
          // Theta(pi+ pi-)
          double cosPM = Vm.cosTheta(Vp);
          hst[23]->Fill( cosPM );
-         hst[24]->Fill( cosPM, double(Ncharged) );
+         hst[24]->Fill( cosPM );
+         // hst[24]->Fill( cosPM, double(Ncharged) );
 
          // Minv( pi+ pi-)
          double invPM = (LVp+LVm).m();
          hst[25]->Fill( invPM );
-         hst[26]->Fill( invPM, double(Ncharged) );
+         hst[26]->Fill( invPM );
+         // hst[26]->Fill( invPM, double(Ncharged) );
 
          // check Mrec candidate
          if ( !SelectPM( cosPM, invPM ) ) {

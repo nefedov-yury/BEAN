@@ -480,7 +480,7 @@ void test_PM(int date, int kpi, int test=1) {
 
 // {{{1 Plot Pi
 //--------------------------------------------------------------------
-void plot_pict_pi(int date, int pm = 0, int rew = 0) {
+void plot_pict_pi(int date, int pm, int rew, int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2,pm,rew); // pi, "+/-"
    vector<TH1D*> eff_d  = get_eff( par, 0 ); // data
@@ -513,43 +513,54 @@ void plot_pict_pi(int date, int pm = 0, int rew = 0) {
 
    // Draw:
    ////////////////////////////////////
-   double eff_min = 0.4, eff_max = 1.0;
-   double rat_min = 0.9, rat_max = 1.1;
+   double eff_min = 0.5, eff_max = 1.0;
+   double rat_min = 0.85, rat_max = 1.15;
+   if ( rew == 1 ) {
+      rat_min = 0.90; rat_max = 1.10;
+   }
    ////////////////////////////////////
    string p_pdf("Pi"), p_leg("#pi");
    if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{#kern[0.25]{#plus}}";}
    if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{#kern[0.25]{#minus}}";}
 
    vector<TCanvas*> cc(4,nullptr);
+   vector<TLegend*> leg(4,nullptr);
    for ( size_t i = 0; i < cc.size(); ++i ) {
       int x0 = 700*(i%2);
       int y0 = 500*(i/2);
       // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
       auto name = Form("c%zu_%s_%i",1+i,p_pdf.c_str(),date);
-      cc[i] = new TCanvas( name,name, x0,y0,600,570);
+      cc[i] = new TCanvas( name,name, x0,y0,Cx,Cy);
+
+      auto cdat = Form("%i  %s",date,p_leg.c_str());
+      if ( i < 2 ) { // efficiency
+         leg[i] = new TLegend(0.61,0.30,0.89,0.50);
+         leg[i]->SetHeader( cdat,"C");
+         leg[i]->AddEntry(eff_d[0],  "  data ", "LP");
+         leg[i]->AddEntry(eff_mc[0], "  MC ",   "LP");
+      } else { // retio
+         leg[i] = new TLegend(0.14,0.81,0.42,0.89);
+         leg[i]->SetHeader( cdat,"C");
+      }
    }
 
    // plot efficiencies
-   TLegend* leg = new TLegend(0.60,0.44,0.89,0.60);
-   leg->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
-   leg->AddEntry(eff_d[0],  "  data ", "LP");
-   leg->AddEntry(eff_mc[0], "  MC ",   "LP");
-
    for (int i = 0; i < Nh; ++i ) {
       auto& ci = cc[0+i];
       ci->cd();
       gPad->SetGrid();
-      eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
       string title =
          string( ((i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)") ) +
          string(";#epsilon(#pi)");
       eff_d[i]->SetTitle(title.c_str());
       SetHstFace(eff_d[i]);
+      eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
+      eff_d[i]->GetYaxis()->SetNdivisions(505);
       eff_d[i]->GetYaxis()->SetTitleOffset(0.9);
       eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
       eff_d[i]->Draw("E");
       eff_mc[i]->Draw("E SAME");
-      leg->Draw();
+      leg[0+i]->Draw();
 
       gPad->RedrawAxis();
       ci->Update();
@@ -559,9 +570,6 @@ void plot_pict_pi(int date, int pm = 0, int rew = 0) {
    }
 
    // plot ratio
-   TLegend* leg2 = new TLegend(0.14,0.81,0.40,0.89);
-   leg2->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
-
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
@@ -573,21 +581,20 @@ void plot_pict_pi(int date, int pm = 0, int rew = 0) {
       gPad->SetLeftMargin(gPad->GetLeftMargin()+0.02);
       gPad->SetRightMargin(gPad->GetRightMargin()-0.02);
       gPad->SetGrid();
-      rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
-         // string(Form("%s, data/MC %i",p_leg.c_str(),date)) +
       string title =
          string( (i==0) ? ";P_{t}, GeV/c" : ";cos(#Theta)" ) +
          string(";#epsilon(data) / #epsilon(MC)");
       rat0[i]->SetTitle(title.c_str());
       SetHstFace(rat0[i]);
+      rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
       rat0[i]->GetYaxis()->SetTitleOffset(1.15);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
       rat0[i]->Fit( pl0, "" );
+      leg[2+i]->Draw();
       rat0[i]->Draw("SAME E0");
-      leg2->Draw();
 
       gPad->RedrawAxis();
       ci->Update();
@@ -599,7 +606,7 @@ void plot_pict_pi(int date, int pm = 0, int rew = 0) {
 
 // {{{1 Plot K
 //--------------------------------------------------------------------
-void plot_pict_K(int date, int pm = 0, int rew = 0) {
+void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,1,pm,rew); // K, "+/-"
    vector<TH1D*> eff_d  = get_eff( par, 0 );
@@ -633,27 +640,37 @@ void plot_pict_K(int date, int pm = 0, int rew = 0) {
    // Draw:
    ////////////////////////////////////
    double eff_min = 0.2, eff_max = 1.0;
-   double rat_min = 0.9, rat_max = 1.1;
+   double rat_min = 0.85, rat_max = 1.15;
+   if ( rew == 1 ) {
+      rat_min = 0.90; rat_max = 1.10;
+   }
    ////////////////////////////////////
    string p_pdf("K"), p_leg("K");
    if ( pm == 1 ) { p_pdf += "p"; p_leg += "^{#plus}";}
    if ( pm == -1 ){ p_pdf += "m"; p_leg += "^{#minus}";}
 
    vector<TCanvas*> cc(4,nullptr);
+   vector<TLegend*> leg(4,nullptr);
    for ( size_t i = 0; i < cc.size(); ++i ) {
       int x0 = 700*(i%2);
       int y0 = 500*(i/2);
       // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
       auto name = Form("c%zu_%s_%i",1+i,p_pdf.c_str(),date);
-      cc[i] = new TCanvas( name,name, x0,y0,600,570);
+      cc[i] = new TCanvas( name,name, x0,y0,Cx,Cy);
+
+      auto cdat = Form("%i  %s",date,p_leg.c_str());
+      if ( i < 2 ) { // efficiency
+         leg[i] = new TLegend(0.61,0.30,0.89,0.50);
+         leg[i]->SetHeader( cdat,"C");
+         leg[i]->AddEntry(eff_d[0],  "  data ", "LP");
+         leg[i]->AddEntry(eff_mc[0], "  MC ",   "LP");
+      } else { // retio
+         leg[i] = new TLegend(0.14,0.81,0.42,0.89);
+         leg[i]->SetHeader( cdat,"C");
+      }
    }
 
    // plot efficiencies
-   TLegend* leg = new TLegend(0.60,0.44,0.89,0.60);
-   leg->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
-   leg->AddEntry(eff_d[0],  "  data ", "LP");
-   leg->AddEntry(eff_mc[0], "  MC ",   "LP");
-
    for (int i = 0; i < Nh; ++i ) {
       auto& ci = cc[0+i];
       ci->cd();
@@ -668,7 +685,7 @@ void plot_pict_K(int date, int pm = 0, int rew = 0) {
       eff_d[i]->GetXaxis()->SetTitleOffset(0.9);
       eff_d[i]->Draw("E");
       eff_mc[i]->Draw("E SAME");
-      leg->Draw();
+      leg[0+i]->Draw();
 
       gPad->RedrawAxis();
       ci->Update();
@@ -678,13 +695,10 @@ void plot_pict_K(int date, int pm = 0, int rew = 0) {
    }
 
    // plot ratio
-   TLegend* leg2 = new TLegend(0.14,0.81,0.40,0.89);
-   leg2->SetHeader( Form("%i  %s",date,p_leg.c_str()),"C");
-
    gStyle->SetStatX(0.89);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
-   gStyle->SetFitFormat(".3f");
+   gStyle->SetFitFormat(".4f");
 
    for (int i = 0; i < Nh; ++i ) {
       auto& ci = cc[2+i];
@@ -705,8 +719,8 @@ void plot_pict_K(int date, int pm = 0, int rew = 0) {
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
       rat0[i]->Fit( pl0, "" );
+      leg[2+i]->Draw();
       rat0[i]->Draw("SAME E0");
-      leg2->Draw();
 
       gPad->RedrawAxis();
       ci->Update();
@@ -1013,13 +1027,14 @@ void trk_eff_fit() {
       // test_PM(date,2,test); // Pions
    // }
 
-   // eff(data), eff(MC), eff(data)/eff(MC), fig 39-42
+   size_t Cx = 630, Cy = 600; // canvas sizes
+   // eff(data), eff(MC), eff(data)/eff(MC), fig 38-41
+   // for ( auto date : {2009} ) { // DEBUG
    // for ( auto date : {2009, 2012, 2021} ) {
-   // for ( auto date : {2009} ) {
       // for ( auto sign : {+1, -1} ) {
          // const int rew = 0;     // 1 - use corrections
-         // plot_pict_pi(date,sign,rew);
-         // plot_pict_K(date,sign,rew);
+         // plot_pict_pi(date,sign,rew,Cx,Cy);
+         // plot_pict_K(date,sign,rew,Cx,Cy);
       // }
    // }
 

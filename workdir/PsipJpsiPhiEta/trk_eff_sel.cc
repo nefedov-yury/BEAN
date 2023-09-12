@@ -156,7 +156,7 @@ void get_hst( Params* p, int mc,
 
 // {{{1 Plot pi0
 //--------------------------------------------------------------------
-void plot_pi0(int date) {
+void plot_pi0(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -185,7 +185,7 @@ void plot_pi0(int date) {
    leg->SetHeader( par->Sdate(),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -231,7 +231,7 @@ void plot_pi0(int date) {
 
 // {{{1 ++++ K-eff: Plot MmisK
 //--------------------------------------------------------------------
-void plot_MmisK(int date) {
+void plot_MmisK(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -263,7 +263,7 @@ void plot_MmisK(int date) {
    leg->SetHeader( par->Sdate(),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -324,7 +324,7 @@ void plot_MmisK(int date) {
 
 // {{{1 Plot PtKp(Km) CKp(Km)
 //--------------------------------------------------------------------
-void plot_PtKp(int date) {
+void plot_PtKp(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,1); // Kaons
    auto hPt = [](string nm) {
@@ -360,7 +360,7 @@ void plot_PtKp(int date) {
    leg->SetHeader( Form("%i  K^{#plus}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -398,7 +398,7 @@ void plot_PtKp(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_PtKm(int date) {
+void plot_PtKm(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date, 1); // Kaons
    auto hPt = [](string nm) {
@@ -433,7 +433,7 @@ void plot_PtKm(int date) {
    leg->SetHeader( Form("%i  K^{#minus}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -471,7 +471,7 @@ void plot_PtKm(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_CKp(int date) {
+void plot_CKp(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,1); // Kaons
    auto hC = [](string nm) {
@@ -506,7 +506,7 @@ void plot_CKp(int date) {
    leg->SetHeader( Form("%i  K^{#plus}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -546,7 +546,7 @@ void plot_CKp(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_CKm(int date) {
+void plot_CKm(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,1);
    auto hC = [](string nm) {
@@ -581,7 +581,7 @@ void plot_CKm(int date) {
    leg->SetHeader( Form("%i  K^{#minus}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -622,7 +622,7 @@ void plot_CKm(int date) {
 
 // {{{1 Plot dPk dThK
 //--------------------------------------------------------------------
-void plot_dPK(int date) {
+void plot_dPK(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -652,7 +652,7 @@ void plot_dPK(int date) {
    leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -701,7 +701,7 @@ void plot_dPK(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_dThK(int date) {
+void plot_dThK(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -731,7 +731,7 @@ void plot_dThK(int date) {
    leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -780,7 +780,7 @@ void plot_dThK(int date) {
 
 // {{{1 ++++ Pi-eff: Plot MinvJ
 //--------------------------------------------------------------------
-void plot_MinvJ(int date, bool fitgs=false) {
+void plot_MinvJ(int date, int Cx=800, int Cy=800, bool fitgs=false) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -815,7 +815,7 @@ void plot_MinvJ(int date, bool fitgs=false) {
    leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -877,7 +877,7 @@ void plot_MinvJ(int date, bool fitgs=false) {
 
 // {{{1 Plot MmisP
 //--------------------------------------------------------------------
-void plot_MmisP(int date) {
+void plot_MmisP(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -907,7 +907,7 @@ void plot_MmisP(int date) {
    leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -968,7 +968,7 @@ void plot_MmisP(int date) {
 
 // {{{1 Plot PtPip(Pim) CPip(Pim)
 //--------------------------------------------------------------------
-void plot_PtPip(int date) {
+void plot_PtPip(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2); // Pions
    auto hPt = [](string nm) {
@@ -1003,7 +1003,7 @@ void plot_PtPip(int date) {
    leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -1041,7 +1041,7 @@ void plot_PtPip(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_PtPim(int date) {
+void plot_PtPim(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2); // pi
    auto hPt = [](string nm) {
@@ -1076,7 +1076,7 @@ void plot_PtPim(int date) {
    leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -1114,7 +1114,7 @@ void plot_PtPim(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_CPip(int date) {
+void plot_CPip(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2);
    auto hC = [](string nm) {
@@ -1150,7 +1150,7 @@ void plot_CPip(int date) {
    leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#plus}}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -1190,7 +1190,7 @@ void plot_CPip(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_CPim(int date) {
+void plot_CPim(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2);
    auto hC = [](string nm) {
@@ -1226,7 +1226,7 @@ void plot_CPim(int date) {
    leg->SetHeader( Form("%i  #pi^{#kern[0.25]{#minus}}",date),"C");
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
 
@@ -1267,7 +1267,7 @@ void plot_CPim(int date) {
 
 // {{{1 Plot dPpi dThPi
 //--------------------------------------------------------------------
-void plot_dPpi(int date) {
+void plot_dPpi(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -1297,7 +1297,7 @@ void plot_dPpi(int date) {
    leg->SetHeader( par->Sdate(), "C" );
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -1346,7 +1346,7 @@ void plot_dPpi(int date) {
 }
 
 //--------------------------------------------------------------------
-void plot_dThPi(int date) {
+void plot_dThPi(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date);
 
@@ -1377,7 +1377,7 @@ void plot_dThPi(int date) {
 
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,800,800);
+   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
    c1->cd(0);
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -1479,42 +1479,44 @@ void trk_eff_sel() {
    gStyle->SetLegendFont(42);
    // gStyle->SetStatFont(62); // ?
 
+   size_t Cx = 880, Cy = 800; // canvas sizes
+
    // for ( auto date : {2009, 2012} ) {
    for ( auto date : {2009, 2012, 2021} ) {
       // -- pi0 rejection, fig.28
-      // plot_pi0(date);
+      // plot_pi0(date,Cx,Cy);
 
       // ---- K+ K- ----
-      // + fig 29
-      // plot_MmisK(date);
+      // fig 29
+      // plot_MmisK(date,Cx,Cy);
 
-      // + fig 30-32
-      // plot_PtKp(date);
-      // plot_PtKm(date);
-      // plot_CKp(date);
-      // plot_CKm(date);
+      // fig 30,31
+      // plot_PtKp(date,Cx,Cy);
+      // plot_PtKm(date,Cx,Cy);
+      // plot_CKp(date,Cx,Cy);
+      // plot_CKm(date,Cx,Cy);
 
-      // + fig 33
-      // plot_dThK(date);
-      // plot_dPK(date);
+      // fig 32
+      // plot_dThK(date,Cx,Cy);
+      // plot_dPK(date,Cx,Cy);
 
       // ---- pi+ pi- ----
-      // + fig 34
-      // plot_MinvJ(date);
-      // plot_MinvJ(date,true); // fit J/Psi peak position
+      // fig 33
+      // plot_MinvJ(date,Cx,Cy);
+      // plot_MinvJ(date,Cx,Cy,true); // fit J/Psi peak position
 
-      // + fig 35
-      // plot_MmisP(date);
+      // fig 34
+      // plot_MmisP(date,Cx,Cy);
 
-      // + fig 36-37
-      // plot_PtPip(date);
-      // plot_PtPim(date);
-      // plot_CPip(date);
-      // plot_CPim(date);
+      // fig 35,36
+      // plot_PtPip(date,Cx,Cy);
+      // plot_PtPim(date,Cx,Cy);
+      // plot_CPip(date,Cx,Cy);
+      // plot_CPim(date,Cx,Cy);
 
-      // + fig 38
-      // plot_dThPi(date);
-      // plot_dPpi(date);
+      // fig 37
+      // plot_dThPi(date,Cx,Cy);
+      // plot_dPpi(date,Cx,Cy);
    }
 
    // other: do not use
