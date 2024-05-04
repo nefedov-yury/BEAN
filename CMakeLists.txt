@@ -149,20 +149,16 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
   (CMAKE_CXX_COMPILER_ID MATCHES "Clang") )   # Clang or AppleClang
 
   # use std version from cflags of ROOT, in most cases this is enough
-  EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--cflags"
-    OUTPUT_VARIABLE ROOT_CFLAGS )
-#      MESSAGE( STATUS "ROOT_CFLAGS= ${ROOT_CFLAGS}" )
-
   IF( ROOT_CFLAGS MATCHES "-std=[^ ]*" )
     # cut out a section with -std=...
     STRING( REGEX REPLACE "^.*(-std=[^ ]*).*$" "\\1"
       ROOT_STDCXX "${ROOT_CFLAGS}" )
-#      MESSAGE( STATUS "ROOT_STDCXX= ${ROOT_STDCXX}" )
+    #  MESSAGE( STATUS "ROOT_STDCXX= ${ROOT_STDCXX}" )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_STDCXX}" )
   ELSE()
     # for 'old' compilers
     IF( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
-#        MESSAGE( STATUS "g++(verion)= ${CMAKE_CXX_COMPILER_VERSION}" )
+      #  MESSAGE( STATUS "g++(verion)= ${CMAKE_CXX_COMPILER_VERSION}" )
       # c++14 mode is the default in GCC 6.1 up 10 (including)
       # c++17 mode is the default in GCC >= 11
       IF( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6.1 )
@@ -180,7 +176,7 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
 
   # just to see all compilation warnings:
   SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall" )
-#    MESSAGE( STATUS "CMAKE_CXX_FLAGS= ${CMAKE_CXX_FLAGS}" )
+  MESSAGE( STATUS "+++ BEAN: CMAKE_CXX_FLAGS= ${CMAKE_CXX_FLAGS}" )
 ENDIF()
 
 # WINDOWS specific, TODO: test C++11 (CXX_STANDARD in cmake3.1)
@@ -206,9 +202,9 @@ SET( install_lib_dir "BeanLib_${BOSS_VERSION}" )
 
 IF( NOT CMAKE_SYSTEM_NAME MATCHES Windows ) # not WINDOWS
   SET( LD_LIBRARY_PATH "LD_LIBRARY_PATH" )
-  IF( CMAKE_SYSTEM_NAME MATCHES Darwin ) # MacOS
-    SET( LD_LIBRARY_PATH "DYLD_LIBRARY_PATH" )
-  ENDIF()
+  SET( DYLD_LIBRARY_PATH "DYLD_LIBRARY_PATH" )
+  #  IF( CMAKE_SYSTEM_NAME MATCHES Darwin ) # MacOS
+  #  ENDIF()
 
   # generate setup.sh
   CONFIGURE_FILE(

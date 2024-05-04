@@ -27,9 +27,9 @@ struct Params {
    // cuts for ntuples
    TCut Cmcsig; // mc-signal
    TCut Ckaon;  // std cuts for kaons
-   TCut CKPtC;  // cuts for Pt and cos(Theta) of kaons
+   // TCut CKPtC;  // cuts for Pt and cos(Theta) of kaons
    TCut Cpion;  // std cuts for pions
-   TCut CPiPtC; // cuts for Pt and cos(Theta) of pions
+   // TCut CPiPtC; // cuts for Pt and cos(Theta) of pions
 };
 
 // {{{2 > ctor
@@ -52,13 +52,13 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    Ckaon = TCut("fabs(Mrec-3.097)<0.002&&"
          "fabs(Mrk2-0.243717)<0.025");
    // cuts for Pt and cos(Theta) of kaons
-   CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
+   // CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
 
    // std cuts for pions: mpi**2 = 0.0194798 (GeV**2)
    Cpion = TCut("fabs(MppKK-3.096)<0.009&&"
          "fabs(Mrpi2-0.0194798)<0.025");
    // cuts for Pt and cos(Theta) of pions
-   CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
+   // CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
 }
 
 // {{{2 > OpenFile()
@@ -337,14 +337,12 @@ void plot_PtKp(int date, int Cx = 800, int Cy = 800) {
    effKd->Draw("Ptk>>hdat",cutD,"goff");
    for ( auto& h : hdat ) {
       SetHstFace(h);
-      // cout<<h->GetName()<<" Entries= "<<h->GetEntries()<<endl;
    }
 
    TTree* effKmc = par->GetEff(1); // MC
    vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
    effKmc->Draw("Ptk>>hmc",cutD,"goff");
    effKmc->Draw("Ptk>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -352,6 +350,8 @@ void plot_PtKp(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -417,7 +417,6 @@ void plot_PtKm(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
    effKmc->Draw("Ptk>>hmc",cutD,"goff");
    effKmc->Draw("Ptk>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -425,6 +424,8 @@ void plot_PtKm(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -490,7 +491,6 @@ void plot_CKp(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
    effKmc->Draw("Ck>>hmc",cutD,"goff");
    effKmc->Draw("Ck>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -498,6 +498,8 @@ void plot_CKp(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -565,7 +567,6 @@ void plot_CKm(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
    effKmc->Draw("Ck>>hmc",cutD,"goff");
    effKmc->Draw("Ck>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -573,6 +574,8 @@ void plot_CKm(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -987,7 +990,6 @@ void plot_PtPip(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
    effPimc->Draw("Ptpi>>hmc",cutD,"goff");
    effPimc->Draw("Ptpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -995,6 +997,8 @@ void plot_PtPip(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1060,7 +1064,6 @@ void plot_PtPim(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hPt("hmc"), hPt("hmcBG") };
    effPimc->Draw("Ptpi>>hmc",cutD,"goff");
    effPimc->Draw("Ptpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -1068,6 +1071,8 @@ void plot_PtPim(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1134,7 +1139,6 @@ void plot_CPip(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
    effPimc->Draw("Cpi>>hmc",cutD,"goff");
    effPimc->Draw("Cpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -1142,6 +1146,8 @@ void plot_CPip(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1210,7 +1216,6 @@ void plot_CPim(int date, int Cx = 800, int Cy = 800) {
    vector<TH1D*> hmc { hC("hmc"), hC("hmcBG") };
    effPimc->Draw("Cpi>>hmc",cutD,"goff");
    effPimc->Draw("Cpi>>hmcBG",cutD + !(par->Cmcsig),"goff");
-   // cout << "MC Entries= " << hmc[0]->GetEntries() << endl;
 
    double bg = hmc[1]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
@@ -1218,6 +1223,8 @@ void plot_CPim(int date, int Cx = 800, int Cy = 800) {
 
    // normalization on DATA
    double scale = hdat[0]->Integral(5,36) / hmc[0]->Integral(5,36);
+   // printf(" --> TEST: data= %.1f, mc= %.1f, scale= %.3f\n",
+         // hdat[0]->Integral(), hmc[0]->Integral(), scale);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1481,8 +1488,8 @@ void trk_eff_sel() {
 
    size_t Cx = 880, Cy = 800; // canvas sizes
 
-   // for ( auto date : {2009, 2012} ) {
-   for ( auto date : {2009, 2012, 2021} ) {
+   for ( auto date : {2021} ) {
+   // for ( auto date : {2009, 2012, 2021} ) {
       // -- pi0 rejection, fig.28
       // plot_pi0(date,Cx,Cy);
 

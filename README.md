@@ -1,83 +1,86 @@
-------------------------------------------------------------------------------
- ##IMPORTANT
+---------------------------------------------------------------------------
+## IMPORTANT
+Before running cmake
+1. [CERN ROOT](https://root.cern.ch) must be installed.\
+   The `root-config` script must be in `$ROOTSYS/bin` directory, otherwise,
+   you must specify the path to `root-config` when call the cmake.
+   For example, in IHEP cluster (CentOS7):
+```
+% cmake -DROOT_CONFIG_SEARCHPATH="/cvmfs/bes3.ihep.ac.cn/bes3sw/ExternalLib/lcg/LCG_84/ROOT/6.20.02/x86_64-centos7-gcc49-opt/bin"
+```
 
- Before running cmake
- A) CERN ROOT must be installed
-        https://root.cern.ch
-    'root-config' must be in '$ROOTSYS/bin/' directory,
-    otherwise, you must specify the path to 'root-config'
-    when call the cmake:
+2. [CLHEP](https://proj-clhep.web.cern.ch/proj-clhep) library must be
+   installed.\
+   The path to CLHEP can be specified in the environment variable
+   `CLHEP_DIR`. Also you can specify the path to CLHEP when calling cmake.
+   For example, in IHEP cluster (CentOS7):
+```
+% cmake -DCLHEP_SEARCHPATH="/cvmfs/bes3.ihep.ac.cn/bes3sw/ExternalLib/lcg/LCG_84/clhep/2.4.4.0/x86_64-centos7-gcc49-opt"
+```
 
-        cmake -DROOT_CONFIG_SEARCHPATH="/afs/ihep.ac.cn/bes3/offline/ExternalLib/SLC6/ExternalLib/external/ROOT/5.34.09/x86_64-slc6-gcc46-opt/root/bin"
+---------------------------------------------------------------------------
+## INSTALLATION
+1. Create build directory: ```% mkdir build; cd build```
 
- B) CLHEP library must be installed
-        https://proj-clhep.web.cern.ch/proj-clhep/
-    The path to CLHEP may be specified in the environment
-    variable CLHEP_DIR or when call the cmake:
+2. Run `cmake ../ [cmake-options]` to prepare the infrastructure
+   for building the BEAN program
+   * For example:\
+     `% cmake ../ -DBOSS_VERSION=6.6.4`\
+     or\
+     `% cmake ../ -DBOSS_VERSION=7.0.4`
+   * If you want to compile program with a specific compiler version,
+     use the following command:\
+     `% cmake -DCMAKE_C_COMPILER=gcc49 -DCMAKE_CXX_COMPILER=g++49 ../ [cmake-options]`
+   * If you wish, you can run ``ccmake`` and change the options in the
+     dialog interface.
 
-        cmake -DCLHEP_SEARCHPATH="/afs/ihep.ac.cn/bes3/offline/ExternalLib/SLC6/ExternalLib/external/clhep/2.0.4.5/x86_64-slc6-gcc46-opt"
+3. Compile BEAN by runing `% make` and then `% make install`
+   * To see detailed output of compilation commands, use
+     `% make VERBOSE=1`
+   * `make install` will install program, libraries and script in the
+     `workdir/` directory
+   * To remove BEAN files from the `workdir/` directory,
+     use the `% make uninstall` command. This may be useful when
+     updating the program.
 
-------------------------------------------------------------------------------
- ##INSTALLATION
+4. Use the following command to install or update the database:
+   `% make updatedb`\
+    _It requires python and wget. In case of their absence,
+    you have to install the databases in some other way.
+    For example, you may copy them from another machine.
+    The path to database is_ `Analysis/DatabaseSvc/dat/`
 
- 1) create build directory (mkdir build; cd build)
+5. PAR files for ROOT-PROOF can be created with the
+   `% make proofbean` command.\
+   _**NOTE:**_ This option has not been tested for a very long time
 
- 2) cmake ../ ( + optionally ccmake ../ )
-    Examples:
-       cmake ../ -DBOSS_VERSION=6.6.4
-    or
-       cmake ../ -DBOSS_VERSION=7.0.4
+---------------------------------------------------------------------------
+## NOTE
 
-    if you want to compile with a specific version of the compiler:
-       cmake -DCMAKE_C_COMPILER=gcc46 -DCMAKE_CXX_COMPILER=g++46 ../
+* After installing BEAN, you can delete the build directory at any time.
 
- 3) make
-        to see compilation commands use 'make VERBOSE=1'
-    make install
-        this will install program, libraries and script in the
-        workdir/ directory
-    make uninstall
-        this will remove program files from workdir/;
-        this may be useful when updating the program
-
- 4) to install or update the databases use the following command
-    make updatedb
-        It requires python and wget. In case of their absence,
-        you have to install the databases in some other way.
-        For example, you may copy them from another machine.
-        The path to database is Analysis/DatabaseSvc/dat/
-
- 5) to create PAR-files for ROOT-PROOF use
-    make proofbean
-
-------------------------------------------------------------------------------
-  ###NOTE
-
-  The executable file "bean_{BOSS_VERSION}.exe"
-  is installed in the "workdir" directory.
-  After installing the program, you can delete the build
-  directory at any time, all libraries and executable are
-  in the workdir/ directory.
-
-  The user source programs MUST be in directory "BeanUser":
-  edit BeanUser/CMakeLists.txt to add name of your file
+* The user source programs MUST be in directory `BeanUser/`.
+  Edit `BeanUser/CMakeLists.txt` to add name of your file
   to the list of files to be compiled.
 
-  Script "setup_{BOSS_VERSION}.sh" contains settings
-  for the environment variable LD_LIBRARY_PATH;
-  In the case of a normal installation of the program,
-  this script IS NOT REQUIRED.
+* The `setup_{BOSS_VERSION}.sh` script sets environment variables
+   with paths to libraries used in BEAN. In the case of a standard
+   installation of all components, this script **IS NOT REQUIRED**.
 
-------------------------------------------------------------------------------
-  ###NEWS
+---------------------------------------------------------------------------
+## NEWS
 
-  1. RscanDQ: When you using the 2015 Rscan data, you must use this package
-     to exclude bad runs:
-     (https://docbes3.ihep.ac.cn/~tauqcdgroup/index.php/Data_Samples)
+1. 'RscanDQ': When you using the 2015 Rscan data, you must use this
+   package to exclude bad runs. For details see:
+```
+   https://docbes3.ihep.ac.cn/~tauqcdgroup/index.php/Data_Samples
+```
 
-  2. New functionality in VertexDbSvc: new function
-     ReadOneTime(int runFrom, int runTo) - you can get verteces from
-     database at once for runs in the interval [runFrom,runTo].
-     See BeanUser/TestDb.cxx how to use this function
+2. The `TrackCorrection` class based on "TrackCorrection" package
+   modified for use in a BEAN (see `~guoyp/public/TrackCorrection`).
+   For details, please refer the Data Qality page:
+```
+   https://docbes3.ihep.ac.cn/~charmoniumgroup/index.php/DataQuality_Page
+```
 
 ------------------------------------------------------------------------------

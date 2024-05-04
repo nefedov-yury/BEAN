@@ -21,8 +21,8 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // K & Pi track+PID efficiencies
 //-------------------------------
 RewTrkPiK.hpp:
-// functions with corrections for efficiency of
-// reconstruction Pions and Kaons (including PID) for MC events
+// RewTrkPiK.hpp - functions with corrections for the efficiency of
+// Kaon/Pion reconstruction,including PID, for the MC events
 
 trk_eff_sel.cc:
 // Pictures for presentation/memo

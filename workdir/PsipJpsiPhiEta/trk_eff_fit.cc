@@ -136,9 +136,10 @@ void SetHstFace(TH1* hst) {
    }
 }
 
-// for very small hst
+// for small plots
 //--------------------------------------------------------------------
-void SetHstFaceTbl(TH1* hst) {
+template<class Tmp>
+void SetHstFaceTbl(Tmp hst) {
 //--------------------------------------------------------------------
    TAxis* X = hst->GetXaxis();
    if ( X ) {
@@ -732,7 +733,8 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
 
 // {{{1 Get efficiency ratio as a function of cos(Theta) to fit
 //--------------------------------------------------------------------
-TH1D* get_eff_cos(Params* p, int mc, double Ptmin, double Ptmax) {
+TGraphAsymmErrors* get_eff_cos(Params* p, int mc,
+      double Ptmin, double Ptmax) {
 //--------------------------------------------------------------------
    vector<TH1D*> hst(2,nullptr);
    int nbins = ( p->date == 2009 ) ? 20 : 40;
@@ -749,15 +751,78 @@ TH1D* get_eff_cos(Params* p, int mc, double Ptmin, double Ptmax) {
    }
 
    // calculate efficiency
-   string name( ((mc==0) ? "data_" : "mc_") );
-   name += to_string(int(Ptmin*100));
-   TH1D* heff = (TH1D*) hst[0]->Clone( name.c_str() );
-   heff->Divide(hst[1],hst[0],1.,1.,"B");
+   auto name = Form("%s_%.0f", (mc==0) ? "data" : "mc", Ptmin*100);
+   // TH1D* heff = (TH1D*) hst[0]->Clone(name);
+   // heff->Divide(hst[1],hst[0],1.,1.,"B");
+   // heff->Divide(hst[1],hst[0]); // poison errors
+
+   auto geff = new TGraphAsymmErrors;
+   geff->Divide(hst[1],hst[0], "CP"); // Clopper-Pearson interval
 
    delete hst[0];
    delete hst[1];
 
-   return heff;
+   return geff;
+}
+
+TGraphAsymmErrors* DivideEff(TGraphAsymmErrors* e1,
+      TGraphAsymmErrors* e2) {
+   vector<double> xx[3], yy[3]; // point, err+ err-
+   size_t Np = e1->GetN();
+   for ( size_t i = 0; i < 3; ++i ) {
+      xx[i].reserve(Np);
+      yy[i].reserve(Np);
+   }
+
+   for ( size_t i = 0; i < Np; ++i ) {
+      double e1x  = e1->GetPointX(i);
+      double e1y  = e1->GetPointY(i);
+      double e1yp = e1->GetErrorYhigh(i);
+      double e1ym = e1->GetErrorYlow(i);
+      double e2x  = e2->GetPointX(i);
+      double e2y  = e2->GetPointY(i);
+      double e2yp = e2->GetErrorYhigh(i);
+      double e2ym = e2->GetErrorYlow(i);
+      if ( fabs(e1x-e2x) > 1e-6 ) {
+         printf("ERROR in %s: X1=%f, X2=%f\n",__func__,e1x,e2x);
+         exit(EXIT_FAILURE);
+      }
+
+      // skip empty bins
+      if ( e1x == -1 || e2x == -1 || e1y < 1e-3 || e2y < 1e-3) {
+         continue;
+      }
+
+      // DEBUG print:
+      // const double asymin = 0.1; // print if asymmetry is greater
+      // if ( fabs(e1yp-e1ym)/fabs(e1yp+e1ym) > asymin ) {
+         // printf("e1: %.4f^{+%.4f}_{-%.4f}\n",e1y,e1yp,e1ym);
+      // }
+      // if ( fabs(e2yp-e2ym)/fabs(e2yp+e2ym) > asymin ) {
+         // printf("e2: %.4f^{+%.4f}_{-%.4f}\n",e2y,e2yp,e2ym);
+      // }
+
+      // very simple and wrong
+      double r = e1y/e2y;
+      double rp = r * sqrt(SQ(e1yp/e1y)+SQ(e2yp/e2y));
+      double rm = r * sqrt(SQ(e1ym/e1y)+SQ(e2ym/e2y));
+
+      xx[0].push_back(e1x);
+      xx[1].push_back(e1->GetErrorXhigh(i));
+      xx[2].push_back(e1->GetErrorXlow(i));
+      yy[0].push_back(r);
+      yy[1].push_back(rp);
+      yy[2].push_back(rm);
+   }
+
+   auto res = new TGraphAsymmErrors(
+         xx[0].size(),
+         xx[0].data(),yy[0].data(),
+         xx[1].data(),xx[2].data(),
+         yy[1].data(),yy[2].data()
+         );
+   res->GetXaxis()->SetLimits(-1.,+1);
+   return res;
 }
 
 // {{{1 Fit Ratio
@@ -772,9 +837,12 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
       Ptmax = 1.4;
       Nbins = 13;
    } else if ( kpi == 2 ) { // Pions
-      Ptmin = 0.05;
+      // Ptmin = 0.05;
+      // Ptmax = 0.4;
+      // Nbins = 7;
+      Ptmin = 0.0;
       Ptmax = 0.4;
-      Nbins = 7;
+      Nbins = 8;
    }
 
    // common for name of pdf-files
@@ -842,6 +910,7 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
       fit2->SetLineColor(kRed);
       fit2->SetLineWidth(2);
    }
+   gStyle->SetFitFormat(".4f");
 
    // ++++ First fit ++++
    TCanvas* c1 = new TCanvas("c1","...",850,0,700,1000);
@@ -866,19 +935,23 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
       double ptav = 0.5*(ptmin + ptmax);
       xx[i] = ptav;
 
-      TH1D* eff_dat = get_eff_cos(par,0,ptmin,ptmax);
-      double Ndat = eff_dat->GetEntries();
-      TH1D* eff_mc  = get_eff_cos(par,1,ptmin,ptmax);
-      double Nmc = eff_mc->GetEntries();
-      string name = string("r_") + string( eff_dat->GetName() );
-      TH1D* rat = (TH1D*)eff_dat->Clone( name.c_str() );
-      rat->Divide(eff_dat, eff_mc);
+      auto eff_dat = get_eff_cos(par,0,ptmin,ptmax);
+      auto eff_mc  = get_eff_cos(par,1,ptmin,ptmax);
+
+      // TH1D* rat = (TH1D*)eff_dat->Clone(
+            // Form("r_%s",eff_dat->GetName()) );
+      // rat->Divide(eff_dat, eff_mc);
+      auto rat = DivideEff(eff_dat,eff_mc);
 
       c1->cd(Ic1);
       gPad->SetGrid();
-      rat->SetAxisRange(0.8,1.2,"Y");
-      if ( i == 0 || i == Nbins-1 ) {
-         rat->SetAxisRange(0.5,1.5,"Y");
+      // rat->SetAxisRange(0.8,1.2,"Y");
+      rat->GetHistogram()->SetMinimum(0.8);
+      rat->GetHistogram()->SetMaximum(1.2);
+      if ( i == 0 ) {
+         // rat->SetAxisRange(0.5,1.5,"Y");
+         rat->GetHistogram()->SetMinimum(0.5);
+         rat->GetHistogram()->SetMaximum(1.5);
       }
       rat->GetYaxis()->SetNdivisions(1004);
       rat->SetTitle(Form(
@@ -895,14 +968,17 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
          rat->GetYaxis()->SetTitleOffset(0.8);
       }
       rat->GetXaxis()->SetTitleOffset(0.8);
-      // rat->Fit(fit1,"Q","",-0.799,0.799);
-      TFitResultPtr rs = rat->Fit(fit1,"SEQ","",-0.8,0.8);
-      rat->Draw("SAME E0");
-      // rs->Print();
+      // TFitResultPtr rs = rat->Fit(fit1,"SEQ","",-0.8,0.8);
+      // rat->Draw("SAME E0");
+      rat->Draw("AP Z0");
+      TFitResultPtr rs = rat->Fit(fit1,"SEQ EX0","",-0.8,0.8);
+      rat->Draw("SAME Z0");
       yy[i] = fit1->GetParameter(0);
       ey[i] = fit1->GetParError(0);
-      printf("%2i  <pt>=%.3f  r=%.4f+/-%.4f  N(dat,mc)=%.1f %.1f\n",
-            i,ptav,yy[i],ey[i],Ndat,Nmc);
+      auto ch2 = fit1->GetChisquare();
+      auto ndf = fit1->GetNDF();
+      printf("%2i  <pt>=%.3f  r=%.4f+/-%.4f  ch2/NDF= %.1f/%i\n",
+            i,ptav,yy[i],ey[i],ch2,ndf);
 
       Ic1 += 1;
       if ( i == Nbins-1 ) { // clear all other pads
@@ -923,20 +999,19 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    TCanvas* c2 = new TCanvas("c2","...",0,0,800,750);
    c2->cd();
    gPad->SetGrid();
-   gStyle->SetFitFormat(".4f");
 
    TGraphErrors* gX = new TGraphErrors(Nbins,xx.data(),yy.data(),
                                              ex.data(),ey.data() );
    if ( rew == 0 ) {
-      gX->GetHistogram()->SetMaximum(1.1);
       gX->GetHistogram()->SetMinimum(0.9);
+      gX->GetHistogram()->SetMaximum(1.1);
    } else {
       if ( kpi == 1 ) {
-         gX->GetHistogram()->SetMaximum(1.05);
          gX->GetHistogram()->SetMinimum(0.95);
+         gX->GetHistogram()->SetMaximum(1.05);
       } else {
-         gX->GetHistogram()->SetMaximum(1.025);
          gX->GetHistogram()->SetMinimum(0.975);
+         gX->GetHistogram()->SetMaximum(1.025);
       }
       gX->GetYaxis()->SetNdivisions(1005);
    }
@@ -1039,17 +1114,15 @@ void trk_eff_fit() {
    // }
 
    // Get Efficiency Corrections
-   const int Kaons = 1;
    const int Pions = 2;
+   const int Kaons = 1;
 
-   const int date = 2009; // 2009, 2012, 2021
+   const int date = 2012; // 2009, 2012, 2021
    const int Z = 1;       // 1=+, -1=-, 0=+/-
-   const int rew = 1;     // use corrections, weights
+   const int rew = 0;     // 1 - use corrections, weights
 
-   // FitRatio(date,Pions,Z);
-   // FitRatio(date,Pions,Z,rew);
+   FitRatio(date,Pions,Z,rew);
 
-   // FitRatio(date,Kaons,Z);
    // FitRatio(date,Kaons,Z,rew);
 
 }

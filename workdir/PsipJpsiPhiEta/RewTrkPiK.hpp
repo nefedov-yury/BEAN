@@ -1,5 +1,5 @@
-// RewTrkPiK.hpp - functions with corrections for efficiency of
-// reconstruction Pions and Kaons (including PID) for MC events
+// RewTrkPiK.hpp - functions with corrections for the efficiency of
+// Kaon/Pion reconstruction,including PID, for the MC events
 
 // {{{1 RewTrkPi()
 //--------------------------------------------------------------------

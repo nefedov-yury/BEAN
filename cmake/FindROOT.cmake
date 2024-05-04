@@ -29,6 +29,7 @@
 #       ROOT_INCLUDE_DIR - the header directory
 #       ROOT_LIBRARIES   - regular ROOT libraries
 #       ROOT_GLIBS       - regular + GUI ROOT libraries
+#       ROOT_CFLAGS      - extra compiler flags
 #
 #       ROOTVERSION - the version of ROOT (something like 5.14/00h) and
 #       ROOT_MAJOR_VERS,ROOT_MINOR_VERS,ROOT_PATCH_VERS
@@ -77,8 +78,8 @@ IF( NOT ROOTSYS )
       _root_check( ${ROOTSYS} )
       # SET( $ENV{ROOTSYS} ${ROOTSYS} ) # set path ??
     ELSE()
-      MESSAGE( FATAL_ERROR
-        "The environment variable ROOTSYS _must be_ defined on Windows system"
+      MESSAGE( FATAL_ERROR "The environment variable ROOTSYS"
+        " _must be_ defined on Windows system"
       )
     ENDIF()
 
@@ -97,17 +98,20 @@ IF( NOT ROOTSYS )
     # Check file RVersion.h and set ROOTVERSION
     _root_check( "${ROOT_INCLUDE_DIR}/RVersion.h" )
     FILE( READ "${ROOT_INCLUDE_DIR}/RVersion.h" contents )
-#     MESSAGE(STATUS "+++ contents=${contents} +++" )
-    STRING( REGEX REPLACE ".*define[ ]+ROOT_RELEASE[ ]+[\"]([^\"]*).*" "\\1"
+    #  MESSAGE(STATUS "+++ contents=${contents} +++" )
+    STRING(
+      REGEX REPLACE ".*define[ ]+ROOT_RELEASE[ ]+[\"]([^\"]*).*" "\\1"
       ROOTVERSION  "${contents}"
     )
-    MESSAGE( STATUS "Looking for Root... Root-version: ${ROOTVERSION}" )
 
     # Set ROOT_LIBRARIES and ROOT_GLIBS == ROOT_LIBRARIES
     FILE( GLOB ROOT_LIBRARIES ${ROOT_LIBRARY_DIR}/*.lib )
     SET( ROOT_GLIBS ${ROOT_LIBRARIES} )
 
-  ELSE() # LINUX and MACOS (??)
+    # Set ROOT_CFLAGS
+    SET( ROOT_CFLAGS "-I${ROOT_INCLUDE_DIR}" )
+
+  ELSE() # LINUX and MACOS
 
     IF( NOT ROOT_CONFIG_SEARCHPATH )
       SET( ROOT_CONFIG_SEARCHPATH $ENV{ROOTSYS}/bin )
@@ -121,7 +125,8 @@ IF( NOT ROOTSYS )
 
     IF( ROOT_CONFIG_EXECUTABLE )
       MESSAGE( STATUS
-        "Looking for Root... - found root-config:\n\t${ROOT_CONFIG_EXECUTABLE}"
+        "Looking for Root... found root-config:\n\t"
+        " ${ROOT_CONFIG_EXECUTABLE}"
       )
 
       # Set ROOTSYS
@@ -129,31 +134,42 @@ IF( NOT ROOTSYS )
         ROOTSYS ${ROOT_CONFIG_EXECUTABLE}
       )
 
+      FUNCTION( _root_config ARG OUT )
+        #  EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS ${ARG}
+        EXECUTE_PROCESS( COMMAND ${ROOT_CONFIG_EXECUTABLE} ${ARG}
+          OUTPUT_VARIABLE tmp
+          OUTPUT_STRIP_TRAILING_WHITESPACE )
+        IF( CMAKE_SYSTEM_NAME MATCHES Windows )
+          STRING(REPLACE "\r\n" "" tmp "${tmp}")
+        ELSE()
+          STRING(REPLACE "\n" "" tmp "${tmp}")
+        ENDIF()
+        SET( ${OUT} ${tmp} PARENT_SCOPE )
+        #  MESSAGE(STATUS "_root_config ${ARG} => ${OUT} = ${tmp}" )
+      ENDFUNCTION( _root_config )
+
       # Set ROOTVERSION
-      EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--version"
-        OUTPUT_VARIABLE ROOTVERSION )
-      MESSAGE( STATUS "Looking for Root... Root-version: ${ROOTVERSION}" )
+      _root_config( --version ROOTVERSION )
 
       # Set ROOT_LIBRARY_DIR
-      EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--libdir"
-        OUTPUT_VARIABLE ROOT_LIBRARY_DIR )
+      _root_config( --libdir ROOT_LIBRARY_DIR )
       _root_check( ${ROOT_LIBRARY_DIR} )
 
       # Set ROOT_BINARY_DIR
-      EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--bindir"
-        OUTPUT_VARIABLE ROOT_BINARY_DIR )
+      _root_config( --bindir ROOT_BINARY_DIR )
       _root_check( ${ROOT_BINARY_DIR} )
 
       # Set ROOT_INCLUDE_DIR
-      EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--incdir"
-        OUTPUT_VARIABLE ROOT_INCLUDE_DIR )
+      _root_config( --incdir ROOT_INCLUDE_DIR )
       _root_check( ${ROOT_INCLUDE_DIR} )
 
       # Set ROOT_LIBRARIES and ROOT_GLIBS
-      EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--libs"
-        OUTPUT_VARIABLE ROOT_LIBRARIES )
-      EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS "--glibs"
-        OUTPUT_VARIABLE ROOT_GLIBS )
+      _root_config( --libs ROOT_LIBRARIES )
+      _root_config( --glibs ROOT_GLIBS )
+
+      # Set ROOT_CFLAGS
+      _root_config( --cflags ROOT_CFLAGS )
+      #  MESSAGE( STATUS "ROOT_CFLAGS= ${ROOT_CFLAGS}" )
 
     ELSE ()
       SET( ROOTSYS, NOTFOUND )
@@ -165,6 +181,9 @@ IF( NOT ROOTSYS )
     ENDIF( ROOT_CONFIG_EXECUTABLE )
 
   ENDIF() # OPERATION SYSTEM
+
+  MESSAGE( STATUS
+    "Looking for Root... found version: ${ROOTVERSION}" )
 
   # now parse the ROOTVERSION string into variables
   # ( note that two backslashes (\\) are required to get a backslash
@@ -189,7 +208,7 @@ IF( NOT ROOTSYS )
     PATHS ${ROOT_BINARY_DIR}
     NO_DEFAULT_PATH
   )
-  MESSAGE( STATUS "Looking for Root... - found ${_rootcint}:\n\t "
+  MESSAGE( STATUS "Looking for Root... found ${_rootcint}:\n\t "
     "${ROOT_CINT_EXECUTABLE}"
   )
 
@@ -231,7 +250,8 @@ FUNCTION( ROOT_GENERATE_DICTIONARY
     SET( INCLUDE_DIRS ${INCLUDE_DIRS} -I${dir} )
   ENDFOREACH()
 
-  STRING( REGEX REPLACE "^(.*)[.](.*)$" "\\1.h" DictNameH "${DictNameCxx}" )
+  STRING( REGEX REPLACE "^(.*)[.](.*)$" "\\1.h"
+    DictNameH "${DictNameCxx}" )
   SET( OUTFILES ${DictNameCxx} ${DictNameH} )
 
   IF( CMAKE_SYSTEM_NAME MATCHES Linux )
@@ -239,14 +259,16 @@ FUNCTION( ROOT_GENERATE_DICTIONARY
       OUTPUT ${OUTFILES}
       COMMAND LD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
               ${ROOT_CINT_EXECUTABLE}
-      ARGS -f ${DictNameCxx} -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      ARGS -f ${DictNameCxx}
+           -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )
     ADD_CUSTOM_COMMAND(
       OUTPUT ${OUTFILES}
       COMMAND ${ROOT_CINT_EXECUTABLE}
-      ARGS -f ${DictNameCxx} -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      ARGS -f ${DictNameCxx}
+           -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )
@@ -254,7 +276,8 @@ FUNCTION( ROOT_GENERATE_DICTIONARY
       OUTPUT ${OUTFILES}
       COMMAND DYLD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
               ${ROOT_CINT_EXECUTABLE}
-      ARGS -f ${DictNameCxx} -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      ARGS -f ${DictNameCxx}
+           -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ENDIF()

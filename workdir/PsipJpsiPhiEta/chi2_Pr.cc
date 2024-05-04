@@ -43,7 +43,7 @@ TH1D* get_chi2(string fname, string hname, int icp=1) {
 
    // name of folder with root files
    // static string dir("prod-12/");
-   string dir("prod_v709/");
+   string dir("prod_v709n3/");
    fname = dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
