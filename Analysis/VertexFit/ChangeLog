@@ -1,3 +1,8 @@
+2023.09.29 Hao-Kai SUN <sunhk@ihpe.ac.cn>
+    *VertexFit
+		fix a small bug that the total energy not updated after fit
+		thanks to Chengzhi He from PKU for pointing this out.
+
 2022.01.11 Hao-Kai SUN <sunhk@ihep.ac.cn>
     * Separate VertexExtrapolate and VertexFitRefine out to a new package
 	  Analysis/VertexFitRefine/VertexFitRefine-00-00-01

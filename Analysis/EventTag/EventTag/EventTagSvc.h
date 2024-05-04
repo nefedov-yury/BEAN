@@ -23,8 +23,7 @@ typedef std::map<keyVector,int> decayModeTab;
 
 /////////////////////////////////////////////////////////////////////////////
 #ifndef BEAN
-class EventTagSvc: virtual public IEventTagSvc,
-                   virtual public Service{
+class EventTagSvc: public extends<Service, IEventTagSvc>{
 public:
   EventTagSvc(const std::string& name, ISvcLocator* svc);
 
@@ -32,7 +31,8 @@ public:
 class EventTagSvc {
 public:
   static EventTagSvc* instance() {
-    return (m_evtag) ? m_evtag : (m_evtag = new EventTagSvc);
+    return (m_evtag) ? m_evtag :
+                      (m_evtag = new(std::nothrow) EventTagSvc);
   }
   bool IsInitialized() {return m_isinit;}
 
@@ -57,7 +57,7 @@ public:
   unsigned long long int getChainCode(Event::McParticle* part);
   unsigned int getCharmDecayType(Event::McParticle* part);
 
-  virtual StatusCode queryInterface( const InterfaceID&, void** ppvInterface );
+//  virtual StatusCode queryInterface( const InterfaceID&, void** ppvInterface );
 #else
   int getDecayCode(TMcParticle* part);
   unsigned long long int getChainCode(TMcParticle* part);

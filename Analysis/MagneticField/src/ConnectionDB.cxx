@@ -50,7 +50,9 @@ void ConnectionDB::SetDBFilePath(std::string new_DBFilePath){
     char stmt1[200];
     int run_No = std::abs(runNo);
 
-    sprintf(stmt1,"select Magnet_Current,SCQL,SCQR from SC_magnet where run_number = %d ",run_No);
+    // sprintf(stmt1,"select Magnet_Current,SCQL,SCQR from SC_magnet where run_number = %d ",run_No);
+    snprintf( stmt1, sizeof(stmt1), "select Magnet_Current,SCQL,SCQR "
+          "from SC_magnet where run_number = %d ", run_No );
     //cout<<stmt1<<endl;
     DatabaseRecordVector results;
     results.clear();
@@ -102,7 +104,10 @@ bool ConnectionDB::getBeamEnergy( std::map<int, std::vector<double> >& m_mapBeam
     }
 #endif
 
-  sprintf(stmt1,"select run_number,BPR_PRB,BER_PRB from RunParams where run_number >= %d and run_number <= %d ",run_From,run_To);
+  // sprintf(stmt1,"select run_number,BPR_PRB,BER_PRB from RunParams where run_number >= %d and run_number <= %d ",run_From,run_To);
+  snprintf( stmt1, sizeof(stmt1), "select run_number,BPR_PRB,BER_PRB "
+        "from RunParams where run_number >= %d and run_number <= %d ",
+        run_From, run_To );
   //cout<<stmt1<<endl;
   int row_no = m_dbsvc->query("run",stmt1,results);
   if(row_no<=0){
@@ -126,10 +131,12 @@ bool ConnectionDB::getBeamEnergy( std::map<int, std::vector<double> >& m_mapBeam
          beamEnergy.push_back(dbrec.GetDouble("BPR_PRB"));
          beamEnergy.push_back(dbrec.GetDouble("BER_PRB"));
          m_mapBeamEnergy[run_No] = beamEnergy;
+#ifndef BEAN
          float beam1,beam2;
          beam1=beamEnergy[0];
          beam2=beamEnergy[1];
-         cout<<"map of run:"<<run_No<<"BPR_PRB:"<<beam1<<"BER_PRB:"<<beam2<<endl;
+         //cout<<"map of run:"<<run_No<<"BPR_PRB:"<<beam1<<"BER_PRB:"<<beam2<<endl;
+#endif
 
         }
       return true;
@@ -157,7 +164,11 @@ bool ConnectionDB::getBeamEnergy( std::map<int, std::vector<double> >& m_mapBeam
       m_dbsvc = DatabaseSvc::instance();
     }
 #endif
-   sprintf(stmt1,"select run_number,Magnet_Current,SCQL,SCQR from SC_magnet where run_number >= %d and run_number<=%d ",run_From,run_To);
+   // sprintf(stmt1,"select run_number,Magnet_Current,SCQL,SCQR from SC_magnet where run_number >= %d and run_number<=%d ",run_From,run_To);
+   snprintf( stmt1, sizeof(stmt1),
+         "select run_number,Magnet_Current,SCQL,SCQR from SC_magnet "
+         "where run_number >= %d and run_number<=%d ",
+         run_From, run_To );
    //cout<<stmt1<<endl;
    int row_no = m_dbsvc->query("run",stmt1,results);
    if(row_no<=0){
@@ -193,7 +204,9 @@ bool ConnectionDB::getBeamEnergy( std::map<int, std::vector<double> >& m_mapBeam
      char stmt1[200];
      int run_No = std::abs(runNo);
 
-     sprintf(stmt1,"select BPR_PRB,BER_PRB from RunParams where run_number = %d ",run_No);
+     // sprintf(stmt1,"select BPR_PRB,BER_PRB from RunParams where run_number = %d ",run_No);
+     snprintf( stmt1, sizeof(stmt1), "select BPR_PRB,BER_PRB "
+           "from RunParams where run_number = %d ", run_No );
      //cout<<stmt1<<endl;
      DatabaseRecordVector results;
      results.clear();

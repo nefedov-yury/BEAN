@@ -1,34 +1,32 @@
 #---------------------------------------------------------------------
-# CMake configuration file to build Bean:
-# see README.md how to use it
+# CMake configuration file to build Bean: see README.md how to use it
 #---------------------------------------------------------------------
 
-CMAKE_MINIMUM_REQUIRED( VERSION 2.8.12 FATAL_ERROR )
+# message for users of IHEP cluster
+IF( CMAKE_VERSION VERSION_LESS "3.15.0" )
+  CMAKE_HOST_SYSTEM_INFORMATION(RESULT _host_name QUERY HOSTNAME)
+  if( _host_name MATCHES "lxslc7[0-9]+.ihep.ac.cn" )
+    MESSAGE("\n+++ Please use cmake3 on IHEP cluster +++\n")
+  ENDIF()
+ENDIF()
+
+# the project has been tested on versions 3.15...3.29 and there is no
+# need to warn about compatibility issues for them
+CMAKE_MINIMUM_REQUIRED( VERSION 3.15...3.29 )
 
 # CMAKE_HOST_SYSTEM_NAME is about the system where cmake is being run
-# CMAKE_SYSTEM_NAME is about the platform the script is building for
+# CMAKE_SYSTEM_NAME is about the platform the script is building for.
+# Therefore CMAKE_SYSTEM_NAME is defined after the project directive
 MESSAGE( STATUS
   "+++ BEAN: You are working on ${CMAKE_HOST_SYSTEM_NAME} system\n   "
-  "+++ The program was tested under Linux, Windows and Darwin\n"
+  "+++ The program was tested under Linux, Darwin and Windows\n"
 )
-
-IF( CMAKE_HOST_SYSTEM_NAME MATCHES Darwin ) # MacOS
-  # see "cmake/MacRpathPatch.cmake"
-  SET ( CMAKE_MACOSX_RPATH ON )
-
-  # this is for old versions of cmake, it is depricated now
-  # MACOSX_RPATH (see cmake --help-policy CMP0042)
-  #  CMAKE_POLICY( SET CMP0042 OLD )
-  # LOCATION property for build targets (cmake --help-policy CMP0026)
-  #  CMAKE_POLICY( SET CMP0026 OLD )
-ENDIF()
 
 PROJECT( BEAN )
 
 #---------------------------------------------------------------------
-# Configuration parameters: use ccmake to change them
+# Configuration parameters
 #---------------------------------------------------------------------
-
 # installation directory:
 IF( NOT CMAKE_BUILD_TYPE )
   SET( CMAKE_INSTALL_PREFIX
@@ -36,7 +34,7 @@ IF( NOT CMAKE_BUILD_TYPE )
     CACHE PATH
     "Choose the directory to install program"
     FORCE
-    )
+  )
 ENDIF()
 
 # the full list of possible values of this flag are
@@ -47,27 +45,31 @@ IF( NOT CMAKE_BUILD_TYPE )
     CACHE STRING
     "Choose the type of build: RelWithDebInfo Release Debug"
     FORCE
-    )
+  )
 ENDIF()
 
 # BOSS_VERSION is the version of BOSS program which was used to
-# produce DST-files; the string BOSS_VERSION should contain three
-# digits separated by dots.
-# Please do not specify the patch version of BOSS production.
-# It defines:
+# produce DST-files. The BOSS_VERSION value determines the following:
 # 1) the ROOTEVENTDATA_VERSION
-# 2) versions of the algorithms in the Analysis folder;
-#    (by setting the preprocessor variable BOSS_VER)
-# Tested values: 6.6.3-6.6.5; 7.0.3;7.0.4;7.0.5-7.0.9
+# 2) the preprocessor variable BOSS_VER, which determines
+#    the versions of the algorithms in the Analysis folder
+# Tested values: 6.6.3-6.6.5;
+#                7.0.3;7.0.4;7.0.5-7.0.9
+#                7.1.0-1
+#
+# The string BOSS_VERSION should contain three digits separated by
+# dots. Please DO NOT SPECIFY THE PATCH VERSION of BOSS production.
 SET( BOSS_VERSION
   6.6.4
   CACHE STRING
   "Version of BOSS in dst production"
-  )
+)
 
 OPTION( BUILTIN_SQLITE
-  "Use included sqlite or system sqlite library" ON )
-IF( NOT CMAKE_SYSTEM_NAME MATCHES Windows ) # not WINDOWS
+  "Use included sqlite or system sqlite library" ON
+)
+
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
   OPTION( ENABLE_CLHEP_XLINK
     "Enable RPATH-based link for CLHEP library" ON )
   OPTION( ENABLE_ROOT_XLINK
@@ -79,13 +81,13 @@ ENDIF()
 #---------------------------------------------------------------------
 STRING( REGEX REPLACE "^([0-9]+)[.][0-9]+[.][0-9]+.*$" "\\1"
   BOSS_VER_MAJOR "${BOSS_VERSION}"
-  )
+)
 STRING( REGEX REPLACE "^[0-9][.]([0-9]+)[.][0-9]+.*$" "\\1"
   BOSS_VER_MINOR "${BOSS_VERSION}"
-  )
+)
 STRING( REGEX REPLACE "^[0-9]+[.][0-9]+[.]([0-9]+).*$" "\\1"
   BOSS_VER_MICRO "${BOSS_VERSION}"
-  )
+)
 SET( BOSS_VER "${BOSS_VER_MAJOR}${BOSS_VER_MINOR}${BOSS_VER_MICRO}" )
 MESSAGE( STATUS "+++ BOSS_VER is ${BOSS_VER}" )
 
@@ -95,6 +97,7 @@ MESSAGE( STATUS "+++ BOSS_VER is ${BOSS_VER}" )
 #   6.6.2                               6.6.1
 #   >= 6.6.3 < 7.0.5                    6.6.3
 #   >= 7.0.5 <= 7.0.9                   7.0.5
+#   7.1.0, 7.1.1                        7.1.0
 #
 SET( ROOTEVENTDATA_VERSION ${BOSS_VERSION} )
 IF( BOSS_VERSION  VERSION_EQUAL  "6.6.2" )
@@ -104,9 +107,11 @@ ELSEIF( BOSS_VERSION  VERSION_GREATER  "6.6.2" AND
   SET( ROOTEVENTDATA_VERSION "6.6.3" )
 ELSEIF( BOSS_VERSION  VERSION_LESS  "7.0.10" )
   SET( ROOTEVENTDATA_VERSION "7.0.5" )
+ELSEIF( BOSS_VERSION  VERSION_LESS  "7.1.2" )
+  SET( ROOTEVENTDATA_VERSION "7.1.0" )
 ENDIF()
-#  MESSAGE( STATUS
-#    "+++ ROOTEVENTDATA_VERSION is ${ROOTEVENTDATA_VERSION}" )
+MESSAGE( DEBUG
+  "DEBUG: ROOTEVENTDATA_VERSION is ${ROOTEVENTDATA_VERSION}" )
 
 SET( ROOTEVENTDATA RootEventData_${ROOTEVENTDATA_VERSION} )
 IF( NOT EXISTS "${CMAKE_SOURCE_DIR}/${ROOTEVENTDATA}" )
@@ -114,13 +119,13 @@ IF( NOT EXISTS "${CMAKE_SOURCE_DIR}/${ROOTEVENTDATA}" )
     "\"${ROOTEVENTDATA}\" does not exist in folder:\n"
     "\"${CMAKE_SOURCE_DIR}\"\n"
     "The BOSS_VERSION=${BOSS_VERSION} is not supported or "
-    "is specified incorrectly.\n" )
+    "is specified incorrectly.\n"
+  )
 ENDIF()
 MESSAGE( STATUS "+++ ROOTEVENTDATA: ../${ROOTEVENTDATA}" )
 
-
 #---------------------------------------------------------------------
-# Try to find ROOT and CLHEP
+# Searching for ROOT and CLHEP
 #---------------------------------------------------------------------
 SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake )
 
@@ -128,23 +133,24 @@ SET( ROOT_CONFIG_SEARCHPATH
   ""
   CACHE PATH
   "Path to directory with root-config program"
-  )
-# uncomment for detailed printing of found root-configuration
-# SET( FIND_ROOT_VERBOSE "VERBOSE" )
+)
+# uncomment for details about finding the ROOT program
+#  SET( FIND_ROOT_VERBOSE "yes" )
 INCLUDE( FindROOT )
 
 SET( CLHEP_SEARCHPATH
   "$ENV{CLHEP_DIR}"
   CACHE PATH
   "Path to directory where clhep is installed"
-  )
+)
+# uncomment for details about finding the CLHEP library
+#  SET( FIND_CLHEP_VERBOSE "yes" )
 INCLUDE( FindCLHEP )
 
 #---------------------------------------------------------------------
 # Compilation and link/libraries options
-#---------------------------------------------------------------------
-
 # Note: CMAKE_COMPILER_IS_GNUCC is depricated
+#---------------------------------------------------------------------
 IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
   (CMAKE_CXX_COMPILER_ID MATCHES "Clang") )   # Clang or AppleClang
 
@@ -153,12 +159,13 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
     # cut out a section with -std=...
     STRING( REGEX REPLACE "^.*(-std=[^ ]*).*$" "\\1"
       ROOT_STDCXX "${ROOT_CFLAGS}" )
-    #  MESSAGE( STATUS "ROOT_STDCXX= ${ROOT_STDCXX}" )
+    MESSAGE( DEBUG "DEBUG: ROOT_STDCXX= ${ROOT_STDCXX}" )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_STDCXX}" )
   ELSE()
     # for 'old' compilers
     IF( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
-      #  MESSAGE( STATUS "g++(verion)= ${CMAKE_CXX_COMPILER_VERSION}" )
+      MESSAGE( DEBUG
+        "DEBUG: g++(verion)= ${CMAKE_CXX_COMPILER_VERSION}" )
       # c++14 mode is the default in GCC 6.1 up 10 (including)
       # c++17 mode is the default in GCC >= 11
       IF( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6.1 )
@@ -167,8 +174,10 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
         ELSEIF( CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.3 )
           SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x" )
         ELSE()
-          MESSAGE( FATAL_ERROR "Insufficient g++ version: "
-            "${CMAKE_CXX_COMPILER_VERSION} we use C++11 features" )
+          MESSAGE( FATAL_ERROR
+            "Insufficient g++ version: "
+            "${CMAKE_CXX_COMPILER_VERSION} we use C++11 features"
+          )
         ENDIF()
       ENDIF()
     ENDIF()
@@ -192,41 +201,43 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows )
   ENDIF()
 ENDIF()
 
-# Set the common place where all libraries to be built. Please do not
-# to be confused it with the place where the libraries will be
-# installed later.
+# Set the common place where all libraries to be built.
+# Please do not to be confused it with the place where the libraries
+# will be installed later.
 SET( LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib )
 
 # Set actual place where the libraries will be installed
 SET( install_lib_dir "BeanLib_${BOSS_VERSION}" )
 
-IF( NOT CMAKE_SYSTEM_NAME MATCHES Windows ) # not WINDOWS
-  SET( LD_LIBRARY_PATH "LD_LIBRARY_PATH" )
-  SET( DYLD_LIBRARY_PATH "DYLD_LIBRARY_PATH" )
-  #  IF( CMAKE_SYSTEM_NAME MATCHES Darwin ) # MacOS
-  #  ENDIF()
+#---------------------------------------------------------------------
+# Shared library settings: RPATH
+#---------------------------------------------------------------------
+IF( CMAKE_SYSTEM_NAME MATCHES Darwin ) # MacOS
+  # initialize the MACOSX_RPATH property on all targets
+  SET ( CMAKE_MACOSX_RPATH ON )
 
-  # generate setup.sh
-  CONFIGURE_FILE(
-    ${CMAKE_SOURCE_DIR}/cmake/setup.sh.cmake
-    ${PROJECT_BINARY_DIR}/setup_${BOSS_VERSION}.sh
-    @ONLY
-    )
+  # silence the warnings
+  #  SET( CMAKE_SHARED_LINKER_FLAGS
+    #  "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries" )
 ENDIF()
 
-#---------------------------------------------------------------------
-# RPATH settings
-#---------------------------------------------------------------------
-INCLUDE( MacRpathPatch )
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
 
-IF( NOT CMAKE_SYSTEM_NAME MATCHES Windows ) # not WINDOWS
   IF( ENABLE_ROOT_XLINK )
-    SET( ROOTXLINK "-Xlinker -rpath -Xlinker ${ROOT_LIBRARY_DIR}" )
-    SET( CMAKE_SHARED_LINKER_FLAGS
-      "${CMAKE_SHARED_LINKER_FLAGS} ${ROOTXLINK}" )
+    IF( ROOT_LIBRARIES MATCHES ",-rpath," )
+      MESSAGE( DEBUG
+        "DEBUG: ROOT_LIBRARIES already contains the rpath setting, "
+        "so the ENABLE_ROOT_XLINK parameter is redundant"
+      )
+    ELSE()
+      SET( ROOTXLINK "-Wl,-rpath,${ROOT_LIBRARY_DIR}" )
+      SET( CMAKE_SHARED_LINKER_FLAGS
+        "${CMAKE_SHARED_LINKER_FLAGS} ${ROOTXLINK}" )
+    ENDIF()
   ENDIF()
+
   IF( ENABLE_CLHEP_XLINK )
-    SET( CLHEPXLINK "-Xlinker -rpath -Xlinker ${CLHEP_LIBRARY_DIR}" )
+    SET( CLHEPXLINK "-Wl,-rpath,${CLHEP_LIBRARY_DIR}" )
     SET( CMAKE_SHARED_LINKER_FLAGS
       "${CMAKE_SHARED_LINKER_FLAGS} ${CLHEPXLINK}" )
   ENDIF()
@@ -307,7 +318,7 @@ INCLUDE_DIRECTORIES(
   ${ROOT_INCLUDE_DIR}
   ${CLHEP_INCLUDE_DIR}
   ${DatabaseSvc_DIR}
-  )
+)
 
 SET( MAIN_SRCS "BeanCore/main.cxx" )
 
@@ -323,7 +334,7 @@ ADD_DEFINITIONS( -DBEANBASE="${CMAKE_SOURCE_DIR}" )
 ADD_EXECUTABLE( ${prog} ${MAIN_SRCS} )
 
 IF( CMAKE_SYSTEM_NAME MATCHES Linux )
-  # is it platform or compiler specific?
+  # this linker option only affects ELF files: man ld /--no-as-needed
   SET( CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed" )
 ENDIF()
@@ -338,15 +349,12 @@ TARGET_LINK_LIBRARIES( ${prog}
   EventTag
   ParticleID
   VertexFit
-  ${ROOT_LIBRARIES}
-  ${CLHEP_LIBRARIES}
-  )
+)
 
-IF( NOT CMAKE_SYSTEM_NAME MATCHES Windows ) # not WINDOWS
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
   SET_TARGET_PROPERTIES( ${prog}
     PROPERTIES  LINK_FLAGS  "${ROOTXLINK} ${CLHEPXLINK}"
-    )
-  MAC_PROG_RPATH( ${prog} )
+  )
 ENDIF()
 
 # final message (must be simple!) after compilation is done
@@ -354,20 +362,35 @@ ADD_CUSTOM_COMMAND( TARGET ${prog} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --red --bold
   "Use   make install   to install the program!"
   COMMENT "Compilation is over!"
-  )
+)
 
 #---------------------------------------------------------------------
 # install
 #---------------------------------------------------------------------
 INSTALL( DIRECTORY DESTINATION ${install_lib_dir} )
 INSTALL( TARGETS ${prog}  DESTINATION ${CMAKE_INSTALL_PREFIX} )
-INSTALL( FILES ${PROJECT_BINARY_DIR}/setup_${BOSS_VERSION}.sh
-  DESTINATION ${CMAKE_INSTALL_PREFIX} )
 
 ADD_CUSTOM_TARGET( install_bean
   "${CMAKE_COMMAND}" -P
   "${CMAKE_CURRENT_BINARY_DIR}/cmake_install.cmake"
+)
+
+# generate 'setup.sh' and install it if asked
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
+  SET( LD_LIBRARY_PATH "LD_LIBRARY_PATH" )
+  SET( DYLD_LIBRARY_PATH "DYLD_LIBRARY_PATH" )
+
+  CONFIGURE_FILE(
+    ${CMAKE_SOURCE_DIR}/cmake/setup.sh.cmake
+    ${PROJECT_BINARY_DIR}/setup_${BOSS_VERSION}.sh
+    @ONLY
   )
+  ADD_CUSTOM_TARGET( setup_file
+    COMMAND "${CMAKE_COMMAND}" -E copy
+    ${PROJECT_BINARY_DIR}/setup_${BOSS_VERSION}.sh
+    ${CMAKE_INSTALL_PREFIX}
+  )
+ENDIF()
 
 #---------------------------------------------------------------------
 # PROOF
@@ -399,7 +422,7 @@ FILE( GLOB TMP_FILES
 LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
 LIST( APPEND PROOF_A_FILES "Analysis/EventTag/share/pdt.table" )
 
-# MESSAGE( STATUS "PROOF_A_FILES = ${PROOF_A_FILES}" )
+#  MESSAGE( DEBUG "DEBUG: PROOF_A_FILES = ${PROOF_A_FILES}" )
 
 SET( ANALYSIS_PAR "${CMAKE_INSTALL_PREFIX}/par/Analysis.par" )
 ADD_CUSTOM_COMMAND(
@@ -411,7 +434,7 @@ ADD_CUSTOM_COMMAND(
   DEPENDS  ${PROOF_A_FILES}
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Creating ${ANALYSIS_PAR}"
-  )
+)
 
 # PROOF_B_FILES is the list of data files that could be used
 # in the BEAN from the directory "BeanUser"
@@ -430,7 +453,7 @@ ADD_CUSTOM_COMMAND(
   DEPENDS  ${PROOF_B_FILES}
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Creating ${BEANUSER_PAR}"
-  )
+)
 
 SET( LIB_PAR "${CMAKE_INSTALL_PREFIX}/par/${install_lib_dir}.par" )
 SET( PROOF_INF_LIB
@@ -446,7 +469,7 @@ ADD_CUSTOM_COMMAND(
   ${CMAKE_SOURCE_DIR}/cmake/SETUP_lib.C
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake"
   COMMENT "Creating ${PROOF_INF_LIB}"
-  )
+)
 
 ADD_CUSTOM_COMMAND(
   OUTPUT   ${LIB_PAR}
@@ -457,11 +480,11 @@ ADD_CUSTOM_COMMAND(
   DEPENDS ${PROOF_INF_LIB}/BUILD.sh ${PROOF_INF_LIB}/SETUP.C
   WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}
   COMMENT "Creating ${LIB_PAR}"
-  )
+)
 
 ADD_CUSTOM_TARGET( proofbean
   DEPENDS ${ANALYSIS_PAR} ${BEANUSER_PAR} ${LIB_PAR}
-  )
+)
 ADD_DEPENDENCIES( proofbean install_bean )
 
 #---------------------------------------------------------------------
@@ -473,4 +496,4 @@ ADD_CUSTOM_TARGET( uninstall
   COMMAND "${CMAKE_COMMAND}" -E remove_directory ${install_lib_dir}
   COMMAND "${CMAKE_COMMAND}" -E remove_directory par
   WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}
-  )
+)

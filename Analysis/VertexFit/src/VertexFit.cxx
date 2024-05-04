@@ -652,7 +652,8 @@ void VertexFit::BuildVirtualParticle(int n)
 		double afield = m_factor * VertexFitBField::instance()->getCBz(m_xInfit, pInfit(itk).sub(4, 6));
 		double a = afield * wTrackInfit(itk).charge();
 		
-		totalE += wTrackOrigin(itk).w()[3];
+		// totalE += wTrackOrigin(itk).w()[3];
+		totalE += wTrackInfit(itk).w()[3]; // update total energy after fit, commit by sunhk, thanks to Chengzhi He.
 		Ai[0][4] = a;
 		Ai[1][3] = -a;
 		Bi[0][1] = -a;

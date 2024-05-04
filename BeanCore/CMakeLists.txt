@@ -10,10 +10,11 @@ SET( INCLUDE_DIRECTORIES
   ${ROOTEVENTDATA_DIR}
   ${ROOT_INCLUDE_DIR}
   ${CLHEP_INCLUDE_DIR}
-  )
+)
 INCLUDE_DIRECTORIES( ${INCLUDE_DIRECTORIES} )
 
-# MESSAGE( " +++Bean INCLUDE_DIRECTORIES= ${INCLUDE_DIRECTORIES}" )
+MESSAGE( DEBUG
+  "DEBUG: BeanCore INCLUDES are ${INCLUDE_DIRECTORIES}" )
 
 #---------------------------------------------------------------------
 # the list of headers are needed to generate the root dictionary
@@ -23,19 +24,19 @@ SET( LINKDEFHDRS  DstFormat.h ReadDst.h Bean.h
 IF( ROOT_MAJOR_VERS LESS 6 )
   # the name of the dictionary
   SET( DICTIONARY ${libname}_rootcint.cxx )
-  ROOT_GENERATE_DICTIONARY(
+  ROOT5_GENERATE_DICTIONARY(
     ${DICTIONARY}
     "${LINKDEFHDRS}"
     "${INCLUDE_DIRECTORIES}"
     ""
-    )
+  )
 ELSE()
   ROOT6_GENERATE_DICTIONARY(
     ${libname}
     "${LINKDEFHDRS}"
     "${INCLUDE_DIRECTORIES}"
     ""
-    )
+  )
   SET( DICTIONARY ${libname}_rdict.cxx )
   SET( DictNamePcm ${libname}_rdict.pcm )
 ENDIF()
@@ -52,25 +53,20 @@ SET( CXX_FILES  DstFormat.cxx ReadDst.cxx Bean.cxx
 LIST( APPEND CXX_FILES ${DICTIONARY} )
 
 #---------------------------------------------------------------------
-#
-IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
-  ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
-  TARGET_LINK_LIBRARIES( ${libname}
-    RootEventData
-    ${ROOT_LIBRARIES}
-    ${CLHEP_LIBRARIES}
-    )
-ELSE()
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
   ADD_LIBRARY( ${libname} SHARED ${CXX_FILES} )
-  SET( Bean_ROOT_LIBRARIES
-    "${ROOT_LIBRARIES} -lEG -lProofPlayer -lProof" )
-  TARGET_LINK_LIBRARIES( ${libname}
-    RootEventData
-    ${Bean_ROOT_LIBRARIES}
-    ${CLHEP_LIBRARIES}
-    )
-  MAC_LIB_RPATH( ${libname} )
+  SET( BeanCore_ROOT_LIBRARIES
+    "-L ${ROOT_LIBRARY_DIR} -lEG -lProofPlayer -lProof" )
+ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
+  ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
+  SET( BeanCore_ROOT_LIBRARIES "${ROOT_LIBRARIES}" )
 ENDIF()
+
+TARGET_LINK_LIBRARIES( ${libname}
+  RootEventData
+  ${BeanCore_ROOT_LIBRARIES}
+  ${CLHEP_LIBRARIES}
+)
 
 #---------------------------------------------------------------------
 # install
@@ -81,3 +77,4 @@ IF( ROOT_MAJOR_VERS GREATER 5 )
   INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/${DictNamePcm}
     DESTINATION ${install_lib_dir} )
 ENDIF()
+

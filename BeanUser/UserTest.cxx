@@ -1,17 +1,17 @@
-//////////////////////////////////////////////////////////////////////////
-//                                                                      //
-// UserTest                                                             //
-//                                                                      //
-// This is example of user functions (here name is UserTest)            //
-// IMPORTANT: It MUST contain "name"Event() function.                   //
-// Two functions "name"StartJob() and "name"EndJob() are optional.      //
-//                                                                      //
-// The return value of Event() function used only if                    //
-// option -o (define output ROOT tree file name) is defined:            //
-//      true  -- save this event in output ROOT                         //
-//      false -- skip event                                             //
-//                                                                      //
-//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//
+// UserTest
+//
+// This is example of user functions (here name is UserTest)
+// IMPORTANT: It MUST contain "name"Event() function.
+// Two functions "name"StartJob() and "name"EndJob() are optional.
+//
+// The return value of Event() function used only if
+// option -o (define output ROOT tree file name) is defined:
+//      true  -- save this event in output ROOT
+//      false -- skip event
+//
+//////////////////////////////////////////////////////////////////////
 
 #include "DLLDefines.h"         // mandatory!
 
@@ -41,8 +41,7 @@ using namespace std;
 extern "C" {
 #endif
 
-static std::vector<TH1D*> his1;
-static std::vector<TH2D*> his2;
+static std::vector<TH1*> hst;
 static TNtuple* fNtp;
 
 
@@ -51,33 +50,29 @@ BeanUserShared_EXPORT
 void UserTestStartJob(ReadDst* selector)
 //--------------------------------------------------------------------
 {
-   if( selector->Verbose() ) cout << " UserTestStartJob() " << endl;
+   if( selector->Verbose() ) {
+      cout << " Start: " << __func__ << "()" << endl;
+   }
 
    // reserve
-   his1.resize(100,(TH1D*)0);
-   his2.resize(100,(TH2D*)0);
+   hst.resize(100,(TH1D*)0);
 
    // book histograms
-   his1[1] = new TH1D("nmdctrk","Ntracks in MDC", 20,-0.5,19.5);
-   his1[2] = new TH1D("p_pos","P positive (2trk)",100,0.,3.);
-   his1[3] = new TH1D("p_neg","P negative (2trk)",100,0.,3.);
+   hst[1] = new TH1D("nmdctrk","Ntracks in MDC", 20,-0.5,19.5);
+   hst[2] = new TH1D("p_pos","P positive (2trk)",100,0.,3.);
+   hst[3] = new TH1D("p_neg","P negative (2trk)",100,0.,3.);
 
-   his2[1] = new TH2D("phi_pos_neg","Phi_pos vs Phi_neg",
-                                        100,-M_PI,M_PI,100,-M_PI,M_PI);
+   hst[4] = new TH2D("phi_pos_neg","Phi_pos vs Phi_neg",
+         100,-M_PI,M_PI,100,-M_PI,M_PI);
 
    fNtp = new TNtuple("ntuple","Demo ntuple","charge:p:phi:theta");
 
    // register in selector to save in given directory
-   VecObj his1o(his1.begin(),his1.end());
-   selector->RegInDir(his1o,"UserTest");
-
-   VecObj his2o(his2.begin(),his2.end());
-   selector->RegInDir(his2o,"UserTest");
+   VecObj hsto(hst.begin(),hst.end());
+   selector->RegInDir(hsto,"UserTest");
 
    VecObj ntuples(1,fNtp);
    selector->RegInDir(ntuples,"UserTest");
-
-
 }
 
 //--------------------------------------------------------------------
@@ -92,14 +87,14 @@ bool UserTestEvent(ReadDst* selector,
                    THltEvent* m_THltEvent)
 //--------------------------------------------------------------------
 {
-   if( selector->Verbose() ) cout << " UserTestEvent() " << endl;
-
-
+   if( selector->Verbose() ) {
+      cout << " Start: " << __func__ << "()" << endl;
+   }
 
    const TObjArray* m_mdcTrackCol = m_TDstEvent->getMdcTrackCol();
    int NmdcTracks = m_mdcTrackCol->GetEntries();
 
-   his1[1]->Fill(NmdcTracks);
+   hst[1]->Fill(NmdcTracks);
 
    if( NmdcTracks != 2 ) return false; // skip event
 
@@ -108,21 +103,21 @@ bool UserTestEvent(ReadDst* selector,
    TIter mdcTrackIter(m_mdcTrackCol);
    TMdcTrack* mdcTrack = 0;
    while ((mdcTrack = (TMdcTrack*)mdcTrackIter.Next())) {
-     sum_charge += mdcTrack->charge();
+      sum_charge += mdcTrack->charge();
 
-     if( mdcTrack->charge() > 0 ) {
-       his1[2]->Fill(mdcTrack->p());
-       phi_trk[0] = mdcTrack->phi();
-     } else {
-       his1[3]->Fill(mdcTrack->p());
-       phi_trk[1] = mdcTrack->phi();
-     }
+      if( mdcTrack->charge() > 0 ) {
+         hst[2]->Fill(mdcTrack->p());
+         phi_trk[0] = mdcTrack->phi();
+      } else {
+         hst[3]->Fill(mdcTrack->p());
+         phi_trk[1] = mdcTrack->phi();
+      }
 
-     fNtp->Fill( mdcTrack->charge(), mdcTrack->p(), mdcTrack->phi(),
-                 mdcTrack->theta() );
+      fNtp->Fill( mdcTrack->charge(), mdcTrack->p(), mdcTrack->phi(),
+            mdcTrack->theta() );
    }
 
-   if( sum_charge==0 ) his2[1]->Fill(phi_trk[0],phi_trk[1]);
+   if( sum_charge==0 ) hst[4]->Fill(phi_trk[0],phi_trk[1]);
 
    return (sum_charge==0); // save event if sum_charge is 0
 }
@@ -132,7 +127,9 @@ BeanUserShared_EXPORT
 void UserTestEndJob(ReadDst* selector)
 //--------------------------------------------------------------------
 {
-   if( selector->Verbose() ) cout << " UserTestEndJob() " << endl;
+   if( selector->Verbose() ) {
+      cout << " Start: " << __func__ << "()" << endl;
+   }
 }
 
 #ifdef __cplusplus

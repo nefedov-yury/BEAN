@@ -26,6 +26,7 @@
 
 #include "VertexFit/VertexDbSvc.h"
 #include "VertexFit/Helix.h"
+#include "MagneticField/MagneticFieldSvc.h"
 
 #include "DstEvtRecTracks.h"
 #include "ReadDst.h"
@@ -62,8 +63,22 @@ void DelClonedTrksStartJob(ReadDst* selector) {
       cout << " Start: " << __func__ << "()" << endl;
    }
 
-   // The initialization of helix_cor must be based on the DataPeriod,
-   // which is determined by the run number
+   // initialize DatabaseSvc (for VertexDbSvc) -----------------------
+   DatabaseSvc* dbs = DatabaseSvc::instance();
+   if ( (dbs->GetDBFilePath()).empty() ) {
+      // set path to directory with databases:
+      dbs->SetDBFilePath(
+            selector->AbsPath("Analysis/DatabaseSvc/dat"));
+   }
+
+   // initialize Magnetic field (for VertexFitBField) ----------------
+   MagneticFieldSvc* mf = MagneticFieldSvc::instance();
+   if ( (mf->GetPath()).empty() ) {
+      // set path to directory with magnetic fields tables
+      mf->SetPath(selector->AbsPath("Analysis/MagneticField"));
+      mf->UseDBFlag(false); // like in the boss program
+      mf->RunMode(3); // like in the boss program
+   }
 
    // Book histograms ------------------------------------------------
    hst.resize(20,nullptr);
@@ -99,7 +114,8 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 
 #if (BOSS_VER > 700)
-   string BossVer("7.0.9");
+   // string BossVer("7.0.9");
+   string BossVer("7.1.1");    // just for test
 #else
    string BossVer("6.6.4");
    int run = abs(runNo);

@@ -1,14 +1,14 @@
-//////////////////////////////////////////////////////////////////////////
-//                                                                      //
-// TestEventTag                                                         //
-//                                                                      //
-// This example shows how to use EventTag library ported from BOSS      //
-//                                                                      //
-// NOTE: You MUST specify the paths to pdg and decayCodes files.        //
-//       Use the function AbsPath(file) which returns absolute path     //
-//       in the form: "path_to_base_Bean_dir/" + file                   //
-//                                                                      //
-//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//
+// TestEventTag
+//
+// This example shows how to use EventTag library ported from BOSS
+//
+// NOTE: You MUST specify the paths to pdg and decayCodes files.
+//       Use the function AbsPath(file) which returns absolute path
+//       in the form: "path_to_base_Bean_dir/" + file
+//
+//////////////////////////////////////////////////////////////////////
 
 #include "DLLDefines.h"         // mandatory!
 
@@ -40,7 +40,6 @@ extern "C" {
 #endif
 
 static std::vector<TH1D*> his1;
-// static std::vector<TH2D*> his2;
 //static TNtuple* fNtp;
 
 static EventTagSvc * m_EventTagSvc;
@@ -50,11 +49,12 @@ BeanUserShared_EXPORT
 void TestEventTagStartJob(ReadDst* selector)
 //--------------------------------------------------------------------
 {
-   if( selector->Verbose() ) cout << " TestEventTagStartJob() " << endl;
+   if( selector->Verbose() ) {
+      cout << " TestEventTagStartJob() " << endl;
+   }
 
    // reserve
    his1.resize(100,(TH1D*)0);
-//    his2.resize(100,(TH2D*)0);
 
    // book histograms
    his1[1] = new TH1D("evttagfirst",
@@ -73,11 +73,11 @@ void TestEventTagStartJob(ReadDst* selector)
       m_EventTagSvc->setDecayTabsFile(
         selector->AbsPath("Analysis/EventTag/share/decay.codes") );
 
-      // one MUST add this *.codes file to toplevel Makefile
-      // in order to work with PROOF (only *.cxx/*.h files are included
-      // in PROOF packages by defgault)
-      // P.S. of course you can use network path here or copy this file
-      // to all the PROOF worker nodes
+      // one MUST add this *.codes file to toplevel Makefile in order
+      // to work with PROOF (only *.cxx/*.h files are included in
+      // PROOF packages by defgault)
+      // Or you can use network path here or copy this file to all the
+      // PROOF worker nodes
       m_EventTagSvc->setUserDecayTabsFile(
         selector->AbsPath("BeanUser/mydecay.codes") );
 
@@ -107,7 +107,7 @@ bool TestEventTagEvent(ReadDst* selector,
       cout  << "TAG:"  << hex << m_EventTagSvc->getEventTag() << endl;
    }
    int decCode = ((m_EventTagSvc->getEventTag())&0xFF00) >> 8;
-   his1[1]->Fill( (float) decCode);
+   his1[1]->Fill( (double) decCode);
 
    return (0);
 }

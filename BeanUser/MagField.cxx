@@ -1,18 +1,18 @@
-//////////////////////////////////////////////////////////////////////////
-//                                                                      //
-// MagField                                                             //
-//                                                                      //
-// This is test example of user functions for MagneticField library     //
-// It does not need event loop. Use "bean.exe -N 1 -u MagField ..."     //
-// to test it.                                                          //
-//                                                                      //
-// NOTE: You MUST specify the paths:                                    //
-//       1) to the directory with magnetic fields tables                //
-//       2) to the database directory (see TestDb)                      //
-//       Use the function AbsPath(file) which returns absolute path     //
-//       in the form: "path_to_base_Bean_dir/" + file                   //
-//                                                                      //
-//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//
+// MagField
+//
+// This is a test example of using the MagneticField library functions
+// It does not need event loop. Use "bean.exe -N 1 -u MagField ..."
+// to test it.
+//
+// NOTE: You MUST specify the paths:
+//       1) to the directory with magnetic fields tables
+//       2) to the database directory (see TestDb)
+//       Use the function AbsPath(file) which returns absolute path
+//       in the form: "path_to_base_Bean_dir/" + file
+//
+//////////////////////////////////////////////////////////////////////
 
 #include "DLLDefines.h"         // mandatory!
 
@@ -56,18 +56,36 @@ static double max_y = 1.8*m, min_y = -1.8*m;
 static double max_z = 2.1*m, min_z = -2.1*m;
 
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void MagFieldStartJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " MagFieldStartJob() " << endl;
 
-   // reserve
+   // create MagneticFieldSvc
+   mag_field = MagneticFieldSvc::instance();
+   if( !(mag_field->GetPath()).empty() ) {
+      cerr << " MagFieldStartJob::WARNING:"
+         << " MagneticFieldSvc has already been initialized" << endl
+         << "                         path = "
+         << mag_field->GetPath() <<endl;
+   }
+
+   // set paths to directory with magnetic fields tables
+   // and to database directory
+   mag_field->SetPaths( selector->AbsPath("Analysis/MagneticField"),
+         selector->AbsPath("Analysis/DatabaseSvc/dat") );
+
+   if( !mag_field->initialize() ) {
+      cout << " Can not initialize MagneticField. Stop." << endl;
+      exit(1);
+   }
+
+   // book histograms
    his1.resize(100,(TH1D*)0);
    his2.resize(100,(TH2D*)0);
 
-   // book histograms
    his1[1] = new TH1D("Bx_z","Bx(z) x=0 y=0", 420, min_z, max_z);
    his1[2] = new TH1D("By_z","By(z) x=0 y=0", 420, min_z, max_z);
    his1[3] = new TH1D("Bz_z","Bz(z) x=0 y=0", 420, min_z, max_z);
@@ -88,26 +106,9 @@ void MagFieldStartJob(ReadDst* selector)
 
    VecObj his2o(his2.begin(),his2.end());
    selector->RegInDir( his2o     ,"MagField2");
-
-   // create MagneticFieldSvc
-   mag_field = MagneticFieldSvc::instance();
-   if( !(mag_field->GetPath()).empty() ) {
-     cerr << " MagFieldStartJob::WARNING:"
-          << " MagneticFieldSvc has already been initialized" << endl
-          << "                         path = " << mag_field->GetPath() <<endl;
-   }
-
-   // set paths to directory with magnetic fields tables and to database-dir
-   mag_field->SetPaths( selector->AbsPath("Analysis/MagneticField"),
-                        selector->AbsPath("Analysis/DatabaseSvc/dat") );
-
-   if( !mag_field->initialize() ) {
-     cout << " Can not initialize MagneticField. Stop." << endl;
-     exit(1);
-   }
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 bool MagFieldEvent(ReadDst* selector,
                    TEvtHeader* m_TEvtHeader,
@@ -117,7 +118,7 @@ bool MagFieldEvent(ReadDst* selector,
                    TTrigEvent* m_TTrigEvent,
                    TDigiEvent* m_TDigiEvent,
                    THltEvent* m_THltEvent)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " MagFieldEvent() " << endl;
 
@@ -187,10 +188,10 @@ bool MagFieldEvent(ReadDst* selector,
    return false;
 }
 
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 BeanUserShared_EXPORT
 void MagFieldEndJob(ReadDst* selector)
-//-----------------------------------------------------------------------------
+//--------------------------------------------------------------------
 {
    if( selector->Verbose() ) cout << " MagFieldEndJob() " << endl;
 }

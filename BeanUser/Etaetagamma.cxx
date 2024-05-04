@@ -66,6 +66,8 @@ extern "C" {
 #endif
 
 
+#define TAG_SRC_SIZE 15
+
 //const double twopi = 6.2831853;
 //const double pi = 3.1415927;
 const double mpi = 0.13957;
@@ -641,7 +643,7 @@ static void formatTag(char * tag_str, unsigned int eventTag_) {
     unsigned char byte3 =   (eventTag & 0xFF); //last byte
     eventTag >>= 8;
 
-    sprintf(tag_str, "%d-%d-%d", byte1, byte2, byte3);
+    snprintf(tag_str, TAG_SRC_SIZE, "%d-%d-%d", byte1, byte2, byte3);
 
 }
 
@@ -705,7 +707,7 @@ void     _handleMC(TMcEvent* m_TMcEvent,const TEvtRecEvent*  evtRecEvent,unsigne
 
 
         if (((pi0Count==2) && (etaCount==0)) || ((etaCount==2) && (pi0Count==0))) {
-            char tag_str[15];
+            char tag_str[TAG_SRC_SIZE];
             unsigned int eventTagDecay =  (eventTag & 0xFFFFFF00) >> 8;
 
             formatTag(tag_str, eventTagDecay);
@@ -1144,7 +1146,7 @@ bool EtaetagammaEvent(ReadDst* selector,
     unsigned int eventTagDecay =  (eventTag & 0xFFFFFF00) >> 8;
 
 
-    char tag_str[15];
+    char tag_str[TAG_SRC_SIZE];
     formatTag(tag_str, eventTagDecay);
     hInitialTags->Fill(tag_str,1.0);
 
@@ -1382,7 +1384,6 @@ bool EtaetagammaEvent(ReadDst* selector,
     hNPi0Candidates->Fill(pi0Candidates.size());
 
     // fill histogram with tags
-    //~ char tag_str[10];
     formatTag(tag_str, eventTagDecay);
 
     TLorentzVector Pcms(0.034,0,0,3.097); //

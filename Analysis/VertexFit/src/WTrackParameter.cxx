@@ -179,7 +179,7 @@ HepMatrix WTrackParameter::GetCvtMatrix(const double mass, const HepVector &heli
 	double kappa   = helix[2];
 	double kappa2  = kappa * kappa;
 	double kappa3  = kappa * kappa2;
-	double dz      = helix[3];
+	// double dz      = helix[3];
 	double lambda  = helix[4];
 	double lambda2 = lambda * lambda;
 	double e       = sqrt( (1+lambda2) / kappa2 + mass * mass );

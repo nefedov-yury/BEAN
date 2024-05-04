@@ -16,11 +16,13 @@
 using namespace std;
 
 #ifndef BEAN
+DECLARE_COMPONENT(EventTagSvc)
+
 bool mcPartPrtLess( Event::McParticle* p1, Event::McParticle* p2){
 return p1->particleProperty()<p2->particleProperty();}
 
 EventTagSvc::EventTagSvc(const std::string& name, ISvcLocator* svc ) :
-  Service(name,svc)
+  base_class(name,svc)
 {
 
   declareProperty("pdgFile", m_pdtFile="pdt.table");
@@ -195,8 +197,7 @@ StatusCode EventTagSvc::finalize() {
   return StatusCode::SUCCESS;
 }
 
-StatusCode
-EventTagSvc::queryInterface(const InterfaceID& riid, void** ppvInterface) {
+/*EventTagSvc::queryInterface(const InterfaceID& riid, void** ppvInterface) {
   if ( IEventTagSvc::interfaceID().versionMatch(riid) )    {
     *ppvInterface = (IEventTagSvc*)this;
   }
@@ -206,7 +207,7 @@ EventTagSvc::queryInterface(const InterfaceID& riid, void** ppvInterface) {
   }
   addRef();
   return StatusCode::SUCCESS;
-}
+}*/
 #endif
 
 

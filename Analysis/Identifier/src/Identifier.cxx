@@ -19,7 +19,8 @@ std::string Identifier::getString() const
    std::string result;
    char temp[20];
    
-   sprintf (temp, "0x%x", (unsigned int)m_id);
+   // sprintf (temp, "0x%x", (unsigned int)m_id);
+   snprintf (temp, sizeof(temp), "0x%x", (unsigned int)m_id);
    result += temp;
    result.insert(2,10-result.length(),'0');
    

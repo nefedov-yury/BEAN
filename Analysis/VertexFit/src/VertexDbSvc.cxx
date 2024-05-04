@@ -45,8 +45,9 @@ using namespace std;
 
 
 #ifndef BEAN
+DECLARE_COMPONENT(VertexDbSvc)
 VertexDbSvc::VertexDbSvc( const string& name, ISvcLocator* svcloc) :
-  Service (name, svcloc){
+   base_class(name, svcloc){
   // declare properties
   declareProperty("Host" , host = std::string("bes3db2.ihep.ac.cn"));
   declareProperty("DbName" , dbName = std::string("offlinedb"));
@@ -58,19 +59,20 @@ VertexDbSvc::VertexDbSvc( const string& name, ISvcLocator* svcloc) :
   declareProperty("ReadOneTime",m_readOneTime=false);
   declareProperty("RunFrom", m_runFrom=8093);
   declareProperty("RunTo",m_runTo=9025);
+  declareProperty("RunIdList",m_runIdList);
 }
 
 VertexDbSvc::~VertexDbSvc(){
 }
 
-StatusCode VertexDbSvc::queryInterface(const InterfaceID& riid, void** ppvInterface){
+/*StatusCode VertexDbSvc::queryInterface(const InterfaceID& riid, void** ppvInterface){
      if( IID_IVertexDbSvc.versionMatch(riid) ){
 	  *ppvInterface = static_cast<IVertexDbSvc*> (this);
      } else{
 	  return Service::queryInterface(riid, ppvInterface);
      }
      return StatusCode::SUCCESS;
-}
+}*/
 
 StatusCode VertexDbSvc::initialize(){
   MsgStream log(messageService(), name());
@@ -98,13 +100,26 @@ StatusCode VertexDbSvc::initialize(){
     log << MSG::ERROR << "Unable to find EventDataSvc " << endreq;
     return sc;
   }
-  if(m_readOneTime){
+  /*if(m_readOneTime){
     if(m_runFrom>=8093){
         getReadBunchInfo(m_runFrom, m_runTo);
     }
     else
       std::cout<<"VertexDbSvc, invalid RunFrom, RunFrom should be >=8093"<<std::endl;
-  }
+  }*/
+  for(unsigned int i = 0; i < m_runIdList.size(); i++) {
+       m_runFrom=m_runIdList[i];
+       i=i+2;
+       m_runTo=m_runIdList[i];
+       if(m_readOneTime){
+         if(m_runFrom>=8093){
+         getReadBunchInfo(m_runFrom, m_runTo);
+         }
+         else
+           std::cout<<"VertexDbSvc, invalid RunFrom, RunFrom should be >=8093"<<std::endl;
+       }
+   }
+
   return StatusCode::SUCCESS;
 }
 
@@ -345,7 +360,11 @@ bool VertexDbSvc::getReadBunchInfo(int run)
     }
     else {
       char stmt1[400];
-      sprintf(stmt1, "select SftVer, ParVer from CalVtxLumVer where BossRelease = '%s' and RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'", m_bossRelease.c_str(), run, run);
+      // sprintf(stmt1, "select SftVer, ParVer from CalVtxLumVer where BossRelease = '%s' and RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'", m_bossRelease.c_str(), run, run);
+      snprintf( stmt1, sizeof(stmt1), "select SftVer, ParVer "
+            "from CalVtxLumVer where BossRelease = '%s' and "
+            "RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'",
+            m_bossRelease.c_str(), run, run );
 
       DatabaseRecordVector records;
       int rowNo = m_dbsvc->query("offlinedb",stmt1,records);
@@ -414,7 +433,11 @@ bool VertexDbSvc::getReadBunchInfo(int runFrom, int runTo)
     }
     else {
       char stmt1[400];
-      sprintf(stmt1, "select SftVer, ParVer from CalVtxLumVer where BossRelease = '%s' and RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'", m_bossRelease.c_str(), runFrom, runTo);
+      // sprintf(stmt1, "select SftVer, ParVer from CalVtxLumVer where BossRelease = '%s' and RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'", m_bossRelease.c_str(), runFrom, runTo);
+      snprintf( stmt1, sizeof(stmt1), "select SftVer, ParVer "
+            "from CalVtxLumVer where BossRelease = '%s' and "
+            "RunFrom <= %d and RunTo >= %d and DataType = 'LumVtx'",
+            m_bossRelease.c_str(), runFrom, runTo );
 
       DatabaseRecordVector records;
       int rowNo = m_dbsvc->query("offlinedb",stmt1,records);

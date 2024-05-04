@@ -81,7 +81,7 @@ class EmcCalibInfo:
 # Examples to use ----------------------------------------------------
 r = EmcCalibInfo()
 #  r.verbose = True
-r.bossver = "7.0.9"
+r.bossver = "7.1.1"
 
 # Psi(2S) 2009 : run8093-run9025
 #  r.PrintCalibFiles(8093)
@@ -96,7 +96,6 @@ r.bossver = "7.0.9"
 # 3650 2009: run 9613 - 9779
 # 3650 2012: run 33725 - 33772
 # 3650 2022: run 69612 - 70132
-#  r.bossver = "7.0.9"
 #  r.PrintCalibFiles(9613)
 #  r.PrintCalibFiles(33725)
 r.PrintCalibFiles(69612)

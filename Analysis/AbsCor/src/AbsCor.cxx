@@ -36,7 +36,7 @@
 #define DATAPATH "00-00-28"
 #elif (BOSS_VER >= 702 && BOSS_VER <= 707)
 #define DATAPATH "00-00-36"
-#elif (BOSS_VER <= 709)
+#elif (BOSS_VER <= 711)
 #define DATAPATH "00-00-41"
 #else
 #error "unknown BOSS version"

@@ -1,0 +1,30 @@
+#!/bin/bash
+#################### TEST-DEBUG ############################
+
+#  BEAN="./bean_7.0.9.exe"
+BEAN="./bean_7.1.1.exe"
+ODIR="./outputs"
+
+printf " TEST\n"
+#  gdb -ex=r --args \
+${BEAN} \
+    -u DelClonedTrks \
+    -h ${ODIR}/test_711m.root \
+    /Volumes/Tr16G/run_0081712_All_file001_SFO-1.dst \
+    > ${ODIR}/test_711m.out 2>&1
+
+#
+    #  -h /dev/null \
+    #  > >(tee test.out) 2>&1
+#
+    #  -u Rhopi \
+    #  -u PsipHelixParCor \
+    #  -u PsipJpsiPhiEta \
+    #  -u PsipPiPiKK \
+    #  -u PsipJpsiGammaEta\
+#
+    #  /home/nefedov/run_0081712_All_file001_SFO-1.dst \
+    #  ${DSTDIR}/psip2021_stream001_run66839_file*.dst \
+    #  -L PsipJpsiPhiEta/local/Lists/mckketa_09psip.list \
+    #  -L PsipJpsiPhiEta/local/Lists/mcsig_12psip.list \
+    #  -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list

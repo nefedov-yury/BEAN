@@ -1,19 +1,18 @@
-//////////////////////////////////////////////////////////////////////////
-//                                                                      //
-//  Rhopi                                                               //
-//                                                                      //
-// This is Rhopi programm from Analysis/Physics/RhopiAlg                //
-// modified (accommodated) for BEAN.                                    //
-//                                                                      //
-// Main points:                                                         //
-//              1) use root-ntuples                                     //
-//              2) create and give parameters of magnetic fild in       //
-//                 StartJob                                             //
-//              2a) initialize Absorption Correction alg. in StartJob   //
-//                  and use it in Event()                               //
-//              3) see TestPID.cxx for ParticleID example               //
-//                                                                      //
-//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//
+// Rhopi
+//
+// This is Rhopi programm from Analysis/Physics/RhopiAlg
+// modified (accommodated) for BEAN.
+//
+// Main points:
+//      1) we use root-ntuples here
+//      2) we create and give parameters of magnetic fild in StartJob
+//      3) we initialize Absorption Correction alg. in StartJob
+//         and use it in Event functions, see TestAbsCor.cxx
+//      4) we use ParticleID, see TestPID.cxx for details
+//
+//////////////////////////////////////////////////////////////////////
 
 #include "DLLDefines.h"         // mandatory!
 

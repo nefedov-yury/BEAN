@@ -1,23 +1,23 @@
-//////////////////////////////////////////////////////////////////////////
-//                                                                      //
-// User1                                                                //
-//                                                                      //
-// This is example of user functions (here name is User1)               //
-// IMPORTANT: It MUST contain "name"Event() function.                   //
-// Two functions "name"StartJob() and "name"EndJob() are optional.      //
-//                                                                      //
-// The return value of Event() function used only if                    //
-// option -o (define output ROOT tree file name) is defined:            //
-//      true  -- save this event in output ROOT                         //
-//      false -- skip event                                             //
-//                                                                      //
-// NOTE: Please do not forget to use `extern "C"` directive for         //
-//       functions.                                                     //
-//       The macros BeanUserShared_EXPORT is defined in file            //
-//       "DLLDefines.h". This is important for WIN programming          //
-//       but you may want to skip it in UNIX.                           //
-//                                                                      //
-//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//
+// User1
+//
+// This is example of user functions (here name is User1)
+// IMPORTANT: It MUST contain "name"Event() function.
+// Two functions "name"StartJob() and "name"EndJob() are optional.
+//
+// The return value of Event() function used only if
+// option -o (define output ROOT tree file name) is defined:
+//      true  -- save this event in output ROOT
+//      false -- skip event
+//
+// NOTE: Please do not forget to use `extern "C"` directive for
+//       functions.
+//       The macros BeanUserShared_EXPORT is defined in file
+//       "DLLDefines.h". This is important for WIN programming
+//       but you may want to skip it in UNIX.
+//
+//////////////////////////////////////////////////////////////////////
 
 #include "DLLDefines.h"         // mandatory!
 

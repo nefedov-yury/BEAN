@@ -2,25 +2,26 @@
 # BeanUser is the place for user analysis + examples
 #---------------------------------------------------------------------
 
-# explicit listing of files
+# Explicit list of files that will be compiled
+# --------------------------------------------
 SET( CXX_FILES
-  # List of test functions
+  # ++ Several functions with examples and tests
   User1.cxx
   UserTest.cxx
-  TestDb.cxx
+  TestAbsCor.cxx
   TestPID.cxx
   MagField.cxx
-  JobInfo.cxx
-  Rhopi.cxx
-  EntryList.cxx
   TestEventTag.cxx
-  TestAbsCor.cxx
-  Etaetagamma.cxx
-  #    the analysis of Jpsi -> rho pi  written for BEAN;
-  #    analogue of the Boss: Analysis/Physics/RhopiAlg
+  TestDb.cxx
+  JobInfo.cxx
+  EntryList.cxx
+  #
+  # ++ Rhopi.cxx is the 'Jpsi -> rho pi' analysis rewritten for BEAN
+  #    using the Boss cobe 'Analysis/Physics/RhopiAlg' as a template
   Rhopi.cxx
   #
-  # -- local and old files --
+  # ++ Here are possibly useful old files
+  #     Etaetagamma.cxx
   #     Semileptonic.cxx
   #     DoubleDTag.cxx
   #     Bhabha.cxx
@@ -32,13 +33,14 @@ SET( CXX_FILES
   #     PipPimPi0Eta.cxx
   #     SelectJpsiX.cxx
   #
+  # ++ User programs are here:
   SelectKKgg.cxx
   PsipJpsiPhiEta.cxx
   PsipPiPiKK.cxx
   PsipJpsiGammaEta.cxx
   PsipHelixParCor.cxx
   DelClonedTrks.cxx
-  )
+)
 
 #---------------------------------------------------------------------
 SET( libname BeanUser )
@@ -57,7 +59,7 @@ INCLUDE_DIRECTORIES(
   ${TrackCorrection_DIR}
   ${ROOT_INCLUDE_DIR}
   ${CLHEP_INCLUDE_DIR}
-  )
+)
 
 ADD_LIBRARY( ${libname} SHARED ${CXX_FILES} )
 
@@ -72,11 +74,7 @@ TARGET_LINK_LIBRARIES( ${libname}
   EventTag
   RscanDQ
   TrackCorrection
-  ${ROOT_LIBRARIES}
-  ${CLHEP_LIBRARIES}
-  )
-
-MAC_LIB_RPATH( ${libname} )
+)
 
 #---------------------------------------------------------------------
 # install

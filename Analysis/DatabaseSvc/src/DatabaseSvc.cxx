@@ -217,6 +217,15 @@ DatabaseSvc::initialize()
     exit_code = false;
   }
 
+  // to avoid compiler warnings about unused variables  
+  m_dbHost="";
+  m_dbUser="guest";
+  m_dbPasswd="guestpass";
+  m_dbPort=3306;
+  m_dbFilePath="";
+  m_dbType="SQLITE";
+  m_dbReuseConnection=false;
+
   return exit_code;
 }
 

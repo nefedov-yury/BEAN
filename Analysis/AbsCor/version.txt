@@ -26,3 +26,7 @@ BeanUser/TestAbsCor.cxx
 
 The path to the calibration files (on /cvmfs) can be obtained using
 the python3 program 'GetAbsCorFiles.py', see folder bean/scripts/.
+
+7.1.0 == AbsCor-00-01-45 minor changes: the names of three variables
+                         have been changed
+7.1.1 == AbsCor-00-01-46 == AbsCor-00-01-45

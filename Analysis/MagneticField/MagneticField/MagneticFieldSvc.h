@@ -38,12 +38,10 @@ typedef bool StatusCode;
  */
 
 #ifndef BEAN
-class MagneticFieldSvc : public Service,
-                         virtual public IMagneticFieldSvc,
+class MagneticFieldSvc : public extends<Service, IMagneticFieldSvc>,
                          virtual public IIncidentListener {
-
-protected:
-
+//protected:
+public:  
   /// Standard Constructor.
   /// @param  name   String with service name
   /// @param  svc    Pointer to service locator interface
@@ -67,8 +65,8 @@ public:
    * @param ppvInterface Pointer to requested interface
    * @return StatusCode indicating SUCCESS or FAILURE.
    */
-  virtual StatusCode queryInterface( const InterfaceID& riid,
-                                     void** ppvInterface      );
+  //virtual StatusCode queryInterface( const InterfaceID& riid, 
+  //                                   void** ppvInterface      );
 
   /// Service type.
   virtual const InterfaceID& type() const { return IMagneticFieldSvc::interfaceID(); };
@@ -145,7 +143,7 @@ public:
 private:
 #ifndef BEAN
   /// Allow SvcFactory to instantiate the service.
-  friend class SvcFactory<MagneticFieldSvc>;
+  //friend class SvcFactory<MagneticFieldSvc>;
 #else
   static MagneticFieldSvc* m_field;
 #endif

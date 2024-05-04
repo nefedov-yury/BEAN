@@ -44,8 +44,9 @@ using namespace CLHEP;
 //=============================================================================
 // Standard constructor, initializes variables
 //=============================================================================
+DECLARE_COMPONENT(MagneticFieldSvc)
 MagneticFieldSvc::MagneticFieldSvc( const std::string& name,
-            ISvcLocator* svc ) : Service( name, svc )
+            ISvcLocator* svc ) : base_class( name, svc )
 {
   declareProperty( "TurnOffField", m_turnOffField = false);
   declareProperty( "FieldMapFile", m_filename );
@@ -721,7 +722,7 @@ StatusCode MagneticFieldSvc::finalize()
 //=============================================================================
 // QueryInterface
 //=============================================================================
-StatusCode MagneticFieldSvc::queryInterface( const InterfaceID& riid,
+/*StatusCode MagneticFieldSvc::queryInterface( const InterfaceID& riid, 
                                              void** ppvInterface      )
 {
   StatusCode sc = StatusCode::FAILURE;
@@ -738,7 +739,7 @@ StatusCode MagneticFieldSvc::queryInterface( const InterfaceID& riid,
   }
   return sc;
 }
-
+*/
 void MagneticFieldSvc::handle(const Incident& inc) {
   MsgStream log( messageService(), name() );
   log << MSG::DEBUG << "handle: " << inc.type() << endreq;

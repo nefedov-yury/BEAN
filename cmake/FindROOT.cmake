@@ -1,25 +1,28 @@
-###########################################################################
-# - Try to find ROOT installation
+######################################################################
+# ** Script for searching for the ROOT program **
+# -----------------------------------------------
 #
-# For UNIX-like system this module tries to find the root-config script.
-# Then, using this script extracts the meta-information about ROOT
-# installation.
+# For UNIX-like system this module tries to find the root-config
+# script. Then, using this script extracts the meta-information
+# about ROOT installation.
+# The root-config script requires bash-shell and a number of standard
+# UNIX tools like test, sed, awk and so on.
 #
-# In Windows we rely on environment variable ROOTSYS and
-# set the directories bin, lib and include with respect to
-# the folder ${ROOTSYS), if it exists.
-# (The root-config script requires bash and a number of standard
-#  UNIX tools like test, sed, awk and so on)
+# In Windows we rely on environment variable ROOTSYS. We check that
+# the "${ROOTSYS}" directory exists and assume the position of the
+# "\bin", "\lib" and "\include" directories in relation to it.
 #
-# Input:
-#       The variable ROOT_CONFIG_SEARCHPATH may contain the full path to
-#       root-config script. Otherwise, we check directory $ROOTSYS/bin
-#       using the environment variable ROOTSYS.
-#       FIND_ROOT_VERBOSE - set verbose output for this script
+# Input variables:
+#    1) The ROOT_CONFIG_SEARCHPATH variable, if defined, must contain
+#       the exact path to the root-config script.
+#       Otherwise, we check directory $ROOTSYS/bin using the
+#       environment variable ROOTSYS.
+#    2) Setting the FIND_ROOT_VERBOSE variable gives detailed output
+#       of the results.
 #
-# Output:
-#       ROOTSYS  - system has the ROOT and $ROOTSYS is
-#                  the path to installation directory
+# Output variables:
+#       ROOTSYS - We found ROOT, and ROOTSYS is the path to
+#                 the directory in which it is installed.
 #
 #       ROOT_CONFIG_EXECUTABLE - root-config with full path to it
 #       ROOT_CINT_EXECUTABLE   - rootcint (or rootcling for ROOT-6)
@@ -28,90 +31,37 @@
 #       ROOT_BINARY_DIR  - the executable directory
 #       ROOT_INCLUDE_DIR - the header directory
 #       ROOT_LIBRARIES   - regular ROOT libraries
-#       ROOT_GLIBS       - regular + GUI ROOT libraries
+#       ROOT_GLIBS       - regular libs and GUI ROOT libraries
 #       ROOT_CFLAGS      - extra compiler flags
 #
-#       ROOTVERSION - the version of ROOT (something like 5.14/00h) and
-#       ROOT_MAJOR_VERS,ROOT_MINOR_VERS,ROOT_PATCH_VERS
-#                   - the corresponding components of the version string
+#       ROOTVERSION      - the version of ROOT (like 6.30.06) and
+#       ROOT_MAJOR_VERS, ROOT_MINOR_VERS, ROOT_PATCH_VERS   - are
+#               the corresponding components (like 6 30 6)
 #
-#       ROOT_GENERATE_DICTIONARY -  function for building ROOT dictionary
+#       ROOT5_GENERATE_DICTIONARY and
+#       ROOT6_GENERATE_DICTIONARY   -  cmake functions to create
+#               dictionaries for ROOT-5 and ROOT-6 respectively
 #
 # Nefedov dot Yury at jinr dot ru
 # Based on a script written by the F.Uhlig@gsi.de (fairroot.gsi.de)
-###########################################################################
+######################################################################
 
 # if we already found ROOT do nothing
 IF( NOT ROOTSYS )
   MESSAGE( STATUS "Looking for Root..." )
 
-  # function we will use
+  # function to check the existence of important files or directories
   FUNCTION( _root_check  File )
     IF( NOT EXISTS "${File}" )
       SET( ROOTSYS, NOTFOUND )
-      MESSAGE( FATAL_ERROR "${File} does not exist. "
+      MESSAGE( FATAL_ERROR
+        "${File} does not exist. "
         "ROOT must not be installed correctly."
       )
     ENDIF()
   ENDFUNCTION( _root_check )
 
-
-  IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
-    IF( MSVC )
-      MESSAGE( STATUS "Compiler: MSVC, version: " ${MSVC_VERSION} )
-    ELSE()
-      MESSAGE( FATAL_ERROR "Only MSVC is supported on Windows" )
-    ENDIF()
-
-    # Set ROOTSYS
-    IF( ROOT_CONFIG_SEARCHPATH )
-      STRING( REGEX REPLACE "(^.*)[/\]bin" "\\1"
-        ROOTSYS ${ROOT_CONFIG_SEARCHPATH}
-      )
-    ELSE()
-      SET( ROOTSYS $ENV{ROOTSYS} )
-    ENDIF()
-    FILE( TO_CMAKE_PATH "${ROOTSYS}" ROOTSYS )
-    MESSAGE( STATUS "Looking for Root... ROOTSYS=\n\t${ROOTSYS}" )
-
-    IF( ROOTSYS )
-      _root_check( ${ROOTSYS} )
-      # SET( $ENV{ROOTSYS} ${ROOTSYS} ) # set path ??
-    ELSE()
-      MESSAGE( FATAL_ERROR "The environment variable ROOTSYS"
-        " _must be_ defined on Windows system"
-      )
-    ENDIF()
-
-    # Set ROOT_BINARY_DIR
-    SET( ROOT_BINARY_DIR "${ROOTSYS}/bin" )
-    _root_check( ${ROOT_BINARY_DIR} )
-
-    # Set ROOT_LIBRARY_DIR
-    SET( ROOT_LIBRARY_DIR "${ROOTSYS}/lib" )
-    _root_check( ${ROOT_LIBRARY_DIR} )
-
-    # Set ROOT_INCLUDE_DIR
-    SET( ROOT_INCLUDE_DIR "${ROOTSYS}/include" )
-    _root_check( ${ROOT_INCLUDE_DIR} )
-
-    # Check file RVersion.h and set ROOTVERSION
-    _root_check( "${ROOT_INCLUDE_DIR}/RVersion.h" )
-    FILE( READ "${ROOT_INCLUDE_DIR}/RVersion.h" contents )
-    #  MESSAGE(STATUS "+++ contents=${contents} +++" )
-    STRING(
-      REGEX REPLACE ".*define[ ]+ROOT_RELEASE[ ]+[\"]([^\"]*).*" "\\1"
-      ROOTVERSION  "${contents}"
-    )
-
-    # Set ROOT_LIBRARIES and ROOT_GLIBS == ROOT_LIBRARIES
-    FILE( GLOB ROOT_LIBRARIES ${ROOT_LIBRARY_DIR}/*.lib )
-    SET( ROOT_GLIBS ${ROOT_LIBRARIES} )
-
-    # Set ROOT_CFLAGS
-    SET( ROOT_CFLAGS "-I${ROOT_INCLUDE_DIR}" )
-
-  ELSE() # LINUX and MACOS
+  IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
 
     IF( NOT ROOT_CONFIG_SEARCHPATH )
       SET( ROOT_CONFIG_SEARCHPATH $ENV{ROOTSYS}/bin )
@@ -134,18 +84,18 @@ IF( NOT ROOTSYS )
         ROOTSYS ${ROOT_CONFIG_EXECUTABLE}
       )
 
+      # function to call 'root-config' and remove the trailing
+      # newline from output
       FUNCTION( _root_config ARG OUT )
-        #  EXEC_PROGRAM( ${ROOT_CONFIG_EXECUTABLE} ARGS ${ARG}
         EXECUTE_PROCESS( COMMAND ${ROOT_CONFIG_EXECUTABLE} ${ARG}
           OUTPUT_VARIABLE tmp
-          OUTPUT_STRIP_TRAILING_WHITESPACE )
-        IF( CMAKE_SYSTEM_NAME MATCHES Windows )
-          STRING(REPLACE "\r\n" "" tmp "${tmp}")
-        ELSE()
-          STRING(REPLACE "\n" "" tmp "${tmp}")
-        ENDIF()
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        STRING(REPLACE "\n" "" tmp "${tmp}")      # UNIX
+        #  STRING(REPLACE "\r\n" "" tmp "${tmp}")    # Win
         SET( ${OUT} ${tmp} PARENT_SCOPE )
-        #  MESSAGE(STATUS "_root_config ${ARG} => ${OUT} = ${tmp}" )
+        MESSAGE( DEBUG
+          "DEBUG: _root_config ${ARG} => ${OUT} = ${tmp}" )
       ENDFUNCTION( _root_config )
 
       # Set ROOTVERSION
@@ -169,18 +119,74 @@ IF( NOT ROOTSYS )
 
       # Set ROOT_CFLAGS
       _root_config( --cflags ROOT_CFLAGS )
-      #  MESSAGE( STATUS "ROOT_CFLAGS= ${ROOT_CFLAGS}" )
 
-    ELSE ()
+    ELSE ( ROOT_CONFIG_EXECUTABLE )
       SET( ROOTSYS, NOTFOUND )
       MESSAGE( FATAL_ERROR
-        "ROOT not installed in the searchpath and ROOTSYS is not set. "
-        "Please specify the ROOT_CONFIG_SEARCHPATH variable the path "
-        "to the root-config program or set the environment variable ROOTSYS."
+        "Could not find the directory where ROOT is installed. "
+        "Please set the ROOTSYS environment variable or "
+        "set the ROOT_CONFIG_SEARCHPATH cmake variable to "
+        "the canonical path to the root-config program."
       )
     ENDIF( ROOT_CONFIG_EXECUTABLE )
 
-  ENDIF() # OPERATION SYSTEM
+  ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
+
+    IF( MSVC )
+      MESSAGE( STATUS "Compiler: MSVC, version: " ${MSVC_VERSION} )
+    ELSE()
+      MESSAGE( FATAL_ERROR "Only MSVC is supported on Windows" )
+    ENDIF()
+
+    # Set ROOTSYS
+    IF( ROOT_CONFIG_SEARCHPATH )
+      STRING( REGEX REPLACE "(^.*)[/\]bin" "\\1"
+        ROOTSYS ${ROOT_CONFIG_SEARCHPATH}
+      )
+    ELSE()
+      SET( ROOTSYS $ENV{ROOTSYS} )
+    ENDIF()
+
+    # converts a native path into a cmake-style path with (/)
+    FILE( TO_CMAKE_PATH "${ROOTSYS}" ROOTSYS )
+    MESSAGE( STATUS "Looking for Root... ROOTSYS=\n\t${ROOTSYS}" )
+
+    IF( ROOTSYS )
+      _root_check( ${ROOTSYS} )
+    ELSE()
+      MESSAGE( FATAL_ERROR
+        "The environment variable ROOTSYS _must be_ defined" )
+    ENDIF()
+
+    # Set ROOT_BINARY_DIR
+    SET( ROOT_BINARY_DIR "${ROOTSYS}/bin" )
+    _root_check( ${ROOT_BINARY_DIR} )
+
+    # Set ROOT_LIBRARY_DIR
+    SET( ROOT_LIBRARY_DIR "${ROOTSYS}/lib" )
+    _root_check( ${ROOT_LIBRARY_DIR} )
+
+    # Set ROOT_INCLUDE_DIR
+    SET( ROOT_INCLUDE_DIR "${ROOTSYS}/include" )
+    _root_check( ${ROOT_INCLUDE_DIR} )
+
+    # Check file RVersion.h and set ROOTVERSION
+    _root_check( "${ROOT_INCLUDE_DIR}/RVersion.h" )
+    FILE( READ "${ROOT_INCLUDE_DIR}/RVersion.h" contents )
+    MESSAGE( DEBUG "DEBUG: contents=\n${contents}\n" )
+    STRING(
+      REGEX REPLACE ".*define[ ]+ROOT_RELEASE[ ]+[\"]([^\"]*).*" "\\1"
+      ROOTVERSION  "${contents}"
+    )
+
+    # Set ROOT_LIBRARIES and ROOT_GLIBS == ROOT_LIBRARIES
+    FILE( GLOB ROOT_LIBRARIES ${ROOT_LIBRARY_DIR}/*.lib )
+    SET( ROOT_GLIBS ${ROOT_LIBRARIES} )
+
+    # Set ROOT_CFLAGS
+    SET( ROOT_CFLAGS "/I ${ROOT_INCLUDE_DIR}" )
+
+  ENDIF() # Linux, Darwin, Windows
 
   MESSAGE( STATUS
     "Looking for Root... found version: ${ROOTVERSION}" )
@@ -188,13 +194,13 @@ IF( NOT ROOTSYS )
   # now parse the ROOTVERSION string into variables
   # ( note that two backslashes (\\) are required to get a backslash
   #   through argument parsing )
-  STRING( REGEX REPLACE "^([0-9]+)[.][0-9]+[/][0-9]+.*$" "\\1"
+  STRING( REGEX REPLACE "^([0-9]+)[.][0-9]+[./][0-9]+.*$" "\\1"
     ROOT_MAJOR_VERS     "${ROOTVERSION}"
   )
-  STRING( REGEX REPLACE "^[0-9]+[.]([0-9]+)[/][0-9]+.*$" "\\1"
+  STRING( REGEX REPLACE "^[0-9]+[.]([0-9]+)[./][0-9]+.*$" "\\1"
     ROOT_MINOR_VERS     "${ROOTVERSION}"
   )
-  STRING( REGEX REPLACE "^[0-9]+[.][0-9]+[/]([0-9]+).*$" "\\1"
+  STRING( REGEX REPLACE "^[0-9]+[.][0-9]+[./]([0-9]+).*$" "\\1"
     ROOT_PATCH_VERS     "${ROOTVERSION}"
   )
 
@@ -213,21 +219,22 @@ IF( NOT ROOTSYS )
   )
 
   IF( FIND_ROOT_VERBOSE )
-    MESSAGE( STATUS "Looking for Root... \n"
-      "\t version components: ${ROOT_MAJOR_VERS} ${ROOT_MINOR_VERS} "
-      "${ROOT_PATCH_VERS}\n"
+    MESSAGE( STATUS "Summary of ROOT search results: \n"
+      "\t version: ${ROOTVERSION} : <${ROOT_MAJOR_VERS}>, "
+      "<${ROOT_MINOR_VERS}>, <${ROOT_PATCH_VERS}>\n"
       "\t ROOT_LIBRARY_DIR= ${ROOT_LIBRARY_DIR}\n"
       "\t ROOT_BINARY_DIR= ${ROOT_BINARY_DIR}\n"
       "\t ROOT_INCLUDE_DIR= ${ROOT_INCLUDE_DIR}\n"
       "\t ROOT_LIBRARIES= ${ROOT_LIBRARIES}\n"
       "\t ROOT_GLIBS= ${ROOT_GLIBS}\n"
+      "\t ROOT_CFLAGS= ${ROOT_CFLAGS}\n"
     )
   ENDIF()
 
-ENDIF( NOT ROOTSYS )
+ENDIF()
 
 
-###########################################################################
+######################################################################
 #
 # function for building ROOT dictionaries
 #  Parameters:
@@ -239,10 +246,10 @@ ENDIF( NOT ROOTSYS )
 #  Output files:  two dictionary files ${DictNameCxx} and
 #                 complimentary header file with ".h" suffix
 #
-###########################################################################
+######################################################################
 
-FUNCTION( ROOT_GENERATE_DICTIONARY
-  DictNameCxx IncludeFiles IncludeDirs LinkDefH )
+FUNCTION( ROOT5_GENERATE_DICTIONARY
+    DictNameCxx IncludeFiles IncludeDirs LinkDefH )
 
   # add "-I" before each include file directory
   SET( INCLUDE_DIRS )
@@ -258,9 +265,18 @@ FUNCTION( ROOT_GENERATE_DICTIONARY
     ADD_CUSTOM_COMMAND(
       OUTPUT ${OUTFILES}
       COMMAND LD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
-              ${ROOT_CINT_EXECUTABLE}
+      ${ROOT_CINT_EXECUTABLE}
       ARGS -f ${DictNameCxx}
-           -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      DEPENDS ${IncludeFiles} ${LinkDefH}
+    )
+  ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )
+    ADD_CUSTOM_COMMAND(
+      OUTPUT ${OUTFILES}
+      COMMAND DYLD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
+      ${ROOT_CINT_EXECUTABLE}
+      ARGS -f ${DictNameCxx}
+      -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )
@@ -268,24 +284,15 @@ FUNCTION( ROOT_GENERATE_DICTIONARY
       OUTPUT ${OUTFILES}
       COMMAND ${ROOT_CINT_EXECUTABLE}
       ARGS -f ${DictNameCxx}
-           -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
-      DEPENDS ${IncludeFiles} ${LinkDefH}
-    )
-  ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )
-    ADD_CUSTOM_COMMAND(
-      OUTPUT ${OUTFILES}
-      COMMAND DYLD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
-              ${ROOT_CINT_EXECUTABLE}
-      ARGS -f ${DictNameCxx}
-           -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      -c ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ENDIF()
 
-ENDFUNCTION( ROOT_GENERATE_DICTIONARY )
+ENDFUNCTION( ROOT5_GENERATE_DICTIONARY )
 
 
-###########################################################################
+######################################################################
 #
 # function for building ROOT6 dictionaries
 #  Parameters:
@@ -294,10 +301,10 @@ ENDFUNCTION( ROOT_GENERATE_DICTIONARY )
 #       IncludeDirs  - the include file directories to be searched
 #       LinkDefH     - the LinkDef.h file
 #
-#  Output files:  two dictionary files with names build from TagLibName:
+#  Output files:  two dictionary files with names:
 #                 TagLibName_rdict.cxx & TagLibName_rdict.pcm
 #
-###########################################################################
+######################################################################
 
 FUNCTION( ROOT6_GENERATE_DICTIONARY
     TagLibName IncludeFiles IncludeDirs LinkDefH )
@@ -316,9 +323,18 @@ FUNCTION( ROOT6_GENERATE_DICTIONARY
     ADD_CUSTOM_COMMAND(
       OUTPUT ${OUTFILES}
       COMMAND LD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
-              ${ROOT_CINT_EXECUTABLE}
+      ${ROOT_CINT_EXECUTABLE}
       ARGS -f ${DictNameCxx} -s ${TagLibName}
-        ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      DEPENDS ${IncludeFiles} ${LinkDefH}
+    )
+  ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )
+    ADD_CUSTOM_COMMAND(
+      OUTPUT ${OUTFILES}
+      COMMAND DYLD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
+      ${ROOT_CINT_EXECUTABLE}
+      ARGS -f ${DictNameCxx} -s ${TagLibName}
+      ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )
@@ -326,16 +342,7 @@ FUNCTION( ROOT6_GENERATE_DICTIONARY
       OUTPUT ${OUTFILES}
       COMMAND ${ROOT_CINT_EXECUTABLE}
       ARGS -f ${DictNameCxx} -s ${TagLibName}
-        ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
-      DEPENDS ${IncludeFiles} ${LinkDefH}
-    )
-  ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )
-    ADD_CUSTOM_COMMAND(
-      OUTPUT ${OUTFILES}
-      COMMAND DYLD_LIBRARY_PATH=${ROOT_LIBRARY_DIR} ROOTSYS=${ROOTSYS}
-              ${ROOT_CINT_EXECUTABLE}
-      ARGS -f ${DictNameCxx} -s ${TagLibName}
-        ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
+      ${INCLUDE_DIRS} ${IncludeFiles} ${LinkDefH}
       DEPENDS ${IncludeFiles} ${LinkDefH}
     )
   ENDIF()

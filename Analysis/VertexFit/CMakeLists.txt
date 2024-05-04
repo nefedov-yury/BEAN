@@ -12,7 +12,7 @@ INCLUDE_DIRECTORIES(
   ${DatabaseSvc_DIR}
   ${CLHEP_INCLUDE_DIR}
   ${ROOT_INCLUDE_DIR}
-  )
+)
 
 #---------------------------------------------------------------------
 # the list of source files
@@ -23,15 +23,13 @@ FILE( GLOB CXX_FILES src/*.cxx )
 FILE( GLOB LAST_FILE src/VertexParameter.cxx )
 LIST( REMOVE_ITEM CXX_FILES ${LAST_FILE} )
 LIST( APPEND CXX_FILES ${LAST_FILE} )
-# MESSAGE( " +++VertexFit: src files are: ${CXX_FILES}" )
+MESSAGE( DEBUG "DEBUG: VertexFit src files are ${CXX_FILES}" )
 
 #---------------------------------------------------------------------
-#
-IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
-  ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
-ELSE()
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
   ADD_LIBRARY( ${libname} SHARED ${CXX_FILES} )
-  MAC_LIB_RPATH( ${libname} )
+ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )  # Windows
+  ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
 ENDIF()
 
 TARGET_LINK_LIBRARIES( ${libname}
@@ -39,9 +37,7 @@ TARGET_LINK_LIBRARIES( ${libname}
   BeanCore
   MagneticField
   DatabaseSvc
-  ${ROOT_LIBRARIES}
-  ${CLHEP_LIBRARIES}
-  )
+)
 
 #---------------------------------------------------------------------
 # install

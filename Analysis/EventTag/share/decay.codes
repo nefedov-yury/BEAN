@@ -527,7 +527,7 @@ Decay D+
 39   eta' mu+  nu_mu        
 40   rho0 mu+  nu_mu        
 41   omega mu+  nu_mu       
-42   K-  pi+  mu+ nu_e      
+42   K-  pi+  mu+ nu_mu
 #42   anti-K0  pi0  mu+  nu_mu
 43   K_L0  pi0  mu+  nu_mu
 44   K_S0  pi0  mu+  nu_mu

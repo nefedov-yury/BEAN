@@ -2,23 +2,30 @@
 //
 // TestAbsCor
 //
-// This is test example of user functions
+// This is a test example of using functions of the
+// Absorption Correction algorithm `boss/Analysis/PhotonCor/AbsCor/`
 //
 // The main differences from BOSS version:
 // 1) You MUST point on directory with data-files.
-//    In most cases it is: selector->AbsPath("Analysis/AbsCor")
-//    Here function AbsPath(file) returns
-//    "path_to_base_Bean_dir/" + file
-// 2) AbsCor in Bean does not use the database, but you can read files
-//    with calibrations in functions:
+//    In most cases it is:
+//              selector->AbsPath("Analysis/AbsCor")
+//    Here AbsPath(dir_name) function returns full path to this
+//    directory: "path_to_base_Bean_dir/" + dir_name
+//
+// 2) The AbsCor algorithm in BEAN does not use the database, unlike
+//    the BOSS version. However, you can read calibration files using
+//    the functions:
+//
 //    void ReadDatac3p(std::string DataPathc3p, bool info=true);
+//    void ReadParMcCor(std::string paraPath, bool info=true);
 //    void ReadCorFunpara(std::string CorFunparaPath, bool info=true);
-//  3) The path to the calibration files (on /cvmfs) can be obtained
-//     using the python3 program 'GetAbsCorFiles.py' from the
-//     'bean/scripts/' folder.
-//     I recommend copying calibration files to a local folder to
-//     avoid the dependence of the Bean on the network (cvmfs) file
-//     system.
+//
+//    The path to the calibration files in CernVM `/cvmfs/` file
+//    system can be obtained using the python3 program
+//    `GetAbsCorFiles.py` located in `bean/scripts` directory.
+//
+// 3) I recommend copying calibration files to a local filesystem to
+//    avoid dependency on the network file system (cvmfs).
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -74,12 +81,13 @@ void TestAbsCorStartJob(ReadDst* selector)
    // init Absorption Corrections
    m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
 
-   // Psi(2S) 2021: run66257-run69292
-   // read files for pi0 and 'evsetTofCor' from 'local' files:
+   // read files for pi0 and 'evsetTofCor' from 'local' files.
    // you can use either an absolute path to the file:
-//    string data_c3p = "/home/nefedov/study/bes3/bean_67_new/"
-//       "Analysis/AbsCor/dat/00-00-41/c3ptof2021psip.txt";
-   // or a path relative to the BEAN folder:
+   // string data_c3p = "/home/nefedov/study/bes3/bean_67_new/"
+   // "Analysis/AbsCor/dat/00-00-41/c3ptof2021psip.txt";
+   // or a path relative to the BEAN folder.
+
+   // Psi(2S) 2021: run66257-run69292
    string data_c3p = selector->AbsPath(
          "Analysis/AbsCor/dat/00-00-41/c3ptof2021psip.txt");
    m_abscor->ReadDatac3p( data_c3p );
@@ -91,7 +99,8 @@ void TestAbsCorStartJob(ReadDst* selector)
 
    // Book histograms
    hst.resize(50,nullptr);
-   hst[1] = new TH1D("G_ang","angle with closest chg.trk", 180,0.,180.);
+   hst[1] = new TH1D("G_ang","angle with closest chg.trk",
+         180,0.,180.);
    hst[2] = new TH1D("G_n","N_{#gamma} in event", 11,-0.5,10.5);
 
    hst[3] = new TH1D("E_M2pi0","M^{2}(2#gamma)", 200,0.,0.04);
@@ -120,15 +129,15 @@ bool TestAbsCorEvent( ReadDst* selector,
 
    // Get event information
    int runNo   = m_TEvtHeader->getRunId();
-//    int eventNo = m_TEvtHeader->getEventId();
+   // int eventNo = m_TEvtHeader->getEventId();
 
    // check that it is Psi(2S) 2021: run66257-run69292
    int run = abs(runNo);
    if ( !(66257 <= run && run <= 69292) ) {
-     cerr << " ERROR: this is not Psi(2S) 2021 data "
-        "Absorption Corrections are probably wrong"
-        << endl;
-     exit(EXIT_FAILURE);
+      cerr << " ERROR: this is not Psi(2S) 2021 data "
+         "Absorption Corrections are probably wrong"
+         << endl;
+      exit(EXIT_FAILURE);
    }
 
    // Apply absorption corrections to all neutral tracks in the event
@@ -138,7 +147,7 @@ bool TestAbsCorEvent( ReadDst* selector,
    // parameters of reconstruction
    static const double min_angle = 10 * M_PI/180; // 10 grad
 
-//    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
+   // const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
    const TEvtRecEvent* evtRecEvent = m_TEvtRecObject->getEvtRecEvent();
    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
 

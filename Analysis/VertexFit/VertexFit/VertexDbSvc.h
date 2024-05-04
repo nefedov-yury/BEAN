@@ -25,13 +25,15 @@ using CLHEP::HepVector;
 #include <string>
 
 #ifndef BEAN
-class VertexDbSvc: public Service, virtual public IVertexDbSvc, 
+
+//class VertexDbSvc: public Service, virtual public IVertexDbSvc, 
+class VertexDbSvc: public extends<Service, IVertexDbSvc>,
 		     virtual public IIncidentListener{
 		     public:
   VertexDbSvc( const std::string& name, ISvcLocator* svcloc );
   ~VertexDbSvc();
 
-  virtual StatusCode queryInterface(const InterfaceID& riid, void** ppvUnknown);
+  //virtual StatusCode queryInterface(const InterfaceID& riid, void** ppvUnknown);
   virtual StatusCode initialize();
   virtual StatusCode finalize();
 
@@ -93,8 +95,10 @@ public:
   int           m_runFrom;
   int           m_runTo;
   std::map<int, std::vector<double> > m_mapPrimaryVertex;
-
 #ifndef BEAN
+  std::vector<int> m_runIdList;                         
+  int m_runID;
+
   std::string host;
   std::string table;
   std::string userName;

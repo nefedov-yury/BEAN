@@ -38,22 +38,12 @@ IF( BUILTIN_SQLITE )
       "from the BEAN/scripts folder. "
       "Alternatively, you can try using the SQLITE system library "
       "by setting -DBUILTIN_SQLITE=OFF when call the cmake."
-      )
+    )
   ENDIF()
 
   # add sqlite3.c to the list of source files
   SET( CXX_FILES ${CXX_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.c )
-  # MESSAGE( " +++DatabaseSvc: CXX_FILES= ${CXX_FILES}" )
-
-  IF ( CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
-      CMAKE_CXX_COMPILER_ID MATCHES "GNU"       )
-    SET_SOURCE_FILES_PROPERTIES( ${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.c
-      PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
-  ENDIF()
-
-  # There are various methods for file locking:
-  #... 2. No locking (only for  Mac OS X)
-  # ADD_DEFINITIONS( -DSQLITE_ENABLE_LOCKING_STYLE=2 )
+  MESSAGE( DEBUG "DEBUG: DatabaseSvc CXX_FILES= ${CXX_FILES}" )
 
 ELSE()
 
@@ -63,7 +53,7 @@ ELSE()
     MESSAGE( FATAL_ERROR
       "The system sqlite library was not found. "
       "Try to set BUILTIN_SQLITE to ON and rerun cmake."
-      )
+    )
   ENDIF()
 
 ENDIF( BUILTIN_SQLITE )
@@ -77,7 +67,7 @@ IF( ${CMAKE_VERSION} VERSION_LESS "3.12.0" )
       COMMAND "${CMAKE_COMMAND}" -E make_directory "../dat"
       COMMAND "${PYTHON_EXECUTABLE}" "./dbupdate2.py" "../dat"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/share/"
-      )
+    )
   ENDIF()
 ELSE()
   find_package (Python3 COMPONENTS Interpreter)
@@ -86,24 +76,23 @@ ELSE()
       COMMAND "${CMAKE_COMMAND}" -E make_directory "../dat"
       COMMAND "${Python3_EXECUTABLE}" "./dbupdate.py" "../dat"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/share/"
-      )
+    )
   ELSE()
     IF( Python2_Interpreter_FOUND )
       ADD_CUSTOM_TARGET( updatedb
         COMMAND "${CMAKE_COMMAND}" -E make_directory "../dat"
         COMMAND "${Python2_EXECUTABLE}" "./dbupdate2.py" "../dat"
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/share/"
-        )
+      )
     ENDIF()
   ENDIF()
 ENDIF()
+
 #---------------------------------------------------------------------
-#
-IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # WINDOWS
-  ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
-ELSE()
+IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
   ADD_LIBRARY( ${libname} SHARED ${CXX_FILES} )
-  MAC_LIB_RPATH( ${libname} )
+ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )  # Windows
+  ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
 ENDIF()
 
 # We can not assume that pthread library will be included
