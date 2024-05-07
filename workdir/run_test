@@ -9,9 +9,9 @@ printf " TEST\n"
 #  gdb -ex=r --args \
 ${BEAN} \
     -u DelClonedTrks \
-    -h ${ODIR}/test_711m.root \
-    /Volumes/Tr16G/run_0081712_All_file001_SFO-1.dst \
-    > ${ODIR}/test_711m.out 2>&1
+    -h ${ODIR}/test_711h.root \
+    /scratchfs/bes/ynefedov/run_0081712_All_file001_SFO-1.dst \
+    > ${ODIR}/test_711h.out 2>&1
 
 #
     #  -h /dev/null \

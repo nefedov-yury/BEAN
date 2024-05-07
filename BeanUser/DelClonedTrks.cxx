@@ -114,8 +114,8 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 
 #if (BOSS_VER > 700)
-   // string BossVer("7.0.9");
-   string BossVer("7.1.1");    // just for test
+   string BossVer("7.0.9");
+   // string BossVer("7.1.1");    // just for test
 #else
    string BossVer("6.6.4");
    int run = abs(runNo);
