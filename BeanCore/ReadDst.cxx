@@ -373,8 +373,13 @@ Bool_t ReadDst::Process(Long64_t entry)
 
    n_events += 1;
    if( bean_termination != 0 ) {
+#if defined (__unix__) || defined (__APPLE__)
       printf("User signal '%s' had been received\n",
             strsignal(bean_termination));
+#else
+      printf("User signal '%d' had been received\n",
+            bean_termination);
+#endif
       this->Abort("Stop the event loop...");
    }
 
