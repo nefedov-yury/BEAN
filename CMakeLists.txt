@@ -148,13 +148,14 @@ SET( CLHEP_SEARCHPATH
 INCLUDE( FindCLHEP )
 
 #---------------------------------------------------------------------
-# Compilation and link/libraries options
-# Note: CMAKE_COMPILER_IS_GNUCC is depricated
+# Compilation options: we need a compiler that supports C++11
+# We will try to use the std-flag from ROOT CFLAGS,
+# in most cases this is enough
 #---------------------------------------------------------------------
+# CMAKE_COMPILER_IS_GNUCC is depricated
 IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
   (CMAKE_CXX_COMPILER_ID MATCHES "Clang") )   # Clang or AppleClang
 
-  # use std version from cflags of ROOT, in most cases this is enough
   IF( ROOT_CFLAGS MATCHES "-std=[^ ]*" )
     # cut out a section with -std=...
     STRING( REGEX REPLACE "^.*(-std=[^ ]*).*$" "\\1"
@@ -183,24 +184,51 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
     ENDIF()
   ENDIF()
 
-  # just to see all compilation warnings:
+  # to see compilation warnings
   SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall" )
-  MESSAGE( STATUS "+++ BEAN: CMAKE_CXX_FLAGS= ${CMAKE_CXX_FLAGS}" )
 ENDIF()
 
-# WINDOWS specific, TODO: test C++11 (CXX_STANDARD in cmake3.1)
-IF( CMAKE_SYSTEM_NAME MATCHES Windows )
-  # _USE_MATH_DEFINES - to use Math Constants
-  # _CRT_SECURE_NO_WARNINGS - to eliminate deprecation warnings for
-  #     the older, less secure functions
-  ADD_DEFINITIONS( -D_USE_MATH_DEFINES -D_CRT_SECURE_NO_WARNINGS )
-  IF( CMAKE_BUILD_TYPE MATCHES Release )
-    ADD_DEFINITIONS( -MD )
+IF( CMAKE_SYSTEM_NAME MATCHES Windows )         # Windows
+  IF( ROOT_CFLAGS MATCHES "std:[^ ]*" )
+    STRING( REGEX REPLACE "^.*std:([^ ]*).*$" "\\1"
+      ROOT_STDCXX "${ROOT_CFLAGS}" )
+    SET( ROOT_STDCXX "-Zc:__cplusplus -std:${ROOT_STDCXX}" )
+    MESSAGE( DEBUG "DEBUG: ROOT_STDCXX= ${ROOT_STDCXX}" )
+    SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_STDCXX}" )
+    IF( ROOT_STDCXX  MATCHES "17" )
+      # std::byte is enabled by /std:c++17, conflict with SDK
+      ADD_COMPILE_DEFINITIONS( -D_HAS_STD_BYTE=0 )
+    ENDIF()
   ELSE()
-    ADD_DEFINITIONS( -MDd )
+    SET( CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -Zc:__cplusplus -std:c++11" )
   ENDIF()
+
+  # use run-time library
+  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MDd -GR -EHs" )
+  # to see compilation warnings
+  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W3" )
+
+  # WIN32 API
+  ADD_COMPILE_DEFINITIONS( -D_WIN32 )
+  # Math Constants like M_PI...
+  ADD_COMPILE_DEFINITIONS( -D_USE_MATH_DEFINES )
+  # To eliminate warnings for the older, less secure functions
+  #  ADD_COMPILE_DEFINITIONS( -D_CRT_SECURE_NO_WARNINGS )
 ENDIF()
 
+# print C++ compiler flags and preprocessor definitions
+MESSAGE( STATUS "+++ BEAN: CMAKE_CXX_FLAGS are '${CMAKE_CXX_FLAGS}'" )
+GET_DIRECTORY_PROPERTY( PREDEFS COMPILE_DEFINITIONS )
+IF ( PREDEFS  )
+  MESSAGE( STATUS
+    "+++ BEAN: Preprocessor definitions are '${PREDEFS}'" )
+ENDIF()
+
+
+#---------------------------------------------------------------------
+# Libraries options
+#---------------------------------------------------------------------
 # Set the common place where all libraries to be built.
 # Please do not to be confused it with the place where the libraries
 # will be installed later.
@@ -254,8 +282,8 @@ ENDIF()
 #---------------------------------------------------------------------
 # build libraries
 #---------------------------------------------------------------------
-ADD_DEFINITIONS( -DBEAN )
-ADD_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
+ADD_COMPILE_DEFINITIONS( -DBEAN )
+ADD_COMPILE_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
 
 ADD_SUBDIRECTORY( ${ROOTEVENTDATA} )
 SET( ROOTEVENTDATA_DIR  ${CMAKE_SOURCE_DIR}/${ROOTEVENTDATA} )
@@ -325,11 +353,11 @@ SET( MAIN_SRCS "BeanCore/main.cxx" )
 # add getopt() port for MSVC:
 # http://www.codeproject.com/KB/cpp/getopt4win.aspx
 IF( CMAKE_SYSTEM_NAME MATCHES Windows )
-  ADD_DEFINITIONS( -DSTATIC_GETOPT )
+  ADD_COMPILE_DEFINITIONS( -DSTATIC_GETOPT )
   LIST( APPEND MAIN_SRCS "BeanCore/win_getopt/getopt.c" )
 ENDIF()
 
-ADD_DEFINITIONS( -DBEANBASE="${CMAKE_SOURCE_DIR}" )
+ADD_COMPILE_DEFINITIONS( -DBEANBASE="${CMAKE_SOURCE_DIR}" )
 
 ADD_EXECUTABLE( ${prog} ${MAIN_SRCS} )
 

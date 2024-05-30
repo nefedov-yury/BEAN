@@ -6,11 +6,11 @@
 #---------------------------------------------------------------------
 # debug
 #---------------------------------------------------------------------
-# PROJECT( db )
-# CMAKE_MINIMUM_REQUIRED( VERSION 2.6.0 FATAL_ERROR )
-# OPTION( BUILTIN_SQLITE
-#         "Use included sqlite, or system sqlite library" ON )
-# ADD_DEFINITIONS( -DBEAN )
+#  PROJECT( db )
+#  CMAKE_MINIMUM_REQUIRED( VERSION 3.15...3.29 )
+#  OPTION( BUILTIN_SQLITE
+       #  "Use included sqlite, or system sqlite library" ON )
+#  ADD_COMPILE_DEFINITIONS( -DBEAN )
 #---------------------------------------------------------------------
 
 SET( libname DatabaseSvc )

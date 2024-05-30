@@ -175,7 +175,7 @@ IF( NOT CLHEP_FOUND )
 
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
     IF( MSVC )
-      MESSAGE( STATUS "Compiler: MSVC, version: " ${MSVC_VERSION} )
+      MESSAGE( DEBUG "Compiler: MSVC, version: " ${MSVC_VERSION} )
     ELSE()
       MESSAGE( FATAL_ERROR "Only MSVC is supported on Windows" )
     ENDIF()

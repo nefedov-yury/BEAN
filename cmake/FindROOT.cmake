@@ -133,7 +133,7 @@ IF( NOT ROOTSYS )
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
 
     IF( MSVC )
-      MESSAGE( STATUS "Compiler: MSVC, version: " ${MSVC_VERSION} )
+      MESSAGE( DEBUG "Compiler: MSVC, version: " ${MSVC_VERSION} )
     ELSE()
       MESSAGE( FATAL_ERROR "Only MSVC is supported on Windows" )
     ENDIF()
@@ -170,39 +170,65 @@ IF( NOT ROOTSYS )
     SET( ROOT_INCLUDE_DIR "${ROOTSYS}/include" )
     _root_check( ${ROOT_INCLUDE_DIR} )
 
-    # Check file RVersion.h and set ROOTVERSION
-    _root_check( "${ROOT_INCLUDE_DIR}/RVersion.h" )
-    FILE( READ "${ROOT_INCLUDE_DIR}/RVersion.h" contents )
-    MESSAGE( DEBUG "DEBUG: contents=\n${contents}\n" )
-    STRING(
-      REGEX REPLACE ".*define[ ]+ROOT_RELEASE[ ]+[\"]([^\"]*).*" "\\1"
-      ROOTVERSION  "${contents}"
-    )
+    # Check files ROOT/RVersion.hxx (root-6) or RVersion.h (root-5)
+    # and set ROOTVERSION
+    IF( EXISTS "${ROOT_INCLUDE_DIR}/ROOT/RVersion.hxx" )
+      FILE( READ "${ROOT_INCLUDE_DIR}/ROOT/RVersion.hxx" contents )
+      MESSAGE( DEBUG "DEBUG: RVersion.hxx=\n${contents}\n" )
+      STRING(
+        REGEX REPLACE ".*define[ ]+ROOT_VERSION_MAJOR[ ]+([0-9]*).*"
+        "\\1" ROOT_MAJOR_VERS "${contents}"
+      )
+      STRING(
+        REGEX REPLACE ".*define[ ]+ROOT_VERSION_MINOR[ ]+([0-9]*).*"
+        "\\1" ROOT_MINOR_VERS "${contents}"
+      )
+      STRING(
+        REGEX REPLACE ".*define[ ]+ROOT_VERSION_PATCH[ ]+([0-9]*).*"
+        "\\1" ROOT_PATCH_VERS "${contents}"
+      )
+      SET( ROOTVERSION
+        "${ROOT_MAJOR_VERS}.${ROOT_MINOR_VERS}.${ROOT_PATCH_VERS}" )
+    ELSEIF( EXISTS "${ROOT_INCLUDE_DIR}/RVersion.h" )
+      FILE( READ "${ROOT_INCLUDE_DIR}/RVersion.h" contents )
+      MESSAGE( DEBUG "DEBUG: RVersion.h=\n${contents}\n" )
+      STRING(
+        REGEX REPLACE ".*define[ ]+ROOT_RELEASE[ ]+[\"]([^\"]*).*"
+        "\\1" ROOTVERSION  "${contents}"
+      )
+    ELSE()
+      MESSAGE( FATAL_ERROR
+        "Can not find RVersion.h(xx) file."
+        "ROOT must not be installed correctly."
+      )
+    ENDIF()
 
     # Set ROOT_LIBRARIES and ROOT_GLIBS == ROOT_LIBRARIES
     FILE( GLOB ROOT_LIBRARIES ${ROOT_LIBRARY_DIR}/*.lib )
     SET( ROOT_GLIBS ${ROOT_LIBRARIES} )
 
     # Set ROOT_CFLAGS
-    SET( ROOT_CFLAGS "/I ${ROOT_INCLUDE_DIR}" )
+    STRING( CONCAT ROOT_CFLAGS
+      "-Zc:__cplusplus -std:c++17 -MD -GR -EHs"
+      " -D_WIN32 -I${ROOT_INCLUDE_DIR}" )
 
   ENDIF() # Linux, Darwin, Windows
 
   MESSAGE( STATUS
     "Looking for Root... found version: ${ROOTVERSION}" )
 
-  # now parse the ROOTVERSION string into variables
-  # ( note that two backslashes (\\) are required to get a backslash
-  #   through argument parsing )
-  STRING( REGEX REPLACE "^([0-9]+)[.][0-9]+[./][0-9]+.*$" "\\1"
-    ROOT_MAJOR_VERS     "${ROOTVERSION}"
-  )
-  STRING( REGEX REPLACE "^[0-9]+[.]([0-9]+)[./][0-9]+.*$" "\\1"
-    ROOT_MINOR_VERS     "${ROOTVERSION}"
-  )
-  STRING( REGEX REPLACE "^[0-9]+[.][0-9]+[./]([0-9]+).*$" "\\1"
-    ROOT_PATCH_VERS     "${ROOTVERSION}"
-  )
+  IF( NOT DEFINED ROOT_MAJOR_VERS )
+    # parse the ROOTVERSION string into variables
+    STRING( REGEX REPLACE "^([0-9]+)[.][0-9]+[./][0-9]+.*$" "\\1"
+      ROOT_MAJOR_VERS     "${ROOTVERSION}"
+    )
+    STRING( REGEX REPLACE "^[0-9]+[.]([0-9]+)[./][0-9]+.*$" "\\1"
+      ROOT_MINOR_VERS     "${ROOTVERSION}"
+    )
+    STRING( REGEX REPLACE "^[0-9]+[.][0-9]+[./]([0-9]+).*$" "\\1"
+      ROOT_PATCH_VERS     "${ROOTVERSION}"
+    )
+  ENDIF()
 
   # check the executables of rootcint and set ROOT_CINT_EXECUTABLE
   SET( _rootcint rootcint )
