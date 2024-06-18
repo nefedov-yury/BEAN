@@ -1073,9 +1073,8 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
 
 // {{{1 MatchRecMcTrks()
 //--------------------------------------------------------------------
-#if __cplusplus >= 201103L
-// C++11 and above
-[[gnu::unused]]
+#if __cplusplus >= 201703L
+[[maybe_unused]]
 #endif
 static void MatchRecMcTrks(ReadDst* selector, Select& Slct) {
 //--------------------------------------------------------------------

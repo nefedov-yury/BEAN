@@ -18,8 +18,10 @@ MESSAGE( DEBUG
 
 #---------------------------------------------------------------------
 # the list of headers are needed to generate the root dictionary
-SET( LINKDEFHDRS  DstFormat.h ReadDst.h Bean.h
-  MasterInfoHack.h TMergeableMap.h )
+SET( LINKDEFHDRS  DstFormat.h ReadDst.h Bean.h TMergeableMap.h )
+#  IF( USE_PROOF )
+  #  SET( LINKDEFHDRS  ${LINKDEFHDRS} MasterInfoHack.cxx )
+#  ENDIF()
 
 IF( ROOT_MAJOR_VERS LESS 6 )
   # the name of the dictionary
@@ -44,10 +46,13 @@ ENDIF()
 #---------------------------------------------------------------------
 # the list of source files
 SET( CXX_FILES  DstFormat.cxx ReadDst.cxx Bean.cxx
-  MasterInfoHack.cxx TMergeableMap.cxx
-  DstEvtRecTracks.cxx TofHitStatus.cxx
-  BMdcTrack.cxx BMdcKalTrack.cxx BEmcTrack.cxx BExtTrack.cxx
-  unix_cp.cxx )
+  TMergeableMap.cxx DstEvtRecTracks.cxx TofHitStatus.cxx
+  BMdcTrack.cxx BMdcKalTrack.cxx BEmcTrack.cxx BExtTrack.cxx )
+
+IF( USE_PROOF )
+  #  SET( CXX_FILES  ${CXX_FILES} MasterInfoHack.cxx )
+  SET( CXX_FILES  ${CXX_FILES} unix_cp.cxx )
+ENDIF()
 
 # add the dictionary to the list of source files
 LIST( APPEND CXX_FILES ${DICTIONARY} )
@@ -55,8 +60,13 @@ LIST( APPEND CXX_FILES ${DICTIONARY} )
 #---------------------------------------------------------------------
 IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
   ADD_LIBRARY( ${libname} SHARED ${CXX_FILES} )
-  SET( BeanCore_ROOT_LIBRARIES
-    "-L ${ROOT_LIBRARY_DIR} -lEG -lProofPlayer -lProof" )
+  IF( USE_PROOF )
+    SET( BeanCore_ROOT_LIBRARIES
+      "-L ${ROOT_LIBRARY_DIR} -lEG -lProofPlayer -lProof" )
+  ELSE()
+    SET( BeanCore_ROOT_LIBRARIES
+      "-L ${ROOT_LIBRARY_DIR} -lEG" )
+  ENDIF()
 ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
   ADD_LIBRARY( ${libname} STATIC ${CXX_FILES} )
   SET( BeanCore_ROOT_LIBRARIES "${ROOT_LIBRARIES}" )
@@ -77,4 +87,3 @@ IF( ROOT_MAJOR_VERS GREATER 5 )
   INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/${DictNamePcm}
     DESTINATION ${install_lib_dir} )
 ENDIF()
-

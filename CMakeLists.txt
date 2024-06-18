@@ -15,11 +15,11 @@ ENDIF()
 CMAKE_MINIMUM_REQUIRED( VERSION 3.15...3.29 )
 
 # CMAKE_HOST_SYSTEM_NAME is about the system where cmake is being run
-# CMAKE_SYSTEM_NAME is about the platform the script is building for.
-# Therefore CMAKE_SYSTEM_NAME is defined after the project directive
+# CMAKE_SYSTEM_NAME is about the platform the script is building for
+# and is only defined after the project directive
 MESSAGE( STATUS
-  "+++ BEAN: You are working on ${CMAKE_HOST_SYSTEM_NAME} system\n   "
-  "+++ The program was tested under Linux, Darwin and Windows\n"
+  "+++ BEAN: You are working on ${CMAKE_HOST_SYSTEM_NAME} system\n"
+  "   +++ The program was tested under Linux, Darwin and Windows\n"
 )
 
 PROJECT( BEAN )
@@ -37,8 +37,7 @@ IF( NOT CMAKE_BUILD_TYPE )
   )
 ENDIF()
 
-# the full list of possible values of this flag are
-# "DebugFull", "Debug", "Profile", "RelWithDebInfo" and "Release".
+# Set build type for single-config generators (makefiles)
 IF( NOT CMAKE_BUILD_TYPE )
   SET( CMAKE_BUILD_TYPE
     RelWithDebInfo
@@ -48,8 +47,8 @@ IF( NOT CMAKE_BUILD_TYPE )
   )
 ENDIF()
 
-# BOSS_VERSION is the version of BOSS program which was used to
-# produce DST-files. The BOSS_VERSION value determines the following:
+# BOSS_VERSION is the version of the BOSS program used to create the
+# DST files you want to analyze. This value defines the following:
 # 1) the ROOTEVENTDATA_VERSION
 # 2) the preprocessor variable BOSS_VER, which determines
 #    the versions of the algorithms in the Analysis folder
@@ -65,8 +64,16 @@ SET( BOSS_VERSION
   "Version of BOSS in dst production"
 )
 
+OPTION( USE_PROOF
+  "Building BEAN with the ability to run in PROOF environment" ON
+)
+IF( CMAKE_SYSTEM_NAME MATCHES Windows )  # Windows
+  MESSAGE( DEBUG "DEBUG: PROOF is not available on Windows" )
+  SET ( USE_PROOF OFF )
+ENDIF()
+
 OPTION( BUILTIN_SQLITE
-  "Use included sqlite or system sqlite library" ON
+  "Use sqlite included in BEAN (default) or system library" ON
 )
 
 IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
@@ -125,7 +132,7 @@ ENDIF()
 MESSAGE( STATUS "+++ ROOTEVENTDATA: ../${ROOTEVENTDATA}" )
 
 #---------------------------------------------------------------------
-# Searching for ROOT and CLHEP
+# Searching for ROOT
 #---------------------------------------------------------------------
 SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake )
 
@@ -138,6 +145,18 @@ SET( ROOT_CONFIG_SEARCHPATH
 #  SET( FIND_ROOT_VERBOSE "yes" )
 INCLUDE( FindROOT )
 
+IF( ROOTVERSION VERSION_GREATER 6.31 )
+  IF( USE_PROOF )
+    MESSAGE( STATUS
+      "root-${ROOTVERSION}: PROOF is not supported any more" )
+    SET ( USE_PROOF OFF )
+    MESSAGE( STATUS "+++ USE_PROOF option is now disabled" )
+  ENDIF()
+ENDIF()
+
+#---------------------------------------------------------------------
+# Searching for CLHEP
+#---------------------------------------------------------------------
 SET( CLHEP_SEARCHPATH
   "$ENV{CLHEP_DIR}"
   CACHE PATH
@@ -148,9 +167,10 @@ SET( CLHEP_SEARCHPATH
 INCLUDE( FindCLHEP )
 
 #---------------------------------------------------------------------
-# Compilation options: we need a compiler that supports C++11
-# We will try to use the std-flag from ROOT CFLAGS,
-# in most cases this is enough
+# Compilation options
+# We need a compiler that supports at least C++11, so we retrieve the
+# corresponding settings from ROOT_CFLAGS. In most cases this is
+# enough.
 #---------------------------------------------------------------------
 # CMAKE_COMPILER_IS_GNUCC is depricated
 IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
@@ -163,7 +183,7 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
     MESSAGE( DEBUG "DEBUG: ROOT_STDCXX= ${ROOT_STDCXX}" )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_STDCXX}" )
   ELSE()
-    # for 'old' compilers
+    # 'old' root versions
     IF( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
       MESSAGE( DEBUG
         "DEBUG: g++(verion)= ${CMAKE_CXX_COMPILER_VERSION}" )
@@ -176,11 +196,13 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
           SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x" )
         ELSE()
           MESSAGE( FATAL_ERROR
-            "Insufficient g++ version: "
-            "${CMAKE_CXX_COMPILER_VERSION} we use C++11 features"
+            "Insufficient g++ version ${CMAKE_CXX_COMPILER_VERSION}\n"
+            "BEAN uses C++11 features"
           )
         ENDIF()
       ENDIF()
+    ELSEIF( CMAKE_CXX_COMPILER_ID MATCHES "Clang" )
+      SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
     ENDIF()
   ENDIF()
 
@@ -204,17 +226,27 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows )         # Windows
       "${CMAKE_CXX_FLAGS} -Zc:__cplusplus -std:c++11" )
   ENDIF()
 
-  # use run-time library
+  # use run-time library (MD or MDd)
   SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MDd -GR -EHs" )
   # to see compilation warnings
   SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W3" )
 
-  # WIN32 API
-  ADD_COMPILE_DEFINITIONS( -D_WIN32 )
   # Math Constants like M_PI...
   ADD_COMPILE_DEFINITIONS( -D_USE_MATH_DEFINES )
   # To eliminate warnings for the older, less secure functions
   #  ADD_COMPILE_DEFINITIONS( -D_CRT_SECURE_NO_WARNINGS )
+ENDIF()
+
+# Define system-specific compiler macros:
+# __unix__  for Linux
+# __APPLE__ for Darwin
+# _WIN32    for Windows (32 or 64 bit)
+IF( CMAKE_SYSTEM_NAME MATCHES Linux )           # Linux
+  ADD_COMPILE_DEFINITIONS( -D__unix__ )
+ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )      # MacOS
+  ADD_COMPILE_DEFINITIONS( -D__APPLE__ )
+ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )     # Windows
+  ADD_COMPILE_DEFINITIONS( -D_WIN32 )
 ENDIF()
 
 # print C++ compiler flags and preprocessor definitions
@@ -224,7 +256,6 @@ IF ( PREDEFS  )
   MESSAGE( STATUS
     "+++ BEAN: Preprocessor definitions are '${PREDEFS}'" )
 ENDIF()
-
 
 #---------------------------------------------------------------------
 # Libraries options
@@ -243,10 +274,6 @@ SET( install_lib_dir "BeanLib_${BOSS_VERSION}" )
 IF( CMAKE_SYSTEM_NAME MATCHES Darwin ) # MacOS
   # initialize the MACOSX_RPATH property on all targets
   SET ( CMAKE_MACOSX_RPATH ON )
-
-  # silence the warnings
-  #  SET( CMAKE_SHARED_LINKER_FLAGS
-    #  "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries" )
 ENDIF()
 
 IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
@@ -284,6 +311,11 @@ ENDIF()
 #---------------------------------------------------------------------
 ADD_COMPILE_DEFINITIONS( -DBEAN )
 ADD_COMPILE_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
+IF( USE_PROOF )
+  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=1 )
+ELSEIF()
+  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=0 )
+ENDIF()
 
 ADD_SUBDIRECTORY( ${ROOTEVENTDATA} )
 SET( ROOTEVENTDATA_DIR  ${CMAKE_SOURCE_DIR}/${ROOTEVENTDATA} )
@@ -332,7 +364,6 @@ ADD_SUBDIRECTORY( BeanUser )
 #---------------------------------------------------------------------
 # BEAN executable
 #---------------------------------------------------------------------
-
 # program name
 SET( prog bean_${BOSS_VERSION}.exe )
 IF( CMAKE_SYSTEM_NAME MATCHES Windows )
@@ -349,6 +380,9 @@ INCLUDE_DIRECTORIES(
 )
 
 SET( MAIN_SRCS "BeanCore/main.cxx" )
+SET_SOURCE_FILES_PROPERTIES( "BeanCore/main.cxx"
+  PROPERTIES COMPILE_DEFINITIONS BEANBASE="${CMAKE_SOURCE_DIR}" )
+#  ADD_COMPILE_DEFINITIONS( -DBEANBASE="${CMAKE_SOURCE_DIR}" )
 
 # add getopt() port for MSVC:
 # http://www.codeproject.com/KB/cpp/getopt4win.aspx
@@ -357,7 +391,6 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows )
   LIST( APPEND MAIN_SRCS "BeanCore/win_getopt/getopt.c" )
 ENDIF()
 
-ADD_COMPILE_DEFINITIONS( -DBEANBASE="${CMAKE_SOURCE_DIR}" )
 
 ADD_EXECUTABLE( ${prog} ${MAIN_SRCS} )
 
@@ -422,106 +455,108 @@ ENDIF()
 
 #---------------------------------------------------------------------
 # PROOF
-# Note: the name of par-file MUST match the name of the directory
 #---------------------------------------------------------------------
+IF ( USE_PROOF )
+  # Note: the name of par-file MUST match the name of the directory
 
-# PROOF_A_FILES is the list of data files that could be used
-# in the BEAN from the directory "Analysis"
+  # PROOF_A_FILES is the list of data files that could be used
+  # in the BEAN from the directory "Analysis"
+  FILE( GLOB PROOF_A_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/PROOF-INF/*.*" )
+  FILE( GLOB TMP_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/DatabaseSvc/dat/*.db" )
+  LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
+  FILE( GLOB TMP_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/MagneticField/dat/*.dat" )
+  LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
+  FILE( GLOB TMP_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/MagneticField/dat/*.txt" )
+  LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
+  FILE( GLOB_RECURSE TMP_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/ParticleID/share/*.txt" )
+  LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
+  FILE( GLOB TMP_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/AbsCor/dat/*.txt" )
+  LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
+  FILE( GLOB TMP_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "Analysis/EventTag/share/*.codes" )
+  LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
+  LIST( APPEND PROOF_A_FILES "Analysis/EventTag/share/pdt.table" )
 
-FILE( GLOB PROOF_A_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/PROOF-INF/*.*" )
-FILE( GLOB TMP_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/DatabaseSvc/dat/*.db" )
-LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
-FILE( GLOB TMP_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/MagneticField/dat/*.dat" )
-LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
-FILE( GLOB TMP_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/MagneticField/dat/*.txt" )
-LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
-FILE( GLOB_RECURSE TMP_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/ParticleID/share/*.txt" )
-LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
-FILE( GLOB TMP_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/AbsCor/dat/*.txt" )
-LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
-FILE( GLOB TMP_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "Analysis/EventTag/share/*.codes" )
-LIST( APPEND PROOF_A_FILES ${TMP_FILES} )
-LIST( APPEND PROOF_A_FILES "Analysis/EventTag/share/pdt.table" )
+  MESSAGE( DEBUG "DEBUG: PROOF_A_FILES are\n${PROOF_A_FILES}\n" )
 
-#  MESSAGE( DEBUG "DEBUG: PROOF_A_FILES = ${PROOF_A_FILES}" )
+  SET( ANALYSIS_PAR "${CMAKE_INSTALL_PREFIX}/par/Analysis.par" )
+  ADD_CUSTOM_COMMAND(
+    OUTPUT   ${ANALYSIS_PAR}
+    COMMAND "${CMAKE_COMMAND}" -E
+    make_directory ${CMAKE_INSTALL_PREFIX}/par
+    COMMAND "${CMAKE_COMMAND}" -E
+    tar -czf ${ANALYSIS_PAR} ${PROOF_A_FILES}
+    DEPENDS  ${PROOF_A_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Creating ${ANALYSIS_PAR}"
+  )
 
-SET( ANALYSIS_PAR "${CMAKE_INSTALL_PREFIX}/par/Analysis.par" )
-ADD_CUSTOM_COMMAND(
-  OUTPUT   ${ANALYSIS_PAR}
-  COMMAND "${CMAKE_COMMAND}" -E
-  make_directory ${CMAKE_INSTALL_PREFIX}/par
-  COMMAND "${CMAKE_COMMAND}" -E
-  tar -czf ${ANALYSIS_PAR} ${PROOF_A_FILES}
-  DEPENDS  ${PROOF_A_FILES}
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  COMMENT "Creating ${ANALYSIS_PAR}"
-)
+  # PROOF_B_FILES is the list of data files that could be used
+  # in the BEAN from the directory "BeanUser"
+  FILE( GLOB PROOF_B_FILES RELATIVE "${CMAKE_SOURCE_DIR}"
+    "BeanUser/PROOF-INF/*.*" )
+  LIST( APPEND PROOF_B_FILES "BeanUser/mydecay.codes" )
 
-# PROOF_B_FILES is the list of data files that could be used
-# in the BEAN from the directory "BeanUser"
+  SET( BEANUSER_PAR "${CMAKE_INSTALL_PREFIX}/par/BeanUser.par" )
+  ADD_CUSTOM_COMMAND(
+    OUTPUT   ${BEANUSER_PAR}
+    COMMAND "${CMAKE_COMMAND}" -E
+    make_directory ${CMAKE_INSTALL_PREFIX}/par
+    COMMAND "${CMAKE_COMMAND}" -E
+    tar -czf ${BEANUSER_PAR} ${PROOF_B_FILES}
+    DEPENDS  ${PROOF_B_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Creating ${BEANUSER_PAR}"
+  )
 
-FILE( GLOB PROOF_B_FILES
-  RELATIVE "${CMAKE_SOURCE_DIR}" "BeanUser/PROOF-INF/*.*" )
-LIST( APPEND PROOF_B_FILES "BeanUser/mydecay.codes" )
+  SET( LIB_PAR "${CMAKE_INSTALL_PREFIX}/par/${install_lib_dir}.par" )
+  SET( PROOF_INF_LIB
+    "${CMAKE_INSTALL_PREFIX}/${install_lib_dir}/PROOF-INF" )
+  ADD_CUSTOM_COMMAND(
+    OUTPUT   ${PROOF_INF_LIB}/BUILD.sh ${PROOF_INF_LIB}/SETUP.C
+    COMMAND "${CMAKE_COMMAND}" -E make_directory ${PROOF_INF_LIB}
+    COMMAND "${CMAKE_COMMAND}" -E
+    copy BUILD_lib.sh ${PROOF_INF_LIB}/BUILD.sh
+    COMMAND "${CMAKE_COMMAND}" -E
+    copy SETUP_lib.C ${PROOF_INF_LIB}/SETUP.C
+    DEPENDS ${CMAKE_SOURCE_DIR}/cmake/BUILD_lib.sh
+    ${CMAKE_SOURCE_DIR}/cmake/SETUP_lib.C
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake"
+    COMMENT "Creating ${PROOF_INF_LIB}"
+  )
 
-SET( BEANUSER_PAR "${CMAKE_INSTALL_PREFIX}/par/BeanUser.par" )
-ADD_CUSTOM_COMMAND(
-  OUTPUT   ${BEANUSER_PAR}
-  COMMAND "${CMAKE_COMMAND}" -E
-  make_directory ${CMAKE_INSTALL_PREFIX}/par
-  COMMAND "${CMAKE_COMMAND}" -E
-  tar -czf ${BEANUSER_PAR} ${PROOF_B_FILES}
-  DEPENDS  ${PROOF_B_FILES}
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  COMMENT "Creating ${BEANUSER_PAR}"
-)
+  ADD_CUSTOM_COMMAND(
+    OUTPUT   ${LIB_PAR}
+    COMMAND "${CMAKE_COMMAND}" -E
+    make_directory ${CMAKE_INSTALL_PREFIX}/par
+    COMMAND "${CMAKE_COMMAND}" -E
+    tar -czf ${LIB_PAR} ${install_lib_dir}
+    DEPENDS ${PROOF_INF_LIB}/BUILD.sh ${PROOF_INF_LIB}/SETUP.C
+    WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}
+    COMMENT "Creating ${LIB_PAR}"
+  )
 
-SET( LIB_PAR "${CMAKE_INSTALL_PREFIX}/par/${install_lib_dir}.par" )
-SET( PROOF_INF_LIB
-  "${CMAKE_INSTALL_PREFIX}/${install_lib_dir}/PROOF-INF" )
-ADD_CUSTOM_COMMAND(
-  OUTPUT   ${PROOF_INF_LIB}/BUILD.sh ${PROOF_INF_LIB}/SETUP.C
-  COMMAND "${CMAKE_COMMAND}" -E make_directory ${PROOF_INF_LIB}
-  COMMAND "${CMAKE_COMMAND}" -E
-  copy BUILD_lib.sh ${PROOF_INF_LIB}/BUILD.sh
-  COMMAND "${CMAKE_COMMAND}" -E
-  copy SETUP_lib.C ${PROOF_INF_LIB}/SETUP.C
-  DEPENDS ${CMAKE_SOURCE_DIR}/cmake/BUILD_lib.sh
-  ${CMAKE_SOURCE_DIR}/cmake/SETUP_lib.C
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake"
-  COMMENT "Creating ${PROOF_INF_LIB}"
-)
-
-ADD_CUSTOM_COMMAND(
-  OUTPUT   ${LIB_PAR}
-  COMMAND "${CMAKE_COMMAND}" -E
-  make_directory ${CMAKE_INSTALL_PREFIX}/par
-  COMMAND "${CMAKE_COMMAND}" -E
-  tar -czf ${LIB_PAR} ${install_lib_dir}
-  DEPENDS ${PROOF_INF_LIB}/BUILD.sh ${PROOF_INF_LIB}/SETUP.C
-  WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}
-  COMMENT "Creating ${LIB_PAR}"
-)
-
-ADD_CUSTOM_TARGET( proofbean
-  DEPENDS ${ANALYSIS_PAR} ${BEANUSER_PAR} ${LIB_PAR}
-)
-ADD_DEPENDENCIES( proofbean install_bean )
+  ADD_CUSTOM_TARGET( proofbean
+    DEPENDS ${ANALYSIS_PAR} ${BEANUSER_PAR} ${LIB_PAR}
+  )
+  ADD_DEPENDENCIES( proofbean install_bean )
+ELSE( )
+  MESSAGE( DEBUG "DEBUG: USE_PROOF is ${USE_PROOF}" )
+ENDIF( USE_PROOF )
 
 #---------------------------------------------------------------------
-# uninstall -> delete "by hand"
+# uninstall or delete "by hand"
 #---------------------------------------------------------------------
 ADD_CUSTOM_TARGET( uninstall
   COMMAND "${CMAKE_COMMAND}" -E remove -f ${prog}
-  COMMAND "${CMAKE_COMMAND}" -E remove -f setup_${BOSS_VERSION}.sh
   COMMAND "${CMAKE_COMMAND}" -E remove_directory ${install_lib_dir}
+  COMMAND "${CMAKE_COMMAND}" -E remove -f setup_${BOSS_VERSION}.sh
   COMMAND "${CMAKE_COMMAND}" -E remove_directory par
   WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}
 )

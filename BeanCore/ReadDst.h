@@ -1,110 +1,114 @@
 #ifndef _ReadDst_h
 #define _ReadDst_h
+//////////////////////////////////////////////////////////////////////
+//                                                                  //
+// ReadDst                                                          //
+//  * primary class to read DST files                               //
+//  * overridden methods of the TSelect class are used              //
+//  * there is basic EntryList functionality                        //
+//  * user functions stored in the BEAN class are called            //
+//  * histograms and selected DST events are saved                  //
+//                                                                  //
+//////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////
-//                                                                      //
-// ReadDst                                                              //
-//                                                                      //
-// Primary class to read DST                                            //
-//                                                                      //
-//////////////////////////////////////////////////////////////////////////
-
-#include "DstFormat.h"
 #include "Bean.h"
+#include "DstFormat.h"
 
-// class Bean;
+// forward declaration of classes
 class ReadDst;
-class TProofOutputFile;
-class TObject;
 class TNamed;
 class TEntryList;
-
 class TMergeableMap;
 
-// pointers on user functions:
-// - start/end job
-typedef void (*ssfn) (ReadDst*);
-// - event function
-typedef bool (*pufn) (ReadDst*,
-                      TEvtHeader*,TDstEvent*,TEvtRecObject*,
-                      TMcEvent*,TTrigEvent*,TDigiEvent*,THltEvent*);
+#if USE_PROOF != 0
+class TProofOutputFile;
+#endif
 
+// pointers on user functions:
+// for start/end job
+typedef void (*ssfn) (ReadDst*);
+// per each event
+typedef bool (*pufn) (ReadDst*,
+      TEvtHeader*,TDstEvent*,TEvtRecObject*,
+      TMcEvent*,TTrigEvent*,TDigiEvent*,THltEvent*);
+// function names
 typedef std::vector<TNamed* > VecObj;
 
 class ReadDst : public DstFormat
 {
-public :
-                        ReadDst();
-   virtual             ~ReadDst();
+   public:
+      ReadDst();
+      virtual     ~ReadDst();
 
-   bool                 LoadConfig(Bean* _bean = 0);
-   bool                 Verbose() const;
-   void                 SetVerbose() {bean->SetVerbose();}
-   void                 SetSilent()  {bean->SetSilent();}
-   std::string          GetBaseDir() const;
-   std::string          AbsPath(std::string rel_path) const;
+      bool        LoadConfig(Bean* bn=nullptr);
+      bool        Verbose() const;
+      void        SetVerbose() {bean->SetVerbose();}
+      void        SetSilent()  {bean->SetSilent();}
+      std::string GetBaseDir() const;
+      std::string AbsPath(const std::string& rel_path) const;
 
-   const TObjArray*     GetEvtRecTrkCol() const {return m_evtRecTrkCol;}
+      const TObjArray* GetEvtRecTrkCol() const{return m_evtRecTrkCol;}
 
-   void                 SetEntryList(TEntryList* el);
-   Long64_t             GetEntryNumber();
-   void                 SaveEntryInList(TEntryList* el);
+      // functions to work with EntryList
+      void     SetEntryList(TEntryList* el);
+      Long64_t GetEntryNumber();
+      void     SaveEntryInList(TEntryList* el);
 
-   // TSelector functions:
-   void                 Begin(TTree* );
-   void                 SlaveBegin(TTree* );
-   void                 Init(TTree *tree);
-   Bool_t               Notify();
-   Bool_t               Process(Long64_t entry);
-   void                 SlaveTerminate();
-   void                 Terminate();
+      // TSelector functions
+      void   Begin(TTree* );
+      void   SlaveBegin(TTree* );
+      void   Init(TTree* tree);
+      Bool_t Notify();
+      Bool_t Process(Long64_t entry);
+      void   SlaveTerminate();
+      void   Terminate();
 
-   // -- call user functions
-   void                 UserStartJob();
-   bool                 UserEvent(TTree* T);
-   void                 UserEndJob();
-   void                 CreateEvtRecTrkCol();
+      // call user functions
+      void UserStartJob();
+      bool UserEvent(TTree* T);
+      void UserEndJob();
+      void CreateEvtRecTrkCol();
 
-   // -- histogramming
-   void                 RegInDir(const VecObj* hst, const char* dir = 0);
-   void                 RegInDir(const VecObj& hst, const char* dir = 0){
-      RegInDir(&hst,dir);
-   }
-   void                 RegInDir(const TList* hst, const char* dir = 0);
-   void                 RegInDir(const TList& hst, const char* dir = 0){
-      RegInDir(&hst,dir);
-   }
-   void                 Save_histo() const;
+      // histogramming
+      void RegInDir(const VecObj& vhst, const char* dir=nullptr);
+      void RegInDir(const VecObj* vhst, const char* dir=nullptr);
+      void RegInDir(const TList* lhst, const char* dir=nullptr);
+      void RegInDir(const TList& lhst, const char* dir=nullptr);
+      void Save_histo() const;
 
-private :
-   Bean*                bean; //-> all configuration parameters are here
+   private:
+      Bean*       bean; //-> all configuration parameters are here
 
-   Long64_t             current_entry;
-   TEntryList*          selected_entries;
+      Long64_t    current_entry;
+      TEntryList* selected_entries;
 
-   // -- track linking
-   TObjArray*           m_evtRecTrkCol;
+      // track linking
+      TObjArray*  m_evtRecTrkCol;
 
-   // -- for selected events
-   TTree*               T_select;
-   TFile*               f_select;
-   TProofOutputFile*    fp_select;
-   int                  n_select_events;
+      // for selected events
+      TTree*      T_select;
+      TFile*      f_select;
+      int         n_select_events;
 
-   // -- time measuring
-   time_t               start_time;
-   Int_t                n_events;
+      // to save histograms to the directory specified in RegInDir
+      // this is map(TObjString*,TObjString*) hst_name:dir_name
+      TMergeableMap*       m_hst_dir;
 
-   // histogram to directory map
-   TMergeableMap*       dirMap;
+      // time measuring
+      time_t      start_time;
+      Int_t       n_events;
 
-   // -- internal functions:
-   void                 CheckDupName(TObject *obj);
-   void                 WriteJobInfo();
+      // internal functions
+      void CheckDupName(TObject* obj);
+      void WriteJobInfo();
+
+#if USE_PROOF != 0
+      TProofOutputFile* fp_select;
+#endif
 
    // ClassVersionID=0 because we don't need object I/O
    ClassDef(ReadDst,0); // Primary class to read DST
    // if class definition use `override` keyword
-//    ClassDefOverride(ReadDst,0); // Primary class to read DST
+   // ClassDefOverride(ReadDst,0); // Primary class to read DST
 };
 #endif
