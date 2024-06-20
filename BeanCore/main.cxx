@@ -17,9 +17,12 @@
 #if defined (__unix__) || defined (__APPLE__)
 #include <getopt.h>
 #elif defined _WIN32
+// do not define min() and max() macros in windows.h
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include "win_getopt/getopt.h"
-// void win_exit(){::ExitProcess(0);}
 #endif
 
 #include <TSystem.h>
@@ -63,6 +66,7 @@ static void set_user_termination(bool verbose);
 static void termination_handler(int isig);
 #if defined _WIN32
 BOOL CtrlHandler( DWORD fdwCtrlType );
+void win_exit(){::ExitProcess(0);}
 #endif
 
 #if USE_PROOF != 0
@@ -97,8 +101,8 @@ int main(int argc, char **argv)
    ios_base::sync_with_stdio(true);
 
 #if defined _WIN32
-   // Enable two-digit exponent format
-   _set_output_format(_TWO_DIGIT_EXPONENT);
+   // Enable two-digit exponent format: obsolete for VS>=15
+   // _set_output_format(_TWO_DIGIT_EXPONENT);
 
    // suppress the abort message
    _set_abort_behavior( 0, _WRITE_ABORT_MSG );
@@ -110,8 +114,8 @@ int main(int argc, char **argv)
    _CrtSetReportMode( _CRT_ASSERT, 0 );
 
    // function win_exit() will run at exit()
-   // atexit( win_exit );
-   atexit( []() -> void {::ExitProcess(0);}; );
+   // auto win_exit = []() -> void{::ExitProcess(0);};
+   atexit( win_exit );
 #endif
 
    bean = new Bean;
