@@ -5,6 +5,8 @@
 //   and efficiency of selection;
 // - estimate systematic associated with a fit model
 
+#include <filesystem>
+
 #include "RewTrkPiK.hpp"    // RewTrk functions with HC
 
 // {{{1 helper functions and constants

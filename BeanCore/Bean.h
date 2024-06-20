@@ -56,7 +56,6 @@ class Bean : public TObject
       void LoadUserFcn(const std::string& name);
       void LoadUserFcns();
 
-
       // IsProof() should be available even if PROOF is not available
       bool IsProof() const {
 #if USE_PROOF != 0

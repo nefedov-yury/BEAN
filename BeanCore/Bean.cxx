@@ -89,8 +89,8 @@ void Bean::PrintOptions() const
 //--------------------------------------------------------------------
 {
    if( Verbose() ) {
-      cout << string(15,'=') << " Bean::Options "
-         << string(15,'=') << endl;
+      cout << string(20,'=') << " Bean::Options "
+         << string(20,'=') << endl;
       cout << "> Bean base dir is: " << GetBaseDir() << endl;
       if( MaxNumberEvents() ) {
          cout << "> Process not more than " << MaxNumberEvents()
@@ -137,7 +137,7 @@ void Bean::PrintOptions() const
          }
       }
 #endif
-      cout << string(45,'=') << endl;
+      cout << string(55,'=') << endl;
    }
 }
 

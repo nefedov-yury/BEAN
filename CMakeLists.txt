@@ -67,7 +67,7 @@ SET( BOSS_VERSION
 OPTION( USE_PROOF
   "Building BEAN with the ability to run in PROOF environment" ON
 )
-IF( CMAKE_SYSTEM_NAME MATCHES Windows )  # Windows
+IF( USE_PROOF AND (CMAKE_SYSTEM_NAME MATCHES Windows) )  # Windows
   MESSAGE( DEBUG "DEBUG: PROOF is not available on Windows" )
   SET ( USE_PROOF OFF )
 ENDIF()
@@ -249,6 +249,15 @@ ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )     # Windows
   ADD_COMPILE_DEFINITIONS( -D_WIN32 )
 ENDIF()
 
+# Preprocessor definitions specific for the BEAN
+ADD_COMPILE_DEFINITIONS( -DBEAN )
+ADD_COMPILE_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
+IF( USE_PROOF )
+  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=1 )
+ELSEIF()
+  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=0 )
+ENDIF()
+
 # print C++ compiler flags and preprocessor definitions
 MESSAGE( STATUS "+++ BEAN: CMAKE_CXX_FLAGS are '${CMAKE_CXX_FLAGS}'" )
 GET_DIRECTORY_PROPERTY( PREDEFS COMPILE_DEFINITIONS )
@@ -309,14 +318,6 @@ ENDIF()
 #---------------------------------------------------------------------
 # build libraries
 #---------------------------------------------------------------------
-ADD_COMPILE_DEFINITIONS( -DBEAN )
-ADD_COMPILE_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
-IF( USE_PROOF )
-  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=1 )
-ELSEIF()
-  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=0 )
-ENDIF()
-
 ADD_SUBDIRECTORY( ${ROOTEVENTDATA} )
 SET( ROOTEVENTDATA_DIR  ${CMAKE_SOURCE_DIR}/${ROOTEVENTDATA} )
 

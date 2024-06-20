@@ -119,8 +119,7 @@ int main(int argc, char **argv)
 #ifdef BEANBASE
    bean->SetBaseDir(BEANBASE);
 #else
-   cout << " ERROR: BEANBASE not defined " << endl;
-   exit(EXIT_FAILURE);
+#error "macro BEANBASE not defined"
 #endif
 
    // ===================== PARSE COMMAND OPTIONS ====================
@@ -361,8 +360,8 @@ int main(int argc, char **argv)
       cout << "-- Total " << file_names.size() <<
         " files in the list for processing --" << endl;
       if( verbose ) {
-         for ( const auto& n : file_names ) {
-            cout << n << endl;
+         for ( const auto& f : file_names ) {
+            cout << f << endl;
          }
          cout << "-- End of list --" << endl;
       }
@@ -425,8 +424,11 @@ int main(int argc, char **argv)
    set_user_termination(verbose);
 #endif
 
-   // ========== RUN A LOOP THROUGH  EVENTS (WITHOUT PROOF) ==========
+   // =========== RUN A LOOP THROUGH EVENTS NON PROOF MODE ===========
    if( !bean->IsProof() ) {
+      if( verbose ) {
+         cout << "Run a loop through events NON-PROOF mode" << endl;
+      }
       TChain chain("Event");
       Long64_t nentries = bean->MaxNumberEvents();
 
@@ -440,7 +442,7 @@ int main(int argc, char **argv)
       inputList->Add(bean);
       selector->SetInputList(inputList);
 
-      if( !nentries ) {
+      if( nentries == 0 ) { // no restriction on the number of events
          chain.Process(selector);
       } else {
          chain.Process(selector,"",nentries);
@@ -448,9 +450,9 @@ int main(int argc, char **argv)
 
       // if process was interrupted with Abort() call
       // Terminate functions by hand:
-      if ( selector -> GetAbort() == TSelector::kAbortProcess ) {
-         selector -> SlaveTerminate();
-         selector -> Terminate();
+      if( selector->GetAbort() == TSelector::kAbortProcess ) {
+         selector->SlaveTerminate();
+         selector->Terminate();
       }
       delete selector;
    }

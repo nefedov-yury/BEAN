@@ -12,6 +12,8 @@
 // Number of signal events is calculated by subtracting the estimated
 // background from the data.
 
+#include <filesystem>
+
 #include "RewTrkPiK.hpp"    // RewTrk functions with HC
 
 // {{{1 helper functions and constants
@@ -847,9 +849,9 @@ void MrecFitSB() {
       // MrecDraw(date,  zoom);
    }
 
-   // int date=2009;
+   int date=2009;
    // int date=2012;
-   int date=2021;
+   // int date=2021;
 
    DoFitSB(date);
 

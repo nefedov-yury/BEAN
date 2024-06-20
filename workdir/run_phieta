@@ -3,15 +3,20 @@
 BEAN6="./bean_6.6.4.exe"
 BEAN7="./bean_7.0.4.exe"
 MAX_PROC=4
+XARGS="xargs"
 
 ODIR="./outputs"
-if [ "$HOSTNAME" != "badger" ]; then
+if [ "$HOSTNAME" == "badger" ]; then
+  BDIR_MCGPJ="/data/bes3/phasejpsiscan/MC/phieta_mcgpj/MCGPJ_03"
+elif [ "$HOSTNAME" == "nu78-47" ]; then
+  BDIR_MCGPJ="/data/Test"
+elif [ "$HOSTNAME" == "juramac" ]; then
+  BDIR_MCGPJ="/Users/nefedov/MyHome/BEAN_TEST"
+  XARGS='/opt/homebrew/bin/gxargs'
+else
   printf "Unknown hostname ${HOSTNAME} \n"
   exit
 fi
-
-# badger:
-BDIR_MCGPJ="/data/bes3/phasejpsiscan/MC/phieta_mcgpj/MCGPJ_03"
 
 ######################## DATA ########################
 if [ 0 -eq 1 ]; then
@@ -22,7 +27,7 @@ if [ 0 -eq 1 ]; then
   DSTS+="3102 3106 3112 3120 "
 
   printf "${DSTS}" | \
-    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN6} -u SelectKKgg \
             -L phieta/Lists/{}.list \
             -h ${ODIR}/ntpl_{}.root \
@@ -35,11 +40,12 @@ fi
 if [ 0 -eq 1 ]; then
   # J/Psi 2012 MCGPJ:
   BDIR="${BDIR_MCGPJ}/MCGPJ_PhiEta"
-  DSTS="3050 3060 3080 3083 3090 3093 3094 3095 "
-  DSTS+="3096 3097 3098 3099 3102 3106 3112 3120"
+  DSTS="3050"
+  #  DSTS="3050 3060 3080 3083 3090 3093 3094 3095 "
+  #  DSTS+="3096 3097 3098 3099 3102 3106 3112 3120"
 
   printf "${DSTS}" | \
-    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN6} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}.root \
             ${BDIR}/phiEta_mcgpj_{}mc_?.dst \
@@ -51,7 +57,7 @@ if [ 0 -eq 1 ]; then
   BDIR_J="${BDIR_MCGPJ}/MCGPJ_PhiEta_J2018"
   DSTJN="J1 J2 J3 J4 J5 J6 J7 J8"
   printf "${DSTJN}" | \
-    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}.root \
             ${BDIR_J}/phiEta_mcgpj_{}mc_?.dst \
@@ -64,7 +70,7 @@ if [ 0 -eq 1 ]; then
   #  DSTRS="2900 2950 2981 3000 3020 3080"
   DSTRS="3080"
   printf "${DSTRS}" | \
-    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}_rs.root \
             ${BDIR_R}/phiEta_mcgpj_{}Rmc_?.dst \
@@ -75,7 +81,7 @@ if [ 0 -eq 1 ]; then
   # 3080 data 2019 MCGPJ
   BDIR_2019="${BDIR_MCGPJ}/MCGPJ_PhiEta_R_704"
   printf "3080_2019" | \
-    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_{}.root \
             ${BDIR_2019}/phiEta_mcgpj_{}_?.dst \
@@ -87,7 +93,7 @@ fi
 if [ 0 -eq 1 ]; then
   # +++ inclusive J/Psi
   printf "00 01 02 03 04 05 06 07" | \
-    xargs --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
     sh -c "${BEAN6} -u SelectKKgg \
         -L phieta/Lists/JPsi_664_{}.list \
         -h ${ODIR}/ntpl_jpsi_incl_{}.root \
@@ -115,7 +121,7 @@ if [ 0 -eq 1 ]; then
   DSTS+="3096 3097 3098 3099 3102 3106 3112 3120"
 
   printf "${DSTS}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN6} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_PHSP_{}.root \
             ${BDIR}/phiEta_mcgpj_{}mc_?.dst \
@@ -128,7 +134,7 @@ if [ 0 -eq 1 ]; then
   BDIR_R="${BDIR_MCGPJ}/MCGPJ_KKEta_R_704"
   DSTRS="2900 3000 3080"
   printf "${DSTRS}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_PHSP_{}_rs.root \
             ${BDIR_R}/phiEta_mcgpj_{}Rmc_?.dst \
@@ -140,7 +146,7 @@ if [ 0 -eq 1 ]; then
   BDIR_J="${BDIR_MCGPJ}/MCGPJ_KKEta_J2018"
   DSTJN="J1 J2 J3 J4 J5 J6 J7 J8"
   printf "${DSTJN}" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_PHSP_{}.root \
             ${BDIR_J}/phiEta_mcgpj_{}mc_?.dst \
@@ -151,7 +157,7 @@ if [ 0 -eq 1 ]; then
   # 3080 data 2019 MCGPJ
   BDIR_2019="${BDIR_MCGPJ}/MCGPJ_KKEta_R_704"
   printf "3080_2019" | \
-    xargs --delimiter=" " --max-procs=4 -I{} \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
       sh -c "${BEAN7} -u SelectKKgg \
             -h ${ODIR}/ntpl_mcgpj_PHSP_{}.root \
             ${BDIR_2019}/phiEta_mcgpj_{}_?.dst \
