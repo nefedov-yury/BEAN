@@ -33,7 +33,7 @@ class Bean : public TObject
       void SetEventDump()              {event_dump = true;}
       void SetHstFile(const char* opt) {hst_file = opt;}
       void SetDstFile(const char* opt);
-      void SetMaxNumberEvents(int val) {max_number_events = val;}
+      void SetMaxNumberEvents(long val) {max_number_events = val;}
 
       std::string GetBaseDir() const      {return base_dir;}
       bool        Verbose() const         {return verbose;}
@@ -43,11 +43,11 @@ class Bean : public TObject
       std::string DstFileName() const     {return dst_file_name;}
       long        MaxNumberEvents() const {return max_number_events;}
 
-      void         PrintOptions() const;
+      void PrintOptions() const;
 
       // -- user functions
       void         AddUserFcn(const char* name);
-      unsigned int NUserFns() const        {return Ufn_names.size();}
+      size_t       NUserFns() const        {return Ufn_names.size();}
       const VecUF& GetStartJobFns() const  {return Ufn_start;}
       const VecUF& GetUserEventFns() const {return Ufn_event;}
       const VecUF& GetEndJobFns() const    {return Ufn_end;}

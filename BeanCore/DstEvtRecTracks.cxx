@@ -52,10 +52,10 @@ DstEvtRecTracks::DstEvtRecTracks(TEvtRecTrack* rec_trk,
    }
 
    const std::vector<int>& tof_trk_id = rec_trk->tofTrackIds();
-   UInt_t id_size = tof_trk_id.size();
+   size_t id_size = tof_trk_id.size();
    if( id_size > 0 ) {
       const TObjArray* m_tofTrackCol = dst_event->getTofTrackCol();
-      for(UInt_t i = 0; i < id_size; i++) {
+      for( size_t i = 0; i < id_size; i++ ) {
          TTofTrack* tmp =
             (TTofTrack*) m_tofTrackCol->At(tof_trk_id[i]);
          if( tmp ) {

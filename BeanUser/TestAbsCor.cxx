@@ -217,7 +217,7 @@ bool TestAbsCorEvent( ReadDst* selector,
       Pg.push_back( HepLorentzVector(p3,eraw) );
    } //-----------------------------------------------End for (i)
 
-   int Ng = gtrk.size();
+   size_t Ng = gtrk.size();
    hst[2]->Fill(Ng);
 
    if ( Ng < 2 ) {
@@ -225,10 +225,10 @@ bool TestAbsCorEvent( ReadDst* selector,
    }
 
    // analyse gg pairs: search for the decay pi0->2gamma
-   int Npi0 = 0;
-   for ( int i = 0; i < Ng-1; ++i ) {
+   size_t Npi0 = 0;
+   for ( size_t i = 0; i < Ng-1; ++i ) {
       const auto& LVgi = Pg[i];
-      for ( int j = i+1; j < Ng; ++j ) {
+      for ( size_t j = i+1; j < Ng; ++j ) {
          const auto& LVgj = Pg[j];
 
          double Mgg2 = (LVgi+LVgj).m2();

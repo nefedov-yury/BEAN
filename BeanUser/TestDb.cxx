@@ -132,7 +132,7 @@ void TestDbStartJob(ReadDst* selector)
       curvetree -> SetBranchAddress("Atten2", &cnvAtten[2]);
       curvetree -> SetBranchAddress("Atten3", &cnvAtten[3]);
       curvetree -> SetBranchAddress("Atten4", &cnvAtten[4]);
-      int entries=curvetree->GetEntries();
+      Long64_t entries=curvetree->GetEntries();
       if(entries>10) entries = 10;
       for(int iiii = 0; iiii < entries; iiii++) {
          curvetree->GetEntry(iiii);

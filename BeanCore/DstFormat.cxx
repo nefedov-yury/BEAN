@@ -185,7 +185,8 @@ void DstFormat::PrintHeader() const
          << " Tag: " << m_TEvtHeader->getEventTag();
       if( !isMC ) {
          time_t t_event = m_TEvtHeader->time();
-         cout << " Time: " << ctime(&t_event);
+         // cout << " Time: " << ctime(&t_event);
+         cout << " Time: " << put_time(localtime(&t_event),"%c");
       } else {
          cout << endl;
       }

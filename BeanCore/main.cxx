@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 
    string optstring = ":L:r:u:vDN:h:o:e:";
 #if USE_PROOF != 0
-   optstring += "S::a:A:d:E:glp:V:x";
+   optstring += "S:a:A:d:E:glp:V:x";
 #endif
    int oc = 0;
    while( (oc = getopt(argc,argv,optstring.data())) != -1 ) {
@@ -626,10 +626,9 @@ Advanced options:
 
 #if USE_PROOF != 0
       cout << R"(
-  -S[path]      Initialize 'run' and 'offlinedb' databases;
-                the optional [path] argument can be used to
-                temporarily copy these databases to the 'path'
-                to avoid NFS locking issues; for example: -S/tmp
+  -S path       Copies the 'run' and 'offlinedb' databases to the
+                'path/temporary_dir/' and initialize them for use
+                in the BEAN; can be used to avoid NFS locking issues
 
   *** PROOF management ***
   -a params     set PROOF parameters: "valgrind", "workers=42", etc

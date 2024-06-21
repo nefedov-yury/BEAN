@@ -362,15 +362,16 @@ Bool_t ReadDst::Process(Long64_t entry)
       }
    }
 
-   n_events += 1;
+   n_events++;
    if( bean_termination != 0 ) {
-      printf("User signal '%s' had been received\n",
+      printf("User signal '%s' had been received on event# %zu\n",
 #if defined (__unix__) || defined (__APPLE__)
-            strsignal(bean_termination)
+            strsignal(bean_termination),
 #elif defined _WIN32
-            (string("Interrupt#")+to_string(bean_termination)).c_str()
+            (string("Interrupt# ") +
+             to_string(bean_termination)).c_str(),
 #endif
-            );
+            n_events);
       this->Abort("Stop the event loop...");
    }
 
@@ -461,11 +462,11 @@ void ReadDst::Terminate()
          SafeDelete(f_select);
       }
 
-      time_t time_taken = time(0) - start_time;
+      size_t time_taken = (long)(time(0) - start_time);
       double vel = double(n_events) / double(time_taken);
       printf("Performance summary: "
-            "%d events processed in %llds: ~%.1f events/sec\n",
-            n_events, (long long)time_taken, vel);
+            "%zu events processed in %zus: ~%.1f events/sec\n",
+            n_events, time_taken, vel);
    }
 
    Save_histo();

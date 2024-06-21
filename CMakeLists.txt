@@ -383,15 +383,12 @@ INCLUDE_DIRECTORIES(
 SET( MAIN_SRCS "BeanCore/main.cxx" )
 SET_SOURCE_FILES_PROPERTIES( "BeanCore/main.cxx"
   PROPERTIES COMPILE_DEFINITIONS BEANBASE="${CMAKE_SOURCE_DIR}" )
-#  ADD_COMPILE_DEFINITIONS( -DBEANBASE="${CMAKE_SOURCE_DIR}" )
 
-# add getopt() port for MSVC:
-# http://www.codeproject.com/KB/cpp/getopt4win.aspx
+# getopt() port for MSVC: https://www.ludvikjerabek.com/software/
 IF( CMAKE_SYSTEM_NAME MATCHES Windows )
-  ADD_COMPILE_DEFINITIONS( -DSTATIC_GETOPT )
   LIST( APPEND MAIN_SRCS "BeanCore/win_getopt/getopt.c" )
+  ADD_COMPILE_DEFINITIONS( -DSTATIC_GETOPT )
 ENDIF()
-
 
 ADD_EXECUTABLE( ${prog} ${MAIN_SRCS} )
 

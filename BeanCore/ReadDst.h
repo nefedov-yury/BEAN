@@ -88,7 +88,7 @@ class ReadDst : public DstFormat
       // for selected events
       TTree*      T_select;
       TFile*      f_select;
-      int         n_select_events;
+      size_t      n_select_events;
 
       // to save histograms to the directory specified in RegInDir
       // this is map(TObjString*,TObjString*) hst_name:dir_name
@@ -96,7 +96,7 @@ class ReadDst : public DstFormat
 
       // time measuring
       time_t      start_time;
-      Int_t       n_events;
+      size_t      n_events;
 
       // internal functions
       void CheckDupName(TObject* obj);

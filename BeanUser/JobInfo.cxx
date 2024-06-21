@@ -98,8 +98,8 @@ bool JobInfoEvent(ReadDst* selector,
       vector<int> TotEvents = m_TJobInfo->getTotEvtNo();
       cout << " Events number information:" << endl;
       int sum = 0;
-      int nruns2 = TotEvents.size();
-      for(int i = 0; i < nruns2-1; i+=2 ) {
+      size_t nruns2 = TotEvents.size();
+      for(size_t i = 0; i < nruns2-1; i+=2 ) {
          cout << " Run# " << TotEvents[i];
          int nevents =  TotEvents[i+1];
          cout << " N(events)= " << nevents << endl;

@@ -39,15 +39,15 @@ class DstEvtRecTracks : public TObject
       int trackId() const;
 
       // TMdcTrack
-      bool isMdcTrackValid() const {return (mdc_trk != 0);}
+      bool isMdcTrackValid() const {return (mdc_trk != nullptr);}
       RecMdcTrack* mdcTrack() const {return mdc_trk;}
 
       // TMdcDedx
-      bool isMdcDedxValid() const {return (mdc_dedx != 0);}
+      bool isMdcDedxValid() const {return (mdc_dedx != nullptr);}
       RecMdcDedx* mdcDedx() const {return mdc_dedx;}
 
       // TMdcKalTrack
-      bool isMdcKalTrackValid() const {return (mdc_kal_trk != 0);}
+      bool isMdcKalTrackValid() const {return (mdc_kal_trk!=nullptr);}
       RecMdcKalTrack* mdcKalTrack() const {return mdc_kal_trk;}
 
       // TofTrack
@@ -57,15 +57,15 @@ class DstEvtRecTracks : public TObject
       }
 
       // TExtTrack
-      bool isExtTrackValid() const {return (ext_trk != 0);}
+      bool isExtTrackValid() const {return (ext_trk != nullptr);}
       RecExtTrack* extTrack() const {return ext_trk;}
 
       // TEmcTrack
-      bool isEmcShowerValid() const {return (emc_trk != 0);}
+      bool isEmcShowerValid() const {return (emc_trk != nullptr);}
       RecEmcShower* emcShower() const {return emc_trk;}
 
       // TMucTrack
-      bool isMucTrackValid() const {return (muc_trk != 0);}
+      bool isMucTrackValid() const {return (muc_trk != nullptr);}
       RecMucTrack* mucTrack() const {return muc_trk;}
 
    private:
