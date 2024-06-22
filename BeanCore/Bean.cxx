@@ -153,7 +153,7 @@ void Bean::LoadUserLib()
 //--------------------------------------------------------------------
 {
    if( verbose ) {
-      cout << " Bean::LoadUserLib()" << endl;
+      cout << "Bean::LoadUserLib()" << endl;
    }
 
 #if defined (__unix__) || defined (__APPLE__)
@@ -169,39 +169,30 @@ void Bean::LoadUserLib()
 
    usrlib_handle = dlopen(0, RTLD_NOW | RTLD_GLOBAL);
 #elif defined _WIN32
-   if( ! SetDllDirectory("lib") ) {
-      cout << " Bean::LoadUserLib() ==> cannot SetDllDirectory(): "
-         << GetLastError() << endl;
+   // macro BEANLIBDIR defined in BeanCore/CMakeLists.txt
+   if( !SetDllDirectory(BEANLIBDIR) ) {
+      cout << "Bean::LoadUserLib() ==> cannot "
+         "SetDllDirectory(" BEANLIBDIR "): " << GetLastError()<<endl;
       exit(EXIT_FAILURE);
    }
    usrlib_handle = LoadLibrary("BeanUser");
 #endif
 
    if( !usrlib_handle ) {
-      cout << " Bean::LoadUserLib() ==> cannot ";
+      cout << "Bean::LoadUserLib() ==> cannot ";
 #if defined (__unix__) || defined (__APPLE__)
       // cout << "dlopen(" << usrlib_name << ")"
       cout << "dlopen(0)" << endl;
       cout << dlerror() << endl;
 #elif defined _WIN32
-      cout << R"(LoadLibrary("lib\BeanUser.dll"))" << endl;
-      cout << GetLastError() << endl;
-#ifdef _DEBUG   // defined automatically in debug conf. of Visual Studio
-      cout << R"(Try to LoadLibrary("lib/Debug/BeanUser.dll"))";
-      if( SetDllDirectory("lib/Debug") )
-         usrlib_handle = LoadLibrary("BeanUser");
-      if( usrlib_handle ) {
-         cout << " ==> success" << endl;
-      } else {
-         cout << " ==> failure" << GetLastError() << endl;
-      }
-#endif  // _DEBUG
+      cout << R"(LoadLibrary("BeanUser.dll"): )"
+         << GetLastError() << endl;
 #endif  // _WIN32
       exit(EXIT_FAILURE);
    }
 
    if( verbose ) {
-      cout << " User library is loaded" << endl;
+      cout << "User library is loaded" << endl;
    }
 }
 
@@ -213,7 +204,9 @@ void Bean::LoadUserFcn(const std::string& name)
       cout << "Bean::LoadUserFcn(" << name << ")" << endl;
    }
 
-   if( !usrlib_handle ) LoadUserLib();
+   if( !usrlib_handle ) {
+      LoadUserLib();
+   }
 
    string nameJobStart = name + "StartJob";
    string nameEvent = name + "Event";
@@ -232,6 +225,12 @@ void Bean::LoadUserFcn(const std::string& name)
    } else {
       cout << "ERROR: User function " << nameEvent
          << " does not exist!" << endl;
+#if defined _WIN32
+      if( verbose ) {
+         cout << "check name with: 'dumpbin -exports BeanUser.dll'"
+            << endl;
+      }
+#endif  // _WIN32
       cout << " This is mandatory function. Stop!" << endl;
       exit(EXIT_FAILURE);
    }

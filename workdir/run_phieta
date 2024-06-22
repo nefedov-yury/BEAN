@@ -13,6 +13,8 @@ elif [ "$HOSTNAME" == "nu78-47" ]; then
 elif [ "$HOSTNAME" == "juramac" ]; then
   BDIR_MCGPJ="/Users/nefedov/MyHome/BEAN_TEST"
   XARGS='/opt/homebrew/bin/gxargs'
+elif [ "$HOSTNAME" == "jurawin" ]; then
+  BDIR_MCGPJ="/c/Users/nefedov/DebianVM"
 else
   printf "Unknown hostname ${HOSTNAME} \n"
   exit
@@ -37,7 +39,7 @@ fi
 ######################## SIGNAL MC ########################
 # MCGPJ: e+ e- --> phi eta --> K+K- eta
 #
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   # J/Psi 2012 MCGPJ:
   BDIR="${BDIR_MCGPJ}/MCGPJ_PhiEta"
   DSTS="3050"
@@ -64,7 +66,7 @@ if [ 0 -eq 1 ]; then
             > ${ODIR}/mcgpj_{}.out 2>&1"
 fi
 
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   # Rscan 2015 MCGPJ
   BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R"
   #  DSTRS="2900 2950 2981 3000 3020 3080"

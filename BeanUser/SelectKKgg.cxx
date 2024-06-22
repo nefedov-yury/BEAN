@@ -147,6 +147,7 @@ static inline double SQ(double x) {
 
 // {{{1 StartJob, book histograms
 //--------------------------------------------------------------------
+BeanUserShared_EXPORT
 void SelectKKggStartJob(ReadDst* selector) {
 //--------------------------------------------------------------------
    if ( selector->Verbose() ) {
@@ -1418,6 +1419,7 @@ static bool VertKinFit(Select& Slct) {
 
 // {{{1 MAIN: Event
 //--------------------------------------------------------------------
+BeanUserShared_EXPORT
 bool SelectKKggEvent( ReadDst*       selector,
                       TEvtHeader*    m_TEvtHeader,
                       TDstEvent*     m_TDstEvent,
@@ -1491,6 +1493,7 @@ bool SelectKKggEvent( ReadDst*       selector,
 
 // {{{1 EndJob
 //--------------------------------------------------------------------
+BeanUserShared_EXPORT
 void SelectKKggEndJob(ReadDst* selector) {
 //--------------------------------------------------------------------
    if ( selector->Verbose() ) {

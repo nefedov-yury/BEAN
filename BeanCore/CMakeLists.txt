@@ -49,6 +49,11 @@ SET( CXX_FILES  DstFormat.cxx ReadDst.cxx Bean.cxx
   TMergeableMap.cxx DstEvtRecTracks.cxx TofHitStatus.cxx
   BMdcTrack.cxx BMdcKalTrack.cxx BEmcTrack.cxx BExtTrack.cxx )
 
+IF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
+  SET_SOURCE_FILES_PROPERTIES( "Bean.cxx"
+    PROPERTIES COMPILE_DEFINITIONS BEANLIBDIR="${install_lib_dir}" )
+ENDIF()
+
 IF( USE_PROOF )
   #  SET( CXX_FILES  ${CXX_FILES} MasterInfoHack.cxx )
   SET( CXX_FILES  ${CXX_FILES} unix_cp.cxx )

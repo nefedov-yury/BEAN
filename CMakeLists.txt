@@ -28,7 +28,7 @@ PROJECT( BEAN )
 # Configuration parameters
 #---------------------------------------------------------------------
 # installation directory:
-IF( NOT CMAKE_BUILD_TYPE )
+IF( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
   SET( CMAKE_INSTALL_PREFIX
     ${CMAKE_SOURCE_DIR}/workdir
     CACHE PATH
@@ -38,14 +38,18 @@ IF( NOT CMAKE_BUILD_TYPE )
 ENDIF()
 
 # Set build type for single-config generators (makefiles)
-IF( NOT CMAKE_BUILD_TYPE )
-  SET( CMAKE_BUILD_TYPE
-    RelWithDebInfo
-    CACHE STRING
-    "Choose the type of build: RelWithDebInfo Release Debug"
-    FORCE
-  )
-ENDIF()
+SET( default_build_type "RelWithDebInfo" )
+SET( CMAKE_BUILD_TYPE
+  ${default_build_type}
+  CACHE STRING
+  "Choose the type of build: RelWithDebInfo Release Debug"
+  FORCE
+)
+
+MESSAGE( STATUS
+  "+++ BEAN: CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}" )
+MESSAGE( STATUS
+  "+++ BAEN: CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
 
 # BOSS_VERSION is the version of the BOSS program used to create the
 # DST files you want to analyze. This value defines the following:
@@ -227,14 +231,15 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows )         # Windows
   ENDIF()
 
   # use run-time library (MD or MDd)
-  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MDd -GR -EHs" )
+  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MD -GR -EHs" )
   # to see compilation warnings
   SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W3" )
 
   # Math Constants like M_PI...
   ADD_COMPILE_DEFINITIONS( -D_USE_MATH_DEFINES )
-  # To eliminate warnings for the older, less secure functions
-  #  ADD_COMPILE_DEFINITIONS( -D_CRT_SECURE_NO_WARNINGS )
+  # To eliminate warnings for the older, `less` secure functions
+  # like ctime, fopen, sscanf, strcpy and so on
+  ADD_COMPILE_DEFINITIONS( -D_CRT_SECURE_NO_WARNINGS )
 ENDIF()
 
 # Define system-specific compiler macros:
@@ -255,6 +260,7 @@ ADD_COMPILE_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
 IF( USE_PROOF )
   ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=1 )
 ELSEIF()
+  # this is equivalent to leaving the variable undefined
   ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=0 )
 ENDIF()
 
@@ -367,6 +373,7 @@ ADD_SUBDIRECTORY( BeanUser )
 #---------------------------------------------------------------------
 # program name
 SET( prog bean_${BOSS_VERSION}.exe )
+SET( uninstall_prog "${prog}"  )
 IF( CMAKE_SYSTEM_NAME MATCHES Windows )
   # in windows the `exe` extention is added by default
   SET( prog bean_${BOSS_VERSION} )
@@ -552,7 +559,7 @@ ENDIF( USE_PROOF )
 # uninstall or delete "by hand"
 #---------------------------------------------------------------------
 ADD_CUSTOM_TARGET( uninstall
-  COMMAND "${CMAKE_COMMAND}" -E remove -f ${prog}
+  COMMAND "${CMAKE_COMMAND}" -E remove -f ${uninstall_prog}
   COMMAND "${CMAKE_COMMAND}" -E remove_directory ${install_lib_dir}
   COMMAND "${CMAKE_COMMAND}" -E remove -f setup_${BOSS_VERSION}.sh
   COMMAND "${CMAKE_COMMAND}" -E remove_directory par
