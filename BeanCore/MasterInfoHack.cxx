@@ -6,20 +6,20 @@
 //   master                                                         //
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
-// #include <iostream>
+
 #include <TSystem.h>
 #include "MasterInfoHack.h"
 
 ClassImp(MasterInfoHack);
 
-MasterInfoHack::MasterInfoHack() 
+MasterInfoHack::MasterInfoHack()
 {
    // fDir = std:string();
    this->SetName("MasterInfoHack");
 }
 
-Long64_t MasterInfoHack::Merge(TCollection* list) 
-{ 
-   fDir = gSystem->WorkingDirectory(); 
+Long64_t MasterInfoHack::Merge(TCollection* list)
+{
+   fDir = gSystem->WorkingDirectory();
    return 0;
 }

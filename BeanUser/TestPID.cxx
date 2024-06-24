@@ -24,7 +24,7 @@
 //      pid->init();
 //      pid->setMethod(pid->methodProbability());
 //      pid->setChiMinCut(4); // default=5.
-//      pid->setRecTrack(dst_tracks);
+//      pid->setRecTrack(dst_tracks[i]);
 //      pid->usePidSys(pid->useDedx() | pid->useTof1() |
 //                      pid->useTof2() | ...);
 //      pid->identify(pid->onlyPion() | pid->onlyKaon() | ...);

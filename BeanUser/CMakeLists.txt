@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------
-# BeanUser is the place for user analysis + examples
+# BeanUser is the place for user analysis and examples
 #---------------------------------------------------------------------
 
 # Explicit list of files that will be compiled

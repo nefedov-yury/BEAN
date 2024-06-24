@@ -25,7 +25,7 @@
 #include "CLHEP/Units/PhysicalConstants.h"
 #include "CLHEP/Geometry/Vector3D.h"
 #include "CLHEP/Geometry/Point3D.h"
-//  backwards compatibility will be enabled ONLY in CLHEP 1.9
+
 typedef HepGeom::Point3D<double> HepPoint3D;
 typedef HepGeom::Vector3D<double> HepVector3D;
 
