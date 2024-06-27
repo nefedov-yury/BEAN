@@ -36,6 +36,8 @@ IF( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
     FORCE
   )
 ENDIF()
+MESSAGE( STATUS
+  "+++ BEAN: CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}" )
 
 # Set build type for single-config generators (makefiles)
 SET( default_build_type "RelWithDebInfo" )
@@ -45,11 +47,7 @@ SET( CMAKE_BUILD_TYPE
   "Choose the type of build: RelWithDebInfo Release Debug"
   FORCE
 )
-
-MESSAGE( STATUS
-  "+++ BEAN: CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}" )
-MESSAGE( STATUS
-  "+++ BAEN: CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
+MESSAGE( STATUS "+++ BEAN: CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
 
 # BOSS_VERSION is the version of the BOSS program used to create the
 # DST files you want to analyze. This value defines the following:
@@ -69,10 +67,10 @@ SET( BOSS_VERSION
 )
 
 OPTION( USE_PROOF
-  "Building BEAN with the ability to run in PROOF environment" ON
+  "Building BEAN with the ability to run in PROOF environment" OFF
 )
 IF( USE_PROOF AND (CMAKE_SYSTEM_NAME MATCHES Windows) )  # Windows
-  MESSAGE( DEBUG "DEBUG: PROOF is not available on Windows" )
+  MESSAGE( VERBOSE "+++ BEAN: PROOF is not available on Windows" )
   SET ( USE_PROOF OFF )
 ENDIF()
 
@@ -100,7 +98,7 @@ STRING( REGEX REPLACE "^[0-9]+[.][0-9]+[.]([0-9]+).*$" "\\1"
   BOSS_VER_MICRO "${BOSS_VERSION}"
 )
 SET( BOSS_VER "${BOSS_VER_MAJOR}${BOSS_VER_MINOR}${BOSS_VER_MICRO}" )
-MESSAGE( STATUS "+++ BOSS_VER is ${BOSS_VER}" )
+MESSAGE( STATUS "+++ BEAN: BOSS_VER is ${BOSS_VER}" )
 
 # ROOTEVENTDATA_VERSION defines format of dst-file:
 #   BOSS_VERSION                        ROOTEVENTDATA_VERSION
@@ -127,13 +125,13 @@ MESSAGE( DEBUG
 SET( ROOTEVENTDATA RootEventData_${ROOTEVENTDATA_VERSION} )
 IF( NOT EXISTS "${CMAKE_SOURCE_DIR}/${ROOTEVENTDATA}" )
   MESSAGE( FATAL_ERROR
-    "\"${ROOTEVENTDATA}\" does not exist in folder:\n"
-    "\"${CMAKE_SOURCE_DIR}\"\n"
+    "'${ROOTEVENTDATA}' does not exist in folder:\n"
+    "'${CMAKE_SOURCE_DIR}'\n"
     "The BOSS_VERSION=${BOSS_VERSION} is not supported or "
     "is specified incorrectly.\n"
   )
 ENDIF()
-MESSAGE( STATUS "+++ ROOTEVENTDATA: ../${ROOTEVENTDATA}" )
+MESSAGE( STATUS "+++ BEAN: ROOTEVENTDATA is '${ROOTEVENTDATA}'" )
 
 #---------------------------------------------------------------------
 # Searching for ROOT
@@ -145,16 +143,16 @@ SET( ROOT_CONFIG_SEARCHPATH
   CACHE PATH
   "Path to directory with root-config program"
 )
-# uncomment for details about finding the ROOT program
-#  SET( FIND_ROOT_VERBOSE "yes" )
 INCLUDE( FindROOT )
 
 IF( ROOTVERSION VERSION_GREATER 6.31 )
   IF( USE_PROOF )
-    MESSAGE( STATUS
-      "root-${ROOTVERSION}: PROOF is not supported any more" )
     SET ( USE_PROOF OFF )
-    MESSAGE( STATUS "+++ USE_PROOF option is now disabled" )
+    MESSAGE( STATUS
+      "+++ BEAN: The root with version ${ROOTVERSION} > 6.31 "
+      "no longer supports the PROOF framework" )
+    MESSAGE( STATUS
+      "+++ BEAN: USE_PROOF option is now disabled" )
   ENDIF()
 ENDIF()
 
@@ -166,8 +164,6 @@ SET( CLHEP_SEARCHPATH
   CACHE PATH
   "Path to directory where clhep is installed"
 )
-# uncomment for details about finding the CLHEP library
-#  SET( FIND_CLHEP_VERBOSE "yes" )
 INCLUDE( FindCLHEP )
 
 #---------------------------------------------------------------------
@@ -190,7 +186,7 @@ IF( (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR # g++
     # 'old' root versions
     IF( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
       MESSAGE( DEBUG
-        "DEBUG: g++(verion)= ${CMAKE_CXX_COMPILER_VERSION}" )
+        "DEBUG: g++ version is ${CMAKE_CXX_COMPILER_VERSION}" )
       # c++14 mode is the default in GCC 6.1 up 10 (including)
       # c++17 mode is the default in GCC >= 11
       IF( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6.1 )
@@ -223,7 +219,7 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows )         # Windows
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_STDCXX}" )
     IF( ROOT_STDCXX  MATCHES "17" )
       # std::byte is enabled by /std:c++17, conflict with SDK
-      ADD_COMPILE_DEFINITIONS( -D_HAS_STD_BYTE=0 )
+      ADD_COMPILE_DEFINITIONS( _HAS_STD_BYTE=0 )
     ENDIF()
   ELSE()
     SET( CMAKE_CXX_FLAGS
@@ -236,10 +232,10 @@ IF( CMAKE_SYSTEM_NAME MATCHES Windows )         # Windows
   SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W3" )
 
   # Math Constants like M_PI...
-  ADD_COMPILE_DEFINITIONS( -D_USE_MATH_DEFINES )
+  ADD_COMPILE_DEFINITIONS( _USE_MATH_DEFINES )
   # To eliminate warnings for the older, `less` secure functions
   # like ctime, fopen, sscanf, strcpy and so on
-  ADD_COMPILE_DEFINITIONS( -D_CRT_SECURE_NO_WARNINGS )
+  ADD_COMPILE_DEFINITIONS( _CRT_SECURE_NO_WARNINGS )
 ENDIF()
 
 # Define system-specific compiler macros:
@@ -247,21 +243,21 @@ ENDIF()
 # __APPLE__ for Darwin
 # _WIN32    for Windows (32 or 64 bit)
 IF( CMAKE_SYSTEM_NAME MATCHES Linux )           # Linux
-  ADD_COMPILE_DEFINITIONS( -D__unix__ )
+  ADD_COMPILE_DEFINITIONS( __unix__ )
 ELSEIF( CMAKE_SYSTEM_NAME MATCHES Darwin )      # MacOS
-  ADD_COMPILE_DEFINITIONS( -D__APPLE__ )
+  ADD_COMPILE_DEFINITIONS( __APPLE__ )
 ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows )     # Windows
-  ADD_COMPILE_DEFINITIONS( -D_WIN32 )
+  ADD_COMPILE_DEFINITIONS( _WIN32 )
 ENDIF()
 
 # Preprocessor definitions specific for the BEAN
-ADD_COMPILE_DEFINITIONS( -DBEAN )
-ADD_COMPILE_DEFINITIONS( -DBOSS_VER=${BOSS_VER} )
+ADD_COMPILE_DEFINITIONS( BEAN )
+ADD_COMPILE_DEFINITIONS( BOSS_VER=${BOSS_VER} )
 IF( USE_PROOF )
-  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=1 )
+  ADD_COMPILE_DEFINITIONS( USE_PROOF=1 )
 ELSEIF()
   # this is equivalent to leaving the variable undefined
-  ADD_COMPILE_DEFINITIONS( -DUSE_PROOF=0 )
+  ADD_COMPILE_DEFINITIONS( USE_PROOF=0 )
 ENDIF()
 
 # print C++ compiler flags and preprocessor definitions
@@ -295,9 +291,10 @@ IF( CMAKE_SYSTEM_NAME MATCHES Linux|Darwin ) # Linux or MacOS
 
   IF( ENABLE_ROOT_XLINK )
     IF( ROOT_LIBRARIES MATCHES ",-rpath," )
-      MESSAGE( DEBUG
-        "DEBUG: ROOT_LIBRARIES already contains the rpath setting, "
-        "so the ENABLE_ROOT_XLINK parameter is redundant"
+      MESSAGE( VERBOSE
+        "+++ BEAN: the ROOT_LIBRARIES variable already contains "
+        "the rpath setting, so the ENABLE_ROOT_XLINK parameter "
+        "is redundant"
       )
     ELSE()
       SET( ROOTXLINK "-Wl,-rpath,${ROOT_LIBRARY_DIR}" )
@@ -394,7 +391,7 @@ SET_SOURCE_FILES_PROPERTIES( "BeanCore/main.cxx"
 # getopt() port for MSVC: https://www.ludvikjerabek.com/software/
 IF( CMAKE_SYSTEM_NAME MATCHES Windows )
   LIST( APPEND MAIN_SRCS "BeanCore/win_getopt/getopt.c" )
-  ADD_COMPILE_DEFINITIONS( -DSTATIC_GETOPT )
+  ADD_COMPILE_DEFINITIONS( STATIC_GETOPT )
 ENDIF()
 
 ADD_EXECUTABLE( ${prog} ${MAIN_SRCS} )

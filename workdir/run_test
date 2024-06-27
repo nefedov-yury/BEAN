@@ -1,18 +1,82 @@
 #!/bin/bash
-#################### TEST-DEBUG ############################
 
+#####################################################################
+#
+# This is set of test for new build of bean_version.exe
+# some of them is modification workdir/run_phieta, run_psip scripts
+#
+#####################################################################
+
+BEAN6="./bean_6.6.4.exe"
+BEAN7="./bean_7.0.4.exe"
 #  BEAN="./bean_7.0.9.exe"
 BEAN="./bean_7.1.1.exe"
+
+MAX_PROC=4
+XARGS="xargs"
+
+DTEST711="/scratchfs/bes/ynefedov"
+if [ "$HOSTNAME" == "badger" ]; then
+  BDIR_MCGPJ="/data/bes3/phasejpsiscan/MC/phieta_mcgpj/MCGPJ_03"
+  DTEST711="/home/nefedov/data/bes3/test_dst_files"
+elif [ "$HOSTNAME" == "nu78-47" ]; then
+  BDIR_MCGPJ="/data/Test"
+elif [ "$HOSTNAME" == "juramac" ]; then
+  BDIR_MCGPJ="/Users/nefedov/MyHome/BEAN_TEST"
+  XARGS='/opt/homebrew/bin/gxargs'
+elif [ "$HOSTNAME" == "jurawin" ]; then
+  BDIR_MCGPJ="/c/Users/nefedov/DebianVM"
+else
+  printf "Unknown hostname ${HOSTNAME} \n"
+  exit
+fi
+
 ODIR="./outputs"
 
-printf " TEST\n"
-#  gdb -ex=r --args \
-${BEAN} \
+### BEAN-6 TEST ######################################################
+#
+if [ 0 -eq 1 ]; then
+  # J/Psi 2012 MCGPJ:
+  BDIR="${BDIR_MCGPJ}/MCGPJ_PhiEta"
+  DSTS="3050"
+
+  printf "${DSTS}" | \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+      sh -c "${BEAN6} -u SelectKKgg \
+            -h ${ODIR}/ntpl_mcgpj_{}.root \
+            ${BDIR}/phiEta_mcgpj_{}mc_?.dst \
+            > ${ODIR}/mcgpj_{}.out 2>&1"
+fi
+
+### BEAN-7 TEST ######################################################
+#
+if [ 0 -eq 1 ]; then
+  # Rscan 2015 MCGPJ
+  BDIR_R="${BDIR_MCGPJ}/MCGPJ_PhiEta_R"
+  DSTRS="3080"
+
+  printf "${DSTRS}" | \
+    ${XARGS} --delimiter=" " --max-procs=${MAX_PROC} -I{} \
+      sh -c "${BEAN7} -u SelectKKgg \
+            -h ${ODIR}/ntpl_mcgpj_{}_rs.root \
+            ${BDIR_R}/phiEta_mcgpj_{}Rmc_?.dst \
+           > ${ODIR}/mcgpj_{}_rs.out 2>&1 "
+fi
+
+### BEAN TEST-DEBUG ##################################################
+#
+if [ 0 -eq 1 ]; then
+  printf " TEST\n"
+
+  #  gdb -ex=r --args \
+  ${BEAN} \
     -u DelClonedTrks \
     -h ${ODIR}/test_711h.root \
-    /scratchfs/bes/ynefedov/run_0081712_All_file001_SFO-1.dst \
+    ${DTEST711}/run_0081712_All_file001_SFO-1.dst \
     > ${ODIR}/test_711h.out 2>&1
+fi
 
+#####################################################################
 #
     #  -h /dev/null \
     #  > >(tee test.out) 2>&1

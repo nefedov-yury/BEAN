@@ -10,7 +10,7 @@
 #  CMAKE_MINIMUM_REQUIRED( VERSION 3.15...3.29 )
 #  OPTION( BUILTIN_SQLITE
        #  "Use included sqlite, or system sqlite library" ON )
-#  ADD_COMPILE_DEFINITIONS( -DBEAN )
+#  ADD_COMPILE_DEFINITIONS( BEAN )
 #---------------------------------------------------------------------
 
 SET( libname DatabaseSvc )

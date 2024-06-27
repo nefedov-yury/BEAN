@@ -576,7 +576,7 @@ void Usage(int argc, char **argv, bool verbose)
 
    cout << R"(
 Arguments:
-  dst_file(s)   input ROOT files, _mandatory_, see also '-L' flag
+  dst_file(s)   input ROOT files are specified as:
      /path/to/local/file - path to the local file
      root://user@host/path/to/file - remote file via xrootd protocol
 )";
@@ -586,6 +586,7 @@ Arguments:
          " - use dataset registered in the PROOF cluster\n";
    }
 #endif
+   cout << "     Specifying files is mandatory, see also '-L' flag\n";
 
    cout << R"(
 Options for dst_files:

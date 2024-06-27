@@ -113,11 +113,12 @@ static Hep3Vector getVertexOrigin(int runNo, bool verbose = false) {
    xorigin.set(0.,0.,0.);
    VertexDbSvc* vtxsvc = VertexDbSvc::instance();
 
-#if (BOSS_VER > 700)
-   string BossVer("7.0.9");
-   // string BossVer("7.1.1");    // just for test
+#if BOSS_VER == 711
+   string BossVer("7.1.1");     // just for test
+#elif BOSS_VER > 700
+   string BossVer("7.0.9");     // 2009,2012,2021 Psi(2S)
 #else
-   string BossVer("6.6.4");
+   string BossVer("6.6.4");     // 2009 Psi(2S)
    int run = abs(runNo);
    if ( (run >= 25338 && run <= 27090)) {  // 2012 Psi(2S)
       BossVer = "6.6.4.p03";

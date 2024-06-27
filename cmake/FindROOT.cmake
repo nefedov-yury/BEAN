@@ -12,13 +12,11 @@
 # the "${ROOTSYS}" directory exists and assume the position of the
 # "\bin", "\lib" and "\include" directories in relation to it.
 #
-# Input variables:
-#    1) The ROOT_CONFIG_SEARCHPATH variable, if defined, must contain
+# Input:
+#       The ROOT_CONFIG_SEARCHPATH variable, if defined, must contain
 #       the exact path to the root-config script.
 #       Otherwise, we check directory $ROOTSYS/bin using the
 #       environment variable ROOTSYS.
-#    2) Setting the FIND_ROOT_VERBOSE variable gives detailed output
-#       of the results.
 #
 # Output variables:
 #       ROOTSYS - We found ROOT, and ROOTSYS is the path to
@@ -133,7 +131,7 @@ IF( NOT ROOTSYS )
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
 
     IF( MSVC )
-      MESSAGE( DEBUG "Compiler: MSVC, version: " ${MSVC_VERSION} )
+      MESSAGE( VERBOSE "Compiler: MSVC, version: " ${MSVC_VERSION} )
     ELSE()
       MESSAGE( FATAL_ERROR "Only MSVC is supported on Windows" )
     ENDIF()
@@ -244,18 +242,17 @@ IF( NOT ROOTSYS )
     "${ROOT_CINT_EXECUTABLE}"
   )
 
-  IF( FIND_ROOT_VERBOSE )
-    MESSAGE( STATUS "Summary of ROOT search results: \n"
-      "\t version: ${ROOTVERSION} : <${ROOT_MAJOR_VERS}>, "
-      "<${ROOT_MINOR_VERS}>, <${ROOT_PATCH_VERS}>\n"
-      "\t ROOT_LIBRARY_DIR= ${ROOT_LIBRARY_DIR}\n"
-      "\t ROOT_BINARY_DIR= ${ROOT_BINARY_DIR}\n"
-      "\t ROOT_INCLUDE_DIR= ${ROOT_INCLUDE_DIR}\n"
-      "\t ROOT_LIBRARIES= ${ROOT_LIBRARIES}\n"
-      "\t ROOT_GLIBS= ${ROOT_GLIBS}\n"
-      "\t ROOT_CFLAGS= ${ROOT_CFLAGS}\n"
-    )
-  ENDIF()
+  MESSAGE( VERBOSE 
+    "Summary of ROOT search results: \n"
+    "\t version: ${ROOTVERSION} : <${ROOT_MAJOR_VERS}>, "
+    "<${ROOT_MINOR_VERS}>, <${ROOT_PATCH_VERS}>\n"
+    "\t ROOT_LIBRARY_DIR= ${ROOT_LIBRARY_DIR}\n"
+    "\t ROOT_BINARY_DIR= ${ROOT_BINARY_DIR}\n"
+    "\t ROOT_INCLUDE_DIR= ${ROOT_INCLUDE_DIR}\n"
+    "\t ROOT_LIBRARIES= ${ROOT_LIBRARIES}\n"
+    "\t ROOT_GLIBS= ${ROOT_GLIBS}\n"
+    "\t ROOT_CFLAGS= ${ROOT_CFLAGS}\n"
+  )
 
 ENDIF()
 

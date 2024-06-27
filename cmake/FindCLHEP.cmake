@@ -16,11 +16,9 @@
 # set the directories 'include' and 'lib' with respect to
 # the ${CLHEP_SEARCHPATH) directory.
 #
-# Input variables:
+# Input:
 #   CLHEP_SEARCHPATH    Set this variable to the canonical path to
 #                       the CLHEP installation directory (MUST BE)
-#   FIND_CLHEP_VERBOSE  Setting this variable (optional) gives
-#                       detailed output of the results
 #
 # Output variables:
 #   CLHEP_FOUND                 - we found the CLHEP library
@@ -175,7 +173,7 @@ IF( NOT CLHEP_FOUND )
 
   ELSEIF( CMAKE_SYSTEM_NAME MATCHES Windows ) # Windows
     IF( MSVC )
-      MESSAGE( DEBUG "Compiler: MSVC, version: " ${MSVC_VERSION} )
+      MESSAGE( VERBOSE "Compiler: MSVC, version: " ${MSVC_VERSION} )
     ELSE()
       MESSAGE( FATAL_ERROR "Only MSVC is supported on Windows" )
     ENDIF()
@@ -192,13 +190,12 @@ IF( NOT CLHEP_FOUND )
 
   ENDIF() # Linux, Darwin, Windows
 
-  IF( FIND_CLHEP_VERBOSE )
-    MESSAGE( STATUS "Summary of CLHEP search results: \n"
-      "\t version: ${CLHEP_VERSION}\n"
-      "\t CLHEP_LIBRARY_DIR= ${CLHEP_LIBRARY_DIR}\n"
-      "\t CLHEP_INCLUDE_DIR= ${CLHEP_INCLUDE_DIR}\n"
-      "\t CLHEP_LIBRARIES= ${CLHEP_LIBRARIES}\n"
-    )
-  ENDIF()
+  MESSAGE( VERBOSE
+    "Summary of CLHEP search results: \n"
+    "\t version: ${CLHEP_VERSION}\n"
+    "\t CLHEP_LIBRARY_DIR= ${CLHEP_LIBRARY_DIR}\n"
+    "\t CLHEP_INCLUDE_DIR= ${CLHEP_INCLUDE_DIR}\n"
+    "\t CLHEP_LIBRARIES= ${CLHEP_LIBRARIES}\n"
+  )
 
 ENDIF( NOT CLHEP_FOUND )

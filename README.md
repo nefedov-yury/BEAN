@@ -8,7 +8,7 @@ Before running cmake
    the cmake.
    For example, in IHEP cluster (CentOS7):
    ```
-   % cmake -DROOT_CONFIG_SEARCHPATH="/cvmfs/bes3.ihep.ac.cn/bes3sw/ExternalLib/lcg/LCG_84/ROOT/6.20.02/x86_64-centos7-gcc49-opt/bin"
+   cmake -DROOT_CONFIG_SEARCHPATH="/cvmfs/bes3.ihep.ac.cn/bes3sw/ExternalLib/lcg/LCG_84/ROOT/6.20.02/x86_64-centos7-gcc49-opt/bin"
    ```
 
 2. [CLHEP](https://proj-clhep.web.cern.ch/proj-clhep) library must be
@@ -18,45 +18,58 @@ Before running cmake
    cmake.
    For example, in IHEP cluster (CentOS7):
    ```
-   % cmake -DCLHEP_SEARCHPATH="/cvmfs/bes3.ihep.ac.cn/bes3sw/ExternalLib/lcg/LCG_84/clhep/2.4.4.0/x86_64-centos7-gcc49-opt"
+   cmake -DCLHEP_SEARCHPATH="/cvmfs/bes3.ihep.ac.cn/bes3sw/ExternalLib/lcg/LCG_84/clhep/2.4.4.0/x86_64-centos7-gcc49-opt"
    ```
+
+3. Some notes for installing the BEAN on Windows are
+   [here](doc/Win_readme.md)
 
 ---------------------------------------------------------------------------
 ## INSTALLATION
 
-1. Create build directory: ```% mkdir build; cd build```
+1. Create build directory: `mkdir build; cd build`
 
 2. Run `cmake ../ [cmake-options]` to prepare the infrastructure
    for building the BEAN program.
    * For example:\
-     `% cmake ../ -DBOSS_VERSION=6.6.4`\
+     `cmake ../ -DBOSS_VERSION=6.6.4`\
      or\
-     `% cmake ../ -DBOSS_VERSION=7.0.4`
+     `cmake ../ -DBOSS_VERSION=7.0.4`
+   * If you need PROOF functionality, use the cmake option
+     `-DUSE_PROOF=ON`. See ROOT PROOF section below for more information.
    * If you want to compile program using a specific compiler,
-     use the following command:\
-     `% cmake -DCMAKE_C_COMPILER=gcc49 -DCMAKE_CXX_COMPILER=g++49 ../ [cmake-options]`
-   * If you wish, you can run `ccmake` and change the options
+     use the following cmake options:\
+     `-DCMAKE_C_COMPILER=gcc49 -DCMAKE_CXX_COMPILER=g++49`
+   * More detailed printing can be achieved by adding the "log-level"
+     option to cmake:\
+     `cmake --log-level=DEBUG`
+   * If you wish, you can run `cmake-gui` and change the options
      in the dialog interface.
 
-3. Compile the BEAN by runing `% make` and then `% make install`
+3. Compile the BEAN by runing `make` and then `make install`
    * To see detailed output of compilation commands, use
-     `% make VERBOSE=1`
-   * `make install` will install program, libraries and script
-     in the `workdir/` directory
+     `make VERBOSE=1`\
+     Alternatively, when calling cmake you can use the option:
+     `-DCMAKE_VERBOSE_MAKEFILE=ON`
+
+   * `make install` will install the `bean_version.exe` into
+     the `workdir/` directory, and the libraries into the
+     `workdir/BeanLib_version` directory. Here the version is the
+     number you specify as BOSS_VERSION when you call cmake.
 
 4. The BEAN program uses sqlite database located in the
-   `Analysis/DatabaseSvc/dat/` directory. Currently, updating this
-   database is only possible "manually". You need to go to the
-   `http://docbes3.ihep.ac.cn/db_ana/` website, download and unzip
-   three files: `db.timestamp  offlinedb.db  run.db`.\
-   _Note: The `db.timestamp` file contains Unix time and md5 checksums
-   for database files with which you can verify the integrity of
-   downloaded files._
+   `Analysis/DatabaseSvc/dat/` directory.
+   **Currently, updating this database is only possible "manually".**
+   You need to go to the `https://docbes3.ihep.ac.cn/db_ana/` website,
+   download and unzip two files: `offlinedb.db` and `run.db`.
+   + _Note: You can check the integrity of downloaded files using
+     the `db.timestamp` file, which contains the Unix time and
+     md5 checksums for those files._
 
-5. To remove BEAN files from the `workdir/` directory, use the `% make
-   uninstall` command. This may be useful when updating the program.
-   Alternatively, you can delete the 'bean_{BOSS_VERSION}.exe' file
-   and the 'BeanLib_{BOSS_VERSION}' directory manually.
+5. To remove BEAN files from the `workdir/` directory, use the
+   `make uninstall` command. This may be useful when updating
+   the program. Alternatively, you can delete the 'bean_version.exe'
+   file and the 'BeanLib_version' directory manually.
 
 6. After running make install, you can remove the build directory
    at any time.
@@ -67,6 +80,8 @@ Before running cmake
 * The user source programs MUST be in directory `BeanUser/`.\
   Edit `BeanUser/CMakeLists.txt` to add name of your file
   to the list of files to be compiled.
+  On Windows, be sure to include the `DLLDefines.h` header and use
+  the `BeanUserShared_EXPORT` macro before your functions.
 
 * The AbsCor algorithm in BEAN does not use the database, unlike
   the BOSS version. However, you can read calibration files using
@@ -93,23 +108,33 @@ Before running cmake
 * The `RscanDQ` package has been added to the BEAN algorithms.
   When you using the 2015 Rscan data, you must use this package
   to exclude bad runs. For more information, see the
-  Tau and QCD Group Data Samples page:
-  (https://docbes3.ihep.ac.cn/~tauqcdgroup/index.php/Data_Samples)
+  [Tau and QCD Group Data Samples page](
+  https://docbes3.ihep.ac.cn/~tauqcdgroup/index.php/Data_Samples).
 
 * The `TrackCorrection` class for the helix parameters corrections
   for MC tracks, based on "TrackCorrection" package has been added
   to the BEAN algorithms.
-  For more information, see the Charmonium Group's Data Quality page:
-  (https://docbes3.ihep.ac.cn/~charmoniumgroup/index.php/DataQuality_Page)
+  For more information, see the [Charmonium Group's Data Quality page](
+  https://docbes3.ihep.ac.cn/~charmoniumgroup/index.php/DataQuality_Page).
+
+### ROOT PROOF
+
+* The PROOF framework is marked as deprecated in the ROOT since
+  version 6.26, and was completely removed in version 6.32.
+  Therefore, the BEAN was rewritten so that it can be compiled with
+  or without the PROOF support.
+  You should use the cmake option `-DUSE_PROOF=ON` to enable the PROOF
+  functionality in the BEAN program.
+  The default setting is `USE_PROOF=OFF`.
+
+* `make proofbean` command creates PAR files for ROOT-PROOF.
+  But the work of BEAN on the PROOF cluster has not been tested for a very
+  long time.
 
 ---------------------------------------------------------------------------
 ## DOCUMENTATION
 
-* Somewhat outdated, but still useful documentation on the BEAN
-  on the BES3 Offline Software Group page:
-  (https://docbes3.ihep.ac.cn/~offlinesoftware/index.php/BEAN)
-
-* Examples in the BeanUser directory:
+* Examples in the `BeanUser/` directory:
 
 | File             | Description                                       |
 | :---             | :---                                              |
@@ -129,27 +154,23 @@ Before running cmake
 | EntryList.cxx    | program with an example of using TEntryList       |
 | ---------------- | ------------------------------------------------- |
 
+* Somewhat outdated, but still useful documentation on the BEAN
+  on the [BES3 Offline Software Group page](
+  https://docbes3.ihep.ac.cn/~offlinesoftware/index.php/BEAN).
+
 ---------------------------------------------------------------------------
-## TODO
+### TODO and legacy notes
 
 * Add an example of using the `DecayTable` class in `TestEventTag.cxx`
 
-* The installation and operation of BEAN under Windows has been tested
-  for a very long time. I have not tested it at all with the version of
-  ROOT-6 under Windows.
+* `make updatedb` command was intended to be used to install or update
+  a database. After entering password access, this method no longer
+  (or not yet?) works.
 
-* `% make proofbean` command creates PAR files for ROOT-PROOF.
-  But the work of BEAN on the PROOF cluster has not been tested for a very
-  long time.
-
-* `% make setup_file` command creates the `setup_{BOSS_VERSION}.sh` file.
+* `make setup_file` command creates the `setup_BOSS_VERSION.sh` file.
   This bash script sets environment variables with paths to libraries used
   in the BEAN. In the case of a standard installation of all components,
   this script **IS NOT REQUIRED**.
   Perhaps it could be useful for debugging.
-
-* `% make updatedb` command was intended to be used to install or update
-  a database. After entering password access, this method no longer (yet?)
-  works.
 
 ---------------------------------------------------------------------------

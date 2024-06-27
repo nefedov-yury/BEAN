@@ -1,7 +1,7 @@
 *.sw?
 *.o
 *.exe
-*.db
+Analysis/DatabaseSvc/dat/
 build*/
 .root_hist
 *.root
