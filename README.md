@@ -2,6 +2,9 @@
 ## IMPORTANT
 
 Before running cmake
+
+0. Bean requires at least [CMake](https://cmake.org/download) 3.15
+
 1. [CERN ROOT](https://root.cern.ch) must be installed.\
    The `root-config` script must be in `$ROOTSYS/bin` directory,
    otherwise, you must specify the path to `root-config` when call
