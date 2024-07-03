@@ -347,7 +347,7 @@ void TofCorrPID::inputParameter( int run ) {
 
   filePath = filePath + "jpsi2012";
   m_runBegin = 0;
-  m_runEnd   = 80000;
+  m_runEnd   = 1000000;
 
   if( run>0 ) {
     filePath = filePath + "/data/";

@@ -36,10 +36,9 @@
 #define DATAPATH "00-00-28"
 #elif (BOSS_VER >= 702 && BOSS_VER <= 707)
 #define DATAPATH "00-00-36"
-#elif (BOSS_VER <= 711)
-#define DATAPATH "00-00-41"
 #else
-#error "unknown BOSS version"
+// TODO: it seems like DATAPATH will never change again
+#define DATAPATH "00-00-41"
 #endif
 
 using namespace std;
@@ -91,9 +90,9 @@ AbsCor::AbsCor(const string& path, bool _usetof, bool _dodatacor) {
    //-----------------------------------------------------------------
    string CorFunparaPath = path;
    if ( !MCuseTof ) {
-      CorFunparaPath += "/dat/" DATAPATH "/evsetCorFunctionPar.txt";
+      CorFunparaPath += "/dat/"DATAPATH"/evsetCorFunctionPar.txt";
    } else {
-      CorFunparaPath += "/dat/" DATAPATH "/evsetTofCorFunctionPar.txt";
+      CorFunparaPath += "/dat/"DATAPATH"/evsetTofCorFunctionPar.txt";
    }
    ReadCorFunpara(CorFunparaPath);
 
@@ -110,6 +109,14 @@ The path to the calibration files (on /cvmfs) can be obtained using
 the python3 program 'GetAbsCorFiles.py', see folder bean/scripts/
 )";
    cout << info709 << endl;
+#endif
+
+#if BOSS_VER > 712
+   // message for untested version of BOSS
+   cout << "AbsCor-WARNING: untested BOSS= " << BOSS_VER << endl
+      << "  check AbsCor correction files in\n"
+      << "  /cvmfs/bes3.ihep.ac.cn/CalibConst/emc/ShEnCalib/\n"
+      << endl;
 #endif
 
    //-----------------------------------------------------------------
@@ -145,7 +152,7 @@ void AbsCor::ReadDatac3p(std::string DataPathc3p, bool info) {
    ifstream inc3p(DataPathc3p.c_str(),ios::in);
    if ( !inc3p.is_open() ) {
       cout << " can not open: " << DataPathc3p << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    for(int i = 0; i < 4; i++) {
@@ -158,7 +165,7 @@ void AbsCor::ReadDatac3p(std::string DataPathc3p, bool info) {
 
    if( inc3p.fail() ) {
       cout << " error while reading file " << DataPathc3p << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    inc3p.close();
 
@@ -174,7 +181,7 @@ void AbsCor::ReadParMcCor(std::string paraPath, bool info) {
    ifstream in2(paraPath.c_str(),ios::in);
    if ( !in2.is_open() ) {
       cout << " can not open: " << paraPath << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    double energy,thetaid,peak1,peakerr1,res,reserr;
@@ -203,7 +210,7 @@ void AbsCor::ReadParMcCor(std::string paraPath, bool info) {
 
    if( in2.fail() ) {
       cout << " error while reading file " << paraPath << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    in2.close();
 
@@ -219,7 +226,7 @@ void AbsCor::ReadCorFunpara(std::string CorFunparaPath, bool info) {
    ifstream in2corfun(CorFunparaPath.c_str(),ios::in);
    if ( !in2corfun.is_open() ) {
       cout << " can not open: " << CorFunparaPath << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    for(int i=0; i<28; i++) {
@@ -233,7 +240,7 @@ void AbsCor::ReadCorFunpara(std::string CorFunparaPath, bool info) {
 
    if( in2corfun.fail() ) {
       cout << " error while reading file " << CorFunparaPath << endl;
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    in2corfun.close();
 
@@ -291,8 +298,8 @@ void AbsCor::SuppressHotCrystals(ReadDst* selector) {
             emcTrk->setStatus(9999);
 
             if (selector->Verbose()) {
-               cout << " AbsCor::SuppressHotCrystals(): suppressed cell="
-                     << emcTrk->cellId()
+               cout << " AbsCor::SuppressHotCrystals():"
+                  " suppressed cell=" << emcTrk->cellId()
                      << " energy=" << emcTrk->energy() << endl;
             }
          }
@@ -356,7 +363,8 @@ void AbsCor::AbsorptionCorrection(ReadDst* selector) {
 
       double etof=0;
       if( usetof && itTrk->isTofTrackValid() ) {
-         const std::vector<RecTofTrack* >& recTofTrackVec = itTrk->tofTrack();
+         const std::vector<RecTofTrack* >&
+            recTofTrackVec = itTrk->tofTrack();
          if( !recTofTrackVec.empty() ) {
             etof = recTofTrackVec[0]->energy();
          }

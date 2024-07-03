@@ -56,7 +56,7 @@ MESSAGE( STATUS "+++ BEAN: CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
 #    the versions of the algorithms in the Analysis folder
 # Tested values: 6.6.3-6.6.5;
 #                7.0.3;7.0.4;7.0.5-7.0.9
-#                7.1.0-1
+#                7.1.0-2
 #
 # The string BOSS_VERSION should contain three digits separated by
 # dots. Please DO NOT SPECIFY THE PATCH VERSION of BOSS production.
@@ -106,7 +106,7 @@ MESSAGE( STATUS "+++ BEAN: BOSS_VER is ${BOSS_VER}" )
 #   6.6.2                               6.6.1
 #   >= 6.6.3 < 7.0.5                    6.6.3
 #   >= 7.0.5 <= 7.0.9                   7.0.5
-#   7.1.0, 7.1.1                        7.1.0
+#   7.1.0, 7.1.1, 7.1.2                 7.1.0
 #
 SET( ROOTEVENTDATA_VERSION ${BOSS_VERSION} )
 IF( BOSS_VERSION  VERSION_EQUAL  "6.6.2" )
@@ -116,7 +116,7 @@ ELSEIF( BOSS_VERSION  VERSION_GREATER  "6.6.2" AND
   SET( ROOTEVENTDATA_VERSION "6.6.3" )
 ELSEIF( BOSS_VERSION  VERSION_LESS  "7.0.10" )
   SET( ROOTEVENTDATA_VERSION "7.0.5" )
-ELSEIF( BOSS_VERSION  VERSION_LESS  "7.1.2" )
+ELSE()
   SET( ROOTEVENTDATA_VERSION "7.1.0" )
 ENDIF()
 MESSAGE( DEBUG
