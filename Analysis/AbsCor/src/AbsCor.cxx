@@ -90,9 +90,9 @@ AbsCor::AbsCor(const string& path, bool _usetof, bool _dodatacor) {
    //-----------------------------------------------------------------
    string CorFunparaPath = path;
    if ( !MCuseTof ) {
-      CorFunparaPath += "/dat/"DATAPATH"/evsetCorFunctionPar.txt";
+      CorFunparaPath += "/dat/" DATAPATH "/evsetCorFunctionPar.txt";
    } else {
-      CorFunparaPath += "/dat/"DATAPATH"/evsetTofCorFunctionPar.txt";
+      CorFunparaPath += "/dat/" DATAPATH "/evsetTofCorFunctionPar.txt";
    }
    ReadCorFunpara(CorFunparaPath);
 
