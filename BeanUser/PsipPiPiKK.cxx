@@ -190,77 +190,6 @@ static bool SelectPM(double cosPM, double invPM) {
    return ret;
 }
 
-// copy ReWeightTrkPid_11.h
-//-----------------------------------------------------------------
-static double ReWeightTrkPid(int DataPeriod, int Kp, double Pt) {
-//-----------------------------------------------------------------
-// The corrections are based on production-11 (helix corrections
-// for MC). They do not dependent of the sign of the particle and
-// cos(Theta) of the track. Input parameters are following.
-// Kp is the type of the particle: 1 for kaon and 0 for pion.
-// Pt is the transverse momentum if the particle.
-// The return value is the weight of MC event with such a particle.
-
-   // parameters
-   static const vector<double> K09 {0.991,-0.018};
-   static const double K09_first = 0.922;
-   static const vector<double> pi09 {0.9872,0.0243};
-
-   static const vector<double>
-      K12 {0.9891,-0.0005,0.0074,0.0111,0.0102};
-   static const vector<double> pi12 {0.9851,0.032};
-
-   double W = 1.;
-   if ( DataPeriod != 2009 && DataPeriod != 2012 ) {
-      return W;
-   }
-
-   if ( Kp == 1 ) {             // kaons
-      const double Ptmin = 0.1, Ptmax = 1.4;
-      Pt = max( Ptmin, Pt );
-      Pt = min( Ptmax, Pt );
-
-      int nch = (DataPeriod == 2009) ? 1 : 4;
-      double xmin = Ptmin, xmax = Ptmax;
-      auto Lchb = [nch,xmin,xmax](double xx, const double* p) {
-         if (nch == 0) { return p[0]; }
-         // [xmin,xmax] -> [-1,+1]
-         double x = (2*xx-xmin-xmax)/(xmax-xmin);
-         double sum = p[0] + x*p[1];
-         if (nch == 1) { return sum; }
-         double T0 = 1, T1 = x;
-         for ( int i = 2; i <= nch; ++i ) {
-            double Tmp = 2*x*T1 - T0;
-            sum += p[i]*Tmp;
-            T0 = T1;
-            T1 = Tmp;
-         }
-         return sum;
-      };
-
-      if ( DataPeriod == 2009 ) {
-         W = Lchb(Pt,K09.data());
-         if ( Pt < 0.2 ) {
-            W = K09_first;
-         }
-      } else if ( DataPeriod == 2012 ) {
-         W = Lchb( Pt, K12.data() );
-      }
-   } else if ( Kp == 0 ) {      // pions
-      const double Ptmin = 0.05, Ptmax = 0.4;
-      Pt = max( Ptmin, Pt );
-      Pt = min( Ptmax, Pt );
-
-      auto CUBE = [](double x)-> double{return x*x*x;};
-      if ( DataPeriod == 2009 ) {
-         W = pi09[0] + CUBE(pi09[1]/Pt);
-      } else if ( DataPeriod == 2012 ) {
-         W = pi12[0] + CUBE(pi12[1]/Pt);
-      }
-   }
-   return W;
-}
-
 //--------------------------------------------------------------------
 static void CloneHistograms(int Hmin, int Hmax) {
 //--------------------------------------------------------------------
@@ -318,10 +247,10 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    //   Minv_min, Minv_max, M2Piwin, M2Pisb     :see PiTrkRecEff()
    Jobs.push_back( new JobOption( 0, // must be 0 for first !
                                   3.095,3.099, 0.025, 0.06,
-                                  3.087,3.105, 0.01,  0.025 ) );
+                                  3.087,3.107, 0.01,  0.025 ) );
    Jobs.push_back( new JobOption( 400,
                                   3.092,3.102, 0.05,  0.06,
-                                  3.080,3.112, 0.02,  0.025 ) );
+                                  3.080,3.114, 0.02,  0.025 ) );
    // Note:
    // M2Ksb and M2Pisb are not used anywhere
    // mk^2  = 0.244  sigma = 0.015 (18)
@@ -355,7 +284,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
            << "EventTagSvc has already been initialized" << endl;
       // Warning("EventTagSvc has already been initialized");
    }
-   // nef: psi' decays TODO
+   // nef: psi' decays 
    m_EventTagSvc->setUserDecayTabsFile(
       selector->AbsPath( "BeanUser/mypsip_dec.codes" ) );
 
@@ -398,7 +327,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[4] = new TH1D("S1a_Zpi","1A) Z(#pi)", 9,-4.5,4.5);
    hst[5] = new TH1D("S1a_Zk", "1A) Z(K)", 9,-4.5,4.5);
    hst[6] = new TH1D("S1a_Zo", "1A) Z(oth)", 9,-4.5,4.5);
-   hst[8] = new TH1D("S1A_Ncl","1A) N cloned", 10,0.5,+10.5);
+   hst[8] = new TH1D("S1a_Ncl","1A) N cloned", 10,0.5,+10.5);
    hst[9] = new TH1D("S1a_Nt", "1A) Ntot", 10,-0.5,9.5);
 
    // NeutralTracks:
@@ -625,12 +554,12 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[254] = new TH1D("MC_3_3T","3) dec J/psi T",256,-0.5,255.5);
 
    // re-weighted histograms for MC
-   hst[255] = new TH1D("MC_3_WK","all weights for kaons",
-         200, 0.9,1.1);
-   hst[256] = new TH2D("S6_Kp1W","Pt vs cos(Theta) for K+ PID ok",
-         18,-0.9,0.9, 13,0.1,1.4);
-   hst[257] = new TH2D("S6_Km1W","Pt vs cos(Theta) for K- PID ok",
-         18,-0.9,0.9, 13,0.1,1.4);
+   // hst[255] = new TH1D("MC_3_WK","all weights for kaons",
+         // 200, 0.9,1.1);
+   // hst[256] = new TH2D("S6_Kp1W","Pt vs cos(Theta) for K+ PID ok",
+         // 18,-0.9,0.9, 13,0.1,1.4);
+   // hst[257] = new TH2D("S6_Km1W","Pt vs cos(Theta) for K- PID ok",
+         // 18,-0.9,0.9, 13,0.1,1.4);
    CloneHistograms(241, 259);
 
    // MC MinvPiPiKK:
@@ -670,12 +599,12 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
    hst[285] = new TH1D("MC_5_3T","5) dec J/Psi T",256,-0.5,255.5);
 
    // re-weighted histograms for MC
-   hst[286] = new TH1D("MC_5_WPi","all weights for pions",
-         200, 0.9,1.1);
-   hst[287] = new TH2D("S6_Pip1W","Pt vs cos(Theta) for pi+ PID ok",
-         18,-0.9,0.9, 7,0.05,0.4);
-   hst[288] = new TH2D("S6_Pim1W","Pt vs cos(Theta) for pi- PID ok",
-         18,-0.9,0.9, 7,0.05,0.4);
+   // hst[286] = new TH1D("MC_5_WPi","all weights for pions",
+         // 200, 0.9,1.1);
+   // hst[287] = new TH2D("S6_Pip1W","Pt vs cos(Theta) for pi+ PID ok",
+         // 18,-0.9,0.9, 7,0.05,0.4);
+   // hst[288] = new TH2D("S6_Pim1W","Pt vs cos(Theta) for pi- PID ok",
+         // 18,-0.9,0.9, 7,0.05,0.4);
    CloneHistograms(271, 289);
 
    // ntuples for K and pi reconstruction efficiency
@@ -1444,15 +1373,15 @@ static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
          int ipid = (Nk == 2 )*2;
          hst[hs+45+iz+ipid]->Fill(Ck,Ptk); // Eff pid K
 
-         if ( isMC ) {
-            // re-weighted: for eff(trk*PID)
-            if ( Nk == 2 ) {
-               double pt = ppKK.trk_K[1-k]->pxy();
-               double w  = ReWeightTrkPid(DataPeriod,1,pt);
-               hst[hs+255]->Fill(w);
-               static_cast<TH2D*>(hst[hs+256+iz])->Fill(Ck,Ptk,w);
-            }
-         }
+         // if ( isMC ) {
+            // // re-weighted: for eff(trk*PID)
+            // if ( Nk == 2 ) {
+               // double pt = ppKK.trk_K[1-k]->pxy();
+               // double w  = ReWeightTrkPid(DataPeriod,1,pt);
+               // hst[hs+255]->Fill(w);
+               // static_cast<TH2D*>(hst[hs+256+iz])->Fill(Ck,Ptk,w);
+            // }
+         // }
       }
 
       // save in n-tuple
@@ -1649,22 +1578,22 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
          int ipid = (Npi == 4 )*2;
          hst[hs+75+iz+ipid]->Fill(Cpi,Ptpi);  // Eff pid pi
 
-         if ( isMC ) {
-            // re-weighted: for eff(trk*PID)
-            if ( Npi == 4 ) {
-               for ( int j : ppKK.fpi ) {
-                  if ( j == i ) {
-                     continue;
-                  }
-                  double pt = ppKK.trk_Pi[j]->pxy();
-                  double w  = ReWeightTrkPid(DataPeriod,0,pt);
-                  hst[hs+286]->Fill(w);
-                  static_cast<TH2D*>(hst[hs+287+iz])
-                     ->Fill(Cpi,Ptpi,w);
-                  break;
-               }
-            }
-         }
+         // if ( isMC ) {
+            // // re-weighted: for eff(trk*PID)
+            // if ( Npi == 4 ) {
+               // for ( int j : ppKK.fpi ) {
+                  // if ( j == i ) {
+                     // continue;
+                  // }
+                  // double pt = ppKK.trk_Pi[j]->pxy();
+                  // double w  = ReWeightTrkPid(DataPeriod,0,pt);
+                  // hst[hs+286]->Fill(w);
+                  // static_cast<TH2D*>(hst[hs+287+iz])
+                     // ->Fill(Cpi,Ptpi,w);
+                  // break;
+               // }
+            // }
+         // }
       }
 
       // save in n-tuple
