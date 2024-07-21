@@ -11,7 +11,6 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   // string Dir = "prod_v709/";
    const string Dir = "prod_v709n3/";
    string datafile;
    string mcincfile;
@@ -55,7 +54,7 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    // CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
 
    // std cuts for pions: mpi**2 = 0.0194798 (GeV**2)
-   Cpion = TCut("fabs(MppKK-3.096)<0.009&&"
+   Cpion = TCut("fabs(MppKK-3.097)<0.01&&"
          "fabs(Mrpi2-0.0194798)<0.025");
    // cuts for Pt and cos(Theta) of pions
    // CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
@@ -839,18 +838,21 @@ void plot_MinvJ(int date, int Cx=800, int Cy=800, bool fitgs=false) {
 
    if ( fitgs ) {
       gStyle->SetStatY(0.895);
+      gStyle->SetFitFormat(".4f");
       TF1* gs = (TF1*)gROOT->GetFunction("gaus");
       gs->SetLineWidth(2);
       gs->SetLineStyle(5);
       gs->SetLineColor(kMagenta);
-      hdat[0]->Fit(gs,"Q","",3.087,3.105);
+      //  hdat[0]->Fit(gs,"Q","",3.087,3.105);
+      hdat[0]->Fit(gs,"Q","",3.087,3.107);
    } else {
       hdat[0]->Draw("E");
    }
 
    // fabs(MppKK-3.096)<0.009
    box->DrawBox(3.06,0.,3.087,ymax);
-   box->DrawBox(3.105,0.,3.13,ymax);
+   //  box->DrawBox(3.105,0.,3.13,ymax);
+   box->DrawBox(3.107,0.,3.13,ymax);
    // [3.08, 3.11]
    // box->DrawBox(3.06,0.,3.08,ymax);
    // box->DrawBox(3.11,0.,3.13,ymax);
@@ -975,7 +977,7 @@ void plot_PtPip(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2); // Pions
    auto hPt = [](string nm) {
-      return (new TH1D(nm.c_str(),"",40,0.,0.4));
+      return (new TH1D(nm.c_str(),"",43,0.,0.43));
    };
 
    TTree* effPid = par->GetEff(0); // data
@@ -1049,7 +1051,7 @@ void plot_PtPim(int date, int Cx = 800, int Cy = 800) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,2); // pi
    auto hPt = [](string nm) {
-      return (new TH1D(nm.c_str(),"",40,0.,0.4));
+      return (new TH1D(nm.c_str(),"",43,0.,0.43));
    };
 
    TTree* effPid = par->GetEff(0); // data
@@ -1129,7 +1131,7 @@ void plot_CPip(int date, int Cx = 800, int Cy = 800) {
    TTree* effPid = par->GetEff(0); // data
    vector<TH1D*> hdat { hC("hdat") };
    TCut cutD = par->Cpion  + TCut("Zpi>0")
-      + TCut("0.05<Ptpi&&Ptpi<0.4");
+      + TCut("0.025<Ptpi&&Ptpi<0.425");
    effPid->Draw("Cpi>>hdat",cutD,"goff");
    for ( auto& h : hdat ) {
       SetHstFace(h);
@@ -1206,7 +1208,7 @@ void plot_CPim(int date, int Cx = 800, int Cy = 800) {
    TTree* effPid = par->GetEff(0); // data, pi
    vector<TH1D*> hdat { hC("hdat") };
    TCut cutD = par->Cpion  + TCut("Zpi<0")
-      + TCut("0.05<Ptpi&&Ptpi<0.4");
+      + TCut("0.025<Ptpi&&Ptpi<0.425");
    effPid->Draw("Cpi>>hdat",cutD,"goff");
    for ( auto& h : hdat ) {
       SetHstFace(h);
@@ -1431,7 +1433,7 @@ void plot_dThPi(int date, int Cx = 800, int Cy = 800) {
    c1->Print(pdf.c_str());
 }
 
-// {{{1 Plot ...
+// {{{1 Plot Weights: OLD use trk_eff_wts.cc
 //--------------------------------------------------------------------
 void plot_Weights(int date) {
 //--------------------------------------------------------------------
@@ -1484,12 +1486,10 @@ void trk_eff_sel() {
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
-   // gStyle->SetStatFont(62); // ?
 
    size_t Cx = 880, Cy = 800; // canvas sizes
 
-   for ( auto date : {2021} ) {
-   // for ( auto date : {2009, 2012, 2021} ) {
+   for ( auto date : {2009, 2012, 2021} ) {
       // -- pi0 rejection, fig.28
       // plot_pi0(date,Cx,Cy);
 

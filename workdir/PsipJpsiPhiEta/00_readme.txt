@@ -20,15 +20,15 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 //-------------------------------
 // K & Pi track+PID efficiencies
 //-------------------------------
-RewTrkPiK.hpp:
++ RewTrkPiK.hpp:
 // RewTrkPiK.hpp - functions with corrections for the efficiency of
 // Kaon/Pion reconstruction,including PID, for the MC events
 
-trk_eff_sel.cc:
++ trk_eff_sel.cc:
 // Pictures for presentation/memo
 // Study of the track reconstruction efficiency for pi and K
 
-trk_eff_fit.cc:
++trk_eff_fit.cc:
 // The reconstruction efficiency (data and MC)
 // and their ratio (data/MC) for pions and kaons.
 // Get corrections as function of P_t and Z.
@@ -36,7 +36,12 @@ trk_eff_fit.cc:
 // Kolmogorov–Smirnov  && Chi2 probability tests to
 // compare the ratios for K+ and K- (pi+ and pi-)
 
-trk_eff_wts.cc:
++trk_eff_spl.py:
+# [1] Smoothing splines:
+#     https://docs.scipy.org/doc/scipy/tutorial/
+#     interpolate/smoothing_splines.html
+
++ trk_eff_wts.cc:
 // trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
 // -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
 

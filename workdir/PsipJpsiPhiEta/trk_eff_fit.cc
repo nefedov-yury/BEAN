@@ -5,6 +5,9 @@
 // Kolmogorov–Smirnov  && Chi2 probability tests to
 // compare the ratios for K+ and K- (pi+ and pi-)
 
+// #include <filesystem>
+// namespace fs = std::filesystem;
+
 #include "RewTrkPiK.hpp"    // RewTrk functions with HC
 
 // {{{1 Common parameters: Params
@@ -57,6 +60,8 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
             " You are using MC without helix corrections\n");
    }
 
+   // CUTS ATTENTION: check also Fill_PIhst() and Fill_Khst()
+
    // mc-signal
    Cmcsig = TCut("good==1");
 
@@ -67,10 +72,11 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
    CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
 
    // std cuts for pions: mpi**2 = 0.0194797849
-   Cpion = TCut("fabs(MppKK-3.096)<0.009&&"
+   Cpion = TCut("fabs(MppKK-3.097)<0.01&&"
          "fabs(Mrpi2-0.0194798)<0.025");
    // cuts for Pt and cos(Theta) of pions
-   CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
+   // CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
+   CPiPtC = TCut("0.025<Ptpi&&Ptpi<0.425&&fabs(Cpi)<0.8");
 }
 
 // {{{2 > OpenFile()
@@ -194,7 +200,7 @@ void Fill_PIhst( Params* p, int mc, const vector<TH1D*>& hst,
 
    // List of cuts:
    auto c_pion = [](double MppKK, double Mrpi2)->bool{
-      return (fabs(MppKK-3.096)<0.009) &&
+      return (fabs(MppKK-3.097)<0.01) &&
              (fabs(Mrpi2-0.0194798)<0.025);
    };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt)->bool {
@@ -436,14 +442,14 @@ void test_PM(int date, int kpi, int test=1) {
    eff_mc = get_eff( parM, 1 );
    vector<TH1D*> ratM   = get_ratio( eff_d, eff_mc );
 
-   cout << " data-" << date << ": ";
    if ( test == 1 ) {
       cout << "Kolmogorov–Smirnov";
    } else if ( test == 2 ) {
       cout << "chi^2";
    }
-   cout << " probability test for data/MC efficiency ratio" << endl;
+   cout << " probability test for data/MC efficiency ratio\n";
 
+   cout << " data-" << date << ":\n";
    bool verbose = false;
    for (int i = 1; i >= 0; --i ) {
       string info = (kpi == 1) ?  " K+ <--> K- " : " pi+ <--> pi- ";
@@ -731,10 +737,44 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
    }
 }
 
+// {{{1 Get average Pt value in [Ptmin,Ptmax] and |cos(Th)|<0.8
+//--------------------------------------------------------------------
+double get_Pt_mean(Params* p, double Ptmin, double Ptmax) {
+//--------------------------------------------------------------------
+   TTree* eff = p->GetEff(0);
+
+   int nbins = 20;
+   TH1D* hst = new TH1D( "hpt","",nbins,Ptmin,Ptmax);
+   hst->Sumw2(true);
+
+   // Fill
+   if ( p->use_kpi == 1 ) {   // Kaons
+      TCut cutD = p->Ckaon + TCut("fabs(Ck)<0.8");
+      if ( p->use_pm == 1 ) { // K+
+         cutD += TCut("Zk>0");
+      } else if ( p->use_pm == -1 ) { // K-
+         cutD += TCut("Zk<0");
+      }
+      eff->Draw("Ptk>>hpt",cutD,"goff");
+   } else {                   // Pions
+      TCut cutD = p->Cpion + TCut("fabs(Cpi)<0.8");
+      if ( p->use_pm == 1 ) { // pi+
+         cutD += TCut("Zpi>0");
+      } else if ( p->use_pm == -1 ) { // pi-
+         cutD += TCut("Zpi<0");
+      }
+      eff->Draw("Ptpi>>hpt",cutD,"goff");
+   }
+
+   double ptmean = hst->GetMean();
+   delete hst;
+
+   return ptmean;
+}
+
 // {{{1 Get efficiency ratio as a function of cos(Theta) to fit
 //--------------------------------------------------------------------
-TGraphAsymmErrors* get_eff_cos(Params* p, int mc,
-      double Ptmin, double Ptmax) {
+TH1D* get_eff_cos(Params* p, int mc, double Ptmin, double Ptmax) {
 //--------------------------------------------------------------------
    vector<TH1D*> hst(2,nullptr);
    int nbins = ( p->date == 2009 ) ? 20 : 40;
@@ -752,77 +792,14 @@ TGraphAsymmErrors* get_eff_cos(Params* p, int mc,
 
    // calculate efficiency
    auto name = Form("%s_%.0f", (mc==0) ? "data" : "mc", Ptmin*100);
-   // TH1D* heff = (TH1D*) hst[0]->Clone(name);
-   // heff->Divide(hst[1],hst[0],1.,1.,"B");
+   TH1D* heff = (TH1D*) hst[0]->Clone( name );
+   heff->Divide(hst[1],hst[0],1.,1.,"B");
    // heff->Divide(hst[1],hst[0]); // poison errors
-
-   auto geff = new TGraphAsymmErrors;
-   geff->Divide(hst[1],hst[0], "CP"); // Clopper-Pearson interval
 
    delete hst[0];
    delete hst[1];
 
-   return geff;
-}
-
-TGraphAsymmErrors* DivideEff(TGraphAsymmErrors* e1,
-      TGraphAsymmErrors* e2) {
-   vector<double> xx[3], yy[3]; // point, err+ err-
-   size_t Np = e1->GetN();
-   for ( size_t i = 0; i < 3; ++i ) {
-      xx[i].reserve(Np);
-      yy[i].reserve(Np);
-   }
-
-   for ( size_t i = 0; i < Np; ++i ) {
-      double e1x  = e1->GetPointX(i);
-      double e1y  = e1->GetPointY(i);
-      double e1yp = e1->GetErrorYhigh(i);
-      double e1ym = e1->GetErrorYlow(i);
-      double e2x  = e2->GetPointX(i);
-      double e2y  = e2->GetPointY(i);
-      double e2yp = e2->GetErrorYhigh(i);
-      double e2ym = e2->GetErrorYlow(i);
-      if ( fabs(e1x-e2x) > 1e-6 ) {
-         printf("ERROR in %s: X1=%f, X2=%f\n",__func__,e1x,e2x);
-         exit(EXIT_FAILURE);
-      }
-
-      // skip empty bins
-      if ( e1x == -1 || e2x == -1 || e1y < 1e-3 || e2y < 1e-3) {
-         continue;
-      }
-
-      // DEBUG print:
-      // const double asymin = 0.1; // print if asymmetry is greater
-      // if ( fabs(e1yp-e1ym)/fabs(e1yp+e1ym) > asymin ) {
-         // printf("e1: %.4f^{+%.4f}_{-%.4f}\n",e1y,e1yp,e1ym);
-      // }
-      // if ( fabs(e2yp-e2ym)/fabs(e2yp+e2ym) > asymin ) {
-         // printf("e2: %.4f^{+%.4f}_{-%.4f}\n",e2y,e2yp,e2ym);
-      // }
-
-      // very simple and wrong
-      double r = e1y/e2y;
-      double rp = r * sqrt(SQ(e1yp/e1y)+SQ(e2yp/e2y));
-      double rm = r * sqrt(SQ(e1ym/e1y)+SQ(e2ym/e2y));
-
-      xx[0].push_back(e1x);
-      xx[1].push_back(e1->GetErrorXhigh(i));
-      xx[2].push_back(e1->GetErrorXlow(i));
-      yy[0].push_back(r);
-      yy[1].push_back(rp);
-      yy[2].push_back(rm);
-   }
-
-   auto res = new TGraphAsymmErrors(
-         xx[0].size(),
-         xx[0].data(),yy[0].data(),
-         xx[1].data(),xx[2].data(),
-         yy[1].data(),yy[2].data()
-         );
-   res->GetXaxis()->SetLimits(-1.,+1);
-   return res;
+   return heff;
 }
 
 // {{{1 Fit Ratio
@@ -833,15 +810,12 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
 
    double Ptmin, Ptmax, Nbins; // binning for Pt
    if ( kpi == 1 ) {        // Kaons
-      Ptmin = 0.1;
-      Ptmax = 1.4;
-      Nbins = 13;
+      Ptmin = 0.05;
+      Ptmax = 1.45;
+      Nbins = 14;
    } else if ( kpi == 2 ) { // Pions
-      // Ptmin = 0.05;
-      // Ptmax = 0.4;
-      // Nbins = 7;
-      Ptmin = 0.0;
-      Ptmax = 0.4;
+      Ptmin = 0.025;
+      Ptmax = 0.425;
       Nbins = 8;
    }
 
@@ -910,7 +884,6 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
       fit2->SetLineColor(kRed);
       fit2->SetLineWidth(2);
    }
-   gStyle->SetFitFormat(".4f");
 
    // ++++ First fit ++++
    TCanvas* c1 = new TCanvas("c1","...",850,0,700,1000);
@@ -924,7 +897,9 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    int Ic1 = 1;
 
    string pdf1 = "rat_fit1_"+p_pdf+"_"+to_string(date)+".pdf";
-   c1->Print( (pdf1+"[").c_str() ); // open pdf-file
+   if ( rew == 0 ) {
+      c1->Print( (pdf1+"[").c_str() ); // open pdf-file
+   }
 
    vector<double> xx(Nbins), yy(Nbins);
    vector<double> ex(Nbins,1e-3), ey(Nbins);
@@ -932,52 +907,48 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    for (int i = 0; i < Nbins; ++i ) {
       double ptmin = Ptmin + dp*i;
       double ptmax = ptmin + dp;
-      double ptav = 0.5*(ptmin + ptmax);
+      // double ptav = 0.5*(ptmin + ptmax);
+      double ptav = get_Pt_mean(par,ptmin,ptmax);
       xx[i] = ptav;
 
-      auto eff_dat = get_eff_cos(par,0,ptmin,ptmax);
-      auto eff_mc  = get_eff_cos(par,1,ptmin,ptmax);
-
-      // TH1D* rat = (TH1D*)eff_dat->Clone(
-            // Form("r_%s",eff_dat->GetName()) );
-      // rat->Divide(eff_dat, eff_mc);
-      auto rat = DivideEff(eff_dat,eff_mc);
+      TH1D* eff_dat = get_eff_cos(par,0,ptmin,ptmax);
+      TH1D* eff_mc  = get_eff_cos(par,1,ptmin,ptmax);
+      string name = string("r_") + string( eff_dat->GetName() );
+      TH1D* rat = (TH1D*)eff_dat->Clone( name.c_str() );
+      rat->Divide(eff_dat, eff_mc);
 
       c1->cd(Ic1);
       gPad->SetGrid();
-      // rat->SetAxisRange(0.8,1.2,"Y");
-      rat->GetHistogram()->SetMinimum(0.8);
-      rat->GetHistogram()->SetMaximum(1.2);
-      if ( i == 0 ) {
-         // rat->SetAxisRange(0.5,1.5,"Y");
-         rat->GetHistogram()->SetMinimum(0.5);
-         rat->GetHistogram()->SetMaximum(1.5);
+      rat->SetAxisRange(0.9,1.1,"Y");
+      if ( i == 0 ) { // 1st bin
+         rat->SetAxisRange(0.5,1.5,"Y");
+      }
+      if ( kpi == 1 && i == Nbins-1 ) {    // K and last bin
+         rat->SetAxisRange(0.5,1.5,"Y");
       }
       rat->GetYaxis()->SetNdivisions(1004);
       rat->SetTitle(Form(
-               "<Pt> = %.3f GeV"
+               "P_{t} #in [%.3f, %.3f] GeV"
                "; cos(#Theta)"
                ";#epsilon(data) / #epsilon(MC)",
-               ptav));
+               ptmin,ptmax));
       SetHstFaceTbl(rat);
       if ( kpi == 1 ) {
          gStyle->SetTitleFontSize(0.1);
          rat->GetYaxis()->SetTitleOffset(0.5);
       } else {
-         gStyle->SetTitleFontSize(0.08);
+         gStyle->SetTitleFontSize(0.05);
          rat->GetYaxis()->SetTitleOffset(0.8);
       }
       rat->GetXaxis()->SetTitleOffset(0.8);
-      // TFitResultPtr rs = rat->Fit(fit1,"SEQ","",-0.8,0.8);
-      // rat->Draw("SAME E0");
-      rat->Draw("AP Z0");
-      TFitResultPtr rs = rat->Fit(fit1,"SEQ EX0","",-0.8,0.8);
-      rat->Draw("SAME Z0");
+      TFitResultPtr rs = rat->Fit(fit1,"SEQ","",-0.8,0.8);
+      rat->Draw("SAME E0");
+      // rs->Print();
       yy[i] = fit1->GetParameter(0);
       ey[i] = fit1->GetParError(0);
       auto ch2 = fit1->GetChisquare();
       auto ndf = fit1->GetNDF();
-      printf("%2i  <pt>=%.3f  r=%.4f+/-%.4f  ch2/NDF= %.1f/%i\n",
+      printf("%2i <pt>=%.3f  r=%.4f+/-%.4f  ch2/NDF= %.1f/%i\n",
             i,ptav,yy[i],ey[i],ch2,ndf);
 
       Ic1 += 1;
@@ -990,31 +961,38 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
       if ( Ic1 > Nc1 ) {
          Ic1 = 1;
          c1->Update();
-         c1->Print( pdf1.c_str() ); // add to pdf-file
+         if ( rew == 0 ) {
+            c1->Print( pdf1.c_str() ); // add to pdf-file
+         }
       }
    } // end of for
-   c1->Print( (pdf1+"]").c_str() ); // close pdf-file
+   if ( rew == 0 ) {
+      c1->Print( (pdf1+"]").c_str() ); // close pdf-file
+   }
 
    // ++++ Second fit ++++
    TCanvas* c2 = new TCanvas("c2","...",0,0,800,750);
    c2->cd();
    gPad->SetGrid();
+   //  gStyle->SetFitFormat(".4f");
 
    TGraphErrors* gX = new TGraphErrors(Nbins,xx.data(),yy.data(),
                                              ex.data(),ey.data() );
-   if ( rew == 0 ) {
-      gX->GetHistogram()->SetMinimum(0.9);
-      gX->GetHistogram()->SetMaximum(1.1);
-   } else {
-      if ( kpi == 1 ) {
-         gX->GetHistogram()->SetMinimum(0.95);
-         gX->GetHistogram()->SetMaximum(1.05);
-      } else {
-         gX->GetHistogram()->SetMinimum(0.975);
-         gX->GetHistogram()->SetMaximum(1.025);
-      }
-      gX->GetYaxis()->SetNdivisions(1005);
+   double Ymin = 0.9;
+   double Ymax = 1.1;
+   if ( rew == 1 ) {
+      Ymin = 0.95;
+      Ymax = 1.05;
    }
+   if ( yy[0] < Ymin ) {
+      Ymin = 0.1 * std::floor( (yy[0]-0.01)*10 );
+   }
+   gX->GetHistogram()->SetMinimum(Ymin);
+   if ( yy[0] > Ymax ) {
+      Ymax = 0.1 * std::ceil( (yy[0]+0.01)*10 );
+   }
+   gX->GetHistogram()->SetMaximum(Ymax);
+
    gX->SetMarkerColor(kBlue);
    gX->SetMarkerStyle(21);
    gX->Draw("AP");
@@ -1041,21 +1019,43 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
          // res->Print("V"); // + error and correlation matrices
       }
    } else {
-      // sp = new TSpline3("sp",gX,"e1b1",0.,0.);
-      sp = new TSpline3("sp",gX,"e2b2",0.,0.);// natural cubic spline
-      string fsp = p_pdf+"_"+to_string(date)+"_spline.cc";
-      printf("Save spline to file: %s\n", fsp.c_str());
-      sp->SaveAs(fsp.c_str());
-      // print Y-errors
-      // printf("dY = [ ");
-      // for ( size_t i = 0; i < Nbins; ++i ) {
-         // printf("%f%s",gX->GetErrorY(i), i<Nbins-1 ? ", " : " ]\n" );
-      // }
+      // Save points in file for python smooth splines
+      string fname = p_pdf+"_"+to_string(date)+".dat";
+      FILE* fp = fopen(fname.c_str(),"w");
+      if ( !fp ) {
+         cerr << "Error open file " << fname << endl;
+         fp = stdout;
+      }
+      fprintf( fp, "fX = [ " );
+      for ( size_t i = 0; i < Nbins; ++i ) {
+         fprintf( fp, "%f%s",
+               gX->GetPointX(i), i<Nbins-1 ? ", " : " ]\n" );
+      }
+      fprintf( fp, "fY = [ " );
+      for ( size_t i = 0; i < Nbins; ++i ) {
+         fprintf( fp, "%f%s",
+               gX->GetPointY(i), i<Nbins-1 ? ", " : " ]\n" );
+      }
+      fprintf( fp, "dY = [ " );
+      for ( size_t i = 0; i < Nbins; ++i ) {
+         fprintf( fp, "%f%s",
+               gX->GetErrorY(i), i<Nbins-1 ? ", " : " ]\n" );
+      }
+      if (fp != stdout ) {
+         fclose(fp);
+      }
+
+      sp = new TSpline3("sp",gX,"e2b2",0.,0.);
+      // string fsp = p_pdf+"_"+to_string(date)+"_spline.cc";
+      // printf("Save spline to file: %s\n", fsp.c_str());
+      // sp->SaveAs(fsp.c_str());
+
       // to draw within [Ptmin,Ptmax]
       auto Lsp = [sp](double* x, double* p) {
          return sp->Eval(x[0]);
       };
       Fsp = new TF1("Fsp",Lsp,Ptmin,Ptmax,0);
+      Fsp->SetTitle("Cubic spline");
       Fsp->SetLineColor(kRed);
       Fsp->SetLineWidth(2);
       Fsp->Draw("L SAME");
@@ -1074,7 +1074,7 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    } else {
       leg = new TLegend(0.55,0.77,0.89,0.89);
       leg->AddEntry(gX,Form("%i  %s",date,p_leg.c_str()),"PE");
-      leg->AddEntry(Fsp,"Cubic Spline","L");
+      leg->AddEntry(Fsp,Fsp->GetTitle(),"L");
    }
    leg->Draw();
 
@@ -1096,33 +1096,39 @@ void trk_eff_fit() {
    gStyle->SetStatY(0.89);
    // gStyle->SetStatW(0.25);
 
+   // 1) Reconstruction efficiency for data and Monte Carlo as
+   //   a function of Pt and cos(θ) and eff.ratio eff(data)/eff(MC)
+   // size_t Cx = 630, Cy = 600; // canvas sizes
+   // for ( auto date : {2009, 2012, 2021} ) {
+      // for ( auto sign : {+1, -1} ) {
+         // const int rew = 1;     // 1 - use corrections
+         // Kaons: fig.38-39 efficiency, 40-41 efficiency ratio
+         // plot_pict_K(date,sign,rew,Cx,Cy);
+         // Pions: fig.42-43 efficiency, 44-45 efficiency ratio
+         // plot_pict_pi(date,sign,rew,Cx,Cy);
+      // }
+   // }
+
+   // 2) checking the compatibility of efficiency ratios for
+   //   K+ and K- (pi+/pi-)
    // int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
    // for ( auto date : {2009, 2012, 2021} ) {
       // test_PM(date,1,test); // Kaons
       // test_PM(date,2,test); // Pions
    // }
 
-   size_t Cx = 630, Cy = 600; // canvas sizes
-   // eff(data), eff(MC), eff(data)/eff(MC), fig 38-41
-   // for ( auto date : {2009} ) { // DEBUG
-   // for ( auto date : {2009, 2012, 2021} ) {
-      // for ( auto sign : {+1, -1} ) {
-         // const int rew = 0;     // 1 - use corrections
-         // plot_pict_pi(date,sign,rew,Cx,Cy);
-         // plot_pict_K(date,sign,rew,Cx,Cy);
-      // }
-   // }
-
-   // Get Efficiency Corrections
-   const int Pions = 2;
+   // 3) Get Efficiency Corrections
    const int Kaons = 1;
+   const int Pions = 2;
 
-   const int date = 2012; // 2009, 2012, 2021
-   const int Z = 1;       // 1=+, -1=-, 0=+/-
-   const int rew = 0;     // 1 - use corrections, weights
+   const int date = 2009; // 2009, 2012, 2021
+   const int Z = +1;      // 1=+, -1=-, 0=+/-
+   const int rew = 1;     // use corrections, weights
 
-   FitRatio(date,Pions,Z,rew);
+   // FitRatio(date,Pions,Z);
+   // FitRatio(date,Pions,Z,rew);
 
+   // FitRatio(date,Kaons,Z);
    // FitRatio(date,Kaons,Z,rew);
 
 }
