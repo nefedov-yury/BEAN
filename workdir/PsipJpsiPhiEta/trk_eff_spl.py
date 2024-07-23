@@ -47,7 +47,7 @@ def data_label(data_name):
     return ' '.join(t)
 
 
-def bes3_data(data_name,sys_err):
+def bes3_data(data_name, sys_err):
     dat = []
     with open(f'{data_name}.dat', 'r') as fr:
         for txt in fr:
@@ -89,19 +89,22 @@ def bes3_data(data_name,sys_err):
         Rmax = 0.1 * np.ceil((y[0]+0.01)*10)
     plt.ylim([Rmin, Rmax])
 
-    #  plt.errorbar(x, y, np.array(dat[2]), fmt='ko',
     plt.errorbar(x, y, err_y, fmt='ko',
                  label=f'{data_label(data_name)}')
-    plt.plot(xnew, BSpline(*tck)(xnew), '-', label='Cubic spline')
+    plt.plot(xnew, BSpline(*tck)(xnew), '--', label='Cubic spline')
     plt.plot(xnew, BSpline(*tck_s)(xnew), '-',
-             label=f'Smooth: s={sc:.1f}')
+             label=f'Smooth spline, s={sc:.1f}')
+    plt.plot([], [], ' ', label=f'χ² / ndof = {ch2:.1f} / {ndof}')
     handles, labels = plt.gca().get_legend_handles_labels()
-    order = [2, 0, 1]
+    order = [3, 0, 1, 2]
     plt.legend([handles[idx] for idx in order],
-               [labels[idx] for idx in order], loc='best')
-    #  plt.legend(loc='best')
-    plt.title(f'Smooth spline, χ² / ndof = {ch2:.1f} / {ndof}')
+               [labels[idx] for idx in order],
+               #  title='Explanatory text',
+               loc='best')
     plt.grid(True)
+    plt.xlabel(r'$P_t$, GeV/$c$', loc='right')
+    plt.ylabel(r'$\epsilon(\text{data})/\epsilon(\text{MC})$',
+               loc='top')
     plt.savefig(f'rat_Bspl_{data_name}.pdf',
                 format="pdf", bbox_inches="tight")
     plt.show()
@@ -217,18 +220,24 @@ void test_{func_name}() {{
 
 
 if __name__ == "__main__":
-    sys_pi_err = 0.003
-    #  bes3_data('Pip_2021',sys_pi_err)
-    #  bes3_data('Pim_2021',sys_pi_err)
-    #  bes3_data('Pip_2012',sys_pi_err)
-    #  bes3_data('Pim_2012',sys_pi_err)
-    #  bes3_data('Pip_2009',sys_pi_err)
-    #  bes3_data('Pim_2009',0.005)
-    #
-    sys_k_err = 0.005
-    #  bes3_data('Kp_2021',sys_k_err)
-    #  bes3_data('Km_2021',sys_k_err)
-    #  bes3_data('Kp_2012',sys_k_err)
-    #  bes3_data('Km_2012',sys_k_err)
-    #  bes3_data('Kp_2009',sys_k_err)
-    #  bes3_data('Km_2009',sys_k_err)
+    # change the fontset so that
+    # \varepsilon looks different than \epsilon
+    plt.rcParams['mathtext.fontset'] = 'cm'
+
+    # global params:
+    plt.rcParams['legend.fontsize'] = 'large'
+    plt.rcParams['axes.labelsize'] = 'large'
+
+    #  bes3_data('Kp_2021', 0.005)
+    #  bes3_data('Km_2021', 0.005)
+    #  bes3_data('Kp_2012', 0.005)
+    #  bes3_data('Km_2012', 0.005)
+    #  bes3_data('Kp_2009', 0.005)
+    #  bes3_data('Km_2009', 0.005)
+
+    #  bes3_data('Pip_2021', 0.003)
+    #  bes3_data('Pim_2021', 0.003)
+    #  bes3_data('Pip_2012', 0.003)
+    #  bes3_data('Pim_2012', 0.003)
+    #  bes3_data('Pip_2009', 0.003)
+    #  bes3_data('Pim_2009', 0.005)

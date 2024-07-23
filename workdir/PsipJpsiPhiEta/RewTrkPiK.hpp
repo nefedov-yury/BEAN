@@ -146,7 +146,7 @@ double Bsp_Pim_2009(const double* xx, const double* p){
    1.0316555558631755, 0.9865314701326018, 0.9747768800627127, 0.9891757114964591, 1.0006523836776509, 0.9904527953279562, 0.9927324003081914, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.998*bspline(xx[0],k,t,c);
 };
 
 
@@ -158,7 +158,7 @@ double Bsp_Pim_2012(const double* xx, const double* p){
    1.0436166312664574, 1.0065266232048038, 0.9873677021707664, 0.9967643150045482, 0.985904029951522, 0.9911131487590454, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.999*bspline(xx[0],k,t,c);
 };
 
 
@@ -170,7 +170,7 @@ double Bsp_Pim_2021(const double* xx, const double* p){
    0.9776852365159849, 0.9933964171034397, 0.9856783072562179, 0.9873150959289043, 0.9908367733596619, 0.9785150689442943, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.9995*bspline(xx[0],k,t,c);
 };
 
 
@@ -182,7 +182,7 @@ double Bsp_Pip_2009(const double* xx, const double* p){
    0.9655878123381549, 1.0321984624332223, 0.9492114950396141, 0.9959800358884756, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.999*bspline(xx[0],k,t,c);
 };
 
 
@@ -194,7 +194,7 @@ double Bsp_Pip_2012(const double* xx, const double* p){
    1.0221329021709886, 0.9670032969363239, 0.9843540593903949, 0.9855822686515928, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.9995*bspline(xx[0],k,t,c);
 };
 
 
@@ -206,7 +206,7 @@ double Bsp_Pip_2021(const double* xx, const double* p){
    0.9689421551447139, 0.9903289648878736, 0.9890672521943833, 0.9736522384127888, 0.9871843950297, 0.9839459214685715, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.9995*bspline(xx[0],k,t,c);
 };
 
 // {{{1 Bsp_K.. functions
@@ -231,7 +231,7 @@ double Bsp_Km_2012(const double* xx, const double* p){
    1.0799010496446086, 0.9473427969836942, 1.0077263482219598, 0.9774186583594245, 0.9627662306828378, 1.0027369075089614, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.999*bspline(xx[0],k,t,c);
 };
 
 
@@ -255,7 +255,7 @@ double Bsp_Kp_2009(const double* xx, const double* p){
    0.9604929064711097, 1.0467127931608082, 0.9516843852269559, 0.9891691275626162, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.997*bspline(xx[0],k,t,c);
 };
 
 
@@ -267,9 +267,8 @@ double Bsp_Kp_2012(const double* xx, const double* p){
    0.959938402702726, 0.993963804376123, 0.9915589986059254, 0.9504956406850832, 0.9857602985764935, 0.9940152435966706, 0.9771501193927454, 0.965161710580633, 0.98691548872554, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.999*bspline(xx[0],k,t,c);
 };
-
 
 double Bsp_Kp_2021(const double* xx, const double* p){
    const std::vector<double> t {
@@ -279,6 +278,5 @@ double Bsp_Kp_2021(const double* xx, const double* p){
    0.8225745729636734, 1.038263692572686, 0.9356949133683078, 0.9771068098547581, 0.9929286762684737, 0.9607878255322894, 0.9807011197315845, 0.977736586412017, 0.0, 0.0, 0.0, 0.0
    };
    int k = 3;
-   return bspline(xx[0],k,t,c);
+   return 0.999*bspline(xx[0],k,t,c);
 };
-

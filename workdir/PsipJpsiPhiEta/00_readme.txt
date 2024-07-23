@@ -41,7 +41,7 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 #     https://docs.scipy.org/doc/scipy/tutorial/
 #     interpolate/smoothing_splines.html
 
-+ trk_eff_wts.cc:
++ git trk_eff_wts.cc:
 // trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
 // -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
 

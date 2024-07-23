@@ -293,9 +293,6 @@ void Fill_Khst( Params* p, int mc, const vector<TH1D*>& hst,
    auto c_kaon = [](double Mrec, double Mrk2)->bool{
       return (fabs(Mrec-3.097)<0.002) && (fabs(Mrk2-0.243717)<0.025);
    };
-   // auto c_KPtC = [](double Ptk, double Ck)->bool {
-      // return (0.1<Ptk && Ptk<1.4) && (fabs(Ck)<0.8);
-   // };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt)->bool {
       return (Ptmin<=Pt && Pt<Ptmax);
    };
@@ -355,10 +352,24 @@ void Fill_Khst( Params* p, int mc, const vector<TH1D*>& hst,
    vector<TH1D*> hst(4,nullptr);
 
    auto hPtK = [](string nm) {
-      return new TH1D(nm.c_str(),"",26,0.1,1.4);
+      vector<double> xbins {0.05, 0.15};
+      for (double x = 0.2; x < 1.36; x += 0.05) {
+         xbins.push_back(x);
+      }
+      xbins.push_back(1.45);
+      return new TH1D(nm.c_str(),"",xbins.size()-1,xbins.data());
+      // return new TH1D(nm.c_str(),"",28,0.05,1.45);
+      // return new TH1D(nm.c_str(),"",26,0.1,1.4);
    };
    auto hPtPi= [](string nm) {
-      return new TH1D(nm.c_str(),"",14,0.05,0.4);
+      vector<double> xbins {0.025, 0.075};
+      for (double x = 0.1; x < 0.376; x += 0.025) {
+         xbins.push_back(x);
+      }
+      xbins.push_back(0.425);
+      return new TH1D(nm.c_str(),"",xbins.size()-1,xbins.data());
+      // return new TH1D(nm.c_str(),"",16,0.025,0.425);
+      // return new TH1D(nm.c_str(),"",14,0.05,0.4);
    };
    auto hC = [](string nm) {
       return (new TH1D(nm.c_str(),"",32,-0.8,0.8));
@@ -381,10 +392,12 @@ void Fill_Khst( Params* p, int mc, const vector<TH1D*>& hst,
 
    // Fill
    if ( p->use_kpi == 1 ) {   // Kaons
-      double Ptmin = 0.1, Ptmax = 1.4;
+      // double Ptmin = 0.1, Ptmax = 1.4;
+      double Ptmin = 0.05, Ptmax = 1.45;
       Fill_Khst( p, mc, hst, Ptmin, Ptmax);
    } else {                     // Pions
-      double Ptmin = 0.05, Ptmax = 0.4;
+      // double Ptmin = 0.05, Ptmax = 0.4;
+      double Ptmin = 0.025, Ptmax = 0.425;
       Fill_PIhst( p, mc, hst, Ptmin, Ptmax);
    }
 
@@ -520,8 +533,9 @@ void plot_pict_pi(int date, int pm, int rew, int Cx=600, int Cy=600) {
 
    // Draw:
    ////////////////////////////////////
-   double eff_min = 0.5, eff_max = 1.0;
+   // double eff_min = 0.5, eff_max = 1.0;
    double rat_min = 0.85, rat_max = 1.15;
+   double eff_min = 0.3, eff_max = 1.0;
    if ( rew == 1 ) {
       rat_min = 0.90; rat_max = 1.10;
    }
@@ -741,6 +755,7 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
 double get_Pt_mean(Params* p, double Ptmin, double Ptmax) {
 //--------------------------------------------------------------------
+   // TTree* eff = p->GetEff(1); // use MC distribution, we correct MC
    TTree* eff = p->GetEff(0);
 
    int nbins = 20;
