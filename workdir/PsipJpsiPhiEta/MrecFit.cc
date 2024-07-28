@@ -1,13 +1,15 @@
-// MrecFit.cc - Data fitting by correcting of MC signal and scaling of
-// MC background
+// MrecFit.cc
+// * Data fitting by correcting of MC signal and scaling of
+//   MC background
 //   -> Mrec_{YEAR}_M{MODEL}_T{Npol}_[hohc].pdf
-// - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
+// * calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
 //   and efficiency of selection;
-// - estimate systematic associated with a fit model
+// * estimate systematic associated with a fit model
 
 #include <filesystem>
+namespace fs = std::filesystem;
 
-#include "RewTrkPiK.hpp"    // RewTrk functions with HC
+#include "RewTrkPiK.hpp"    // RewTrkPi(), RewTrk_K() functions
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
@@ -177,17 +179,18 @@ vector<TH1D*> fill_hist(int date) {
 #include "norm.h"
    double shift = 0.0;
    if ( date == 2009 ) {
-      // shift = 0.000225; // chi2(M2) = 3106?
-      shift = 0.000226; // chi2(M2) = 3144 ? 3057 ***
-      // shift = 0.000227; // chi2(M2) = 3077?
+      // shift = 0.000225; // chi2(M2) = 3222
+      // shift = 0.000226; // chi2(M2) = 3138
+      shift = 0.000227; // chi2(M2) = 3136*
+      // shift = 0.000228; // chi2(M2) = 3207
    } else if ( date == 2012 ) {
-      // shift = 0.000385; // chi2(M2) = 6183?
-      shift = 0.000386; // chi2(M2) = 6185 ? 6013 ***
-      // shift = 0.000387; // chi2(M2) = 6168?
+      // shift = 0.000385; // chi2(M2) = 6334
+      shift = 0.000386; // chi2(M2) = 6184*
+      // shift = 0.000387; // chi2(M2) = 6326
    } else if ( date == 2021 ) {
-      // shift = 0.000606; // chi2(M2) = 23 481
-      shift = 0.000607; // chi2(M2) = 22 947 ?22 637***
-      // shift = 0.000608; // chi2(M2) = 23 122
+      // shift = 0.000606; // chi2(M2) = 23960
+      shift = 0.000607; // chi2(M2) = 23031*
+      // shift = 0.000608; // chi2(M2) = 23536
    }
 
    string sd(Form("%02i",date%100));
@@ -960,9 +963,9 @@ void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
    printf(" Initial number of pi+ pi- J/Psi (dec# %i) = %.1f\n",
          int(MCdec->GetBinCenter(65)), Nppj);
    printf(" Efficiency in [%.3f, %.3f]:\n", Emin,Emax);
-   printf(" eff(pi+pi-J/Psi): %.3f +/- %.3f +/- %.3f %%",
+   printf(" eff(pi+pi-J/Psi): %.3f +/- %.3f +/- %.3f %%\n",
          100*eff[0],100*err[0],100*sys_err);
-   printf("  (sum_err= %.3f or %.2f%%)\n",
+   printf("                   (sum_err= %.3f or %.2f%%)\n",
          100*sum_err,100*sum_rel_err);
    printf("\n");
 }
@@ -1025,8 +1028,9 @@ void DoFit(int date) {
    // ========================= Fit with ROOT ========================
    // == fit configuration
    ROOT::Fit::Fitter fitter;
-   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit");
-   fitter.Config().MinimizerOptions().SetPrintLevel(3);
+   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
+   // Possible printing levels are from 0 (minimal) to 3 (maximum)
+   fitter.Config().MinimizerOptions().SetPrintLevel(1);
    // print the default minimizer option values
    ROOT::Math::MinimizerOptions min_opt;
    min_opt.Print();
@@ -1054,24 +1058,24 @@ void DoFit(int date) {
          par_ini = { 0.969, 0.86e-3,
             1.094,0.005,-0.027,-0.001 }; // old +0.23MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.983, 3.20e-3, 0.62e-3, 0.88,
-            1.097,0.008,0.007,0.000,0.013 }; // n3 +0.226MeV
+         par_ini = { 0.986, 3.20e-3, 0.62e-3, 0.88,
+            1.097,0.008,0.007,0.000,0.013 }; // +0.227MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
          par_ini = { 0.982, 0.98e-3,
             1.118,0.008,-0.030,-0.006 }; // old +0.38MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.991, 3.40e-3, 0.70e-3, 0.86,
-            1.116,0.026,0.008,0.008,0.014,0.008 }; // n3 +0.386MeV
+         par_ini = { 0.995, 3.40e-3, 0.70e-3, 0.86,
+            1.116,0.026,0.008,0.008,0.014,0.008 }; // +0.386MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
          par_ini = { 0.945, 0.89-3,
             1.066,-0.006,-0.020,-0.002 }; // old +0.60MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.993, 3.05e-3, 0.62e-3, 0.86,
-            1.078,0.006,0.009,0.006,0.010,0.005 }; // n3 +0.607MeV
+         par_ini = { 0.995, 3.05e-3, 0.62e-3, 0.86,
+            1.078,0.006,0.009,0.006,0.010,0.005 }; // +0.607MeV
       }
    }
    if ( par_ini.size() != Npar ) {
@@ -1119,7 +1123,8 @@ void DoFit(int date) {
    // == Fit result
    ROOT::Fit::FitResult res = fitter.Result();
    res.Print(cout);
-   double chi2   = res.Chi2();
+   // double chi2   = res.Chi2(); // = -1 in root-6.30
+   double chi2   = res.MinFcnValue(); // chi2 or likelihood
    int ndf       = res.Ndf();
    const vector<double> par    = res.Parameters();
    const vector<double> er_par = res.Errors();
@@ -1239,8 +1244,10 @@ void DoFit(int date) {
    // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
 
    string sepline(70,'='); // separation line
-   printf("%s\n",sepline.c_str());
    // numbers for E in [Emin,Emax]
+   printf("%s\n",sepline.c_str());
+   printf("* T_%zu: Chi2 / NDf = %.0f / %i = %.1f\n",
+         Npol,chi2,ndf,chi2/ndf ); // sysNT
    print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
    print_Numbers(hst,MCsig_cor,SumBG,3.060,3.140);// wide
    printf("%s\n",sepline.c_str());
@@ -1267,9 +1274,9 @@ void MrecFit() {
    USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
    //========================================================
 
-   int date=2009;
-   // int date=2012;
    // int date=2021;
+   // int date=2012;
+   // int date=2009;
 
    DoFit(date);
 }

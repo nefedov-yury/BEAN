@@ -87,10 +87,12 @@ void get_hist(int date, string hname, TH1D* hst[]) {
 }
 
 //--------------------------------------------------------------------
-void plot_hist(string hname, int date) {
+void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas(Form("c1_%s_%i",hname.c_str(),date),
-         Form("%i %s",date,hname.c_str()),0,0,800,800);
+   TCanvas* c1 = new TCanvas(
+         Form("c1_%s_%i",hname.c_str(),date),
+         Form("%i %s",date,hname.c_str()),
+         0, 0, Cx, Cy);
 
    TH1D* hst[10];
    get_hist(date, hname, hst);
@@ -134,29 +136,32 @@ void plot_hist(string hname, int date) {
       pos = 1;
       box = nullptr;
       hst[0]->SetTitle(
-            ";Momentum of #pi^{#plus}, GeV/c"
+            // ";Momentum of #pi^{ #plus}, GeV/c"
+            ";P_{#pi^{#plus}}, GeV/c"
             ";Events/0.005 GeV/c" );
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pim_P" ) {
       pos = 1;
       box = nullptr;
       hst[0]->SetTitle(
-            ";Momentum of #pi^{#minus}, GeV/c"
+            // ";Momentum of #pi^{ #minus}, GeV/c"
+            ";P_{#pi^{#minus}}, GeV/c"
             ";Events/0.005 GeV/c" );
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pip_C") {
       pos = 2;
       hst[0]->SetTitle(
-            ";cos #Theta_{#pi^{#plus}}"
+            ";cos #Theta_{#pi^{ #plus}}"
             ";Events/0.02" );
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Pim_C") {
       pos = 2;
       hst[0]->SetTitle(
-            ";cos #Theta_{#pi^{#minus}}"
+            ";cos #Theta_{#pi^{ #minus}}"
             ";Events/0.02" );
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Bnch") {
+      pos = 1;
       box = nullptr;
       hst[0]->SetTitle(
             ";Number of charged tracks"
@@ -196,21 +201,23 @@ void plot_hist(string hname, int date) {
    if ( pos == 0 ) { // default
       leg = new TLegend(0.53,0.65+0.07*(box==nullptr),0.89,0.89);
    } else if ( pos == 1 ) {
-      leg = new TLegend(0.60,0.75,0.92,0.92);
+      leg = new TLegend(0.60,0.74,0.89,0.89);
    } else if ( pos == 2 ) {
       leg = new TLegend(0.32,0.26,0.68,0.50);
    }
    leg->AddEntry(hst[0],
-         (string("Data ")+to_string(date)).c_str(), "EP");
+         Form("Data %i",date), "EP");
+         // Form("#color[%i]{MC #plus Off-resonance}",
    leg->AddEntry(hst[3],
-         Form("#color[%i]{MC + Continuum}",hst[2]->GetLineColor()),
-         "L");
+         Form("#color[%i]{MC #plus Continuum}",
+            hst[3]->GetLineColor()), "L");
    leg->AddEntry(hst[1],
-         Form("#color[%i]{Continuum}",hst[1]->GetLineColor()),
-         "L");
+         Form("#color[%i]{Continuum}",
+            hst[1]->GetLineColor()), "L");
    if ( box ) {
       leg->AddEntry(box, "Rejection area","F");
    }
+   leg->SetTextSize(0.03);
    leg->Draw();
 
    c1->Update();
@@ -481,9 +488,10 @@ void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[]) {
 }
 
 //--------------------------------------------------------------------
-void plot_One(int date, string var, FILL_H fill_h) {
+void plot_One(int date, string var, FILL_H fill_h,
+      int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   TCanvas* c1 = new TCanvas("c1","...",0,0,Cx,Cy);
 
    string pdf = var+string("_")+to_string(date)+string(".pdf");
    c1->Print((pdf+"[").c_str()); // open pdf-file
@@ -545,26 +553,28 @@ void pipi_dataMC() {
    gStyle->SetOptFit(0);
    gStyle->SetStatFont(62);
    gStyle->SetLegendFont(42);
-   // gStyle->SetLegendTextSize(0.03);
 
    //========================================================
    // set the name of the folder with the root files
    Dir = "prod_v709n3/";
    //========================================================
 
+   // Fig.2-5 (for Mrec(pi+pi-) see MrecFitSB.cc)
+   size_t Cx = 630, Cy = 570; // canvas sizes for memo
+   size_t Cy2 = 600;
    for ( auto date : {2009, 2012, 2021} ) {
-      plot_hist("cosPM",date);
-      plot_hist("invPM",date);
+      // plot_hist("cosPM",date,Cx,Cy);
+      // plot_hist("invPM",date,Cx,Cy);
 
-      plot_hist("Pip_P",date);
-      plot_hist("Pim_P",date);
+      // plot_hist("Pip_P",date,Cx,Cy);
+      // plot_hist("Pim_P",date,Cx,Cy);
 
-      // plot_hist("Bnch",date); // Nch
+      // plot_hist("Bnch",date,Cx,Cy2); // Nch
 
       // slow
-      // plot_One(date,"Nm",fill_Nm);
+      // plot_One(date,"Nm",fill_Nm,Cx,Cy2);
    }
 
    // ugly
-   // plot_hist("Pip_C",2021); // or log see fun()
+   // plot_hist("Pip_C",2021,Cx,Cy); // or log see fun()
 }

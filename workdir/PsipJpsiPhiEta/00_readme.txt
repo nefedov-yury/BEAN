@@ -4,9 +4,9 @@ Scripts for Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
 0) Common headers
 //--------------------------------------------------------------------
-masses.h   -> masses of particles (GeV) from PDG 2021
++masses.h   -> masses of particles (GeV) from PDG 2021
 
-norm.h     -> normalization constants for inclusive MC and for
++norm.h     -> normalization constants for inclusive MC and for
               non-resonance data; BOSS v709
 
 cuts.h     -> List of cuts for
@@ -64,28 +64,28 @@ eta_eff.cc:
 //--------------------------------------------------------------------
 1) Selection Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
-ClonedTrks.cc:
++ ClonedTrks.cc:
 // ClonedTrks.cc - plot pictures for cloned tracks study
 
-pipi_dataMC.cc:
++ pipi_dataMC.cc:
 // plot data distributions vs MC
 // for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
 //      -> VarName_YEAR.pdf
 
-MrecFitSB.cc:
-// Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data
-// using side-band method.
-//    DoFitSB()  -> Mrec_YEAR_fsb.pdf
-// - just plot pictures:
-//    MrecDraw() -> Mrec_YEAR.pdf
++MrecFitSB.cc:
+// * Plot pictures for memo/presentation
+//   MrecDraw() -> Mrec{YEAR}.pdf
+// * Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data using
+//   side-band method
+//   DoFitSB()  -> Mrec{YEAR}_fsb_T{Npol}.pdf
 
-MrecFit.cc:
-// Data fitting by correcting of MC signal and scaling of MC
-// background
++MrecFit.cc:
+// * Data fitting by correcting of MC signal and scaling of
+//   MC background
 //   -> Mrec_{YEAR}_M{MODEL}_T{Npol}_[hohc].pdf
-// - calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
+// * calculate number of J/Psi in Psi' -> J/Psi pi+ pi- decay
 //   and efficiency of selection;
-// - estimate systematic associated with a fit model
+// * estimate systematic associated with a fit model
 
 //--------------------------------------------------------------------
 2) Selection Jpsi -> phi eta
