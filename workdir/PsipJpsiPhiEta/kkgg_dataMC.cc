@@ -1,10 +1,15 @@
+// kkgg_dataMC.cc
 // data vs MC for  Jpsi -> phi eta  selection
-// -> variable_YEAR.pdf
+// -> var_datMC{YEAR}.pdf
 
 // {{{1 helper functions and constants
+// GLOBAL: name of folder with root files
+string Dir;
+
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -30,14 +35,12 @@ void SetHstFace(TH1* hst) {
 
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
-TH1D* get_hist(string fname, string var, string hname, int type=0) {
+TH1D* get_hist(string fname, string var, string hname, int type=0)
 //--------------------------------------------------------------------
+{
 #include "cuts.h"
 
-   // name of folder with root files
-   // static string dir("prod-12/");
-   string dir("prod_v709/");
-   fname = dir + fname;
+   fname = Dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
@@ -97,40 +100,26 @@ TH1D* get_hist(string fname, string var, string hname, int type=0) {
 }
 
 //--------------------------------------------------------------------
-void fill_hists(string var, int date, TH1D* hst[]) {
+void fill_hists(string var, int date, TH1D* hst[])
 //--------------------------------------------------------------------
-   vector<string> fnames = {
-      "data_09psip_all.root",
-      "data_12psip_all.root",
-      "data_21psip_all.root",
-      "mcinc_09psip_all.root",
-      "mcinc_12psip_all.root",
-      "mcinc_21psip_all.root",
-      "mcsig_kkmc_09.root",
-      "mcsig_kkmc_12.root",
-      "mcsig_kkmc_21.root",
-   };
+{
+   string fn, hn;
+   // data
+   fn = string( Form("data_%02ipsip_all.root",date%100) );
+   hn = string( Form("%s_data_%i",var.c_str(),date) );
+   hst[0] = get_hist(fn,var,hn);
+   hst[3] = get_hist(fn,var,hn+"_SB",1); // side-band
 
-   int idx = 0;
-   if ( date == 2012 ) {
-      idx = 1;
-   } else if ( date == 2021 ) {
-      idx = 2;
-   }
-   for( int i = 0; i < 3; i++ ) {
-      string fn = fnames.at(idx+3*i);
-      string::size_type idx = fn.find(".");
-      string hname=fn.substr(0,idx);
-      hst[i] = get_hist(fn,var,hname);
+   // MC inclusive
+   fn = string( Form("mcinc_%02ipsip_all.root",date%100) );
+   hn = string( Form("%s_mcinc_%i",var.c_str(),date) );
+   hst[1] = get_hist(fn,var,hn);
+   hst[4] = get_hist(fn,var,hn+"_BKG",-1); // background
 
-      if ( i == 0 ) { // side-band:
-         hname += "_SB";
-         hst[3] = get_hist(fn,var,hname,1);
-      } else if ( i == 1 ) { // bkg from inclusive MC
-         hname += "_BKG";
-         hst[4] = get_hist(fn,var,hname,-1);
-      }
-   }
+   // MC signal
+   fn = string( Form("mcsig_kkmc_%02i.root",date%100) );
+   hn = string( Form("%s_mcsig_%i",var.c_str(),date) );
+   hst[2] = get_hist(fn,var,hn);
 
    // normaliza MC on data:
    double Ndat = hst[0]->Integral();
@@ -140,23 +129,25 @@ void fill_hists(string var, int date, TH1D* hst[]) {
    double NmcS = hst[2]->Integral();
    hst[2]->Scale( Ndat / NmcS );
 
-   // debug print out:
+   // print estimate of number of background events
    double Nsb = hst[3]->Integral();
-   printf( " N(side-band)= %.1f (%.2f%%)\n", Nsb, 100*Nsb/Ndat );
    double Nbkg = hst[4]->Integral();
-   printf( " N(bkg)= %.1f (%.2f%%)\n", Nbkg, 100*Nbkg/Ndat );
+   printf("%i (%s) | N %5.0f |"
+         "N(SB) %3.0f (%.2f%%) | "
+         "N(bkg) %5.1f (%.2f%%) |\n",
+         date, var.c_str(), Ndat,
+         Nsb, 100*Nsb/Ndat,
+         Nbkg, 100*Nbkg/Ndat
+         );
 }
 
 // {{{1 Plot variables
 //--------------------------------------------------------------------
-void plot_var(string var, int date, string pdf) {
+void plot_var(string var, int date, int Cx=600, int Cy=600)
 //--------------------------------------------------------------------
+{
    TH1D* hst[10];
    fill_hists( var, date, hst);
-
-   // double max_dat = hst[0]->GetMaximum();
-   // double max_mc  = hst[1]->GetMaximum();
-   // double max_sig = hst[2]->GetMaximum();
 
    TLegend* leg = new TLegend(0.59,0.74,0.89,0.89);
    if ( var == "Cgg" ) {
@@ -167,7 +158,8 @@ void plot_var(string var, int date, string pdf) {
       hst[0]->SetMaximum( 1.35 * hst[0]->GetMaximum() );
    }
 
-   TCanvas* c1 = new TCanvas("c1","note",0,0,900,900);
+   auto name = Form("c1_%s_%i",var.c_str(),date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
 
    c1->cd();
    gPad->SetGrid();
@@ -214,31 +206,34 @@ void plot_var(string var, int date, string pdf) {
 
    gPad->RedrawAxis();
    c1->Update();
+
+   string pdf( Form("%s_datMC%02i.pdf",var.c_str(),date%100) );
    c1->Print(pdf.c_str());
 }
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void kkgg_dataMC() {
+void kkgg_dataMC()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
 
-   // fig.12
-   // plot_var("Pgg",2009, "Pgg_datMC09.pdf");
-   // plot_var("Cgg", 2009, "Cgg_datMC09.pdf");
-   // plot_var("Pgg",2012, "Pgg_datMC12.pdf");
-   // plot_var("Cgg", 2012, "Cgg_datMC12.pdf");
-   // plot_var("Pgg",2021, "Pgg_datMC21.pdf");
-   // plot_var("Cgg", 2021, "Cgg_datMC21.pdf");
+   //========================================================
+   // set the name of the folder with the root files
+   Dir = "prod_v709n3/";
+   //========================================================
 
-   // fig.13
-   // plot_var("Pk",2009, "Pk_datMC09.pdf");
-   // plot_var("Ck",2009, "Ck_datMC09.pdf");
-   // plot_var("Pk",2012, "Pk_datMC12.pdf");
-   // plot_var("Ck",2012, "Ck_datMC12.pdf");
-   // plot_var("Pk",2021, "Pk_datMC21.pdf");
-   // plot_var("Ck",2021, "Ck_datMC21.pdf");
+   size_t Cx = 800, Cy = 750; // canvas sizes
 
+   for ( int date : {2009, 2012, 2021} ) {
+      // fig.12 ?
+      // plot_var("Pgg", date, Cx, Cy);
+      // plot_var("Cgg", date, Cx, Cy);
+
+      // fig.13 ?
+      // plot_var("Pk", date, Cx, Cy);
+      // plot_var("Ck", date, Cx, Cy);
+   }
 }

@@ -1,18 +1,23 @@
+// mass_2D.cc
 // 1) plot M(gamma,gamma) vs M(K+K-)
-//    -> Mass2D_XXXX.pdf;
+//    -> Mass2D_{data|mcinc}{Year}.pdf;
 //
 // 2) Dalitz plots (for >=prod-9m)
 //    after 4C kinematic fit and chi^2 cut
 //      type = 1 M^2(K-eta) vs M^2(K+eta)
 //      type = 2 M^2(K+K-) vs M^2(K+eta)
-//    -> Dalitz_xxx.pdf
+//    -> Dalitz{type}_{data|mcinc}{Year}.pdf
 
 #include "masses.h"
 
 // {{{1 helper functions and constants
+// GLOBAL: name of folder with root files
+string Dir;
+
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -36,9 +41,12 @@ void SetHstFace(TH1* hst) {
    }
 }
 
+// {{{1 plot 1D - M(gg) & M(KK)
 //--------------------------------------------------------------------
-void plot_Mgg(string fname, string title, string pdf="") {
+void plot_Mgg(string fname, string title, string pdf="",
+      int Cx=800, int Cy=800)
 //--------------------------------------------------------------------
+{
 #include "cuts.h"
 
    gStyle->SetOptStat(0);
@@ -52,13 +60,14 @@ void plot_Mgg(string fname, string title, string pdf="") {
    froot->cd("PsipJpsiPhiEta");
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
    TH1D* mgg = new TH1D("mgg", ";M(#gamma#gamma)",
-                        400, 0.0, 1.1);   // gg
+         400, 0.0, 1.1);   // gg
    TCut c_here = c_Mrec+c_chi2;
    c_here += TCut("1.4<Mkk&&Mkk<1.85");
 
    a4c->Draw("Mgg>>mgg",c_here,"goff");
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   auto name = Form("c1_gg_%s",pdf.c_str());
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
 
    c1->cd();
    gPad->SetGrid();
@@ -77,8 +86,10 @@ void plot_Mgg(string fname, string title, string pdf="") {
 }
 
 //--------------------------------------------------------------------
-void plot_Mkk(string fname, string title, string pdf="") {
+void plot_Mkk(string fname, string title, string pdf="",
+      int Cx=800, int Cy=800)
 //--------------------------------------------------------------------
+{
 #include "cuts.h"
 
    gStyle->SetOptStat(0);
@@ -92,13 +103,14 @@ void plot_Mkk(string fname, string title, string pdf="") {
    froot->cd("PsipJpsiPhiEta");
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
    TH1D* mkk = new TH1D("mkk",
-                        ";M(K^{#plus}K^{#minus})",
-                        100, 0.9, 2.1  );// KK
+         ";M(K^{#plus}K^{#minus})",
+         100, 0.9, 2.1  );// KK
    TCut c_here = c_Mrec+c_chi2;
    c_here += c_cpgg;
    a4c->Draw("Mkk>>mkk",c_here,"goff");
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   auto name = Form("c1_kk_%s",pdf.c_str());
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
 
    c1->cd();
    gPad->SetGrid();
@@ -118,8 +130,10 @@ void plot_Mkk(string fname, string title, string pdf="") {
 
 // {{{1 2D: M(KK) vs M(gg)
 //--------------------------------------------------------------------
-void plot_2D(string fname, string title, string pdf="") {
+void plot_2D(string fname, string title, string pdf="",
+      int Cx=873, int Cy=800)
 //--------------------------------------------------------------------
+{
 #include "cuts.h"
 
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -139,7 +153,8 @@ void plot_2D(string fname, string title, string pdf="") {
 
    a4c->Draw("Mkk:Mgg>>m2d",c_Mrec+c_chi2,"goff");
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,873,800);
+   auto name = Form("c2_%s",pdf.c_str());
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
 
    c1->cd();
    SetHstFace(m2d);
@@ -148,7 +163,19 @@ void plot_2D(string fname, string title, string pdf="") {
    m2d->SetMarkerStyle(20);
    m2d->SetMarkerSize(0.3);
 
-   m2d->Draw();
+   // m2d->Draw("SCAT"); // depricated in root6.30
+   gPad->SetLogz();
+   m2d->Draw("COLZ0"); // show 0 bins
+
+   c1->Update();
+   // scale width of palette
+   TPaletteAxis * palette =
+      (TPaletteAxis *) m2d->GetListOfFunctions()->FindObject("palette");
+   if ( palette ) {
+      palette->SetX2NDC(0.93);
+      c1->Modified();
+      c1->Update();
+   }
 
    TEllipse* l = new TEllipse;
    l->SetLineColor(kRed+1);
@@ -180,18 +207,11 @@ void plot_2D(string fname, string title, string pdf="") {
 // type = 1 M^2(K-eta) vs M^2(K+eta)
 // type = 2 M^2(K+K-) vs M^2(K+eta)
 //--------------------------------------------------------------------
-void plot_Dalitz(string fname,int type,string title,string pdf="") {
+void plot_Dalitz(string fname, string title, int type, string pdf="",
+      int Cx=873, int Cy=800)
 //--------------------------------------------------------------------
+{
 #include "cuts.h"
-
-   if ( type == 1 ) {
-      pdf = string("Dalitz_") + pdf;
-   } else if ( type == 2 ) {
-      pdf = string("Dalitz2_") + pdf;
-   } else {
-      cerr << "wrong type= " << type << endl;
-      exit(EXIT_FAILURE);
-   }
 
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -218,7 +238,8 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
    cout << n << endl;
    n = min(n,65000); // > 10*Ndata12
 
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   auto name = Form("c2d_%s",pdf.c_str());
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
 
    c1 -> cd();
    // gPad -> SetGrid();
@@ -230,12 +251,12 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
    gr -> GetXaxis() -> SetLimits(0.,7.);
    if ( type == 1 ) {
       gr -> SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
-                     ";M^{2}(K^{#minus}#eta), GeV^{2}/c^{4}");
+            ";M^{2}(K^{#minus}#eta), GeV^{2}/c^{4}");
       gr -> GetHistogram() -> SetMinimum(0.);
       gr -> GetHistogram() -> SetMaximum(7.);
    } else if ( type == 2 ) {
       gr -> SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
-                     ";M^{2}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}");
+            ";M^{2}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}");
       gr -> GetHistogram() -> SetMinimum(0.);
       gr -> GetHistogram() -> SetMaximum(7.);
    }
@@ -258,82 +279,50 @@ void plot_Dalitz(string fname,int type,string title,string pdf="") {
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void mass_2D() {
+void mass_2D()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetStatFont(62);
    gStyle->SetLegendFont(42);
 
-   vector<string> fnames = {
-      "data_09psip_all.root",
-      "data_12psip_all.root",
-      "data_21psip_all.root",
-      "data_3650_all.root",
-      "mcinc_09psip_all.root",
-      "mcinc_12psip_all.root",
-      "mcinc_21psip_all.root",
-      "mcsig_kkmc_09.root",
-      "mcsig_kkmc_12.root",
-      "mcsig_kkmc_21.root",
-   };
-      // "mckketa_kkmc_09.root",
-      // "mckketa_kkmc_12.root"
+   //========================================================
+   // set the name of the folder with the root files
+   Dir = "prod_v709n3/";
+   //========================================================
 
-   vector<string> titles = {
-      "Data 2009",
-      "Data 2012",
-      "Data 2021",
-      "E=3.65 GeV",
-      "MC inclusive 2009",
-      "MC inclusive 2012",
-      "MC inclusive 2021",
-      "MC signal #phi#eta 2009",
-      "MC signal #phi#eta 2012",
-      "MC signal #phi#eta 2021",
-   };
-      // "MC non-#phi KK#eta 2009",
-      // "MC non-#phi KK#eta 2012"
+   size_t Cx = 770, Cy = 700; // canvas sizes
 
-   // string dir = string("prod-12/");
-   string dir("prod_v709/");
+   // Mass2D, fig.9 (TODO)
+   // for ( int date : {2009, 2012, 2021} ) {
+   for ( int date : {2021}) {
+      // DATA
+      string fnd( Form("data_%02ipsip_all.root",date%100) );
+      string titd( Form("Data %d",date) );
+      string pdfd( Form("Mass2D_data%d.pdf",date%100) );
+      plot_2D(Dir+fnd, titd, pdfd, Cx, Cy);
+      // MC incl.
+      string fnm( Form("mcinc_%02ipsip_all.root",date%100) );
+      string titm( Form("MC inclusive %d",date) );
+      string pdfm( Form("Mass2D_mcinc%d.pdf",date%100) );
+      plot_2D(Dir+fnm, titm, pdfm, Cx, Cy);
 
-   bool Mass2D = true;          // <--- Mass2D/Dalitz
-   vector<int> list {0,1,2, 4,5,6};
-   if ( !Mass2D ) {
-      list = {0,1,2};
+      // OLD: 1D-plots
+      // plot_Mgg(Dir+fnd, titd);
+      // plot_Mkk(Dir+fnd, titd);
    }
 
-   for (int iset : list) {
-      string fn = fnames.at(iset);
-      string::size_type idx = fn.find("_");
-      string fname = dir + fn;
-
-      if (Mass2D) {
-         // Mass2D .. fig.9
-         string pdf = string("Mass2D_") + fn.substr(0,idx)
-                      + fn.substr(idx+1,2) + ".pdf";
-         plot_2D(fname, titles[iset], pdf);
-      } else {
-         // Dalitz .. fig.14
-         string pdf = fn.substr(0,idx);
-         if ( iset < 5 ) {
-            pdf += fn.substr(idx+1,2) + ".pdf";
-         } else {
-            pdf += fn.substr(idx+6,2) + ".pdf";
-         }
-         // type = 1 M^2(K-eta) vs M^2(K+eta)
-         // type = 2 M^2(K+K-) vs M^2(K+eta)
-         int type = 1;
-         plot_Dalitz(fname, type, titles[iset], pdf);
-      }
-
-      gSystem->ProcessEvents(); //Process pending events
-      if ( iset != list.back() ) {
-         getchar(); // pause
-      }
-   }
-
-   // plot_Mgg(fname, titles.at(iset)); //, "Mgg_09.pdf");
-   // plot_Mkk(fname, titles.at(iset));
+   // Dalitz, fig.14 (?)
+   // type = 1 M^2(K-eta) vs M^2(K+eta)
+   // type = 2 M^2(K+K-) vs M^2(K+eta)
+   int type = 1;
+   // for ( int date : {2009, 2012, 2021} ) {
+   // for ( int date : {2021}) {
+      // // DATA
+      // string fnd( Form("data_%02ipsip_all.root",date%100) );
+      // string titd( Form("Data %d",date) );
+      // string pdfd( Form("Dalitz%i_data%d.pdf",type,date%100) );
+      // plot_Dalitz(Dir+fnd, titd, type, pdfd, Cx, Cy);
+   // }
 }

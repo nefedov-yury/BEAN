@@ -39,8 +39,8 @@
    Double_t        mcmkk;
    Double_t        mcmkpet;
    Double_t        mccosT;
-   string          *sdecp;
-   string          *sdecj;
+   string*         sdecp;
+   string*         sdecj;
 
    // Set branch addresses.
    a4c->SetBranchAddress("Mrec",&Mrec);

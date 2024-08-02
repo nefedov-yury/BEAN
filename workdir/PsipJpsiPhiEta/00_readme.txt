@@ -9,7 +9,7 @@ Scripts for Psi' -> Jpsi pi+pi-
 +norm.h     -> normalization constants for inclusive MC and for
               non-resonance data; BOSS v709
 
-cuts.h     -> List of cuts for
++cuts.h     -> List of cuts for
               1) Psi' -> J/Psi pi+ pi-
               2) J/Psi -> phi eta
 
@@ -92,32 +92,36 @@ eta_eff.cc:
 //           see ../phieta/ with such scripts for J/Psi scan data
 //--------------------------------------------------------------------
 
-mass_2D.cc:
+// + bkg.mc
+// tables of decay Psi(2S) -> J/Psi -> final state,
+// to study background; use inclusive MC or sigbal MC
+
+// + mass_2D.cc
 // 1) plot M(gamma,gamma) vs M(K+K-)
-//    -> Mass2D_XXXX.pdf;
+//    -> Mass2D_{data|mcinc}{Year}.pdf;
 //
 // 2) Dalitz plots (for >=prod-9m)
 //    after 4C kinematic fit and chi^2 cut
 //      type = 1 M^2(K-eta) vs M^2(K+eta)
 //      type = 2 M^2(K+K-) vs M^2(K+eta)
-//    -> Dalitz_xxx.pdf
+//    -> Dalitz{type}_{data|mcinc}{Year}.pdf
 
-mass_eta.cc:
-// plot M(gamma gamma) distributions
-// after 4C kinematic fit and chi^2 cut
-// -> mass_eta.pdf
+// +mass_eta.cc
+// plot M(gamma gamma) distributions for data and MC
+// fit central part, show side-bands
+// -> mass_eta_{dat|mi|mc}_{YEAR}.pdf
 
-chi2_Pr.cc:
-// plot chi2 of the kinematic fit
-// 1) data vs signal MC in the window for M(K+K-) and M(gg)
-//    -> chi2_sb_YEAR.pdf
+// +chi2_Pr.cc
+// plot chi2 of the 5C kinematic constrints
+// 1) data (CP and SB) vs signal MC for M(K+K-) < 1.08
+//    -> chi2_sb_{YEAR}.pdf
 //
-// 2) data vs inclusive MC
-//    -> chi2_YEAR.pdf
+// 0) optimization of chi2: Sig/sqrt(Sig+Bkg) vs ch2
+//    -> chi2opt_{YEAR}.pdf
 
-kkgg_dataMC.cc:
+// +kkgg_dataMC.cc
 // data vs MC for  Jpsi -> phi eta  selection
-// -> variable_YEAR.pdf
+// -> var_datMC{YEAR}.pdf
 
 mass_kk.cc: (do we need it?)
 // plot M(K+K-) for data, inclusive MC, signal MC and MC KKeta
