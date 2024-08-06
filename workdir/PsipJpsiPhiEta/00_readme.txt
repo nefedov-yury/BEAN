@@ -20,30 +20,31 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 //-------------------------------
 // K & Pi track+PID efficiencies
 //-------------------------------
-+ RewTrkPiK.hpp:
-// RewTrkPiK.hpp - functions with corrections for the efficiency of
-// Kaon/Pion reconstruction,including PID, for the MC events
+// +RewTrkPiK.hpp
+// RewTrkPiK() and RewTrk_K() functions for correction of
+// reconstruction efficiency, including PID, kaons and pions.
+// This is for Monte Carlo events.
 
-+ trk_eff_sel.cc:
-// Pictures for presentation/memo
-// Study of the track reconstruction efficiency for pi and K
+// +trk_eff_sel.cc
+// Study of the efficiency of reconstruction of pion and kaon tracks.
+// Pictures for event selection.
 
-+trk_eff_fit.cc:
-// The reconstruction efficiency (data and MC)
-// and their ratio (data/MC) for pions and kaons.
-// Get corrections as function of P_t and Z.
+// +trk_eff_fit.cc
+// * The reconstruction efficiency (data and MC) and their ratio
+//   (data/MC) for pions and kaons.
+//   Get corrections as function of P_t and Z.
 //
-// Kolmogorov–Smirnov  && Chi2 probability tests to
-// compare the ratios for K+ and K- (pi+ and pi-)
+// * Kolmogorov–Smirnov && Chi2 probability tests to compare the
+//   ratios for K+ and K- (pi+ and pi-)
 
 +trk_eff_spl.py:
 # [1] Smoothing splines:
 #     https://docs.scipy.org/doc/scipy/tutorial/
 #     interpolate/smoothing_splines.html
 
-+ git trk_eff_wts.cc:
-// trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
-// -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
+// + trk_eff_wts.cc
+// plot weights for K+K- and pi+ pi- pairs:
+// -> wts_{KK|PiPi}_{YEAR}.pdf
 
 //-----------------------------------------
 // eta->2gamma reconstruction efficiencies
@@ -51,14 +52,14 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // RewEtaEff.hpp - function with correction for efficiency of
 // reconstruction Eta for MC events
 
-eta_eff_sel.cc:
-// eta_eff_sel.cc - Pictures for presentation/memo
+// + eta_eff_sel.cc
 // Study of the eta->2gamma reconstruction efficiency
+// Pictures for event selection.
 
-eta_eff.cc:
-// eta_eff.cc: Study of the eta -> 2gamma reconstruction efficiency
-//             and single photon rec.efficiency
-// -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
+// + eta_eff.cc
+// Study of the eta -> 2gamma reconstruction efficiency
+// and single photon rec.efficiency
+// -> etaeff_{geta|phieta}_{efficiency or ratio variable}_{YEAR}.pdf
 
 
 //--------------------------------------------------------------------
@@ -123,10 +124,11 @@ eta_eff.cc:
 // data vs MC for  Jpsi -> phi eta  selection
 // -> var_datMC{YEAR}.pdf
 
-mass_kk.cc: (do we need it?)
-// plot M(K+K-) for data, inclusive MC, signal MC and MC KKeta
-// cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
-// -> mass_kk_YEAR.pdf
+// +mass_kk.cc
+// plot M(K+K-) for data and signal MC for Mgg in central and side
+// bands.
+//      -> mass_kk_{YEAR}.pdf
+//      -> mass_kksb_{YEAR}.pdf
 
 //--------------------------------------------------------------------
 // 2a) Study M(K+K-)

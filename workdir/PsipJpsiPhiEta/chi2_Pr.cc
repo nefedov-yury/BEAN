@@ -389,7 +389,7 @@ void chi2_Pr()
    Dir = "prod_v709n3/";
    //========================================================
 
-   size_t Cx = 800, Cy = 750; // canvas sizes
+   size_t Cx = 880, Cy = 760; // canvas sizes
 
    // 0) optimization of chi2-cut
    //    type=0: Sig/sqrt(Sig+Bkg)  = (Data-SB)/sqrt(Data)
@@ -401,12 +401,11 @@ void chi2_Pr()
       // chi2opt(date,type,pdf,Cx,Cy);
    // }
 
-   // 1) data vs signal MC in the window for M(K+K-) .. fig.11
-   // for ( int date : {2009, 2012, 2021} ) {
-   // for ( int date : { 2021} ) {
-      // string pdf( Form("chi2_sb_%i.pdf",date) );
-      // chi2_SB(date,pdf,Cx,Cy);
-   // }
+   // 1) data vs signal MC in the window for M(K+K-) .. fig.10
+   for ( int date : {2009, 2012, 2021} ) {
+      string pdf( Form("chi2_sb_%i.pdf",date) );
+      chi2_SB(date,pdf,Cx,Cy);
+   }
 
    // 2) data vs inclusive MC: OLD
    // for ( int date : {2009, 2012, 2021} ) {

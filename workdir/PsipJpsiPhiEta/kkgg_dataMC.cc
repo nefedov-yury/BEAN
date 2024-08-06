@@ -225,15 +225,15 @@ void kkgg_dataMC()
    Dir = "prod_v709n3/";
    //========================================================
 
-   size_t Cx = 800, Cy = 750; // canvas sizes
+   size_t Cx = 880, Cy = 760; // canvas sizes
 
    for ( int date : {2009, 2012, 2021} ) {
-      // fig.12 ?
+      // fig.11 (eta)
       // plot_var("Pgg", date, Cx, Cy);
       // plot_var("Cgg", date, Cx, Cy);
 
-      // fig.13 ?
-      // plot_var("Pk", date, Cx, Cy);
-      // plot_var("Ck", date, Cx, Cy);
+      // fig.12
+      plot_var("Pk", date, Cx, Cy);
+      plot_var("Ck", date, Cx, Cy);
    }
 }

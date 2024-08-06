@@ -1,5 +1,6 @@
-// trk_eff_sel.cc - Pictures for presentation/memo
-// Study of the track reconstruction efficiency for pi and K
+// trk_eff_sel.cc
+// Study of the efficiency of reconstruction of pion and kaon tracks.
+// Pictures for event selection.
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -1490,38 +1491,38 @@ void trk_eff_sel() {
    size_t Cx = 880, Cy = 800; // canvas sizes
 
    for ( auto date : {2009, 2012, 2021} ) {
-      // -- pi0 rejection, fig.28
+      // -- pi0 rejection, fig.A1
       // plot_pi0(date,Cx,Cy);
 
       // ---- K+ K- ----
-      // fig 29
+      // fig A2
       // plot_MmisK(date,Cx,Cy);
 
-      // fig 30,31
+      // fig A3,A4
       // plot_PtKp(date,Cx,Cy);
       // plot_PtKm(date,Cx,Cy);
       // plot_CKp(date,Cx,Cy);
       // plot_CKm(date,Cx,Cy);
 
-      // fig 32
+      // fig A5
       // plot_dThK(date,Cx,Cy);
       // plot_dPK(date,Cx,Cy);
 
       // ---- pi+ pi- ----
-      // fig 33
+      // fig A6
       // plot_MinvJ(date,Cx,Cy);
       // plot_MinvJ(date,Cx,Cy,true); // fit J/Psi peak position
 
-      // fig 34
+      // fig A7
       // plot_MmisP(date,Cx,Cy);
 
-      // fig 35,36
+      // fig A8,A9
       // plot_PtPip(date,Cx,Cy);
       // plot_PtPim(date,Cx,Cy);
       // plot_CPip(date,Cx,Cy);
       // plot_CPim(date,Cx,Cy);
 
-      // fig 37
+      // fig A10
       // plot_dThPi(date,Cx,Cy);
       // plot_dPpi(date,Cx,Cy);
    }

@@ -280,11 +280,10 @@ void mass_eta()
    Dir = "prod_v709n3/";
    //========================================================
 
-   size_t Cx = 800, Cy = 750; // canvas sizes
+   size_t Cx = 880, Cy = 760; // canvas sizes
 
    for ( int date : {2009, 2012, 2021} ) {
-   // for ( int date : {2021} ) {
-      for ( int mc : {0,1,2} ) {
+      for ( int mc : {0,2} ) { // data, MC-sig
          plot_mass_eta(date, mc, Cx, Cy); // memo
       }
    }

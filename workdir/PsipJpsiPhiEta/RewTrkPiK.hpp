@@ -1,5 +1,7 @@
-// RewTrkPiK.hpp - functions with corrections for the efficiency of
-// Kaon/Pion reconstruction,including PID, for the MC events
+// RewTrkPiK.hpp
+// RewTrkPiK() and RewTrk_K() functions for correction of
+// reconstruction efficiency, including PID, kaons and pions.
+// This is for Monte Carlo events.
 
 // {{{1 Common function for calculating B-splines
 //--------------------------------------------------------------------

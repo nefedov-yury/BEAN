@@ -1,5 +1,6 @@
-// trk_eff_wts.cc - plot weights for K+K- and pi+ pi- pairs:
-// -> wts_KK_${date}.pdf; wts_PiPi_${date}.pdf;
+// trk_eff_wts.cc
+// plot weights for K+K- and pi+ pi- pairs:
+// -> wts_{KK|PiPi}_{YEAR}.pdf
 
 #include "RewTrkPiK.hpp"    // RewTrk functions with HC
 

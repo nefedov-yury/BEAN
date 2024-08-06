@@ -1,5 +1,6 @@
-// eta_eff_sel.cc - Pictures for presentation/memo
+// eta_eff_sel.cc
 // Study of the eta->2gamma reconstruction efficiency
+// Pictures for event selection.
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -30,14 +31,15 @@ struct Params {
    TCut Cph;    // cuts for selection photons
    TCut Ceta;   // cuts for selection eta
 
-   const double Br_eta_2gamma = 0.3936; // PDG 2023
-   const double Br_phi_KK = 0.491; // PDG 2023
+   const double Br_eta_2gamma = 0.3936; // PDG
+   const double Br_phi_KK = 0.491; // PDG
 };
 
 // {{{2 > ctor
 //--------------------------------------------------------------------
-Params::Params(int dat, int slc = 2, int rew = 0) {
+Params::Params(int dat, int slc = 2, int rew = 0)
 //--------------------------------------------------------------------
+{
    date = dat;
    slct = slc;
    use_rew = rew;
@@ -89,8 +91,9 @@ Params::Params(int dat, int slc = 2, int rew = 0) {
 
 // {{{2 > OpenFile(mc = 0: data, 1: MC inc, 2: MC-signal)
 //--------------------------------------------------------------------
-TFile* Params::OpenFile(int mc) {
+TFile* Params::OpenFile(int mc)
 //--------------------------------------------------------------------
+{
    string dfname = Dir;
    if ( mc == 0 ) {
       dfname += datafile;
@@ -119,8 +122,9 @@ TFile* Params::OpenFile(int mc) {
 
 // {{{2 > GetEffEta : root-tree for eta
 //--------------------------------------------------------------------
-TTree* Params::GetEffEta(int mc = 0) {
+TTree* Params::GetEffEta(int mc = 0)
 //--------------------------------------------------------------------
+{
    TFile* froot = this->OpenFile(mc);
    TTree* eff_eta = (TTree*)gDirectory->Get("eff_eta");
    if ( !eff_eta ) {
@@ -132,43 +136,61 @@ TTree* Params::GetEffEta(int mc = 0) {
 
 // {{{2 > W_g_eta() & W_phi_eta()
 //--------------------------------------------------------------------
-double Params::W_g_eta() { // wights for MC-gamma-eta
+double Params::W_g_eta() // wights for MC-gamma-eta
 //--------------------------------------------------------------------
+{
    // normalization on numbers in "official inclusive MC"
-   // 664: ((date==2012) ? (137258./5e5) : (35578./1.5e5))
+   // decay code for J/Psi -> gamma eta is 22;
+   // BOSS-664: ((date==2012) ? (137258./5e5) : (35578./1.5e5))
    double W = 1;
    switch (date) {
-      case 2009: W =  41553./150e3; break;
-      case 2012: W = 130865./500e3; break;
-      case 2021: W = 883676./2.5e6; break;
+      case 2009:
+         W =  41553./150e3; // 0.28
+         break;
+      case 2012:
+         W = 130865./500e3; // 0.26
+         break;
+      case 2021:
+         W = 883676./2.5e6; // 0.35
+         break;
    }
    return W;
 }
 
 //--------------------------------------------------------------------
-double Params::W_phi_eta() { // wights for MC-sig
+double Params::W_phi_eta() // wights for MC-sig
 //--------------------------------------------------------------------
+{
    // normalization on numbers in "official inclusive MC"
-   // 664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
+   // decay code for J/Psi -> phi eta is 68;
+   // BOSS-664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
    double W = 1;
    switch (date) {
-      case 2009: W =  27547./150e3; break;
-      case 2012: W =  89059./500e3; break;
-      case 2021: W = 598360./2.5e6; break;
+      case 2009:
+         W =  27547./150e3; // 0.18
+         break;
+      case 2012:
+         W =  89059./500e3; // 0.18
+         break;
+      case 2021:
+         W = 598360./2.5e6; // 0.24
+         break;
    }
    return W * Br_phi_KK;
 }
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
-constexpr double SQ(double x) {
+constexpr double SQ(double x)
 //--------------------------------------------------------------------
+{
    return x*x;
 }
 
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -195,9 +217,10 @@ void SetHstFace(TH1* hst) {
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
 void get_hst( Params* p, int mc,
-      const vector<string> hns, vector<TH1D*>& hst ) {
+      const vector<string>& hns, vector<TH1D*>& hst )
 //--------------------------------------------------------------------
-// read set of histograms to "hst" according of names "hns"
+{
+   // read set of histograms to "hst" according of names "hns"
 
    int Nh = hns.size();
    hst.clear();
@@ -223,8 +246,9 @@ void get_hst( Params* p, int mc,
 
 // {{{1 Plot pi0
 //--------------------------------------------------------------------
-void plot_pi0(int date, int Cx = 800, int Cy = 800) {
+void plot_pi0(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    vector<string> hndat {"Mg2_pi0"};
@@ -289,7 +313,8 @@ void plot_pi0(int date, int Cx = 800, int Cy = 800) {
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[1], "MC signal","F");
+   // leg->AddEntry(hmc[1], "MC signal","F");
+   leg->AddEntry(hmc[1], "MC signal #gamma#eta","F");
    leg->AddEntry(box, "Rejection area","F");
    leg->Draw();
 
@@ -301,8 +326,9 @@ void plot_pi0(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 ++ J/Psi -> gamma eta ++ Plot recoil mass pi+pi-gamma
 //--------------------------------------------------------------------
-void plot_Mpipig(int date, int Cx = 800, int Cy = 800) {
+void plot_Mpipig(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    vector<string> hndat {"Mrg2"};
@@ -398,7 +424,8 @@ void plot_Mpipig(int date, int Cx = 800, int Cy = 800) {
    TLegend* leg = new TLegend(0.12,0.65,0.42,0.89);
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[1], "MC signal","L");
+   // leg->AddEntry(hmc[1], "MC signal","L");
+   leg->AddEntry(hmc[1], "MC signal #gamma#eta","L");
    leg->AddEntry(hmc[2], "MC background","L");
    leg->AddEntry(hmc[0], "MC total","L");
    leg->AddEntry(box, "Rejection area","F");
@@ -412,8 +439,9 @@ void plot_Mpipig(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot invariant mass of 2nd photon and «missing photon»
 //--------------------------------------------------------------------
-void plot_Minv2g(int date, int Cx = 800, int Cy = 800) {
+void plot_Minv2g(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    vector<string> hndat {"Mgg2_a"};
@@ -441,7 +469,8 @@ void plot_Minv2g(int date, int Cx = 800, int Cy = 800) {
 
    double bg = hmc[2]->Integral(84,113); // [bin1,bin2]
    double sum = hmc[0]->Integral(84,113);
-   printf(" %i %s background is %.2f%%\n",date,__func__,bg/sum*100);
+   printf("%i %s bkg: %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral(84,113)/hmc[0]->Integral(84,113);
@@ -513,8 +542,9 @@ void plot_Minv2g(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot missing mass of pi+ pi- gamma gamma
 //--------------------------------------------------------------------
-void plot_M2mis(int date, int Cx = 800, int Cy = 800) {
+void plot_M2mis(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    vector<string> hndat {"M2fr_min"};
@@ -542,8 +572,9 @@ void plot_M2mis(int date, int Cx = 800, int Cy = 800) {
    double bg = hmc[2]->Integral(1,10); // [bin1,bin2]
    double sum = hmc[0]->Integral(1,10);
    double bg_g = hmc[1]->Integral(1,10) - hmc[3]->Integral(1,10);
-   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
-         date,__func__,bg/sum*100,bg_g/sum*100);
+   printf("%i %s bkg: %.2f+/-%.2f%%, wrong gamma: %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_g/sum*100, sqrt(bg_g)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral(1,10) / hmc[0]->Integral(1,10);
@@ -616,8 +647,9 @@ void plot_M2mis(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot E of gamma from decay eta->2gamms
 //--------------------------------------------------------------------
-void plot_Eg(int date, int Cx = 800, int Cy = 800) {
+void plot_Eg(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    auto hst = [](string nm) {
@@ -655,14 +687,16 @@ void plot_Eg(int date, int Cx = 800, int Cy = 800) {
    hmc[1]->Scale( par->W_g_eta() );
    hmc[3]->Scale( par->W_g_eta() );
 
-   double bg = hmc[2]->Integral(5,34); // [bin1,bin2]
-   double sum = hmc[0]->Integral(5,34);
-   double bg_g = hmc[3]->Integral(5,34);
-   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
-         date,__func__,bg/sum*100,bg_g/sum*100);
+   int bm = 5; // 1 + 0.2/0.05
+   double bg = hmc[2]->Integral(bm,34); // [bin1,bin2]
+   double sum = hmc[0]->Integral(bm,34);
+   double bg_g = hmc[3]->Integral(bm,34);
+   printf("%i %s bkg: %.2f+/-%.2f%%, wrong gamma: %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_g/sum*100, sqrt(bg_g)/sum*100);
 
    // normalization on DATA
-   double scale = hdat[0]->Integral(5,34) / hmc[0]->Integral(5,34);
+   double scale = hdat[0]->Integral(bm,34) / hmc[0]->Integral(bm,34);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -730,8 +764,9 @@ void plot_Eg(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot: match Energy and Theta
 //--------------------------------------------------------------------
-void plot_rE(int date, int Cx = 800, int Cy = 800) {
+void plot_rE(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    vector<string> hndat {"rE"}; // bug in binning in prod-12!!!
@@ -882,8 +917,9 @@ void plot_dTh(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot of Mgg
 //--------------------------------------------------------------------
-void plot_Mgg(int date, int Cx = 800, int Cy = 800) {
+void plot_Mgg(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    auto hst = [](string nm) {
@@ -957,7 +993,8 @@ void plot_Mgg(int date, int Cx = 800, int Cy = 800) {
    hdat[0]->SetMarkerStyle(20);
    double ymax = 1.12 * hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   double Mmin = meta-weta, Mmax = meta+weta;
+   // double Mmin = meta-weta, Mmax = meta+weta;
+   double Mmin = meta-2*0.008, Mmax = meta+2*0.008;
    hdat[0]->Fit(gs,"QM","",Mmin,Mmax);
    hdat[0]->Draw("E");
 
@@ -992,8 +1029,9 @@ void plot_Mgg(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot predicted P(eta) and cos(Theta(eta))
 //--------------------------------------------------------------------
-void plot_Peta(int date, int Cx = 800, int Cy = 800) {
+void plot_Peta(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    auto hst = [](string nm) {
@@ -1033,8 +1071,10 @@ void plot_Peta(int date, int Cx = 800, int Cy = 800) {
    double bg = hmc[2]->Integral(6,45); // [bin1,bin2]
    double sum = hmc[0]->Integral(6,45);
    double bg_g = hmc[3]->Integral(6,45);
-   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
-         date,__func__,bg/sum*100,bg_g/sum*100);
+   printf("%i %s background is %.2f+/-%.2f%%, "
+         "wrong gamma %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_g/sum*100, sqrt(bg_g)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1043,7 +1083,8 @@ void plot_Peta(int date, int Cx = 800, int Cy = 800) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_peta_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1088,8 +1129,9 @@ void plot_Peta(int date, int Cx = 800, int Cy = 800) {
 }
 
 //--------------------------------------------------------------------
-void plot_Ceta(int date, int Cx = 800, int Cy = 800) {
+void plot_Ceta(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    int Nbins = 40;
@@ -1130,8 +1172,10 @@ void plot_Ceta(int date, int Cx = 800, int Cy = 800) {
    double bg = hmc[2]->Integral(3,38); // [bin1,bin2]
    double sum = hmc[0]->Integral(3,38);
    double bg_g = hmc[3]->Integral(3,38);
-   printf(" %i %s background is %.2f%% + wrong gamma %.2f%%\n",
-         date,__func__,bg/sum*100,bg_g/sum*100);
+   printf("%i %s background is %.2f+/-%.2f%%, "
+         "wrong gamma %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_g/sum*100, sqrt(bg_g)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1140,7 +1184,8 @@ void plot_Ceta(int date, int Cx = 800, int Cy = 800) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_ceta_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1190,8 +1235,9 @@ void plot_Ceta(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 ++ J/Psi -> phi eta ++ Plot invariant mass of K+K-
 //--------------------------------------------------------------------
-void plot2_MKK(int date, int Cx = 800, int Cy = 800) {
+void plot2_MKK(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1278,8 +1324,9 @@ void plot2_MKK(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot invariant mass of photon and «missing photon»
 //--------------------------------------------------------------------
-void plot2_Minv2g(int date, int Cx = 800, int Cy = 800) {
+void plot2_Minv2g(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1373,8 +1420,9 @@ void plot2_Minv2g(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot missing mass of pi+ pi- gamma gamma
 //--------------------------------------------------------------------
-void plot2_M2mis(int date, int Cx = 800, int Cy = 800) {
+void plot2_M2mis(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1403,8 +1451,9 @@ void plot2_M2mis(int date, int Cx = 800, int Cy = 800) {
    double bg = hmc[2]->Integral(1,10); // [bin1,bin2]
    double sum = hmc[0]->Integral(1,10);
    double bg_eta = hmc[1]->Integral(1,10) - hmc[3]->Integral(1,10);
-   printf(" %i %s background is %.2f%% + not eta->2g %.2f%%\n",
-         date,__func__,bg/sum*100,bg_eta/sum*100);
+   printf("%i %s bkg: %.2f+/-%.2f%%, not eta->2g: %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_eta/sum*100, sqrt(bg_eta)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral(1,10) / hmc[0]->Integral(1,10);
@@ -1477,8 +1526,9 @@ void plot2_M2mis(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot: match Energy and Theta
 //--------------------------------------------------------------------
-void plot2_rE(int date, int Cx = 800, int Cy = 800) {
+void plot2_rE(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1504,7 +1554,8 @@ void plot2_rE(int date, int Cx = 800, int Cy = 800) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_dth_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetLogy(true);
 
@@ -1553,8 +1604,9 @@ void plot2_rE(int date, int Cx = 800, int Cy = 800) {
 }
 
 //--------------------------------------------------------------------
-void plot2_dTh(int date, int Cx = 800, int Cy = 800) {
+void plot2_dTh(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1580,7 +1632,8 @@ void plot2_dTh(int date, int Cx = 800, int Cy = 800) {
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_rE_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetLogy(true);
 
@@ -1629,8 +1682,9 @@ void plot2_dTh(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot of Mgg
 //--------------------------------------------------------------------
-void plot2_Mgg(int date, int Cx = 800, int Cy = 800) {
+void plot2_Mgg(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,-2,0); // date, phieta, no_rew
 
    auto hst = [](string nm) {
@@ -1704,7 +1758,8 @@ void plot2_Mgg(int date, int Cx = 800, int Cy = 800) {
    hdat[0]->SetMarkerStyle(20);
    double ymax = 1.12 * hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   double Mmin = meta-weta, Mmax = meta+weta;
+   // double Mmin = meta-weta, Mmax = meta+weta;
+   double Mmin = meta-2*0.008, Mmax = meta+2*0.008;
    hdat[0]->Fit(gs,"QM","",Mmin,Mmax);
    hdat[0]->Draw("E");
 
@@ -1739,8 +1794,9 @@ void plot2_Mgg(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Plot predicted P(eta) and cos(Theta(eta))
 //--------------------------------------------------------------------
-void plot2_Peta(int date, int Cx = 800, int Cy = 800) {
+void plot2_Peta(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1760,11 +1816,13 @@ void plot2_Peta(int date, int Cx = 800, int Cy = 800) {
 
    TCut cutD = par->Cbg + Ceta;
    eff_etaD->Draw("Peta>>hdat",cutD,"goff");
+   // cout << date << " hdat=" << hdat[0]->GetEntries() << endl;
 
    TTree* eff_etaMC = par->GetEffEta(1); // MC: bg only!
    vector<TH1D*> hmc(4,nullptr);
    hmc[2] = hst("hmcB");
    eff_etaMC->Draw( "Peta>>hmcB",cutD +!par->Cmcsig,"goff");
+   // cout << date << " hmc inc=" << hmc[2]->GetEntries() << endl;
 
    TTree* eff_etaMC2 = par->GetEffEta(2); // MC-gamma-eta: signal
    hmc[1] = hst("hmcS");
@@ -1782,8 +1840,11 @@ void plot2_Peta(int date, int Cx = 800, int Cy = 800) {
    double bg = hmc[2]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
    double bg_eta = hmc[3]->Integral();
-   printf(" %i %s background is %.2f%% + not eta->2g %.2f%%\n",
-         date,__func__,bg/sum*100,bg_eta/sum*100);
+   // cout << date << "MC: sum=" << sum << " bkg=" << bg
+      // << " not eta=" << bg_eta << endl;
+   printf("%i %s bkg: %.2f+/-%.2f%%, not eta->2g: %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_eta/sum*100, sqrt(bg_eta)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1792,7 +1853,8 @@ void plot2_Peta(int date, int Cx = 800, int Cy = 800) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_peta_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1837,8 +1899,9 @@ void plot2_Peta(int date, int Cx = 800, int Cy = 800) {
 }
 
 //--------------------------------------------------------------------
-void plot2_Ceta(int date, int Cx = 800, int Cy = 800) {
+void plot2_Ceta(int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    // date, eta_eff in phieta, no_rew
    Params* par = new Params(date,-2,0);
 
@@ -1881,8 +1944,9 @@ void plot2_Ceta(int date, int Cx = 800, int Cy = 800) {
    double bg = hmc[2]->Integral(); // [bin1,bin2]
    double sum = hmc[0]->Integral();
    double bg_eta = hmc[3]->Integral();
-   printf(" %i %s background is %.2f%% + not eta->2g %.2f%%\n",
-         date,__func__,bg/sum*100,bg_eta/sum*100);
+   printf("%i %s bkg: %.2f+/-%.2f%%, not eta->2g: %.2f+/-%.2f%%\n",
+         date, __func__, bg/sum*100, sqrt(bg)/sum*100,
+         bg_eta/sum*100, sqrt(bg_eta)/sum*100);
 
    // normalization on DATA
    double scale = hdat[0]->Integral() / hmc[0]->Integral();
@@ -1891,7 +1955,8 @@ void plot2_Ceta(int date, int Cx = 800, int Cy = 800) {
    }
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_ceta_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1940,39 +2005,40 @@ void plot2_Ceta(int date, int Cx = 800, int Cy = 800) {
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void eta_eff_sel() {
+void eta_eff_sel()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
 
    size_t Cx = 880, Cy = 800; // canvas sizes
+   size_t CxN = 880, CyN = 760;
 
    for ( auto date : {2009, 2012, 2021} ) {
    // for ( auto date : {2009} ) {
       // ++ pi0 rejection ++
-      // plot_pi0(date,Cx,Cy); // fig.59
+      // plot_pi0(date,Cx,Cy); // fig.B2
 
       // ++ J/Psi -> gamma eta ++
-      // plot_Mpipig(date,Cx,Cy); // fig 60
-      // plot_Minv2g(date,Cx,Cy); // fig 61
-      // plot_M2mis(date,Cx,Cy);  // fig 62
-      // plot_Eg(date,Cx,Cy);     // fig 63
-      // plot_dTh(date,Cx,Cy);    // fig 64 (top)
-      // plot_rE(date,Cx,Cy);     // fig 64 (bottom)
-      // plot_Mgg(date,Cx,Cy);    // fig 65
-      // plot_Peta(date,Cx,Cy);   // fig 66 (top)
-      // plot_Ceta(date,Cx,Cy);   // fig 66 (bottom)
+      // plot_Mpipig(date,Cx,Cy); // fig B3
+      // plot_Minv2g(date,Cx,Cy); // fig B4
+      // plot_M2mis(date,Cx,Cy);  // fig B5
+      // plot_Eg(date,Cx,Cy);     // fig B6
+      // plot_dTh(date,Cx,Cy);    // fig B7 (top)
+      // plot_rE(date,Cx,Cy);     // fig B7 (bottom)
+      // plot_Mgg(date,Cx,Cy);    // fig B8
+      // plot_Peta(date,Cx,Cy);   // fig B9 (top)
+      // plot_Ceta(date,Cx,Cy);   // fig B9 (bottom)
 
       // -- J/Psi -> phi eta ++
-      // plot2_MKK(date,Cx,Cy);       // fig 69
-      // plot2_Minv2g(date,Cx,Cy);    // fig 70
-      // plot2_M2mis(date,Cx,Cy);     // fig 71
-      // plot2_Mgg(date,Cx,Cy);       // fig 72
-      // plot2_dTh(date,Cx,Cy);       // fig 73 (top)
-      // plot2_rE(date,Cx,Cy);        // fig 73 (bottom)
-      // plot2_Peta(date,Cx,Cy);      // fig 74 (top)
-      // plot2_Ceta(date,Cx,Cy);      // fig 75 (bottom)
+      // plot2_MKK(date,Cx,Cy);       // fig B12
+      // plot2_Minv2g(date,Cx,Cy);    // fig B13
+      // plot2_M2mis(date,Cx,Cy);     // fig B14
+      // plot2_dTh(date,CxN,CyN);     // fig B15 (top)
+      // plot2_rE(date,CxN,CyN);      // fig B15 (bottom)
+      // plot2_Mgg(date,Cx,Cy);       // fig B16
+      plot2_Peta(date,Cx,Cy);      // fig B17 (top)
+      // plot2_Ceta(date,Cx,Cy);      // fig B17 (bottom)
    }
-
 }

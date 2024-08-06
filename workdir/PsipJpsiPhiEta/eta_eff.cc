@@ -1,8 +1,9 @@
-// eta_eff.cc: Study of the eta -> 2gamma reconstruction efficiency
-//             and single photon rec.efficiency
-// -> Eff_[eta,ph]_[date]_[gamma,phi]eta.pdf
+// eta_eff.cc
+// Study of the eta -> 2gamma reconstruction efficiency
+// and single photon rec.efficiency
+// -> etaeff_{geta|phieta}_{efficiency or ratio variable}_{YEAR}.pdf
 
-#include "RewEtaEff.hpp"
+#include "RewEtaEff.hpp" // RewEtaEff() func
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -39,8 +40,9 @@ struct Params {
 
 // {{{2 > ctor
 //--------------------------------------------------------------------
-Params::Params(int dat, int slc = 2, int rew = 0) {
+Params::Params(int dat, int slc = 2, int rew = 0)
 //--------------------------------------------------------------------
+{
    date = dat;
    slct = slc;
    use_rew = rew;
@@ -66,7 +68,8 @@ Params::Params(int dat, int slc = 2, int rew = 0) {
    if ( slct > 0 ) {         // gamma-eta
       Cbg += TCut("m2fr<0.002");
       Cbg += TCut("fabs(Cg0)<0.8");
-      Cbg += TCut("fabs(Cg1)<0.8 && Eg1>0.2");
+      // Cbg += TCut("fabs(Cg1)<0.8 && Eg1>0.2");
+      Cbg += TCut("fabs(Cg1)<0.8 && Eg1>0.1");
    } else {                  // phi-eta
       Cbg += TCut("m2fr<0.002");
    }
@@ -92,8 +95,9 @@ Params::Params(int dat, int slc = 2, int rew = 0) {
 
 // {{{2 > OpenFile(mc = 0: data, 1: MC inc, 2: MC-signal)
 //--------------------------------------------------------------------
-TFile* Params::OpenFile(int mc) {
+TFile* Params::OpenFile(int mc)
 //--------------------------------------------------------------------
+{
    string dfname = Dir;
    if ( mc == 0 ) {
       dfname += datafile;
@@ -122,8 +126,9 @@ TFile* Params::OpenFile(int mc) {
 
 // {{{2 > GetEffEta : root-tree for eta
 //--------------------------------------------------------------------
-TTree* Params::GetEffEta(int mc = 0) {
+TTree* Params::GetEffEta(int mc = 0)
 //--------------------------------------------------------------------
+{
    TFile* froot = this->OpenFile(mc);
    TTree* eff_eta = (TTree*)gDirectory->Get("eff_eta");
    if ( !eff_eta ) {
@@ -135,43 +140,61 @@ TTree* Params::GetEffEta(int mc = 0) {
 
 // {{{2 > W_g_eta() & W_phi_eta()
 //--------------------------------------------------------------------
-double Params::W_g_eta() { // wights for MC-gamma-eta
+double Params::W_g_eta() // wights for MC-gamma-eta
 //--------------------------------------------------------------------
+{
    // normalization on numbers in "official inclusive MC"
-   // 664: ((date==2012) ? (137258./5e5) : (35578./1.5e5))
+   // decay code for J/Psi -> gamma eta is 22;
+   // BOSS-664: ((date==2012) ? (137258./5e5) : (35578./1.5e5))
    double W = 1;
-   // switch (date) {
-      // case 2009: W =  41553./150e3; break;
-      // case 2012: W = 130865./500e3; break;
-      // case 2021: W = 883676./2.5e6; break;
-   // }
+   switch (date) {
+      case 2009:
+         W =  41553./150e3; // 0.28
+         break;
+      case 2012:
+         W = 130865./500e3; // 0.26
+         break;
+      case 2021:
+         W = 883676./2.5e6; // 0.35
+         break;
+   }
    return W;
 }
 
 //--------------------------------------------------------------------
-double Params::W_phi_eta() { // wights for MC-sig
+double Params::W_phi_eta() // wights for MC-sig
 //--------------------------------------------------------------------
+{
    // normalization on numbers in "official inclusive MC"
-   // 664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
+   // decay code for J/Psi -> phi eta is 68;
+   // BOSS-664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
    double W = 1;
    switch (date) {
-      case 2009: W =  27547./200e3; break;
-      case 2012: W =  89059./600e3; break;
-      case 2021: W = 598360./3.0e6; break;
+      case 2009:
+         W =  27547./150e3; // 0.18
+         break;
+      case 2012:
+         W =  89059./500e3; // 0.18
+         break;
+      case 2021:
+         W = 598360./2.5e6; // 0.24
+         break;
    }
    return W * Br_phi_KK;
 }
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
-constexpr double SQ(double x) {
+constexpr double SQ(double x)
 //--------------------------------------------------------------------
+{
    return x*x;
 }
 
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -197,8 +220,9 @@ void SetHstFace(TH1* hst) {
 
 // {{{1 Fill histograms: mc=0,1 / data,MC
 //--------------------------------------------------------------------
-void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0) {
+void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0)
 //--------------------------------------------------------------------
+{
    TTree* eff_eta = p->GetEffEta(mc);
 
    TCut Crec0 = p->Cbg;
@@ -302,8 +326,9 @@ void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0) {
 
 // {{{1 Get histograms and calculate efficiencies: data and MC
 //--------------------------------------------------------------------
-void get_eff_data(Params* p, vector<TH1D*>& eff ) {
+void get_eff_data(Params* p, vector<TH1D*>& eff )
 //--------------------------------------------------------------------
+{
    vector<TH1D*> hst;
    get_hst(p, 0, hst);
 
@@ -346,8 +371,9 @@ void get_eff_data(Params* p, vector<TH1D*>& eff ) {
 }
 
 //--------------------------------------------------------------------
-void get_eff_mc(Params* p, vector<TH1D*>& eff ) {
+void get_eff_mc(Params* p, vector<TH1D*>& eff )
 //--------------------------------------------------------------------
+{
    // take signal from MC-"signal" and bg from inclusive MC
    vector<TH1D*> hst, hstBG;
    get_hst(p, 2, hst, 1);   // MC-"signal"
@@ -360,7 +386,10 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff ) {
    } else {                     // phi-eta
       W = p->W_phi_eta();
    }
+   // Should we add a background?
    for ( int i = 0; i < hst.size(); i++ ) {
+      cout << "i=" << i << " hst=" << W*hst[i]->GetEntries()
+         << " hstBG=" << hstBG[i]->GetEntries() << endl;
       hst[i]->Add( hst[i], hstBG[i], W, 1.);
    }
 
@@ -377,7 +406,8 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff ) {
    // Re-weighting efficiency
    if ( p->use_rew == 1 ) {
       for ( int i = 0; i < 2; i++ ) {
-         double w = RewEtaEff( p->date ); // Note: date is not used
+         double w = 1.; // DEBUG
+         // double w = RewEtaEff( p->date ); // Note: date is not used
          auto& hst = eff[i];
          int nx = hst->GetNbinsX();
          for ( int ix = 0; ix <= nx+1; ++ix ) {
@@ -396,9 +426,10 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff ) {
 // {{{1 Ratio of efficiencies DATA/MC
 //--------------------------------------------------------------------
 void get_ratio( const vector<TH1D*>& effdat,
-                const vector<TH1D*>& effmc,
-                                vector<TH1D*>& rat ) {
+      const vector<TH1D*>& effmc,
+      vector<TH1D*>& rat )
 //--------------------------------------------------------------------
+{
    int Nh = effdat.size();
    rat.clear();
    rat.resize(Nh,nullptr);
@@ -411,8 +442,10 @@ void get_ratio( const vector<TH1D*>& effdat,
 
 // {{{1 Plot gamma-eta
 //--------------------------------------------------------------------
-void plot_pict_gamma_eta(int date, int rew, int Cx=600, int Cy=600) {
+vector<double> plot_pict_gamma_eta(int date, int rew,
+      int Cx=600, int Cy=600)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,2,rew); // date, eta_eff, rew
    // Params* par = new Params(date,1,rew); // date, gamma_eff, no_rew
 
@@ -465,6 +498,7 @@ void plot_pict_gamma_eta(int date, int rew, int Cx=600, int Cy=600) {
       auto cdat = Form("%i",date);
       if ( i < 2 ) { // efficiency
          leg[i] = new TLegend(0.61,0.74,0.89,0.89);
+         // leg[i] = new TLegend(0.14,0.74,0.42,0.89);
          leg[i]->SetHeader( cdat,"C");
          leg[i]->SetNColumns(2);
          leg[i]->AddEntry(eff_d[0], "data", "LP");
@@ -508,7 +542,8 @@ void plot_pict_gamma_eta(int date, int rew, int Cx=600, int Cy=600) {
    }
 
    // plot ratio
-   gStyle->SetStatX(0.89);
+   // gStyle->SetStatX(0.89);
+   gStyle->SetStatX(0.91);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
    gStyle->SetFitFormat(".4f");
@@ -516,6 +551,7 @@ void plot_pict_gamma_eta(int date, int rew, int Cx=600, int Cy=600) {
       gStyle->SetFitFormat(".3f");
    }
 
+   vector<double> fit_res;
    for (int i = 0; i < Nh; ++i ) {
       auto& ci = cc[2+i];
       ci->cd();
@@ -537,9 +573,19 @@ void plot_pict_gamma_eta(int date, int rew, int Cx=600, int Cy=600) {
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
-      rat0[i]->Fit( pl0, "" );
+      TFitResultPtr rs = rat0[i]->Fit( pl0, "S" );
       leg[2+i]->Draw();
       rat0[i]->Draw("SAME E0");
+
+      double ch2 = pl0->GetChisquare();
+      double ndf = pl0->GetNDF();
+      double rr0 = pl0->GetParameter(0);
+      double er0 = pl0->GetParError(0);
+      fit_res.push_back(double(date));
+      fit_res.push_back(ch2);
+      fit_res.push_back(ndf);
+      fit_res.push_back(rr0);
+      fit_res.push_back(er0);
 
       gPad->RedrawAxis();
       ci->Update();
@@ -547,12 +593,15 @@ void plot_pict_gamma_eta(int date, int rew, int Cx=600, int Cy=600) {
          ( ( rew == 1 ) ? "_w" : "" );
       ci->Print( Form("%s_%i.pdf",pp.c_str(),date) );
    }
+   return fit_res;
 }
 
 // {{{1 Plot phi-eta
 //--------------------------------------------------------------------
-void plot_pict_phi_eta(int date, int rew, int Cx=600, int Cy=600) {
+vector<double> plot_pict_phi_eta(int date, int rew,
+      int Cx=600, int Cy=600)
 //--------------------------------------------------------------------
+{
    Params* par = new Params(date,-2,rew); // date, phi-eta, rew
 
    vector<TH1D*> eff_d, eff_mc, rat0;
@@ -586,8 +635,8 @@ void plot_pict_phi_eta(int date, int rew, int Cx=600, int Cy=600) {
 
    // Draw:
    ///////////////////////////////////////////////////////////////////
-   double eff_min = 0.7, eff_max = 1.1;
-   double rat_min = 0.85, rat_max = 1.15;
+   double eff_min = 0.7, eff_max = 1.01;
+   double rat_min = 0.9, rat_max = 1.1;
    ///////////////////////////////////////////////////////////////////
    string p_pdf = "etaeff_phieta";
 
@@ -602,7 +651,8 @@ void plot_pict_phi_eta(int date, int rew, int Cx=600, int Cy=600) {
 
       auto cdat = Form("%i",date);
       if ( i < 2 ) { // efficiency
-         leg[i] = new TLegend(0.61,0.74,0.89,0.89);
+         // leg[i] = new TLegend(0.61,0.74,0.89,0.89);
+         leg[i] = new TLegend(0.14,0.74,0.42,0.89);
          leg[i]->SetHeader( cdat,"C");
          leg[i]->SetNColumns(2);
          leg[i]->AddEntry(eff_d[0], "data", "LP");
@@ -635,11 +685,12 @@ void plot_pict_phi_eta(int date, int rew, int Cx=600, int Cy=600) {
    }
 
    // plot ratio
-   gStyle->SetStatX(0.89);
+   gStyle->SetStatX(0.91);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
    gStyle->SetFitFormat(".3f");
 
+   vector<double> fit_res;
    for (int i = 0; i < Nh; ++i ) {
       auto& ci = cc[2+i];
       ci->cd();
@@ -655,9 +706,19 @@ void plot_pict_phi_eta(int date, int rew, int Cx=600, int Cy=600) {
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
-      rat0[i]->Fit( pl0, "" );
+      TFitResultPtr rs = rat0[i]->Fit( pl0, "S" );
       leg[2+i]->Draw();
       rat0[i]->Draw("SAME E0");
+
+      double ch2 = pl0->GetChisquare();
+      double ndf = pl0->GetNDF();
+      double rr0 = pl0->GetParameter(0);
+      double er0 = pl0->GetParError(0);
+      fit_res.push_back(double(date));
+      fit_res.push_back(ch2);
+      fit_res.push_back(ndf);
+      fit_res.push_back(rr0);
+      fit_res.push_back(er0);
 
       gPad->RedrawAxis();
       ci->Update();
@@ -665,26 +726,105 @@ void plot_pict_phi_eta(int date, int rew, int Cx=600, int Cy=600) {
          ( ( rew == 1 ) ? "_w" : "" );
       ci->Print( Form("%s_%i.pdf",pp.c_str(),date) );
    }
+   return fit_res;
 }
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void eta_eff() {
+void eta_eff()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
    gStyle->SetStatFont(62);
 
    size_t Cx = 630, Cy = 600; // canvas sizes
-   // for ( auto date : {2009} ) { // DEBUG
+
+   vector<double> g_eta;
+   vector<double> p_eta;
+   // for ( auto date : {2021} ) {
    for ( auto date : {2009, 2012, 2021} ) {
       const int rew = 0;     // 1 - use corrections
-      // I. J/Psi->gamma eta, fig 67,68
-      // plot_pict_gamma_eta(date,rew,Cx,Cy);
 
-      // II. J/Psi->phi eta, fig 75,76
-      // plot_pict_phi_eta(date,rew,Cx,Cy);
+      // I. J/Psi->gamma eta, fig B10,B11
+      auto res = plot_pict_gamma_eta(date,rew,Cx,Cy);
+      g_eta.insert(end(g_eta),begin(res),end(res));
+
+      // II. J/Psi->phi eta, fig B18,B19
+      // auto res2 = plot_pict_phi_eta(date,rew,Cx,Cy);
+      // p_eta.insert(end(p_eta),begin(res2),end(res2));
    }
 
+   string dml(64,'='); // demarcation line
+
+   // I. J/Psi->gamma eta, fig B10,B11
+   int Ni = g_eta.size() / 10;
+
+   double av = 0, sig = 0;
+   for ( int i = 0; i < Ni; ++i ) {
+      int j = 10*i; // P(eta)
+      printf("%.0f     P, chi^2/NDF = %4.1f /%2.0f,  "
+            "p0 = %.6f +/- %.6f\n",
+            g_eta[j],g_eta[j+1],g_eta[j+2],g_eta[j+3],g_eta[j+4]);
+      av += g_eta[j+3]/SQ(g_eta[j+4]);
+      sig += 1./SQ(g_eta[j+4]);
+   }
+   if ( Ni > 0 ) {
+      av = av/sig;
+      sig = 1./sqrt(sig);
+      printf("%s\n",dml.c_str());
+      printf("average for   P: %.4f +/- %.4f\n\n",av,sig);
+   }
+
+   av = 0, sig = 0;
+   for ( int i = 0; i < Ni; ++i ) {
+      int j = 5 + 10*i; // cos(eta)
+      printf("%.0f   cos, chi^2/NDF = %4.1f /%2.0f,  "
+            "p0 = %.6f +/- %.6f\n",
+            g_eta[j],g_eta[j+1],g_eta[j+2],g_eta[j+3],g_eta[j+4]);
+      av += g_eta[j+3]/SQ(g_eta[j+4]);
+      sig += 1./SQ(g_eta[j+4]);
+   }
+   if ( Ni > 0 ) {
+      av = av/sig;
+      sig = 1./sqrt(sig);
+      printf("%s\n",dml.c_str());
+      printf("average for cos: %.4f +/- %.4f\n",av,sig);
+   }
+
+   // II. J/Psi->phi eta, fig B18,B19
+   int Mi = p_eta.size() / 10;
+
+   av = 0, sig = 0;
+   for ( int i = 0; i < Mi; ++i ) {
+      int j = 10*i; // P(eta)
+      printf("%.0f     P, chi^2/NDF = %4.1f /%2.0f,  "
+            "p0 = %.6f +/- %.6f\n",
+            p_eta[j],p_eta[j+1],p_eta[j+2],p_eta[j+3],p_eta[j+4]);
+      av += p_eta[j+3]/SQ(p_eta[j+4]);
+      sig += 1./SQ(p_eta[j+4]);
+   }
+   if ( Mi > 0 ) {
+      av = av/sig;
+      sig = 1./sqrt(sig);
+      printf("%s\n",dml.c_str());
+      printf("average for   P: %.4f +/- %.4f\n\n",av,sig);
+   }
+
+   av = 0, sig = 0;
+   for ( int i = 0; i < Mi; ++i ) {
+      int j = 5 + 10*i; // cos(eta)
+      printf("%.0f   cos, chi^2/NDF = %4.1f /%2.0f,  "
+            "p0 = %.6f +/- %.6f\n",
+            p_eta[j],p_eta[j+1],p_eta[j+2],p_eta[j+3],p_eta[j+4]);
+      av += p_eta[j+3]/SQ(p_eta[j+4]);
+      sig += 1./SQ(p_eta[j+4]);
+   }
+   if ( Mi > 0 ) {
+      av = av/sig;
+      sig = 1./sqrt(sig);
+      printf("%s\n",dml.c_str());
+      printf("average for cos: %.4f +/- %.4f\n",av,sig);
+   }
 }

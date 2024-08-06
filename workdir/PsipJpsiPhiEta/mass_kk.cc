@@ -1,13 +1,19 @@
-// plot M(K+K-) for data, inclusive MC, signal MC and MC KKeta
-// cuts (see cuts.h): Mrec + chi^2(4C) + Mgg
-// -> mass_kk_YEAR.pdf
+// mass_kk.cc
+// plot M(K+K-) for data and signal MC for Mgg in central and side
+// bands.
+//      -> mass_kk_{YEAR}.pdf
+//      -> mass_kksb_{YEAR}.pdf
 
 #include "masses.h"
 
 // {{{1 helper functions
+// GLOBAL: name of folder with root files
+string Dir;
+
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -33,14 +39,12 @@ void SetHstFace(TH1* hst) {
 
 // {{{1 data processing
 //--------------------------------------------------------------------
-TH1D* get_Mkk(string fname, string hname, int type=0) {
+TH1D* get_Mkk(string fname, string hname, int type=0)
 //--------------------------------------------------------------------
+{
 #include "cuts.h"
 
-   // name of folder with root files
-   // static string dir("prod-12/");
-   string dir("prod_v709/");
-   fname = dir + fname;
+   fname = Dir + fname;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
@@ -50,7 +54,6 @@ TH1D* get_Mkk(string fname, string hname, int type=0) {
    froot->cd("PsipJpsiPhiEta");
    TTree* a4c = (TTree*)gDirectory->Get("a4c");
 
-   // const double dU = 1.101;
    const double dU = 1.08;
    const double bL = 0.98; // first bin < dL
    const int Nbins = 100;
@@ -73,10 +76,12 @@ TH1D* get_Mkk(string fname, string hname, int type=0) {
 
 // {{{1 Argus functions
 //--------------------------------------------------------------------
-double Argus(double x, double a) {
+double Argus(double x, double a)
 //--------------------------------------------------------------------
-// ARGUS distribution: https://en.wikipedia.org/wiki/ARGUS_distribution
-// This is a regular ARGUS distribution with one parameter 'a'.
+{
+   // ARGUS distribution:
+   // https://en.wikipedia.org/wiki/ARGUS_distribution
+   // This is a regular ARGUS distribution with one parameter 'a'.
 
    if ( x < 0 || x > 1 ) {
       return 0;           // by definition
@@ -101,12 +106,12 @@ double Argus(double x, double a) {
 }
 
 //--------------------------------------------------------------------
-double RevArgus(double m, double A) {
+double RevArgus(double m, double A)
 //--------------------------------------------------------------------
-// Argus function with left cutoff (L)
-//      U is the upper limit of fitting
-//      L,U - must be const for fit
-
+{
+   // Argus function with left cutoff (L)
+   //      U is the upper limit of fitting
+   //      L,U - must be const for fit
    static const double L = 2*Mk;
    static const double U = Mjpsi - Meta;
 
@@ -115,10 +120,11 @@ double RevArgus(double m, double A) {
 }
 
 //--------------------------------------------------------------------
-double RevArgusN(double m, double A, double slope) {
+double RevArgusN(double m, double A, double slope)
 //--------------------------------------------------------------------
-// Numeric normalisation on one for range [dL,dU]
-// * multiply Argus by function of efficiency(m) (parameter slope)
+{
+   // Numeric normalisation on one for range [dL,dU]
+   // * multiply Argus by function of efficiency(m) (parameter slope)
 
    static const double dL = 2*Mk; // the left cutoff = 0.987354
    static const double dU = 1.08; // MUST BE < 1.0835 !!!
@@ -150,8 +156,9 @@ double RevArgusN(double m, double A, double slope) {
 }
 
 //--------------------------------------------------------------------
-void test_RevAgrus() {
+void test_RevAgrus()
 //--------------------------------------------------------------------
+{
    static const double dL = 2*Mk; // the left cutoff = 0.987354
    static const double dU = 1.08; // MUST BE < 1.0835 !!!
 
@@ -160,254 +167,199 @@ void test_RevAgrus() {
    };
 
    TF1* fbkg = new TF1("RevArgus", Lrargus, 0.98, dU, 3);
-   fbkg -> SetParNames("N","A","Sl");
-   fbkg -> SetParameters(1., 9., -1.8);
-   fbkg -> SetLineWidth(2);
-   fbkg -> SetLineColor(kBlue);
+   fbkg->SetParNames("N","A","Sl");
+   fbkg->SetParameters(1., 9., -1.8);
+   fbkg->SetLineWidth(2);
+   fbkg->SetLineColor(kBlue);
 
    TLegend* leg = new TLegend(0.49,0.69,0.89,0.89);
 
    TCanvas* c1 = new TCanvas("c1","...",0,0,900,900);
 
-   c1 -> cd();
-   gPad -> SetGrid();
-   fbkg -> DrawCopy();
-   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
-            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+   c1->cd();
+   gPad->SetGrid();
+   fbkg->DrawCopy();
+   leg->AddEntry(fbkg->Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg->GetParameter(1),fbkg->GetParameter(2)),"L");
 
    // test normalization:
-   printf(" RevArgusN norm= %.15f\n",fbkg -> Integral( dL,dU ) );
+   printf(" RevArgusN norm= %.15f\n",fbkg->Integral( dL,dU ) );
 
-   fbkg -> SetParameter(1, 6.0 );  // A
-   fbkg -> SetLineColor(kRed);
-   fbkg -> SetLineStyle(kDashed);
-   fbkg -> DrawCopy("SAME");
-   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
-            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
-   printf(" RevArgusN norm2= %.15f\n",fbkg -> Integral( dL,dU ) );
+   fbkg->SetParameter(1, 6.0 );  // A
+   fbkg->SetLineColor(kRed);
+   fbkg->SetLineStyle(kDashed);
+   fbkg->DrawCopy("SAME");
+   leg->AddEntry(fbkg->Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg->GetParameter(1),fbkg->GetParameter(2)),"L");
+   printf(" RevArgusN norm2= %.15f\n",fbkg->Integral( dL,dU ) );
 
-   fbkg -> SetParameter(1, 0.0 );  // A
-   fbkg -> SetLineColor(kGreen+4);
-   fbkg -> DrawCopy("SAME");
-   leg -> AddEntry(fbkg -> Clone(), Form("RevArgus A=%.2f Sl=%.2f",
-            fbkg -> GetParameter(1),fbkg -> GetParameter(2)),"L");
+   fbkg->SetParameter(1, 0.0 );  // A
+   fbkg->SetLineColor(kGreen+4);
+   fbkg->DrawCopy("SAME");
+   leg->AddEntry(fbkg->Clone(), Form("RevArgus A=%.2f Sl=%.2f",
+            fbkg->GetParameter(1),fbkg->GetParameter(2)),"L");
 
-   leg -> Draw();
+   leg->Draw();
 }
 
 // {{{1 Fit Side-Band
 //-------------------------------------------------------------------------
-TF1* Fit_Sb( TH1D* hst, int type = 1 ) {
+TF1* Fit_Sb( TH1D* hst, int type=1, TH1D* mcsig=nullptr )
 //-------------------------------------------------------------------------
+{
    static const double dL = 2*Mk; // the left cutoff = 0.987354
    static const double dU = 1.08; // MUST BE < 1.0835 !!!
    TF1* fret = nullptr;
+   double bW = hst->GetBinWidth(1); // bin width
+   double norm = hst->Integral();
    if ( type == 1 ) { // fit side-band by constant
-      fret = (TF1*)gROOT -> GetFunction("pol0")->Clone();
+      if ( mcsig ) {
+         // add MC signal
+         double W = bW/(dU-2*Mk); // normalization on 1
+         auto Fs = [W,mcsig](const double* x,const double* p) {
+            int bin = mcsig->GetXaxis()->FindBin(x[0]);
+            return W*p[0] + p[1]*mcsig->GetBinContent(bin);
+         };
+         fret = new TF1("fret", Fs, 0.98, dU, 2);
+         fret->SetParNames("Nbg","norm");
+         fret->SetParameters(norm, 1.);
+         fret->FixParameter(1, 1.); // norm
+      } else {
+         fret = (TF1*)gROOT->GetFunction("pol0")->Clone();
+      }
    }
 
    if ( type == 2 ) { // Reverse Argus
-      double bW = hst -> GetBinWidth(1); // bin width
-      double norm = hst -> Integral();
-      auto Lan = [bW](const double* x,const double* p) -> double {
-         return bW*p[0]*RevArgusN(x[0],p[1],p[2]);
-      };
-      fret = new TF1("fret", Lan, 0.98, dU, 3);
-      fret -> SetParNames("N","a","Sl");
-      fret -> SetParameters(norm, 5., -1.8);
-      fret -> FixParameter(2, -1.8); // slope
+      if ( !mcsig ) {
+         auto Lan = [bW](const double* x,const double* p) {
+            return bW*p[0]*RevArgusN(x[0],p[1],p[2]);
+         };
+         fret = new TF1("fret", Lan, 0.98, dU, 3);
+         fret->SetParNames("Nbg","a","Sl");
+         fret->SetParameters(norm, 5., -1.8);
+         fret->FixParameter(2, -1.8); // slope
+      } else {
+         auto Lan = [bW,mcsig](const double* x,const double* p) {
+            int bin = mcsig->GetXaxis()->FindBin(x[0]);
+            return bW*p[0]*RevArgusN(x[0],p[1],p[2]) +
+               p[3]*mcsig->GetBinContent(bin);
+         };
+         fret = new TF1("fret", Lan, 0.98, dU, 4);
+         fret->SetParNames("Nbg","a","Sl","norm");
+         fret->SetParameters(norm, 5., -1.8,1.);
+         fret->FixParameter(2, -1.8); // slope
+         fret->FixParameter(3, 1.); // norm
+      }
    }
 
    if ( fret ) {
-      fret -> SetLineColor(kRed);
-      fret -> SetLineWidth(2);
-      fret -> SetLineStyle(kDashed);
-      hst -> Fit(fret,"LE","E",dL,dU);
+      fret->SetLineColor(kRed);
+      fret->SetLineWidth(2);
+      // fret->SetLineStyle(kDashed);
+      hst->Fit(fret,"LE","E",dL,dU);
    }
    return fret;
 }
 
 // {{{1 plot_mass_kk()
 //--------------------------------------------------------------------
-void plot_mass_kk(int date, bool PR=false) { // defalt is memo
+void plot_mass_kk(int date,  int Cx=500, int Cy=900)
 //--------------------------------------------------------------------
-// PR = true -> for presentation
+{
 #include "cuts.h"
 
-   vector<string> fnames = {
-      "data_09psip_all.root",
-      "data_12psip_all.root",
-      "data_21psip_all.root",
-      "data_3650_all.root",
-      "mcinc_09psip_all.root",
-      "mcinc_12psip_all.root",
-      "mcinc_21psip_all.root",
-      "mcsig_kkmc_09.root",
-      "mcsig_kkmc_12.root",
-      "mcsig_kkmc_21.root",
-   };
-      // "mckketa_kkmc_09.root",
-      // "mckketa_kkmc_12.root"
+   string fname[3], hn[3];
+   // data
+   fname[0] = string( Form("data_%02ipsip_all.root",date%100) );
+   hn[0] = string( Form("mkk_data_%i",date) );
+   // "MC inclusive"
+   fname[1] = string( Form("mcinc_%02ipsip_all.root",date%100) );
+   hn[1] = string( Form("mkk_mcinc_%i",date) );
+   // "MC signal #phi#eta"
+   fname[2] = string( Form("mcsig_kkmc_%02i.root",date%100) );
+   hn[2] = string( Form("mkk_mcsig_%i",date) );
 
-   vector<string> titles = {
-      "Data 2009",
-      "Data 2012",
-      "Data 2021",
-      "E=3.65 GeV",
-      "MC inclusive 2009",
-      "MC inclusive 2012",
-      "MC inclusive 2021",
-      "MC signal #phi#eta 2009",
-      "MC signal #phi#eta 2012",
-      "MC signal #phi#eta 2021",
-   };
-      // "MC non-#phi KK#eta 2009",
-      // "MC non-#phi KK#eta 2012"
-
-   int id = 0, ii = 4, is = 7; // 2009
-   if ( date == 2012 ) {
-       id = 1, ii = 5, is = 8; // 2012
-   }
-   if ( date == 2021 ) {
-       id = 2, ii = 6, is = 9; // 2021
+   TH1D* dat[2];
+   TH1D* mcs[2];
+   for ( int isb = 0; isb < 2; ++isb  )  {
+      string ssb = (isb==1) ? "_sb" : "";
+      dat[isb] = get_Mkk(fname[0],hn[0]+ssb,isb);
+      mcs[isb] = get_Mkk(fname[2],hn[2]+ssb,isb);
    }
 
-   TH1D* hst[30];
-   // vector<int> tmp {id, is, ib};
-   vector<int> tmp {id, is};
-   for( auto i : tmp )  {
-      string hname = string("mkk_") + to_string(i+1);
-      hst[i] = get_Mkk(fnames.at(i),hname,0);
-      hst[10+i] = get_Mkk(fnames.at(i),hname+string("_sb"),1);
-   }
-
-   TCanvas* c1 = nullptr;
-   if ( PR ) {
-      c1 = new TCanvas("c1","...",0,0,1200,500); // Pr
-      c1->Divide(2,1);
-   } else {
-      c1 = new TCanvas("c1","...",0,0,500,900); // memo
-      c1->Divide(1,2);
-   }
-
-   for ( int it : {0,10} ) {
-      hst[id+it]->SetLineWidth(2);
-      hst[id+it]->SetLineColor(kBlack); // data
-      hst[id+it]->SetMarkerStyle(20);
-      hst[id+it]->SetMarkerSize(0.7);
-
-      hst[is+it]->SetLineWidth(2);
-      hst[is+it]->SetLineColor(kGreen+2); // MC phi eta
-
-      // hst[ib+it]->SetLineColor(kBlue+1);
-      // hst[ib+it]->SetLineWidth(2);
+   for ( auto& d : dat ) { // data
+      SetHstFace(d);
+      d->SetLineWidth(2);
+      d->SetLineColor(kBlack);
+      d->SetMarkerStyle(20);
+      d->SetMarkerSize(0.7);
    }
 
    // normalize MC on data
    double sig_scale =
-      ( hst[id]->Integral() - hst[id+10]->Integral() ) /
-      ( hst[is]->Integral() - hst[is+10]->Integral() );
-   hst[is]->Scale( sig_scale );
-
-   /*
-   const double wphi = 5*Gphi;
-
-   int n1 = hst[id]->FindBin(Mphi-wphi);
-   int n2 = hst[id]->FindBin(Mphi+wphi);
-   int n3 = hst[id]->GetNbinsX();
-   double sig_scale = 1.0;
-   double bg_scale = 1.0;
-   for (int iter = 0; iter < 3; iter++) {
-      double sig = 1.0;
-      if ( iter==0 ) {
-         sig = hst[id]->Integral(n1,n2) /
-            hst[is]->Integral(n1,n2);
-      } else {
-         sig = (hst[id]->Integral(n1,n2) - hst[ib]->Integral(n1,n2))
-            / hst[is]->Integral(n1,n2);
-      }
-      hst[is]->Scale( sig );
-      sig_scale *= sig;
-
-      double bg = (hst[id]->Integral(n2,n3) - hst[is]->Integral(n2,n3))
-         / hst[ib]->Integral(n2,n3);
-      hst[ib]->Scale( bg );
-      bg_scale *= bg;
-      cout << " iter# " << iter << " sig_scale= " << sig_scale
-           << " bg_scale= " << bg_scale << endl;
+      ( dat[0]->Integral() - dat[1]->Integral() ) /
+      ( mcs[0]->Integral() - mcs[1]->Integral() );
+   for ( auto& mc : mcs ) { // MC phi eta
+      mc->Scale( sig_scale );
+      mc->SetLineWidth(2);
+      mc->SetLineColor(kGreen+2);
    }
-   */
 
-   // normalize side-band on the same numbers
-   hst[10+is]->Scale( sig_scale );
-   // hst[10+ib]->Scale( bg_scale );
-
-   double ymax = max( hst[id]->GetMaximum(), hst[is]->GetMaximum() );
-   hst[id]->SetMaximum(1.2*ymax);
-
-   // hst[21] = (TH1D*)hst[is]->Clone("mc_sig_clone");
-   // hst[21]->Add(hst[ib]); // MC(sig) + MC(bg)
-   // hst[21]->SetLineColor(kRed+1);
-
-   // hst[22] = (TH1D*)hst[10+is]->Clone("mc_sig_sb_clone");
-   // hst[22]->Add(hst[10+ib]); // MC(sig) + MC(bg)
-   // hst[22]->SetLineColor(kRed+1);
-
-   c1->cd(1);
+   auto name = Form("c1_mkk_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
+   c1->cd();
    gPad->SetGrid();
 
-   SetHstFace(hst[id]);
-   hst[id]->GetXaxis()->SetTitleOffset(1.1);
-   hst[id]->GetYaxis()->SetTitleOffset(1.3);
+   double ymax = max( dat[0]->GetMaximum(), mcs[0]->GetMaximum() );
+   dat[0]->SetMaximum(1.2*ymax);
 
-   hst[id]->Draw("E");
-   hst[is]->Draw("HIST SAME");
-   // hst[ib]->Draw("SAME HIST");
-   // hst[21]->Draw("SAME HIST");
-   hst[id]->Draw("E,SAME");
+   dat[0]->GetXaxis()->SetTitleOffset(1.1);
+   dat[0]->GetYaxis()->SetTitleOffset(1.3);
 
-   TLegend* leg = nullptr;
-   if ( PR ) {
-      leg = new TLegend(0.48,0.55,0.89,0.89);
-   } else {
-      leg = new TLegend(0.49,0.53,0.89,0.89); // memo
-      leg->SetTextSize(0.05);
-   }
+   dat[0]->Draw("E");
+   mcs[0]->Draw("HIST SAME");
+   dat[0]->Draw("E,SAME");
+
+   // TLegend* leg = new TLegend(0.49,0.53,0.89,0.89);
+   TLegend* leg = new TLegend(0.50,0.65,0.89,0.89);
+   leg->SetTextSize(0.05);
    leg->SetHeader(
          "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}| < 0.024",
          "C");
-   leg->AddEntry(hst[id],titles[id].c_str(),"PLE");
-   leg->AddEntry(hst[is],titles[is].c_str(),"L");
-   // leg->AddEntry(hst[ib],titles[ib].c_str(),"L");
-   // leg->AddEntry(hst[21],"Sum of MC","L");
+   leg->AddEntry(dat[0],Form("Data %i",date),"PLE");
+   leg->AddEntry(mcs[0],"MC signal #phi#eta","L");
    leg->Draw();
 
    gPad->RedrawAxis();
+   c1->Update();
+   string pdf( Form("mass_kk_%02i.pdf",date%100) );
+   c1->Print(pdf.c_str());
 
-   c1->cd(2);
+   auto name2 = Form("c1_mkk_sb_%i",date);
+   TCanvas* c2 = new TCanvas(name2,name2,50,0,Cx,Cy);
+   c2->cd();
    gPad->SetGrid();
 
-   if ( date == 2009 ) {
-      hst[10+id]->SetMaximum(4);
-   } else if ( date == 2012 ) {
-      hst[10+id]->SetMaximum(6);
-   } else if ( date == 2021 ) {
-      hst[10+id]->SetMaximum(14);
-   }
+   // if ( date == 2009 ) {
+      // hst[10]->SetMaximum(4);
+   // } else if ( date == 2012 ) {
+      // hst[10]->SetMaximum(6);
+   // } else if ( date == 2021 ) {
+      // hst[10]->SetMaximum(14);
+   // }
 
-   SetHstFace(hst[10+id]);
-   hst[10+id]->GetXaxis()->SetTitleOffset(1.1);
+   dat[1]->GetXaxis()->SetTitleOffset(1.1);
 
-   int type = 2;
-   TF1* fit = Fit_Sb(hst[10+id],type);
+   int type = 1; // line
+   // int type = 2; // rev-argus
+   // TF1* fit = Fit_Sb(dat[1],type);
+   TF1* fit = Fit_Sb(dat[1],type,mcs[1]); // take into account MC sig.
    if ( !fit ) {
-      hst[10+id]->Draw("E");
+      dat[1]->Draw("E");
    }
 
-   hst[10+is]->Draw("HIST SAME");
-   cout << " Integral signal= " << hst[10+is]->Integral() << endl;
-   // hst[10+ib]->Draw("SAME HIST");
-   // hst[10+id]->Draw("E,SAME");
+   mcs[1]->Draw("HIST SAME");
+   cout << " Integral signal= " << mcs[1]->Integral() << endl;
 
    TPaveText* pt = new TPaveText(0.45,0.76,0.89,0.89,"NDC,TR");
    pt->SetTextAlign(22);
@@ -423,10 +375,9 @@ void plot_mass_kk(int date, bool PR=false) { // defalt is memo
 
    gPad->RedrawAxis();
 
-   c1->Update();
-
-   string pdf( Form("mass_kk_%02i%s.pdf",date,(PR) ? "_PR" : "" ) );
-   c1->Print(pdf.c_str());
+   c2->Update();
+   string pdfsb( Form("mass_kksb_%02i.pdf",date%100 ) );
+   c2->Print(pdfsb.c_str());
 }
 
 // {{{1 MAIN:
@@ -444,15 +395,19 @@ void mass_kk() {
    gStyle->SetStatW(0.245);
 
 
+   //========================================================
+   // set the name of the folder with the root files
+   Dir = "prod_v709n3/";
+   //========================================================
+
+   size_t Cx = 880, Cy = 760; // canvas sizes
+
    // just test
    // test_RevAgrus();
 
-   // presentation
-   // plot_mass_kk(2009,true);
-   // plot_mass_kk(2012,true);
-   plot_mass_kk(2021,true);
-
-   // memo
-   // plot_mass_kk(2009);
-   // plot_mass_kk(2012);
+   // fig.13
+   // for ( int date : {2009} ) {
+   for ( int date : {2009, 2012, 2021} ) {
+      plot_mass_kk(date, Cx, Cy);
+   }
 }

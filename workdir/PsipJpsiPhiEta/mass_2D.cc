@@ -228,52 +228,52 @@ void plot_Dalitz(string fname, string title, int type, string pdf="",
 
    int n = 0;
    if ( type == 1 ) {
-      n = a4c -> Draw("M2kmeta:M2kpeta",c_here,"goff");
+      n = a4c->Draw("M2kmeta:M2kpeta",c_here,"goff");
    } else if ( type == 2 ) {
-      n = a4c -> Draw("(Mkk*Mkk):M2kpeta",c_here,"goff");
+      n = a4c->Draw("(Mkk*Mkk):M2kpeta",c_here,"goff");
    }
 
-   double* m2X = a4c -> GetVal(1);
-   double* m2Y = a4c -> GetVal(0);
+   double* m2X = a4c->GetVal(1);
+   double* m2Y = a4c->GetVal(0);
    cout << n << endl;
-   n = min(n,65000); // > 10*Ndata12
+   n = min(n,50000); // ~ 2021 data
 
    auto name = Form("c2d_%s",pdf.c_str());
    TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
 
-   c1 -> cd();
-   // gPad -> SetGrid();
+   c1->cd();
+   // gPad->SetGrid();
 
    TGraph* gr = new TGraph(n, m2X, m2Y);
 
    // set ranges:
    // https://root-forum.cern.ch/t/how-to-set-ranges-on-axis/28254
-   gr -> GetXaxis() -> SetLimits(0.,7.);
+   gr->GetXaxis()->SetLimits(0.,7.);
    if ( type == 1 ) {
-      gr -> SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
+      gr->SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
             ";M^{2}(K^{#minus}#eta), GeV^{2}/c^{4}");
-      gr -> GetHistogram() -> SetMinimum(0.);
-      gr -> GetHistogram() -> SetMaximum(7.);
+      gr->GetHistogram()->SetMinimum(0.);
+      gr->GetHistogram()->SetMaximum(7.);
    } else if ( type == 2 ) {
-      gr -> SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
+      gr->SetTitle(";M^{2}(K^{#plus}#eta), GeV^{2}/c^{4}"
             ";M^{2}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}");
-      gr -> GetHistogram() -> SetMinimum(0.);
-      gr -> GetHistogram() -> SetMaximum(7.);
+      gr->GetHistogram()->SetMinimum(0.);
+      gr->GetHistogram()->SetMaximum(7.);
    }
-   // gr -> GetYaxis() -> SetTitleOffset(1.2);
+   // gr->GetYaxis()->SetTitleOffset(1.2);
 
-   gr -> Draw("AP");
+   gr->Draw("AP");
 
    double width = max(0.2,0.015*title.size());
    TLegend* leg = new TLegend(0.89-width,0.79,0.89,0.89);
-   leg -> SetTextSize(0.04);
-   leg -> SetHeader(title.c_str(), "C");
-   leg -> Draw();
+   leg->SetTextSize(0.04);
+   leg->SetHeader(title.c_str(), "C");
+   leg->Draw();
 
-   gPad -> RedrawAxis();
-   c1 -> Update();
+   gPad->RedrawAxis();
+   c1->Update();
    if ( !pdf.empty() ) {
-      c1 -> Print(pdf.c_str());
+      c1->Print(pdf.c_str());
    }
 }
 
@@ -301,28 +301,33 @@ void mass_2D()
       string fnd( Form("data_%02ipsip_all.root",date%100) );
       string titd( Form("Data %d",date) );
       string pdfd( Form("Mass2D_data%d.pdf",date%100) );
-      plot_2D(Dir+fnd, titd, pdfd, Cx, Cy);
+      // plot_2D(Dir+fnd, titd, pdfd, Cx, Cy);
       // MC incl.
       string fnm( Form("mcinc_%02ipsip_all.root",date%100) );
       string titm( Form("MC inclusive %d",date) );
       string pdfm( Form("Mass2D_mcinc%d.pdf",date%100) );
-      plot_2D(Dir+fnm, titm, pdfm, Cx, Cy);
+      // plot_2D(Dir+fnm, titm, pdfm, Cx, Cy);
 
       // OLD: 1D-plots
       // plot_Mgg(Dir+fnd, titd);
       // plot_Mkk(Dir+fnd, titd);
    }
 
-   // Dalitz, fig.14 (?)
+   // Dalitz, fig.13 or 14
    // type = 1 M^2(K-eta) vs M^2(K+eta)
    // type = 2 M^2(K+K-) vs M^2(K+eta)
    int type = 1;
    // for ( int date : {2009, 2012, 2021} ) {
-   // for ( int date : {2021}) {
-      // // DATA
-      // string fnd( Form("data_%02ipsip_all.root",date%100) );
-      // string titd( Form("Data %d",date) );
-      // string pdfd( Form("Dalitz%i_data%d.pdf",type,date%100) );
-      // plot_Dalitz(Dir+fnd, titd, type, pdfd, Cx, Cy);
-   // }
+   for ( int date : {2021}) {
+      // DATA
+      string fnd( Form("data_%02ipsip_all.root",date%100) );
+      string titd( Form("Data %d",date) );
+      string pdfd( Form("Dalitz%i_data%d.pdf",type,date%100) );
+      plot_Dalitz(Dir+fnd, titd, type, pdfd, Cx, Cy);
+      // MC signal
+      string fnm( Form("mcsig_kkmc_%02i.root",date%100) );
+      string titm( Form("MC signal #phi#eta %d",date) );
+      string pdfm( Form("Dalitz%i_mcsig%d.pdf",type,date%100) );
+      plot_Dalitz(Dir+fnm, titm, type, pdfm, Cx, Cy);
+   }
 }

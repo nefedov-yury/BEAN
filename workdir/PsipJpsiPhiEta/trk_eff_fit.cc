@@ -1,9 +1,10 @@
-// trk_eff_fit.cc - The reconstruction efficiency (data and MC)
-// and their ratio (data/MC) for pions and kaons.
-// Get corrections as function of P_t and Z.
+// trk_eff_fit.cc
+// * The reconstruction efficiency (data and MC) and their ratio
+//   (data/MC) for pions and kaons.
+//   Get corrections as function of P_t and Z.
 //
-// Kolmogorov–Smirnov  && Chi2 probability tests to
-// compare the ratios for K+ and K- (pi+ and pi-)
+// * Kolmogorov–Smirnov && Chi2 probability tests to compare the
+//   ratios for K+ and K- (pi+ and pi-)
 
 // #include <filesystem>
 // namespace fs = std::filesystem;
@@ -1117,9 +1118,9 @@ void trk_eff_fit() {
    // for ( auto date : {2009, 2012, 2021} ) {
       // for ( auto sign : {+1, -1} ) {
          // const int rew = 1;     // 1 - use corrections
-         // Kaons: fig.38-39 efficiency, 40-41 efficiency ratio
+         // Kaons: fig.A11-A12 efficiency, A13-A14 efficiency ratio
          // plot_pict_K(date,sign,rew,Cx,Cy);
-         // Pions: fig.42-43 efficiency, 44-45 efficiency ratio
+         // Pions: fig.A15-A16 efficiency, A17-A18 efficiency ratio
          // plot_pict_pi(date,sign,rew,Cx,Cy);
       // }
    // }
