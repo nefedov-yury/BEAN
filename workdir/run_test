@@ -69,12 +69,12 @@ fi
 if [ 1 -eq 1 -a -d "${DTEST711}" ]; then
   printf " TEST\n"
 
-  #  gdb -ex=r --args \
+  # gdb -ex=r --args \
   ${BEAN} \
     -u DelClonedTrks \
-    -h ${ODIR}/test_711h.root \
+    -h ${ODIR}/test_711_alma.root \
     ${DTEST711}/run_0081712_All_file001_SFO-1.dst \
-    > ${ODIR}/test_711h.out 2>&1
+    > ${ODIR}/test_711_alma.out 2>&1
 fi
 
 #####################################################################

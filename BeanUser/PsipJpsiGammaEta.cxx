@@ -158,7 +158,8 @@ static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
-   if ( (cosPM > 0.80) ||         // flying in one direction
+   // if ( (cosPM > 0.80) ||         // flying in one direction
+   if ( (cosPM > 0.90) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
       ) {
       ret = false;
@@ -733,7 +734,7 @@ static void MatchGammaMC(PimPipGammas& ppg) {
    }
 
    if ( ppg.mcidx_g >= 0 ) { // matching for gamma
-//       hst[165]->Fill( min_de );
+      // hst[165]->Fill( min_de );
 
       // difference in momentum of gamma: true and rec
       int ig = ppg.mcidx_g;
@@ -756,7 +757,7 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
 //--------------------------------------------------------------------
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
-//    static const double cosTheta_max = 0.80;  // barrel only
+   // static const double cosTheta_max = 0.80;  // barrel only
    static const double cosTheta_max = 0.93;
 
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
@@ -910,7 +911,6 @@ static bool ChargedTracks(ReadDst* selector, PimPipGammas& ppg) {
    double Mrec = sqrt(Mrec2);
    hst[22]->Fill( Mrec );
    if( Mrec <= 3.092 || Mrec >= 3.102 ) { // narrow CUT on M(J/Psi)
-//    if( Mrec <= 3.055 || Mrec >= 3.145 ) { // wide CUT on M(J/Psi)
       return false;
    }
 
@@ -1204,7 +1204,7 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
    static const double seta = 0.008;
    static const double weta = 3*seta; // standard
 
-//    const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
+   // const TObjArray* evtRecTrkCol = selector->GetEvtRecTrkCol();
 
    int Ng   = ppg.LVg.size();
 
@@ -1463,12 +1463,12 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
 
    if ( isMC ) {
       JpsiTbl.Add(); // save in table
-//       if ( ppg.decJpsi != 22 ) { // DEBUG
-//          cout << " CHECK: decJpsi= " << ppg.decJpsi
-//               << " JpsiTbl= " << JpsiTbl.StrDec()
-//               << endl;
-//          selector->PrintMcDecayTree(-99,0);
-//       }
+      // if ( ppg.decJpsi != 22 ) { // DEBUG
+         // cout << " CHECK: decJpsi= " << ppg.decJpsi
+            // << " JpsiTbl= " << JpsiTbl.StrDec()
+            // << endl;
+         // selector->PrintMcDecayTree(-99,0);
+      // }
    }
 
 }

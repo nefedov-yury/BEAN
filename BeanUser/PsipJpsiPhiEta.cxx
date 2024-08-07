@@ -16,6 +16,7 @@
 #include <set>
 #include <algorithm>
 
+#include <TEnv.h>
 #include <TH1.h>
 #include <TH2.h>
 #include <TF1.h>
@@ -141,13 +142,7 @@ struct Xnt1 {
    float Cmns;          // cos(Theta(pi-)) for best
    int   decPsip;       // decay code of Psi(2S)
    float mcmkk;         // true inv. mass of K+K-
-} xnt1;
-   // float MrsW;          // weight of Mrs (corrects MC eff.)
-   // float Mrs_mindp;      // min delta momentum to find Mrs
-   // UShort_t nch;         // N charged tracks
-   // UShort_t Nm;          // number of els in Mrec: use @Mrec.size()
-   // float mcmkpet;        // true inv. mass of K+eta
-   // float mccosT;         // true cosT
+};
 
 // phi eta after kinematic fit
 struct Xnt2 {
@@ -171,7 +166,7 @@ struct Xnt2 {
    double mccosT;            // MCtrue: cosT
    string sdecp;             // MC: deca string of Psi(2S)
    string sdecj;             // MC: deca string of J/Psi
-} xnt2;
+};
 
 // eta reconstruction efficiency
 struct Xnt3 {
@@ -187,7 +182,7 @@ struct Xnt3 {
    int    decj;         // MC: decay codes of J/Psi
    int    deta;         // MC: 1 if eta decay to 2 gamma
    string sdecj;        // MC: deca string of J/Psi
-} xnt3;
+};
 
 //--------------------------------------------------------------------
 // {{{1 Global variables
@@ -213,10 +208,15 @@ static vector<TH1*> hst;
 static TTree* m_nt1 = nullptr;
 static TTree* m_nt2 = nullptr;
 static TTree* m_nt3 = nullptr;
+static TTree* m_nt4 = nullptr;
+static Xnt1 xnt1;
+static Xnt2 xnt2;
+static Xnt3 xnt3;
+static Xnt2 xnt_c4;
+static bool SaveNT1 = true;
 
 // decays classification
-static DecayTable PsipTbl;  // narrow window [3.092, 3.102]
-static DecayTable PsipTbl2; // wide window [3.055, 3.145]
+static DecayTable PsipTbl;  // Mrec(pi+pi-) in [3.092, 3.102]
 static DecayTable JpsiTbl;  // final phi-eta selection
 
 // container for warnings
@@ -255,9 +255,9 @@ static inline double SQ(double x) {
 static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
-   // TODO: cosPM > 0.9,
    bool ret = true;
-   if ( (cosPM > 0.80) ||         // flying in one direction
+   // if ( (cosPM > 0.80) ||         // flying in one direction
+   if ( (cosPM > 0.90) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
       ) {
       ret = false;
@@ -269,6 +269,7 @@ static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
 void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
 //--------------------------------------------------------------------
+
    if ( selector->Verbose() ) {
       cout << " Start: " << __func__ << "()" << endl;
       printf("Masses of particles from PDG\n");
@@ -373,7 +374,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    // hst[24] = new TH2D("cosPMNch", "cos(Theta_pi+_pi-) vs Nch",
                       // 100,-1.0,1.0,10,1.5,11.5);
    hst[25] = new TH1D("invPM", "inv.mass(pi+ pi-)", 100,0.25,0.75);
-   hst[26] = new TH1D("invPMz", "Minv(pi+pi-) zoom", 100,0.45,0.55);
+   hst[26] = new TH1D("invPMz", "Minv(pi+pi-) zoom", 100,0.473,0.523);
    // hst[26] = new TH2D("invPMNch", "inv.mass(pi+ pi-) vs Nch",
                       // 100,0.25,0.75,10,1.5,11.5);
    hst[27] = new TH1D("NMrec","N good pi+ pi- pairs", 10,-0.5,9.5);
@@ -404,7 +405,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[53] = new TH1D("K_PM","momentum K+ and K-", 240,-1.2,1.2);
    hst[54] = new TH1D("G_P","Momentum of gammas", 200,0.,2.);
 
-   // VertKinFit:
+   // VertKinFit
    hst[55] = new TH1D("vtx_fit", "vertex fit: 0/1 - bad/good",
          2,-0.5,1.5);
    hst[56] = new TH1D("vtx_chi2", "vertex fit #chi^2", 100,0.,100.);
@@ -417,6 +418,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          250,0.,250.);
    hst[64] = new TH1D("fit_ch2_2","fit: #chi^{2}(2#gamma)",
          250,0.,250.);
+
+   hst[65] = new TH1D("fC4_chi2","C4: min #chi^{2}", 250,0.,250.);
 
    hst[71] = new TH1D("fit_ang","fit: min angle gamma trk",180,0,180);
    hst[72] = new TH1D("fit_eg","fit: E(#gamma) rejected", 500,0.,0.5);
@@ -646,6 +649,12 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt1->Branch("mcmkk"   , &xnt1.mcmkk     );
    // m_nt1->Branch("MrsW"    , &xnt1.MrsW      );
 
+   const char* noNT1 = gEnv->GetValue("noNT1",nullptr);
+   if ( noNT1 ) {
+      SaveNT1 = false;
+      Warning("nt1 will not saved");
+   }
+
    // final TTree for
    //   Psi(2S) -> pi+ pi- J/Psi
    //                      J/Psi -> phi eta
@@ -718,6 +727,51 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt3->Branch("deta"  , &xnt3.deta  );
    m_nt3->Branch("sdecj" , &xnt3.sdecj );
 
+   // Tree for 4C kinematic constraints study
+   m_nt4 = new TTree("c4C","phi eta with 4C kinematic constraints");
+   m_nt4->Branch("Mrec"    , &xnt_c4.Mrec    );
+   m_nt4->Branch("ch2"     , &xnt_c4.ch2     );
+   m_nt4->Branch("chsq3g"  , &xnt_c4.chsq3g  );
+   m_nt4->Branch("Ppip"    , &xnt_c4.Ppip    );
+   m_nt4->Branch("Cpip"    , &xnt_c4.Cpip    );
+   m_nt4->Branch("phipip"  , &xnt_c4.phipip  );
+   m_nt4->Branch("Ppim"    , &xnt_c4.Ppim    );
+   m_nt4->Branch("Cpim"    , &xnt_c4.Cpim    );
+   m_nt4->Branch("phipim"  , &xnt_c4.phipim  );
+   m_nt4->Branch("Pkp"     , &xnt_c4.Pkp     );
+   m_nt4->Branch("Ckp"     , &xnt_c4.Ckp     );
+   m_nt4->Branch("phikp"   , &xnt_c4.phikp   );
+   m_nt4->Branch("Pkm"     , &xnt_c4.Pkm     );
+   m_nt4->Branch("Ckm"     , &xnt_c4.Ckm     );
+   m_nt4->Branch("phikm"   , &xnt_c4.phikm   );
+   m_nt4->Branch("Eg1"     , &xnt_c4.Eg1     );
+   m_nt4->Branch("Cg1"     , &xnt_c4.Cg1     );
+   m_nt4->Branch("phig1"   , &xnt_c4.phig1   );
+   m_nt4->Branch("Eg2"     , &xnt_c4.Eg2     );
+   m_nt4->Branch("Cg2"     , &xnt_c4.Cg2     );
+   m_nt4->Branch("phig2"   , &xnt_c4.phig2   );
+   m_nt4->Branch("Pkk"     , &xnt_c4.Pkk     );
+   m_nt4->Branch("Ckk"     , &xnt_c4.Ckk     );
+   m_nt4->Branch("phikk"   , &xnt_c4.phikk   );
+   m_nt4->Branch("Pgg"     , &xnt_c4.Pgg     );
+   m_nt4->Branch("Cgg"     , &xnt_c4.Cgg     );
+   m_nt4->Branch("phigg"   , &xnt_c4.phigg   );
+   m_nt4->Branch("Pj"      , &xnt_c4.Pj      );
+   m_nt4->Branch("Cj"      , &xnt_c4.Cj      );
+   m_nt4->Branch("phij"    , &xnt_c4.phij    );
+   m_nt4->Branch("Mkk"     , &xnt_c4.Mkk     );
+   m_nt4->Branch("Mgg"     , &xnt_c4.Mgg     );
+   m_nt4->Branch("M2kpeta" , &xnt_c4.M2kpeta );
+   m_nt4->Branch("M2kmeta" , &xnt_c4.M2kmeta );
+   // MC
+   m_nt4->Branch("dec"     , &xnt_c4.dec     );
+   m_nt4->Branch("decj"    , &xnt_c4.decj    );
+   m_nt4->Branch("mcmkk"   , &xnt_c4.mcmkk   );
+   m_nt4->Branch("mcmkpet" , &xnt_c4.mcmkpet );
+   m_nt4->Branch("mccosT"  , &xnt_c4.mccosT  );
+   m_nt4->Branch("sdecp"   , &xnt_c4.sdecp   );
+   m_nt4->Branch("sdecj"   , &xnt_c4.sdecj   );
+
    // register in selector to save in given directory
    const char* SaveDir = "PsipJpsiPhiEta";
    VecObj hsto(hst.begin(),hst.end());
@@ -727,6 +781,7 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    Vreg.push_back(m_nt1);
    Vreg.push_back(m_nt2);
    Vreg.push_back(m_nt3);
+   Vreg.push_back(m_nt4);
    selector->RegInDir(Vreg,SaveDir);
 }
 
@@ -974,12 +1029,12 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
    if ( Slct.decPsip == 64 && Slct.decJpsi == 0 ) {
       //  add small corrections to Slct.decJpsi
       string strdec = JpsiTbl.StrDec();
-//       cout << " DEBUG: 64 -> strdec= " << strdec << endl;
+      // cout << " DEBUG: 64 -> strdec= " << strdec << endl;
       if ( !strdec.empty() ) {
          int decJpsi = 0;
 
          // DEBUG
-//          cout << " CHECK-0: JpsiTbl= :" << strdec << ":" << endl;
+         // cout << " CHECK-0: JpsiTbl= :" << strdec << ":" << endl;
 
          // sortied by absolute value of PDG code and positive first
          if ( strdec == string("K+ K- eta") ||
@@ -1390,7 +1445,7 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
    static const double cosTheta_max = 0.80;  // barrel only
-//    static const double cosTheta_max = 0.93;
+   // static const double cosTheta_max = 0.93;
 
    const TEvtRecObject* m_TEvtRecObject = selector->GetEvtRecObject();
    const TEvtRecEvent* evtRecEvent =m_TEvtRecObject->getEvtRecEvent();
@@ -1638,16 +1693,12 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
       hst[106]->Fill(Slct.decJpsi);
 
       // fill decay table of Psi(2S):
-      PsipTbl2.vecdec = PsipTbl.vecdec; // propagate for second table
       if ( fabs(Slct.Mrec_best - 3.097) < 0.005 ) { // [3.092, 3.102]
          PsipTbl.Add();
       }
-      if ( fabs(Slct.Mrec_best - 3.1) < 0.045 ) { // [3.055, 3.145]
-         PsipTbl2.Add();
-      }
 
       // fill MC related fields in Slct
-//       MatchRecMcTrks(selector, Slct);
+      // MatchRecMcTrks(selector, Slct);
       MatchMcRecMr(selector, Slct);
    }
 
@@ -1726,7 +1777,9 @@ static bool ChargedTracksPiPi(ReadDst* selector, Select& Slct) {
    xnt1.decPsip = Slct.decPsip;
    xnt1.mcmkk   = Slct.mc_mkk; // for efficiency
 
-   m_nt1->Fill(); // ATTENTION!
+   if ( SaveNT1 ) {
+      m_nt1->Fill();
+   }
 
    return true;
 }
@@ -1738,7 +1791,7 @@ static bool ChargedTracksKK(ReadDst* selector, Select& Slct) {
    static const double Rvxy0_max = 1.0;
    static const double Rvz0_max = 10.0;
    static const double cosTheta_max = 0.80;  // barrel only
-//    static const double cosTheta_max = 0.93;
+   // static const double cosTheta_max = 0.93;
 
    if( Slct.Mrec.size() != 1 ) {
       return false;
@@ -1975,16 +2028,13 @@ static int NeutralTracks(ReadDst* selector, Select& Slct) {
 
 // {{{1 Vertex & Kinematic Fit
 //--------------------------------------------------------------------
-static bool VertKinFit(ReadDst* selector, Select& Slct) {
+static bool VertKinFit(ReadDst* selector, Select& Slct,
+      bool do4C=false) {
 //--------------------------------------------------------------------
 
-// do 4C fit to check Psip -> pi+pi-phi eta (no J/Psi)
-//    bool do5C = false;  // 4C fit
-   bool do5C = true; // do 5C fit by default
-
-   if ( !do5C ) {
-      Warning("VertKinFit: 4C fitN");
-   }
+   // do 5C fit by default
+   // do 4C fit to check Psip -> pi+pi-phi eta (no J/Psi)
+   bool do5C = !do4C;
 
    // search for a good vertex:
    WTrackParameter wp[4] = {
@@ -2019,12 +2069,16 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    vtxfit->AddVertex(0, vxpar,0, 1);
    bool ok = vtxfit->Fit(0);
 
-   hst[55]->Fill( double(ok) );
+   if ( do5C ) {
+      hst[55]->Fill( double(ok) );
+   }
    if ( !ok ) {
       return false;
    }
-   hst[1]->Fill(5); // "cuts"
-   hst[56]->Fill(vtxfit->chisq(0));
+   if ( do5C ) {
+      hst[1]->Fill(5); // "cuts"
+      hst[56]->Fill(vtxfit->chisq(0));
+   }
 
    // 4C or 5C kinematic fit: select two gammas with the best chisq
    vtxfit->BuildVirtualParticle(0);
@@ -2073,15 +2127,27 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       } //-----------------------------------------------End for(j)
    } //-----------------------------------------------End for(i)
 
-   hst[61]->Fill(chisq);
+   if ( do5C ) {
+      hst[61]->Fill(chisq);
+   } else {
+      hst[65]->Fill(chisq);
+   }
    if ( !Slct.g4f[0] ) {
       return false;   // can not find good pair of gammas
    }
 
-   hst[1]->Fill(6); // "cuts"
-   if ( isMC ) {
-      hst[103]->Fill(Slct.decPsip);
-      hst[108]->Fill(Slct.decJpsi);
+   if ( do5C ) {
+      hst[1]->Fill(6); // "cuts"
+      if ( isMC ) {
+         hst[103]->Fill(Slct.decPsip);
+         hst[108]->Fill(Slct.decJpsi);
+      }
+   } else {
+      hst[1]->Fill(7); // "cuts"
+      if ( isMC ) {
+         hst[104]->Fill(Slct.decPsip);
+         hst[109]->Fill(Slct.decJpsi);
+      }
    }
 
    // ++ check that one more gamma does not give better fit ++
@@ -2119,18 +2185,12 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       }
    } // end for( additional gamma )
 
-   if ( chisq_3g < 200. ) {
+   if ( chisq_3g < 200. && do5C ) {
       hst[62]->Fill( chisq - chisq_3g );
       if ( chisq_3g < chisq ) {
          hst[63]->Fill( chisq_3g );
          hst[64]->Fill( chisq );
       }
-   }
-
-   hst[1]->Fill(7); // "cuts"
-   if ( isMC ) {
-      hst[104]->Fill(Slct.decPsip);
-      hst[109]->Fill(Slct.decJpsi);
    }
 
    // ++ repeat fit for two best photons ++
@@ -2171,7 +2231,9 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
          // two selected photons
          Pgg0 += Slct.Pg[i];
          double deg = RtoD(Slct.angt[i]);
-         hst[71]->Fill(deg);
+         if ( do5C ) {
+            hst[71]->Fill(deg);
+         }
          if( deg < mang ) {
             mang = deg;
          }
@@ -2179,12 +2241,14 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
       }
       // rejected photons
       double Eg = Slct.Pg[i].e();
-      hst[72]->Fill(Eg);
+      if ( do5C ) {
+         hst[72]->Fill(Eg);
+      }
       if( Eg > Eg_max ) {
          Eg_max = Eg;
       }
    }
-   if ( Eg_max > 0.01 ) {
+   if ( Eg_max > 0.01 && do5C ) {
       hst[73]->Fill(Eg_max);
    }
 
@@ -2199,12 +2263,14 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
                   Slct.trk_Km[0]->pz());
    HepLorentzVector Pkm0( p3m, sqrt(p3m.mag2() + SQ(mk)) );
    double Mkk0 = (Pkp0+Pkm0).m();
-   if ( chisq < 80 ) {
-      if ( Mkk0 > 2*mk && Mkk0 < 1.1 ) {
-         hst[81]->Fill(Mgg0);
-      }
-      if ( fabs(Mgg0-meta) < 0.06 ) {
-         hst[82]->Fill(Mkk0);
+   if ( do5C ) {
+      if ( chisq < 80 ) {
+         if ( Mkk0 > 2*mk && Mkk0 < 1.1 ) {
+            hst[81]->Fill(Mgg0);
+         }
+         if ( fabs(Mgg0-meta) < 0.06 ) {
+            hst[82]->Fill(Mkk0);
+         }
       }
    }
 
@@ -2215,9 +2281,11 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    double cosPMfit = Hep3Vector(Ppim).cosTheta(Hep3Vector(Ppip));
    double invPMfit = (Ppip+Ppim).m();
    double Mrec_fit = (Slct.LVcms - Ppip - Ppim).m();
-   hst[83]->Fill(Mrec_fit);
-   hst[84]->Fill(cosPMfit);
-   hst[85]->Fill(invPMfit);
+   if ( do5C ) {
+      hst[83]->Fill(Mrec_fit);
+      hst[84]->Fill(cosPMfit);
+      hst[85]->Fill(invPMfit);
+   }
 
    // K+ and K-
    HepLorentzVector Pkp = kmfit->pfit(2);
@@ -2236,89 +2304,133 @@ static bool VertKinFit(ReadDst* selector, Select& Slct) {
    Hep3Vector beta_jpsi = Pjpsi.boostVector();
    HepLorentzVector Pphi = Pkk;
    Pphi.boost(-beta_jpsi); // momentum phi in J/Psi rest system
-   if ( chisq < 80 &&
+   if ( do5C && chisq < 80 &&
          ( Mkk > 2*mk && Mkk < 1.08 ) &&
          fabs(Mgg-meta) < 0.024
       ) {
       hst[86]->Fill( Pphi.cosTheta() );
    }
 
-   // M^2(Kg)
-//    double M2kpg1 = (Pkp + Pg1).m2();
-//    double M2kpg2 = (Pkp + Pg2).m2();
-//    double M2kmg1 = (Pkm + Pg1).m2();
-//    double M2kmg2 = (Pkm + Pg2).m2();
    // M^2(K eta)
    double M2kpeta = (Pkp + Pgg).m2();
    double M2kmeta = (Pkm + Pgg).m2();
 
    // HepLorentzVector.perp == HepLorentzVector.vect.rho
    // HepLorentzVector.rho == HepLorentzVector.vect.mag
-   xnt2.Mrec   = Slct.Mrec_best;
-   xnt2.ch2    = chisq;
-   xnt2.chsq3g = chisq_3g;
-   xnt2.Ppip   = Ppip.rho();
-   xnt2.Cpip   = Ppip.cosTheta();
-   xnt2.phipip = Ppip.phi();
-   xnt2.Ppim   = Ppim.rho();
-   xnt2.Cpim   = Ppim.cosTheta();
-   xnt2.phipim = Ppim.phi();
-   xnt2.Pkp    = Pkp.rho();
-   xnt2.Ckp    = Pkp.cosTheta();
-   xnt2.phikp  = Pkp.phi();
-   xnt2.Pkm    = Pkm.rho();
-   xnt2.Ckm    = Pkm.cosTheta();
-   xnt2.phikm  = Pkm.phi();
-   xnt2.Eg1    = Pg1.e();
-   xnt2.Cg1    = Pg1.cosTheta();
-   xnt2.phig1  = Pg1.phi();
-   xnt2.Eg2    = Pg2.e();
-   xnt2.Cg2    = Pg2.cosTheta();
-   xnt2.phig2  = Pg2.phi();
-   xnt2.Pkk    = Pkk.rho();
-   xnt2.Ckk    = Pkk.cosTheta();
-   xnt2.phikk  = Pkk.phi();
-   xnt2.Pgg    = Pgg.rho();
-   xnt2.Cgg    = Pgg.cosTheta();
-   xnt2.phigg  = Pgg.phi();
-   xnt2.Pj     = Pjpsi.rho();
-   xnt2.Cj     = Pjpsi.cosTheta();
-   xnt2.phij   = Pjpsi.phi();
-   xnt2.Mkk    = Mkk;
-   xnt2.Mgg    = Mgg;
-   xnt2.M2kpeta = M2kpeta;
-   xnt2.M2kmeta = M2kmeta;
-   // MC
-   xnt2.dec     = Slct.decPsip;
-   xnt2.decj    = Slct.decJpsi;
-   xnt2.mcmkk   = Slct.mc_mkk;
-   xnt2.mcmkpet = Slct.mc_mkpeta;
-   xnt2.mccosT  = Slct.mc_cosT;
-   if ( isMC ) {
-      xnt2.sdecp = PsipTbl.StrDec();
-      xnt2.sdecj = JpsiTbl.StrDec();
-   }
+   if ( do5C ) {
+      xnt2.Mrec   = Slct.Mrec_best;
+      xnt2.ch2    = chisq;
+      xnt2.chsq3g = chisq_3g;
+      xnt2.Ppip   = Ppip.rho();
+      xnt2.Cpip   = Ppip.cosTheta();
+      xnt2.phipip = Ppip.phi();
+      xnt2.Ppim   = Ppim.rho();
+      xnt2.Cpim   = Ppim.cosTheta();
+      xnt2.phipim = Ppim.phi();
+      xnt2.Pkp    = Pkp.rho();
+      xnt2.Ckp    = Pkp.cosTheta();
+      xnt2.phikp  = Pkp.phi();
+      xnt2.Pkm    = Pkm.rho();
+      xnt2.Ckm    = Pkm.cosTheta();
+      xnt2.phikm  = Pkm.phi();
+      xnt2.Eg1    = Pg1.e();
+      xnt2.Cg1    = Pg1.cosTheta();
+      xnt2.phig1  = Pg1.phi();
+      xnt2.Eg2    = Pg2.e();
+      xnt2.Cg2    = Pg2.cosTheta();
+      xnt2.phig2  = Pg2.phi();
+      xnt2.Pkk    = Pkk.rho();
+      xnt2.Ckk    = Pkk.cosTheta();
+      xnt2.phikk  = Pkk.phi();
+      xnt2.Pgg    = Pgg.rho();
+      xnt2.Cgg    = Pgg.cosTheta();
+      xnt2.phigg  = Pgg.phi();
+      xnt2.Pj     = Pjpsi.rho();
+      xnt2.Cj     = Pjpsi.cosTheta();
+      xnt2.phij   = Pjpsi.phi();
+      xnt2.Mkk    = Mkk;
+      xnt2.Mgg    = Mgg;
+      xnt2.M2kpeta = M2kpeta;
+      xnt2.M2kmeta = M2kmeta;
+      // MC
+      xnt2.dec     = Slct.decPsip;
+      xnt2.decj    = Slct.decJpsi;
+      xnt2.mcmkk   = Slct.mc_mkk;
+      xnt2.mcmkpet = Slct.mc_mkpeta;
+      xnt2.mccosT  = Slct.mc_cosT;
+      if ( isMC ) {
+         xnt2.sdecp = PsipTbl.StrDec();
+         xnt2.sdecj = JpsiTbl.StrDec();
+      }
 
-   m_nt2->Fill();
+      m_nt2->Fill();
 
-   if ( isMC ) {
-      static const double seta = 0.008;
-      if ( !do5C ) { // 4C: debug print for side-band
+   } else { // do4C
+      xnt_c4.Mrec   = Slct.Mrec_best;
+      xnt_c4.ch2    = chisq;
+      xnt_c4.chsq3g = chisq_3g;
+      xnt_c4.Ppip   = Ppip.rho();
+      xnt_c4.Cpip   = Ppip.cosTheta();
+      xnt_c4.phipip = Ppip.phi();
+      xnt_c4.Ppim   = Ppim.rho();
+      xnt_c4.Cpim   = Ppim.cosTheta();
+      xnt_c4.phipim = Ppim.phi();
+      xnt_c4.Pkp    = Pkp.rho();
+      xnt_c4.Ckp    = Pkp.cosTheta();
+      xnt_c4.phikp  = Pkp.phi();
+      xnt_c4.Pkm    = Pkm.rho();
+      xnt_c4.Ckm    = Pkm.cosTheta();
+      xnt_c4.phikm  = Pkm.phi();
+      xnt_c4.Eg1    = Pg1.e();
+      xnt_c4.Cg1    = Pg1.cosTheta();
+      xnt_c4.phig1  = Pg1.phi();
+      xnt_c4.Eg2    = Pg2.e();
+      xnt_c4.Cg2    = Pg2.cosTheta();
+      xnt_c4.phig2  = Pg2.phi();
+      xnt_c4.Pkk    = Pkk.rho();
+      xnt_c4.Ckk    = Pkk.cosTheta();
+      xnt_c4.phikk  = Pkk.phi();
+      xnt_c4.Pgg    = Pgg.rho();
+      xnt_c4.Cgg    = Pgg.cosTheta();
+      xnt_c4.phigg  = Pgg.phi();
+      xnt_c4.Pj     = Pjpsi.rho();
+      xnt_c4.Cj     = Pjpsi.cosTheta();
+      xnt_c4.phij   = Pjpsi.phi();
+      xnt_c4.Mkk    = Mkk;
+      xnt_c4.Mgg    = Mgg;
+      xnt_c4.M2kpeta = M2kpeta;
+      xnt_c4.M2kmeta = M2kmeta;
+      // MC
+      xnt_c4.dec     = Slct.decPsip;
+      xnt_c4.decj    = Slct.decJpsi;
+      xnt_c4.mcmkk   = Slct.mc_mkk;
+      xnt_c4.mcmkpet = Slct.mc_mkpeta;
+      xnt_c4.mccosT  = Slct.mc_cosT;
+      if ( isMC ) {
+         xnt_c4.sdecp = PsipTbl.StrDec();
+         xnt_c4.sdecj = JpsiTbl.StrDec();
+      }
+
+      m_nt4->Fill();
+
+      if ( isMC ) {
+         // 4C: debug print for side-band
+         static const double seta = 0.008;
          if (     (Slct.Mrec_best>3.0 && Slct.Mrec_best < 3.05)
                || (Slct.Mrec_best>3.144 && Slct.Mrec_best < 3.194) ) {
             if ( chisq < 60
-               && fabs(Mgg-meta) < 3*seta
-               && Mkk > 2*mk && Mkk < 1.08      ) {
+                  && fabs(Mgg-meta) < 3*seta
+                  && Mkk > 2*mk && Mkk < 1.08      ) {
                cout << "<<< EVENT IN SIDE-BAND>>>"
-                    << " Mrec= " << Slct.Mrec_best
-                    << " Mgg= " << Mgg
-                    << " Mkk= " << Mkk
-                    << endl;
+                  << " Mrec= " << Slct.Mrec_best
+                  << " Mgg= " << Mgg
+                  << " Mkk= " << Mkk
+                  << endl;
                selector->PrintMcDecayTree(-99,0);
             }
          }
-      }
-   } // end if (isMC)
+      } // end if (isMC)
+   } // end do4C
 
    return true;
 }
@@ -2335,7 +2447,6 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
    double Mrec = Slct.Mrec_best;
    hst[201]->Fill( Mrec );
    if( Mrec <= 3.092 || Mrec >= 3.102 ) { // narrow CUT on M(J/Psi)
-//    if( Mrec <= 3.055 || Mrec >= 3.145 ) { // wide CUT on M(J/Psi)
       return;
    }
    Hep3Vector pi3p(Slct.trk_Pip->px(),
@@ -2417,7 +2528,8 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
       }
    }
    // Mphi^2 = 1.039+/-0.006 (+/-0.005 for v709)
-   if ( Mkk2 <= 1.01 || Mkk2 >= 1.07 ) { // TODO v709: [1.02,1.06]
+   // if ( Mkk2 <= 1.01 || Mkk2 >= 1.07 ) { // <= v709n3
+   if ( Mkk2 <= 1.02 || Mkk2 >= 1.06 ) {
       return;
    }
 
@@ -2795,6 +2907,7 @@ bool PsipJpsiPhiEtaEvent( ReadDst*       selector,
    bool fret = false;
    if ( ng >= 2 ) {
       fret = VertKinFit(selector, Slct);
+      VertKinFit(selector, Slct, true); // do4C fit
    }
 
    //-----------------------------------------------------------------
@@ -2825,13 +2938,6 @@ void PsipJpsiPhiEtaEndJob(ReadDst* selector) {
       PsipTbl.Print(0.1); // do not print decays with P<0.1% of all
       cout << "Enddecay" << endl << endl;
 
-      cout << string(65,'#') << endl;
-      cout << "Decays of Psi(2S) 2" << endl
-           << "       Mrec in [3.055, 3.145] "
-           << PsipTbl2.ntot << " decays" << endl
-           << "       size of table is " << PsipTbl2.Size() << endl;
-      PsipTbl2.Print(0.1);
-      cout << "Enddecay" << endl << endl;
    }
 
    string module = string(__func__);

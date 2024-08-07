@@ -182,7 +182,8 @@ static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
-   if ( (cosPM > 0.80) ||         // flying in one direction
+   // if ( (cosPM > 0.80) ||         // flying in one direction
+   if ( (cosPM > 0.90) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
       ) {
       ret = false;
@@ -284,7 +285,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
            << "EventTagSvc has already been initialized" << endl;
       // Warning("EventTagSvc has already been initialized");
    }
-   // nef: psi' decays 
+   // nef: psi' decays
    m_EventTagSvc->setUserDecayTabsFile(
       selector->AbsPath( "BeanUser/mypsip_dec.codes" ) );
 
@@ -1164,10 +1165,6 @@ static bool NeutralTracks(ReadDst* selector, PipPimKpKm& ppKK) {
       hst[213+ppKK.good]->Fill( ppKK.Eg_max );
       hst[215+ppKK.good]->Fill( ppKK.Eg_sum );
    }
-
-// VERY DANGEROUS CUTS: data and MC have different behavior
-//    if ( ppKK.Eg_max > 0.3 ) return false;
-//    if ( ppKK.Eg_sum > 0.3 ) return false;
 
    // search for pi0
    int Npi0 = 0;

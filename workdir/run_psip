@@ -6,6 +6,7 @@ PROD="local"
 # PROD="prod-12"
 
 ########## MC-sig: Psi(2S)->pi+pi-J/Psi->phi eta #####################
+# we need nt1 for effisiency study
 function run_mcsig() {
   DAT=$1
   if [ -f PsipJpsiPhiEta/local/Lists/mcsig_${DAT}_709.list ];
@@ -19,6 +20,7 @@ function run_mcsig() {
       -h PsipJpsiPhiEta/$PROD/mcsig_kkmc_${DAT}.root \
       > PsipJpsiPhiEta/$PROD/mcsig_kkmc_${DAT}.out 2>&1 &
   fi
+
 }
 
 #  run_mcsig 09
@@ -55,6 +57,7 @@ function run_mcphieta2() {
       -u DelClonedTrks \
       -u PsipHelixParCor \
       -u PsipJpsiPhiEta \
+      -e noNT1=true \
       -L PsipJpsiPhiEta/local/Lists/mcphieta2_${DAT}_709.list \
       -h PsipJpsiPhiEta/$PROD/mcphieta2_kkmc_${DAT}.root \
       > PsipJpsiPhiEta/$PROD/mcphieta2_kkmc_${DAT}.out 2>&1 &
@@ -71,6 +74,7 @@ if [ 0 -eq 1 ]; then
   printf "run local mcinc_21\n"
   ${BEAN7} \
     -u DelClonedTrks \
+    -u PsipHelixParCor \
     -u PsipJpsiPhiEta \
     -u PsipPiPiKK \
     -u PsipJpsiGammaEta\
@@ -78,7 +82,7 @@ if [ 0 -eq 1 ]; then
     -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
     > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &
 fi
-    #  -u PsipHelixParCor \
+    #  -e noNT1=true \
     #  -L PsipJpsiPhiEta/local/Lists/mcincl_09_709.list \
 
 #################### TEST-DEBUG ############################
