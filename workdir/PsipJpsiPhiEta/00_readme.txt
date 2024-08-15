@@ -65,20 +65,19 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 //--------------------------------------------------------------------
 1) Selection Psi' -> Jpsi pi+pi-
 //--------------------------------------------------------------------
-+ ClonedTrks.cc:
-// ClonedTrks.cc - plot pictures for cloned tracks study
+// ? ClonedTrks.cc
+// study of cloned tracks, for presentation only
 
-+ pipi_dataMC.cc:
-// plot data distributions vs MC
-// for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
-//      -> VarName_YEAR.pdf
+// +pipi_dataMC.cc
+// Data vs MC for pi+,pi- from Psi(2S) -> Jpsi pi+pi-
+//      -> {VarName}_{YEAR}.pdf
 
-+MrecFitSB.cc:
-// * Plot pictures for memo/presentation
-//   MrecDraw() -> Mrec{YEAR}.pdf
-// * Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data using
-//   side-band method
-//   DoFitSB()  -> Mrec{YEAR}_fsb_T{Npol}.pdf
+// +MrecFitSB.cc
+// * MrecDraw() : draws a picture of recoil mass of pi+pi-
+//    -> Mrec{YEAR}[_zoom].pdf
+// * DoFitSB() : calculate number of Psi(2S) -> J/Psi pi+ pi- decays
+//               in data using side-band method
+//    -> Mrec{YEAR}_fsb[_sys{Sys}]_T{Npol}.pdf
 
 +MrecFit.cc:
 // * Data fitting by correcting of MC signal and scaling of

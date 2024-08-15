@@ -64,9 +64,9 @@ function run_mcphieta2() {
   fi
 }
 
-#  run_mcphieta2 09
-#  run_mcphieta2 12
-#  run_mcphieta2 21
+run_mcphieta2 09
+run_mcphieta2 12
+run_mcphieta2 21
 
 #################### MC INCLUSIVE PSI(2S) ##################
 #  DSTDIR="/data/bes3/709/psip/21mc/dst"

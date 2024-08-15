@@ -1,4 +1,5 @@
-// ClonedTrks.cc - plot pictures for cloned tracks study
+// ClonedTrks.cc
+// study of cloned tracks, for presentation only
 
 // {{{1 helper functions
 //--------------------------------------------------------------------

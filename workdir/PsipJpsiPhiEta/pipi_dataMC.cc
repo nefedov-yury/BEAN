@@ -1,18 +1,19 @@
-// pipi_dataMC.cc - plot data distributions vs MC
-// for pi+ pi- in selected Psi(2S) -> Jpsi pi+pi-
-//      -> VarName_YEAR.pdf
-
-// pointer on function wich fill one histo
-typedef TH1D* (*FILL_H)(string, string, string);
+// pipi_dataMC.cc
+// Data vs MC for pi+,pi- from Psi(2S) -> Jpsi pi+pi-
+//      -> {VarName}_{YEAR}.pdf
 
 // {{{1 helper functions and constants
 //--------------------------------------------------------------------
+// pointer on function wich fill one histo
+typedef TH1D* (*FILL_H)(string, string, string);
+
 // global name of folder with root files
 string Dir;
 
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -38,8 +39,9 @@ void SetHstFace(TH1* hst) {
 
 // {{{1 plot_hist() - functions
 //--------------------------------------------------------------------
-TH1D* get_hst(string fname, string hname) {
+TH1D* get_hst(string fname, string hname)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -60,8 +62,9 @@ TH1D* get_hst(string fname, string hname) {
 }
 
 //--------------------------------------------------------------------
-void get_hist(int date, string hname, TH1D* hst[]) {
+void get_hist(int date, string hname, TH1D* hst[])
 //--------------------------------------------------------------------
+{
 #include "norm.h"
 
    string datafile( Form("data_%02ipsip_all.root",date%100) );
@@ -87,12 +90,11 @@ void get_hist(int date, string hname, TH1D* hst[]) {
 }
 
 //--------------------------------------------------------------------
-void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
+void plot_hist(string hname, int date, int Cx=600, int Cy=600)
 //--------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas(
-         Form("c1_%s_%i",hname.c_str(),date),
-         Form("%i %s",date,hname.c_str()),
-         0, 0, Cx, Cy);
+{
+   auto name = Form("c1_%i_%s",date,hname.c_str());
+   TCanvas* c1 = new TCanvas(name,name, 0, 0, Cx, Cy);
 
    TH1D* hst[10];
    get_hist(date, hname, hst);
@@ -122,32 +124,26 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
       hst[0]->SetTitle(
             ";cos #Theta_{#pi^{#plus}#pi^{#minus}}"
             ";Events/0.02" );
-      if ( date == 2009 ) {
-         hst[0]->GetYaxis()->SetTitleOffset(1.2);
-      }
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    } else if ( hname == "invPM" ) {
       hst[0]->SetTitle(
             ";M^{ inv}_{#pi^{#plus}#pi^{#minus}}, GeV/c^{2}"
             ";Events/0.005 GeV/c^{2}" );
-      if ( date == 2009 ) {
-         hst[0]->GetYaxis()->SetTitleOffset(1.2);
-      }
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    } else if ( hname == "Pip_P" ) {
       pos = 1;
       box = nullptr;
       hst[0]->SetTitle(
-            // ";Momentum of #pi^{ #plus}, GeV/c"
             ";P_{#pi^{#plus}}, GeV/c"
             ";Events/0.005 GeV/c" );
-      hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    } else if ( hname == "Pim_P" ) {
       pos = 1;
       box = nullptr;
       hst[0]->SetTitle(
-            // ";Momentum of #pi^{ #minus}, GeV/c"
             ";P_{#pi^{#minus}}, GeV/c"
             ";Events/0.005 GeV/c" );
-      hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    } else if ( hname == "Pip_C") {
       pos = 2;
       hst[0]->SetTitle(
@@ -161,7 +157,6 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
             ";Events/0.02" );
       hst[0]->GetYaxis()->SetTitleOffset(1.2);
    } else if ( hname == "Bnch") {
-      pos = 1;
       box = nullptr;
       hst[0]->SetTitle(
             ";Number of charged tracks"
@@ -170,23 +165,24 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
       hst[0]->SetMinimum(1.);
       hst[0]->SetMaximum(); // default
       gPad->SetLogy(true);
-      hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    }
 
    hst[0]->Draw("E"); // data
    if ( hname == "cosPM" ) {
-      box->DrawBox(0.8,.0,1.0,win_max);
+      // box->DrawBox(0.8,0.0,1.0,win_max);
+      box->DrawBox(0.9,0.0,1.0,win_max);
    } else if ( hname == "invPM" ) {
       double mk0    = 0.497611;
       double d = 0.008;
-      box->DrawBox(mk0-d,.0,mk0+d,win_max);
+      box->DrawBox(mk0-d,0.0,mk0+d,win_max);
    } else if ( hname == "Pip_C" || hname == "Pim_C" ) {
       gPad->SetLogy(false);
       if ( date == 2009 ) {
          hst[0]->GetYaxis()->SetNdivisions(1004);
       }
-      box->DrawBox(-1.,0.,-0.8,win_max);
-      box->DrawBox(0.8,0.,1.,win_max);
+      box->DrawBox(-1.,0.0,-0.8,win_max);
+      box->DrawBox(0.8,0.0,1.,win_max);
       // gPad->SetLogy(true);
       // hst[0]->SetAxisRange(1.,win_max,"Y");
       // box->DrawBox(-1.,1.,-0.8,win_max);
@@ -199,7 +195,7 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
 
    TLegend* leg;
    if ( pos == 0 ) { // default
-      leg = new TLegend(0.53,0.65+0.07*(box==nullptr),0.89,0.89);
+      leg = new TLegend(0.56,0.65+0.07*(box==nullptr),0.89,0.89);
    } else if ( pos == 1 ) {
       leg = new TLegend(0.60,0.74,0.89,0.89);
    } else if ( pos == 2 ) {
@@ -217,8 +213,9 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
    if ( box ) {
       leg->AddEntry(box, "Rejection area","F");
    }
-   leg->SetTextSize(0.03);
+   leg->SetTextSize(0.035);
    leg->Draw();
+   gPad->RedrawAxis();
 
    c1->Update();
    string pdf = hname + "_" + to_string(date)+".pdf";
@@ -227,8 +224,9 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600) {
 
 // {{{1 plot_One and functions
 //--------------------------------------------------------------------
-TH1D* fill_nch(string fname, string hname, string hcut) {
+TH1D* fill_nch(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -255,8 +253,9 @@ TH1D* fill_nch(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_Nm(string fname, string hname, string hcut) {
+TH1D* fill_Nm(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -283,8 +282,9 @@ TH1D* fill_Nm(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_ppip(string fname, string hname, string hcut) {
+TH1D* fill_ppip(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -311,8 +311,9 @@ TH1D* fill_ppip(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_ppim(string fname, string hname, string hcut) {
+TH1D* fill_ppim(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -339,8 +340,9 @@ TH1D* fill_ppim(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_cpip(string fname, string hname, string hcut) {
+TH1D* fill_cpip(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -367,8 +369,9 @@ TH1D* fill_cpip(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_cpim(string fname, string hname, string hcut) {
+TH1D* fill_cpim(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -395,8 +398,9 @@ TH1D* fill_cpim(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_cosPM(string fname, string hname, string hcut) {
+TH1D* fill_cosPM(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -423,8 +427,9 @@ TH1D* fill_cosPM(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-TH1D* fill_invPM(string fname, string hname, string hcut) {
+TH1D* fill_invPM(string fname, string hname, string hcut)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -451,8 +456,9 @@ TH1D* fill_invPM(string fname, string hname, string hcut) {
 }
 
 //--------------------------------------------------------------------
-void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[]) {
+void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[])
 //--------------------------------------------------------------------
+{
 #include "norm.h"
 
    string datafile( Form("data_%02ipsip_all.root",date%100) );
@@ -488,13 +494,11 @@ void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[]) {
 }
 
 //--------------------------------------------------------------------
-void plot_One(int date, string var, FILL_H fill_h,
-      int Cx=600, int Cy=600) {
+void plot_One(int date,string var FILL_H fill_h,int Cx=600,int Cy=600)
 //--------------------------------------------------------------------
-   TCanvas* c1 = new TCanvas("c1","...",0,0,Cx,Cy);
-
-   string pdf = var+string("_")+to_string(date)+string(".pdf");
-   c1->Print((pdf+"[").c_str()); // open pdf-file
+{
+   auto name = Form("c1_%i_%s",date,var.c_str());
+   TCanvas* c1 = new TCanvas(name,name, 0, 0, Cx, Cy);
 
    TH1D* hst[10];
    fill_hist(date,var,fill_h,hst);
@@ -536,18 +540,21 @@ void plot_One(int date, string var, FILL_H fill_h,
    leg->AddEntry(hst[3],
          Form("#color[%i]{non #pi^{#plus}#pi^{#minus}J/#Psi decay}",
             hst[3]->GetLineColor() ), "L");
+   leg->SetTextSize(0.035); // == plot_hist
    leg->Draw();
+   gPad->RedrawAxis();
 
    c1->Update();
-   c1->Print(pdf.c_str()); // add to pdf-file
-
-   c1->Print((pdf+"]").c_str()); // close pdf-file
+   // string pdf = var+string("_")+to_string(date)+string(".pdf");
+   string pdf( Form("%s_%i.pdf",var.c_str(),date) );
+   c1->Print( pdf.c_str() );
 }
 
 // {{{1 main()
 //--------------------------------------------------------------------
-void pipi_dataMC() {
+void pipi_dataMC()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(0);
@@ -556,12 +563,12 @@ void pipi_dataMC() {
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   // Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   // Fig.2-5 (for Mrec(pi+pi-) see MrecFitSB.cc)
-   size_t Cx = 630, Cy = 570; // canvas sizes for memo
-   size_t Cy2 = 600;
+   // Fig. 2,3,5
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
    for ( auto date : {2009, 2012, 2021} ) {
       // plot_hist("cosPM",date,Cx,Cy);
       // plot_hist("invPM",date,Cx,Cy);
@@ -569,12 +576,12 @@ void pipi_dataMC() {
       // plot_hist("Pip_P",date,Cx,Cy);
       // plot_hist("Pim_P",date,Cx,Cy);
 
-      // plot_hist("Bnch",date,Cx,Cy2); // Nch
+      // plot_hist("Bnch",date,Cx,Cy); // Nch
 
       // slow
-      // plot_One(date,"Nm",fill_Nm,Cx,Cy2);
+      // plot_One(date,"Nm",fill_Nm,Cx,Cy);
    }
 
-   // ugly
-   // plot_hist("Pip_C",2021,Cx,Cy); // or log see fun()
+   // OLD and ugly
+   // plot_hist("Pip_C",2021,Cx,Cy);
 }

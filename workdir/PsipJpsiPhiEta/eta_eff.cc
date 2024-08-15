@@ -17,7 +17,8 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   const string Dir = "prod_v709n3/";
+   // const string Dir = "prod_v709n3/";
+   const string Dir = "prod_v709n4/";
    string datafile;
    string mcincfile;
    string mcsigf1;  // MC for gamma eta
@@ -33,7 +34,10 @@ struct Params {
    TCut Cbg;    // cuts against the background
    TCut Cph;    // cuts for selection photons
    TCut Ceta;   // cuts for selection eta
+   TCut Cfnd;   // predicted eta found
+   TCut Cfnd_g; // predicted gamma found
 
+   const double meta   = 0.54786; // 547.862   +/- 0.017   MeV
    const double Br_eta_2gamma = 0.3936; // PDG 2023
    const double Br_phi_KK = 0.491; // PDG 2023
 };
@@ -52,31 +56,28 @@ Params::Params(int dat, int slc = 2, int rew = 0)
    mcincfile = string( Form("mcinc_%02ipsip_all.root",date%100) );
    mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
    mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
-   // mcinc: wrong angles in decay J/Psi->gamma eta
-   // mcsig: eta -> 2 gammas (no other decays)
-   // mcsigf1 = mcincfile;
-   // mcsigf2 = string( Form("mcsig_kkmc_%02i.root",date%100) );
 
    // mc-signal
    if ( slct > 0 ) {    // gamma-eta
-      Cmcsig += TCut("decj==22");
+      // Cmcsig += TCut("decj==22");
+      Cmcsig += TCut("abs(decj-22)<0.1"); // decj is float here
    } else {             // phi-eta
       Cmcsig += TCut("decj==68");
    }
 
    // cuts against the background
    if ( slct > 0 ) {         // gamma-eta
+      Cbg += TCut("abs(Cg0)<0.8");
+      Cbg += TCut("abs(Cg1)<0.8");
       Cbg += TCut("m2fr<0.002");
-      Cbg += TCut("fabs(Cg0)<0.8");
-      // Cbg += TCut("fabs(Cg1)<0.8 && Eg1>0.2");
-      Cbg += TCut("fabs(Cg1)<0.8 && Eg1>0.1");
+      Cbg += TCut("Eg1>0.25&&Eg1<1.7");
    } else {                  // phi-eta
-      Cbg += TCut("m2fr<0.002");
+      Cbg += TCut("m2fr<0.001");
    }
 
    // cuts for selection photons
-   Cph += TCut("fabs(Cg2)<0.8||(fabs(Cg2)>0.85&&fabs(Cg2)<0.92)");
-   Cph += TCut("fabs(Cg1)<0.8||(fabs(Cg1)>0.85&&fabs(Cg1)<0.92)");
+   Cph += TCut("abs(Cg1)<0.8||(abs(Cg1)>0.85&&abs(Cg1)<0.92)");
+   Cph += TCut("abs(Cg2)<0.8||(abs(Cg2)>0.85&&abs(Cg2)<0.92)");
    if ( slct > 0 ) {         // gamma-eta
       Cph += TCut("Eg2>0.1&&Eg2<1.4");
    } else {                  // phi-eta
@@ -84,13 +85,21 @@ Params::Params(int dat, int slc = 2, int rew = 0)
    }
 
    // cuts for selection eta
-   Ceta += TCut("fabs(Ceta)<0.9");
-   Ceta += TCut("fabs(Cg2)<0.8||(fabs(Cg2)>0.85&&fabs(Cg2)<0.92)");
    if ( slct > 0 ) {         // gamma-eta
       Ceta += TCut("Peta>1.3&&Peta<1.7");
    } else {                  // phi-eta
       Ceta += TCut("Peta>1.15&&Peta<1.5");
    }
+   // doubtful:
+   // Ceta += TCut("abs(Ceta)<0.9");
+   // Ceta += TCut("abs(Cg2)<0.8||(abs(Cg2)>0.85&&abs(Cg2)<0.92)");
+
+   // predicted eta is found
+   Cfnd += TCut("dTh<8.&&0.8<rE&&rE<1.4");
+   Cfnd += TCut( Form("abs(mggf-%.6f)<0.024",meta) );
+
+   // predicted gamma is found
+   Cfnd_g += TCut("dTh<8.&&0.8<rE&&rE<1.4");
 }
 
 // {{{2 > OpenFile(mc = 0: data, 1: MC inc, 2: MC-signal)
@@ -228,13 +237,13 @@ void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0)
    TCut Crec0 = p->Cbg;
    TCut Crec1 = p->Cbg;
    if ( abs(p->slct) == 1 ) {      // photon
-      Crec0 += TCut("fl<0.5");
-      Crec1 += TCut("fl>0.5");
+      Crec0 += !(p->Cfnd_g);
+      Crec1 += p->Cfnd_g;
       Crec0 += p->Cph;
       Crec1 += p->Cph;
    } else {                     // eta
-      Crec0 += TCut("fl<1.5");
-      Crec1 += TCut("fl>1.5");
+      Crec0 += !(p->Cfnd);
+      Crec1 += p->Cfnd;
       Crec0 += p->Ceta;
       Crec1 += p->Ceta;
    }
@@ -379,17 +388,14 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff )
    get_hst(p, 2, hst, 1);   // MC-"signal"
    get_hst(p, 1, hstBG, 2); // MC bg only
 
-   // sum of signal and bg.
+   // sum of signal and background
    double W = 1;
    if ( p->slct > 0 ) {       // gamma-eta
       W = p->W_g_eta();
-   } else {                     // phi-eta
+   } else {                   // phi-eta
       W = p->W_phi_eta();
    }
-   // Should we add a background?
    for ( int i = 0; i < hst.size(); i++ ) {
-      cout << "i=" << i << " hst=" << W*hst[i]->GetEntries()
-         << " hstBG=" << hstBG[i]->GetEntries() << endl;
       hst[i]->Add( hst[i], hstBG[i], W, 1.);
    }
 
@@ -481,7 +487,7 @@ vector<double> plot_pict_gamma_eta(int date, int rew,
 
    // Draw:
    ///////////////////////////////////////////////////////////////////
-   double eff_min = 0.7, eff_max = 1.0;
+   double eff_min = 0.45, eff_max = 0.9;
    double rat_min = 0.9, rat_max = 1.1;
    ///////////////////////////////////////////////////////////////////
    string p_pdf = (par->slct == 2) ?  "etaeff_geta" : "Geff_geta";
@@ -489,24 +495,23 @@ vector<double> plot_pict_gamma_eta(int date, int rew,
    vector<TCanvas*> cc(4,nullptr);
    vector<TLegend*> leg(4,nullptr);
    for ( size_t i = 0; i < cc.size(); ++i ) {
-      int x0 = 700*(i%2);
-      int y0 = 500*(i/2);
+      int x0 = (Cx/2)*(i%2);
+      int y0 = (Cy/2)*(i/2);
       // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
       auto name = Form("c%zu_%i",1+i,date);
       cc[i] = new TCanvas( name,name, x0,y0,Cx,Cy);
 
       auto cdat = Form("%i",date);
       if ( i < 2 ) { // efficiency
-         leg[i] = new TLegend(0.61,0.74,0.89,0.89);
-         // leg[i] = new TLegend(0.14,0.74,0.42,0.89);
-         leg[i]->SetHeader( cdat,"C");
+         leg[i] = new TLegend(0.12,0.73,0.40,0.88);
+         leg[i]->SetHeader(cdat,"C");
          leg[i]->SetNColumns(2);
-         leg[i]->AddEntry(eff_d[0], "data", "LP");
-         leg[i]->AddEntry(eff_mc[0], "MC", "LP");
+         leg[i]->AddEntry(eff_d[0], " Data", "LP");
+         leg[i]->AddEntry(eff_mc[0], " MC", "LP");
       } else { // retio
          leg[i] = new TLegend(0.14,0.81,0.42,0.89);
          if ( par->slct == 2 ) {
-            leg[i]->SetHeader( cdat,"C");
+            leg[i]->SetHeader(cdat,"C");
          } else {
             leg[i]->SetHeader( Form("#gamma, %i",date), "C" );
          }
@@ -528,7 +533,7 @@ vector<double> plot_pict_gamma_eta(int date, int rew,
       SetHstFace(eff_d[i]);
       eff_d[i]->SetAxisRange(eff_min,eff_max,"Y");
       // eff_d[i]->GetXaxis()->SetTitleOffset(1.);
-      eff_d[i]->GetYaxis()->SetTitleOffset(0.9);
+      eff_d[i]->GetYaxis()->SetTitleOffset(1.);
       eff_d[i]->GetYaxis()->SetNdivisions(1005);
       eff_d[i]->Draw("E");
       leg[0+i]->Draw();
@@ -542,7 +547,6 @@ vector<double> plot_pict_gamma_eta(int date, int rew,
    }
 
    // plot ratio
-   // gStyle->SetStatX(0.89);
    gStyle->SetStatX(0.91);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
@@ -569,7 +573,7 @@ vector<double> plot_pict_gamma_eta(int date, int rew,
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
       // rat0[i]->GetYaxis()->SetNdivisions(1004);
       // rat0[i]->GetXaxis()->SetTitleOffset(1.);
-      rat0[i]->GetYaxis()->SetTitleOffset(1.3);
+      rat0[i]->GetYaxis()->SetTitleOffset(1.2);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
@@ -635,24 +639,26 @@ vector<double> plot_pict_phi_eta(int date, int rew,
 
    // Draw:
    ///////////////////////////////////////////////////////////////////
-   double eff_min = 0.7, eff_max = 1.01;
+   double eff_min = 0.5, eff_max = 1.0;
    double rat_min = 0.9, rat_max = 1.1;
+   if( date == 2009 ) {
+      rat_min = 0.85, rat_max = 1.15;
+   }
    ///////////////////////////////////////////////////////////////////
    string p_pdf = "etaeff_phieta";
 
    vector<TCanvas*> cc(4,nullptr);
    vector<TLegend*> leg(4,nullptr);
    for ( size_t i = 0; i < cc.size(); ++i ) {
-      int x0 = 700*(i%2);
-      int y0 = 500*(i/2);
+      int x0 = (Cx/2)*(i%2);
+      int y0 = (Cy/2)*(i/2);
       // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
       auto name = Form("c%zu_%i",1+i,date);
       cc[i] = new TCanvas( name,name, x0,y0,Cx,Cy);
 
       auto cdat = Form("%i",date);
       if ( i < 2 ) { // efficiency
-         // leg[i] = new TLegend(0.61,0.74,0.89,0.89);
-         leg[i] = new TLegend(0.14,0.74,0.42,0.89);
+         leg[i] = new TLegend(0.12,0.73,0.40,0.88);
          leg[i]->SetHeader( cdat,"C");
          leg[i]->SetNColumns(2);
          leg[i]->AddEntry(eff_d[0], "data", "LP");
@@ -702,7 +708,7 @@ vector<double> plot_pict_phi_eta(int date, int rew,
       SetHstFace(rat0[i]);
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
       // rat0[i]->GetXaxis()->SetTitleOffset(1.0);
-      rat0[i]->GetYaxis()->SetTitleOffset(1.3);
+      rat0[i]->GetYaxis()->SetTitleOffset(1.2);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
       rat0[i]->SetLineColor(kBlack);
@@ -737,9 +743,9 @@ void eta_eff()
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
-   gStyle->SetStatFont(62);
+   gStyle->SetStatFont(42);
 
-   size_t Cx = 630, Cy = 600; // canvas sizes
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    vector<double> g_eta;
    vector<double> p_eta;
@@ -748,8 +754,8 @@ void eta_eff()
       const int rew = 0;     // 1 - use corrections
 
       // I. J/Psi->gamma eta, fig B10,B11
-      auto res = plot_pict_gamma_eta(date,rew,Cx,Cy);
-      g_eta.insert(end(g_eta),begin(res),end(res));
+      // auto res = plot_pict_gamma_eta(date,rew,Cx,Cy);
+      // g_eta.insert(end(g_eta),begin(res),end(res));
 
       // II. J/Psi->phi eta, fig B18,B19
       // auto res2 = plot_pict_phi_eta(date,rew,Cx,Cy);

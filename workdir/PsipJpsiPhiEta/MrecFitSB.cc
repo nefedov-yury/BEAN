@@ -1,9 +1,9 @@
 // MrecFitSB.cc
-// * Plot pictures for memo/presentation
-//   MrecDraw() -> Mrec{YEAR}.pdf
-// * Calculate number of Psi(2S) -> J/Psi pi+ pi- decays in data using
-//   side-band method
-//   DoFitSB()  -> Mrec{YEAR}_fsb_T{Npol}.pdf
+// * MrecDraw() : draws a picture of recoil mass of pi+pi-
+//    -> Mrec{YEAR}[_zoom].pdf
+// * DoFitSB() : calculate number of Psi(2S) -> J/Psi pi+ pi- decays
+//               in data using side-band method
+//    -> Mrec{YEAR}_fsb[_sys{Sys}]_T{Npol}.pdf
 //
 // We fit the distribution of recoil mass (Mrec) of two pions in the
 // area far from the peak of J/Psi by rescaling inclusive MC.
@@ -22,17 +22,18 @@ namespace fs = std::filesystem;
 //--------------------------------------------------------------------
 // GLOBAL: name of folder with root files
 string Dir;
-const bool sys_NoHC = false;
 
 //--------------------------------------------------------------------
-constexpr double SQ(double x) {
+constexpr double SQ(double x)
 //--------------------------------------------------------------------
+{
    return x*x;
 }
 
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -80,8 +81,9 @@ void set_draw_opt(vector<TH1D*>& hst) {
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
 vector<TH1D*> fill_mrec(string fname, string hname,
-      int date, bool isMC=false) {
+      int date, bool isMC=false, bool sys_NoHC=false)
 //--------------------------------------------------------------------
+{
    if ( sys_NoHC && isMC ) { // sys
       fname = "NoHC/" + fname;
    }
@@ -186,8 +188,9 @@ vector<TH1D*> fill_mrec(string fname, string hname,
 }
 
 //--------------------------------------------------------------------
-vector<TH1D*> fill_hist(int date) {
+vector<TH1D*> fill_hist(int date, bool sys_NoHC=false)
 //--------------------------------------------------------------------
+{
 #include "norm.h"
 
    string sd(Form("%02i",date%100));
@@ -225,7 +228,7 @@ vector<TH1D*> fill_hist(int date) {
    hst[1] = hs[0];
    hst[1]->Scale(C_Dat.at(date));
 
-   hs = fill_mrec(mcincfile, "mc"+sd, date, true);
+   hs = fill_mrec(mcincfile, "mc"+sd, date, true, sys_NoHC);
    hst[2]=hs[0];
    hst[2]->Scale(MC_Dat.at(date));
 
@@ -296,8 +299,9 @@ vector<TH1D*> fill_hist_IOcheck(int date) {
 // {{{1 Function for fitting
 //--------------------------------------------------------------------
 double ChebN(int nch, double Xmin, double Xmax,
-      double x, const double* p) {
+      double x, const double* p)
 //--------------------------------------------------------------------
+{
    // calculate value of the Chebyshev polynomial of 'nch' order
    // [Xmin Xmax] is the range of polynomial orthogonality
    if (nch == 0) {
@@ -319,8 +323,9 @@ double ChebN(int nch, double Xmin, double Xmax,
 }
 
 //--------------------------------------------------------------------
-double PolN(double x, const double* p, int n) {
+double PolN(double x, const double* p, int n)
 //--------------------------------------------------------------------
+{
    // calculate value of the polynomial by Horner's method:
    // here 'n' is the polynomial order, size of coefficients is p[n+1]
    double res = 0;
@@ -362,8 +367,9 @@ class myChi2 {
 
 // {{{2 ctor:
 //--------------------------------------------------------------------
-myChi2::myChi2(const vector<TH1D*>& hst, double ExMin, double ExMax) {
+myChi2::myChi2(const vector<TH1D*>& hst, double ExMin, double ExMax)
 //--------------------------------------------------------------------
+{
    // ExMin/Max -> boundary of excluded region
    int nbins = hst[0]->GetNbinsX();
    en.reserve(nbins);
@@ -404,8 +410,9 @@ myChi2::myChi2(const vector<TH1D*>& hst, double ExMin, double ExMax) {
 
 // {{{2 Chi2() function
 //--------------------------------------------------------------------
-double myChi2::Chi2(const double* p) {
+double myChi2::Chi2(const double* p)
 //--------------------------------------------------------------------
+{
    static const double maxResValue = DBL_MAX / 1000;
 
    double chi2 = 0;
@@ -446,10 +453,12 @@ double myChi2::Chi2(const double* p) {
 //--------------------------------------------------------------------
 
 // {{{1 Corrections for histograms and print final numbers
-// rescale ignoring over and underflow bins
 //--------------------------------------------------------------------
-TH1D* rescale_bg(const TH1D* hst, const vector<double>& par) {
+TH1D* rescale_bg(const TH1D* hst, const vector<double>& par)
 //--------------------------------------------------------------------
+{
+   // rescale ignoring over and underflow bins
+
    // polynomial parameters
    const double Emin_chb = 3.0, Emax_chb = 3.2;
    int npol = par.size() - 1;
@@ -474,8 +483,9 @@ TH1D* rescale_bg(const TH1D* hst, const vector<double>& par) {
 
 //--------------------------------------------------------------------
 void print_Numbers(const vector<TH1D*>& hst, const TH1D* SumBG,
-      double Emin, double Emax, bool IOcheck=false) {
+      double Emin, double Emax, double N0=0., bool verbose=false)
 //--------------------------------------------------------------------
+{
    // ATTENTION: here I assume:
    // hst[0] - data
    // hst[2] - correct signal MC (for I/O check only)
@@ -514,12 +524,18 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* SumBG,
    er_data     = sqrt(er_data);
    er_bg       = sqrt(er_bg);
 
-   bool short_print = true;
-   if ( short_print ) {
-      printf(" [%.3f, %.3f]: ", Emin_hst,Emax_hst);
-      // printf(" NJpsi(data-bg):  %9.0f +/- %4.0f\n", n1,er1);
-      printf(" NJpsi(data-bg): $%.3f \\pm %.3f$ $\\times10^6$\n",
+   if ( N0 < 1 ) {
+      printf("[%.3f,%.3f]: ", Emin_hst,Emax_hst);
+      printf("NJpsi(SB)= $(%.3f \\pm %.3f)\\times10^6$",
             n1/1e6,er1/1e6);
+      printf(" = %.3fe6\n",n1/1e6);
+   } else {
+      double del = 100*fabs(N0 - n1) / N0;
+      printf("[%.3f, %.3f]: ", Emin_hst,Emax_hst);
+      printf("NJpsi(data-bg)= $%.3f\\times10^6$ & %.2f %%\n",
+            n1/1e6,del);
+   }
+   if ( !verbose ) {
       return;
    }
 
@@ -529,17 +545,20 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* SumBG,
    printf(" MC(bg):          %9.0f +/- %4.0f\n", nbg,er_bg);
    printf(" NJpsi(data-bg):  %9.0f +/- %4.0f\n", n1,er1);
    printf("\n");
-   if ( IOcheck ) {
-      printf(" The correct number of J/Psi is %9.0f\n",ntrue);
-   }
+   printf(" The correct number of J/Psi is %9.0f\n",ntrue);
 }
 
 // {{{1 Fit
 //--------------------------------------------------------------------
-void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
+void DoFitSB(int date, int Cx=800, int Cy=800, int Sys=0)
 //--------------------------------------------------------------------
-   vector<TH1D*> hst = fill_hist(date);
-      // (!IOcheck) ? fill_hist(date) : fill_hist_IOcheck(date);
+{
+   // IO check: trivially get the exact result!
+   // bool IOcheck = true;
+   bool IOcheck = false;
+
+   bool sys_NoHC = Sys==5;
+   vector<TH1D*> hst = fill_hist(date,sys_NoHC);
 
    // limits for drawing
    double maxWin = 0, minWin = 0;
@@ -559,10 +578,12 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
    // exclude (ExMin; ExMax) from fit
    double ExMin = 3.06;
    double ExMax = 3.14;
-   // systematic study (shift +/- 0.01) : sysSB-Range
-   // double ddE = -0.01;
-   // ExMin -= ddE;
-   // ExMax += ddE;
+   if ( Sys == 3 || Sys == 4 ) {
+      // systematic study (shift +/- 0.01) : sysSB-Range
+      double ddE = 0.01 * (1-2*(Sys%2)); //  -/+ 0.01
+      ExMin += ddE;
+      ExMax -= ddE;
+   }
 
    myChi2 chi2_fit(hst,ExMin,ExMax);
 
@@ -571,14 +592,18 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
    ROOT::Fit::Fitter fitter;
    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
    // Possible printing levels are from 0 (minimal) to 3 (maximum)
-   fitter.Config().MinimizerOptions().SetPrintLevel(1);
+   fitter.Config().MinimizerOptions().SetPrintLevel(int(Sys==0));
    // print the default minimizer option values
    ROOT::Math::MinimizerOptions min_opt;
-   min_opt.Print();
+   if ( !Sys ) {
+      min_opt.Print();
+   }
 
    // Npol is the order of polynomial, systematic study: +/-1
-   const size_t Npol = (date==2009) ? 4 : 5;
-   // const size_t Npol = 5; // sysSB-NT
+   size_t Npol = (date==2009) ? 4 : 5;
+   if ( Sys == 1 || Sys == 2  ) {
+      Npol += 1 - 2 * (Sys%2); // -/+ 1
+   }
    chi2_fit.SetNpol(Npol);
 
    // set start values for parameters,
@@ -589,11 +614,14 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
    }
    vector<double> par_ini;
    if ( date == 2009 ) {
-      par_ini = { 1.088, 0.009, 0.005, 0.002, 0.002 };
+      // par_ini = { 1.088, 0.009, 0.005, 0.002, 0.002 }; // n3
+      par_ini = { 1.086, 0.009, 0.004, 0.002, 0.002 };
    } else if ( date == 2012 ) {
-      par_ini = { 1.106, 0.016, 0.006, 0.002, 0.002, 0.002 };
+      // par_ini = { 1.106, 0.016, 0.006, 0.002, 0.002, 0.002 }; // n3
+      par_ini = { 1.104, 0.016, 0.005, 0.002, 0.002, 0.002 };
    } else if ( date == 2021 ) {
-      par_ini = { 1.071, 0.001, 0.006, 0.002, 0.002, 0.001 };
+      // par_ini = { 1.071, 0.001, 0.006, 0.002, 0.002, 0.001 }; // n3
+      par_ini = { 1.069, 0.0003, 0.006, 0.002, 0.002, 0.001 };
    }
    if ( par_ini.size() != Npar ) {
       par_ini.resize(Npar,0.);
@@ -619,7 +647,9 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
 
    // == Fit result
    ROOT::Fit::FitResult res = fitter.Result();
-   res.Print(cout);
+   if ( !Sys ) {
+      res.Print(cout);
+   }
    // double chi2   = res.Chi2(); // = -1 in root-6.30
    double chi2   = res.MinFcnValue(); // chi2 or likelihood
    int ndf       = res.Ndf();
@@ -633,7 +663,8 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
    // printf("%s\n",sepline.c_str());
 
    // ========================= draw results ========================
-   TCanvas* c1 = new TCanvas("c1","...",0,0,Cx,Cy);
+   auto name = (!Sys) ? Form("c_%i",date) : Form("c_%i_%i",date,Sys);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy();
@@ -685,11 +716,14 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
    // hstBG2->Draw("SAME,HIST"); // Rescaled Bg2
 
    TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
-   if ( IOcheck ) {
-      leg->AddEntry(hst[0],Form("Pseudo-Data %i",date), "EP");
-   } else {
-      leg->AddEntry(hst[0],Form("Data %i",date), "EP");
+   if ( Sys ) {
+      leg->SetHeader( Form("Systematics #%i",Sys), "C" );
    }
+   if ( IOcheck ) {
+      leg->SetHeader( Form("Pseudo-Data %i",date), "C" );
+   }
+
+   leg->AddEntry(hst[0],Form("Data %i",date), "EP");
 
    leg->AddEntry(SumBG,
          Form("#color[%i]{sum of backgrounds}",
@@ -724,30 +758,49 @@ void DoFitSB(int date, int Cx=800, int Cy=800, bool IOcheck=false) {
                par_name[i].c_str(),par[i],er_par[i]) );
    }
    pt->Draw();
-
    gPad->RedrawAxis();
-
    c1->Update();
-   string pdf( Form("Mrec%d_fsb%s_T%zu.pdf",
-            date,(IOcheck ? "IO" : ""),Npol) );
-   c1->Print(pdf.c_str());
 
    // print for E in [Emin,Emax]
+   double Ns = 0., Nw = 0.;
+   if ( !Sys ) {
+      printf("* T_%zu: Chi2 / NDf = %.0f / %i = %.1f\n",
+            Npol,chi2,ndf,chi2/ndf );
+   } else {
+      printf("* T_%zu, [%.2f,%.2f]&[%.2f,%.2f]:"
+            " Chi2 / NDf = %.0f / %i = %.1f\n",
+            Npol,3.0,ExMin,ExMax,3.2,chi2,ndf,chi2/ndf );
+      if ( date == 2009 ) {
+         // Ns = ; Nw = ;
+         Ns = 15.998e6; Nw = 18.065e6;
+      } else if ( date == 2012 ) {
+         Ns = 49.903e6; Nw = 56.728e6;
+      } else if ( date == 2021 ) {
+         Ns = 324.948e6; Nw = 370.204e6;
+      }
+   }
    printf("%s\n",sepline.c_str());
-   printf("* T_%zu: Chi2 / NDf = %.0f / %i = %.1f\n",
-         Npol,chi2,ndf,chi2/ndf ); // sysNT
-   // printf("* T_%zu, [%.2f,%.2f]&[%.2f,%.2f]:"
-         // " Chi2 / NDf = %.0f / %i = %.1f\n",
-         // Npol,3.0,ExMin,ExMax,3.2,chi2,ndf,chi2/ndf ); // sys-Range
-   print_Numbers(hst,SumBG,3.092,3.102,IOcheck); // see cuts.h
-   print_Numbers(hst,SumBG,3.06,3.14,IOcheck); // wide
+   print_Numbers(hst,SumBG,3.092,3.102,Ns);
+   print_Numbers(hst,SumBG,3.06,3.14,Nw);
    printf("%s\n",sepline.c_str());
+
+   string suff;
+   if ( Sys ) {
+      suff = string( Form("_sys%i",Sys) );
+   }
+   string pdf( Form("Mrec%d_fsb%s_T%zu",date,suff.c_str(),Npol) );
+   if ( IOcheck ) {
+      pdf += "_IO";
+   }
+   pdf += ".pdf";
+   c1->Print(pdf.c_str());
 }
 
 // {{{1 Draw Mrec
 //--------------------------------------------------------------------
-void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800) {
+void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800)
 //--------------------------------------------------------------------
+{
    vector<TH1D*> hst = fill_hist(date);
    if ( date==2009 ) {
       hst[0]->SetMaximum(7.e6);
@@ -775,8 +828,8 @@ void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800) {
       }
    }
 
-   TCanvas* c1 = new TCanvas(Form("c_%i",date),Form("%i",date),
-         0,0,Cx,Cy);
+   auto name = Form("c1_%i",date);
+   TCanvas* c1 = new TCanvas(name,name, 0, 0, Cx, Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(!zoom);
@@ -806,7 +859,7 @@ void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800) {
    hstC10->Draw("SAME,HIST"); // Cont
 
    TLegend* leg = new TLegend(0.55,0.60,0.89,0.89);
-//    leg->SetHeader("Recoil Mass of #pi^{#plus}#pi^{#minus}", "C");
+   // leg->SetHeader("Recoil Mass of #pi^{#plus}#pi^{#minus}", "C");
    leg->AddEntry(hst[0],
          (string("Data ")+to_string(date)).c_str(), "EP");
 
@@ -842,8 +895,9 @@ void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800) {
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void MrecFitSB() {
+void MrecFitSB()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(112);
@@ -852,24 +906,33 @@ void MrecFitSB() {
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   // Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   size_t Cx = 800, Cy = 750; // canvas sizes for memo
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
+
    for ( int date : { 2009,2012,2021 } ) {
       bool zoom = true;
       // MrecDraw(date, !zoom, Cx, Cy);
       // MrecDraw(date,  zoom, Cx, Cy);
    }
 
-   size_t Cx3 = 630, Cy3 = 600; // canvas sizes for memo
-   // int date=2021;
-   // int date=2012;
    // int date=2009;
+   // int date=2012;
+   // int date=2021;
 
-   // DoFitSB(date, Cx3, Cy3);
+   // DoFitSB(date, Cx, Cy);
 
-   // IO check: trivially get the exact result!
-   // bool IOcheck = true;
-   // DoFitSB(date, IOcheck);
+   // SB systematic: NT && Range
+   // for ( int date : { 2009,2012,2021 } ) {
+      // for ( int sys : {1,2,3,4} ) {
+         // DoFitSB(date, Cx, Cy, sys);
+      // }
+   // }
+
+   // SB systematic: No HC (slow)
+   // for ( int date : { 2009,2012,2021 } ) {
+      // DoFitSB(date, Cx, Cy, 5);
+   // }
 }

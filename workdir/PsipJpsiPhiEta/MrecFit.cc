@@ -18,14 +18,16 @@ string Dir;
 bool USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
 
 //--------------------------------------------------------------------
-constexpr double SQ(double x) {
+constexpr double SQ(double x)
 //--------------------------------------------------------------------
+{
    return x*x;
 }
 
 //--------------------------------------------------------------------
-void SetHstFace(TH1* hst) {
+void SetHstFace(TH1* hst)
 //--------------------------------------------------------------------
+{
    TAxis* X = hst->GetXaxis();
    if ( X ) {
       X->SetLabelFont(62);
@@ -50,8 +52,9 @@ void SetHstFace(TH1* hst) {
 }
 
 //--------------------------------------------------------------------
-void set_draw_opt(vector<TH1D*>& hst) {
+void set_draw_opt(vector<TH1D*>& hst)
 //--------------------------------------------------------------------
+{
    // data
    hst[0]->SetMarkerStyle(20);
    hst[0]->SetMarkerSize(0.7);
@@ -73,8 +76,9 @@ void set_draw_opt(vector<TH1D*>& hst) {
 // {{{1 Fill histograms
 //--------------------------------------------------------------------
 vector<TH1D*> fill_mrec(string fname, string hname,
-      int date, bool isMC = false, double shift = 0.) {
+      int date, bool isMC = false, double shift = 0.)
 //--------------------------------------------------------------------
+{
    fname = Dir + fname;
    cout << " file: " << fname << endl;
    TFile* froot = TFile::Open(fname.c_str(),"READ");
@@ -174,23 +178,27 @@ vector<TH1D*> fill_mrec(string fname, string hname,
 }
 
 //--------------------------------------------------------------------
-vector<TH1D*> fill_hist(int date) {
+vector<TH1D*> fill_hist(int date)
 //--------------------------------------------------------------------
+{
 #include "norm.h"
    double shift = 0.0;
    if ( date == 2009 ) {
-      // shift = 0.000225; // chi2(M2) = 3222
-      // shift = 0.000226; // chi2(M2) = 3138
-      shift = 0.000227; // chi2(M2) = 3136*
-      // shift = 0.000228; // chi2(M2) = 3207
+      //n3 shift = 0.000227; // chi2(M2) = 3136*n3
+      // shift = 0.000225; // chi2(M2) = 3152
+      shift = 0.000226; // chi2(M2) = 3074 +
+      // shift = 0.000227; // chi2(M2) = 3075
+      // shift = 0.000228; // chi2(M2) = 3147
    } else if ( date == 2012 ) {
-      // shift = 0.000385; // chi2(M2) = 6334
-      shift = 0.000386; // chi2(M2) = 6184*
-      // shift = 0.000387; // chi2(M2) = 6326
+      //n3 shift = 0.000386; // chi2(M2) = 6184*n3
+      // shift = 0.000385; // chi2(M2) = 6249
+      shift = 0.000386; // chi2(M2) = 6094 +
+      // shift = 0.000387; // chi2(M2) = 6245
    } else if ( date == 2021 ) {
-      // shift = 0.000606; // chi2(M2) = 23960
-      shift = 0.000607; // chi2(M2) = 23031*
-      // shift = 0.000608; // chi2(M2) = 23536
+      //n3 shift = 0.000607; // chi2(M2) = 23031*n3
+      // shift = 0.000606; // chi2(M2) = 23426
+      shift = 0.000607; // chi2(M2) = 22443 +
+      // shift = 0.000608; // chi2(M2) = 22973
    }
 
    string sd(Form("%02i",date%100));
@@ -258,9 +266,9 @@ vector<TH1D*> fill_hist(int date) {
 
 // {{{1 Functions for fitting
 //--------------------------------------------------------------------
-double ChebN(int nch, double Xmin, double Xmax, double x,
-      const double* p) {
+double ChebN(int nch,double Xmin,double Xmax,double x,const double* p)
 //--------------------------------------------------------------------
+{
    // calculate value of the Chebyshev polynomial of 'nch' order
    // [Xmin Xmax] is the range of polynomial orthogonality
    // https://en.wikipedia.org/wiki/Chebyshev_polynomials
@@ -283,9 +291,10 @@ double ChebN(int nch, double Xmin, double Xmax, double x,
 }
 
 //--------------------------------------------------------------------
-double PolN(double x, const double* p, int n) {
+double PolN(double x, const double* p, int n)
 //--------------------------------------------------------------------
-   // calculate value of the polynomial by Horner's method:
+{
+   // calculate value of the polynomial by Horner's method,
    // here 'n' is the polynomial order, size of coefficients is p[n+1]
    double res = 0;
    for ( int i = n; i >= 0; --i ) {
@@ -297,8 +306,9 @@ double PolN(double x, const double* p, int n) {
 // integrated normal distribution in bin-width of histogram
 // expressed in terms of CDF (erf function)
 //--------------------------------------------------------------------
-vector<double> dCDFnorm(double wbin, double sig) {
+vector<double> dCDFnorm(double wbin, double sig)
 //--------------------------------------------------------------------
+{
    // return weight vector for convolution with Gauss(sigma = sig)
    // wbin - width of bin
 
@@ -348,9 +358,10 @@ vector<double> dCDFnorm(double wbin, double sig) {
 // histogram
 // https://en.wikipedia.org/wiki/Generalized_normal_distribution
 //--------------------------------------------------------------------
-vector<double> dCDFGnorm(double wbin, double alpha, double kappa) {
+vector<double> dCDFGnorm(double wbin, double alpha, double kappa)
 //--------------------------------------------------------------------
-// ksi == 0; alpha > 0;  kappa = 0 => normal distribution
+{
+   // ksi == 0; alpha > 0;  kappa = 0 => normal distribution
    const double eps = 1e-9;
 
    vector<double> res;
@@ -388,8 +399,9 @@ vector<double> dCDFGnorm(double wbin, double alpha, double kappa) {
 
 // CDF for sum of two normal distributions
 //--------------------------------------------------------------------
-vector<double> dCDFnorm2(double wbin,double s1,double s2,double f) {
+vector<double> dCDFnorm2(double wbin,double s1,double s2,double f)
 //--------------------------------------------------------------------
+{
    // return weight vector for convolution with mixture of two Gauss
    // sigma = s1 & s2 and fraction of the second Gause is f
    // wbin - width of bin
@@ -439,8 +451,9 @@ vector<double> dCDFnorm2(double wbin,double s1,double s2,double f) {
 // convolution
 //--------------------------------------------------------------------
 bool conv_vec( vector<double>& vec, vector<double>& er2,
-      double wbin, double s1, double s2, double f, int NG ) {
+      double wbin, double s1, double s2, double f, int NG )
 //--------------------------------------------------------------------
+{
    vector<double> res = ( NG == 2 ) ?
       dCDFnorm2(wbin, s1,s2,f) //two gausses
       :
@@ -478,8 +491,9 @@ bool conv_vec( vector<double>& vec, vector<double>& er2,
 // ATTENTION: er2 is sqares of errors
 //--------------------------------------------------------------------
 bool decon_vec( vector<double>& vec, vector<double>& er2,
-      double wbin, double sig) {
+      double wbin, double sig )
 //--------------------------------------------------------------------
+{
    vector<double> res = dCDFnorm(wbin, sig);
    if ( res.empty() ) {
       return false;
@@ -514,8 +528,9 @@ bool decon_vec( vector<double>& vec, vector<double>& er2,
 
 //--------------------------------------------------------------------
 bool deconG_vec( vector<double>& vec, vector<double>& er2,
-      double wbin, double sigma, double kappa ) {
+      double wbin, double sigma, double kappa )
 //--------------------------------------------------------------------
+{
    vector<double> res = dCDFGnorm(wbin, sigma, kappa);
    if ( res.empty() ) {
       return false;
@@ -550,8 +565,9 @@ bool deconG_vec( vector<double>& vec, vector<double>& er2,
 
 //--------------------------------------------------------------------
 bool decon_vec2( vector<double>& vec, vector<double>& er2,
-      double wbin, double s1, double s2, double f ) {
+      double wbin, double s1, double s2, double f )
 //--------------------------------------------------------------------
+{
    vector<double> res = dCDFnorm2(wbin, s1,s2,f);
    if ( res.empty() ) {
       return false;
@@ -640,12 +656,14 @@ class myChi2 {
       int npol = 3;
       const double Emin_chb = 3.0, Emax_chb = 3.2;
 };
+//--------------------------------------------------------------------
 
 // {{{2 ctor:
 //--------------------------------------------------------------------
-myChi2::myChi2(const vector<TH1D*>& hst, double EMin, double EMax) {
+myChi2::myChi2(const vector<TH1D*>& hst, double EMin, double EMax)
 //--------------------------------------------------------------------
-// Emin/Emax -> region to fit signal
+{
+   // Emin/Emax -> region to fit signal
    Emin = EMin;
    Emax = EMax;
 
@@ -691,8 +709,9 @@ myChi2::myChi2(const vector<TH1D*>& hst, double EMin, double EMax) {
 // {{{2 cor_sig(): wbin & model from class
 //--------------------------------------------------------------------
 bool myChi2::cor_sig( vector<double>& vec, vector<double>& er2,
-      double s1, double s2, double f ) const {
+      double s1, double s2, double f ) const
 //--------------------------------------------------------------------
+{
    switch ( model ) {
       case 1:
          return conv_vec(vec,er2,wbin,s1,s2,f,1); // gauss
@@ -710,8 +729,9 @@ bool myChi2::cor_sig( vector<double>& vec, vector<double>& er2,
 
 // {{{2 Chi2() function
 //--------------------------------------------------------------------
-double myChi2::Chi2(const double* p) {
+double myChi2::Chi2(const double* p)
 //--------------------------------------------------------------------
+{
    static const double maxResValue = DBL_MAX / 1000;
 
    double Sc = p[0];   // scale constant for signal
@@ -760,13 +780,12 @@ double myChi2::Chi2(const double* p) {
    return chi2;
 }
 
-//--------------------------------------------------------------------
-
-// {{{1 Corrections for histograms and print final numbers
+// {{{1 Corrections for histograms
 //--------------------------------------------------------------------
 TH1D* cor_sig_hst(const TH1D* hst, const myChi2& ch2,
-      const vector<double>& p) {
+      const vector<double>& p)
 //--------------------------------------------------------------------
+{
    // create copy of hst
    string new_name = string(hst->GetName()) + string("_smear");
    TH1D* hst_n = (TH1D*)hst->Clone(new_name.c_str());
@@ -796,8 +815,9 @@ TH1D* cor_sig_hst(const TH1D* hst, const myChi2& ch2,
 }
 
 //--------------------------------------------------------------------
-TH1D* rescale_bg(const TH1D* hst, const vector<double>& par) {
+TH1D* rescale_bg(const TH1D* hst, const vector<double>& par)
 //--------------------------------------------------------------------
+{
    // polynomial parameters
    const double Emin_chb = 3.0, Emax_chb = 3.2;
    int npol = par.size() - 1;
@@ -820,14 +840,18 @@ TH1D* rescale_bg(const TH1D* hst, const vector<double>& par) {
    return hst_n;
 }
 
+// {{{1 Calculate and print final numbers, return error on Njpsi(SB)
 //--------------------------------------------------------------------
-void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
-      const TH1D* SumBG, double Emin, double Emax) {
+double Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
+      const TH1D* SumBG, double Emin, double Emax, double Njpsi=0.)
 //--------------------------------------------------------------------
+{
    // ATTENTION: here I assume:
    // [0] - data
    // sumBG - CONT(norm to Lum_data) + BG(after rescale_bg)
    // MCsig_cor - MC_signal(after cor_sig_hst)
+
+   bool verbose = false; // true for DEBUG printing
 
    double ndata   = 0;
    double er_data = 0;
@@ -866,13 +890,19 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
    er_bg       = sqrt(er_bg);
    double diff = 100*fabs(n1-nsig)/nsig;
 
-   bool short_print = true;
-   if ( short_print ) {
-      printf(" [%.3f, %.3f]: ", Emin_hst,Emax_hst);
-      // printf(" NJpsi(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
-      printf(" NJpsi(MCsig):   $%.3f \\pm %.3f$ $\\times10^6$\n",
+   double ret = 0; // return value
+   if ( Njpsi < 1 ) {
+      printf("[%.3f, %.3f]: ", Emin_hst,Emax_hst);
+      printf("NJpsi(MCsig)=  $(%.3f \\pm %.3f)\\times10^6$\n",
             nsig/1e6,er_sig/1e6);
-      return;
+   } else {
+      ret = fabs(Njpsi - nsig) / Njpsi;
+      printf("[%.3f, %.3f]: ", Emin_hst,Emax_hst);
+      printf("NJpsi(MCsig)=  $%.3f\\times10^6$ & %.2f %%\n",
+            nsig/1e6,100*ret);
+   }
+   if ( !verbose ) {
+      return ret;
    }
 
    printf("\n");
@@ -883,15 +913,16 @@ void print_Numbers(const vector<TH1D*>& hst, const TH1D* MCsig_cor,
          n1,er1,diff);
    printf(" NJpsi(MCsig):    %9.0f +/- %4.0f\n", nsig,er_sig);
    printf("\n");
+   return ret;
 }
 
-// {{{1 print efficiency and error on it
+// {{{2 efficiency of Psi' -> pi+pi- J/Psi and error on it
 //--------------------------------------------------------------------
-void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
-      const vector<double>& par, const vector<double> er_par,
-      double Emin, double Emax) {
+vector<double> EffPiPiJpsi(int date, double Emin, double Emax,
+      const TH1D* MCsig, const myChi2& ch2,
+      const vector<double>& par, const vector<double> er_par)
 //--------------------------------------------------------------------
-// calculate efficiency of the Psi' -> pi+ pi- J/Psi selection
+{
    // ATTENTION: here I assume:
    // MCsig - MC(sig) without corrections and without normalization
 
@@ -968,13 +999,45 @@ void print_eff(int date, const TH1D* MCsig, const myChi2& ch2,
    printf("                   (sum_err= %.3f or %.2f%%)\n",
          100*sum_err,100*sum_rel_err);
    printf("\n");
+
+   vector<double> result {eff[0],sum_err};
+   return result;
+}
+
+// {{{2 Br(Psi' -> pi+pi- J/Psi)
+//--------------------------------------------------------------------
+void calc_BR(int date, double Njpsi, double delNjpsi, double Eff,
+      double erEff)
+//--------------------------------------------------------------------
+{
+   double Npsi=0, erNpsi=0; // see ChinPhysC48.093001.pdf
+   double deltaPiPi = 0;    // Accuracy of corrections for pions
+                            // see trk_eff_fit.cc
+   if ( date == 2009 ) {
+      Npsi = 107.7e6; erNpsi = 0.6e6; //
+      deltaPiPi = 2*0.002;
+   } else if ( date == 2012 ) {
+      Npsi = 345.4e6; erNpsi = 2.6e6;
+      deltaPiPi = 2*0.001;
+   } else if ( date == 2021 ) {
+      Npsi = 2259.3e6; erNpsi = 11.1e6;
+      deltaPiPi = 2*0.001;
+   }
+   double Br = Njpsi/(Npsi*Eff) * 100; // %
+   double dBr = Br * sqrt( SQ(erNpsi/Npsi) +
+         SQ(delNjpsi) + SQ(erEff/Eff) +
+         SQ(deltaPiPi) );
+   // printf("\n");
+   printf("Br(%02i)= $%.2f \\pm %.2f$ %%\n",date%100,Br,dBr);
+   printf("\n");
 }
 
 // {{{1 diff data-MC_sum
 //--------------------------------------------------------------------
 void plot_diff(const TH1D* Data, const TH1D* SumMC,
-      TPaveText* pt, string pdf) {
+      TPaveText* pt, string pdf)
 //--------------------------------------------------------------------
+{
    TH1D* Diff = (TH1D*)Data->Clone("Diff");
    Diff->Add(SumMC,-1.);
    Diff->SetAxisRange(3.08,3.12,"X");
@@ -992,8 +1055,9 @@ void plot_diff(const TH1D* Data, const TH1D* SumMC,
 
 // {{{1 Fit
 //--------------------------------------------------------------------
-void DoFit(int date) {
+void DoFit(int date, int Cx=800, int Cy=800)
 //--------------------------------------------------------------------
+{
    vector<TH1D*> hst = fill_hist(date);
 
    // limits for drawing, bin size ten times smaller than FitSB
@@ -1058,24 +1122,30 @@ void DoFit(int date) {
          par_ini = { 0.969, 0.86e-3,
             1.094,0.005,-0.027,-0.001 }; // old +0.23MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.986, 3.20e-3, 0.62e-3, 0.88,
-            1.097,0.008,0.007,0.000,0.013 }; // +0.227MeV
+         // par_ini = { 0.986, 3.20e-3, 0.62e-3, 0.88,
+            // 1.097,0.008,0.007,0.000,0.013 }; // +0.227MeV n3
+         par_ini = { 0.986, 3.20e-3, 0.62e-3, 0.87,
+            1.095,0.008,0.006,0.001,0.012 }; // +0.226MeV
       }
    } else if ( date == 2012 ) {
       if ( Model == 1 ) {
          par_ini = { 0.982, 0.98e-3,
             1.118,0.008,-0.030,-0.006 }; // old +0.38MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.995, 3.40e-3, 0.70e-3, 0.86,
-            1.116,0.026,0.008,0.008,0.014,0.008 }; // +0.386MeV
+         // par_ini = { 0.995, 3.40e-3, 0.70e-3, 0.86,
+            // 1.116,0.026,0.008,0.008,0.014,0.008 }; // +0.386MeV n3
+         par_ini = { 0.995, 3.39e-3, 0.70e-3, 0.86,
+            1.114,0.025,0.008,0.008,0.014,0.008 }; // +0.386MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
          par_ini = { 0.945, 0.89-3,
             1.066,-0.006,-0.020,-0.002 }; // old +0.60MeV old
       } else if ( Model == 2 ) {
-         par_ini = { 0.995, 3.05e-3, 0.62e-3, 0.86,
-            1.078,0.006,0.009,0.006,0.010,0.005 }; // +0.607MeV
+         // par_ini = { 0.995, 3.05e-3, 0.62e-3, 0.86,
+            // 1.078,0.006,0.009,0.006,0.010,0.005 }; // +0.607MeV n3
+         par_ini = { 0.995, 3.04e-3, 0.62e-3, 0.86,
+            1.075,0.005,0.009,0.006,0.010,0.005 }; // +0.607MeV
       }
    }
    if ( par_ini.size() != Npar ) {
@@ -1091,18 +1161,18 @@ void DoFit(int date) {
    // fix/limit/step for parameters
    fitter.Config().ParSettings(0).SetStepSize(1e-3);    // Norm
    fitter.Config().ParSettings(0).SetLimits(0.1,10.);
-//    fitter.Config().ParSettings(0).Fix();
+   // fitter.Config().ParSettings(0).Fix();
    fitter.Config().ParSettings(1).SetStepSize(1e-4);    // sig1
    fitter.Config().ParSettings(1).SetLimits(0.,1.e-1);
-//    fitter.Config().ParSettings(1).Fix();
+   // fitter.Config().ParSettings(1).Fix();
 
    if ( Model == 2 ) {
       fitter.Config().ParSettings(2).SetStepSize(1e-4); // sig2
       fitter.Config().ParSettings(2).SetLimits(0.,1.e-1);
-//       fitter.Config().ParSettings(2).Fix();
+      // fitter.Config().ParSettings(2).Fix();
       fitter.Config().ParSettings(2).SetStepSize(1e-2); // frac [0,1]
       fitter.Config().ParSettings(3).SetLimits(0.,1.);
-//       fitter.Config().ParSettings(3).Fix();
+      // fitter.Config().ParSettings(3).Fix();
    }
 
    bool fixbg = false;
@@ -1122,7 +1192,11 @@ void DoFit(int date) {
 
    // == Fit result
    ROOT::Fit::FitResult res = fitter.Result();
+   string sepline(70,'='); // separation line
+   printf("%s\n",sepline.c_str());
    res.Print(cout);
+   printf("%s\n",sepline.c_str());
+
    // double chi2   = res.Chi2(); // = -1 in root-6.30
    double chi2   = res.MinFcnValue(); // chi2 or likelihood
    int ndf       = res.Ndf();
@@ -1134,7 +1208,8 @@ void DoFit(int date) {
    vector<double> err_bg(begin(er_par)+m_par, end(er_par));
 
    // ========================= draw results ========================
-   TCanvas* c1 = new TCanvas("c1","...",0,0,800,800);
+   auto name = Form("c_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy();
@@ -1185,8 +1260,7 @@ void DoFit(int date) {
 
    // hstBG2->Draw("SAME,HIST"); // Rescaled Bg2
 
-   TLegend* leg = new TLegend(0.60,0.70,0.89,0.89);
-   // leg->SetHeader("Recoil Mass of #pi^{#plus}#pi^{#minus}", "C");
+   TLegend* leg = new TLegend(0.60,0.67,0.892,0.89);
    leg->AddEntry(hst[0], Form("Data %i",date), "EP");
    leg->AddEntry(SumMC,
          Form("#color[%i]{Sig + Bkg + Cont}",
@@ -1207,10 +1281,10 @@ void DoFit(int date) {
    leg->Draw();
 
    double Ypt = 0.63 - 0.03*(m_par-4) - 0.03*(Npol-3);
-   TPaveText* pt = new TPaveText(0.11,0.57,0.40,0.89,"NDC");
+   // TPaveText* pt = new TPaveText(0.11,0.57,0.40,0.89,"NDC");
+   TPaveText* pt = new TPaveText(0.11,0.52,0.36,0.89,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
-   // pt->AddText( Form("#bf{Fit in [%.2f,%.2f]}",ExMin,ExMax) );
    pt->AddText( Form("#chi^{2} / ndf = %.0f / %i",chi2,ndf) );
    pt->AddText( Form("%s = %.4f #pm %.4f",
             par_name[0].c_str(),par[0],er_par[0]) );
@@ -1229,8 +1303,37 @@ void DoFit(int date) {
    }
    pt->Draw();
    gPad->RedrawAxis();
-
    c1->Update();
+
+   // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
+
+   // numbers for E in [Emin,Emax]
+   double Ns = 0., Nw = 0.;
+   if ( date == 2009 ) { // see MrecFistSB.cc
+      Ns = 15.998e6; Nw = 18.065e6;
+   } else if ( date == 2012 ) {
+      Ns = 49.903e6; Nw = 56.728e6;
+   } else if ( date == 2021 ) {
+      Ns = 324.948e6; Nw = 370.204e6;
+   }
+
+   printf("* T_%zu: Chi2 / NDf = %.0f / %i = %.1f\n",
+         Npol,chi2,ndf,chi2/ndf );
+   printf("%s\n",sepline.c_str());
+   double delNs = Numbers(hst,MCsig_cor,SumBG,3.092,3.102,Ns);
+   double delNw = Numbers(hst,MCsig_cor,SumBG,3.060,3.140,Nw);
+
+   printf("%s\n",sepline.c_str());
+   vector<double> effS = EffPiPiJpsi(date,3.092,3.102,
+         hst[5],chi2_fit, par,er_par);
+   calc_BR(date,Ns,delNs,effS[0],effS[1]);
+
+   printf("%s\n",sepline.c_str());
+   vector<double> effW = EffPiPiJpsi(date,3.060,3.140,
+         hst[5],chi2_fit, par,er_par);
+   calc_BR(date,Nw,delNw,effW[0],effW[1]);
+   printf("%s\n",sepline.c_str());
+
    string pdf( Form("Mrec%d_fit_M%d_T%zu",date,Model,Npol) );
    if ( fixbg ) {
       pdf += "_fixbg";
@@ -1240,27 +1343,13 @@ void DoFit(int date) {
    }
    pdf += ".pdf";
    c1->Print(pdf.c_str());
-
-   // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
-
-   string sepline(70,'='); // separation line
-   // numbers for E in [Emin,Emax]
-   printf("%s\n",sepline.c_str());
-   printf("* T_%zu: Chi2 / NDf = %.0f / %i = %.1f\n",
-         Npol,chi2,ndf,chi2/ndf ); // sysNT
-   print_Numbers(hst,MCsig_cor,SumBG,3.092,3.102);// see cuts.h !
-   print_Numbers(hst,MCsig_cor,SumBG,3.060,3.140);// wide
-   printf("%s\n",sepline.c_str());
-
-   print_eff(date, hst[5], chi2_fit, par, er_par, 3.092,3.102);
-   print_eff(date, hst[5], chi2_fit, par, er_par, 3.060,3.140);
-   printf("%s\n",sepline.c_str());
 }
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void MrecFit() {
+void MrecFit()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetOptFit(112);
@@ -1270,13 +1359,15 @@ void MrecFit() {
    //========================================================
    // set the name of the folder with the root files
    // Dir = "prod-12/";  // must be the same as prod-11
-   Dir = "prod_v709n3/";
+   // Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    USE_NOHC_SIGNAL_MC = true; // use MC without Helix Corrections
    //========================================================
 
-   // int date=2021;
-   // int date=2012;
-   // int date=2009;
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
-   DoFit(date);
+   // for ( int date : { 2009 } ) {
+   for ( int date : { 2009,2012,2021 } ) {
+      // DoFit(date, Cx, Cy);
+   }
 }
