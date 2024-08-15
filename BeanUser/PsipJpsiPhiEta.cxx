@@ -27,9 +27,8 @@
 #include <CLHEP/Vector/ThreeVector.h>
 #include <CLHEP/Vector/LorentzVector.h>
 #include <CLHEP/Geometry/Point3D.h>
-#ifndef ENABLE_BACKWARDS_COMPATIBILITY
+
 typedef HepGeom::Point3D<double> HepPoint3D;
-#endif
 using CLHEP::Hep3Vector;
 using CLHEP::HepLorentzVector;
 
@@ -69,6 +68,7 @@ struct Select_PsipJpsiPhiEta {
    // MC information:
    int decPsip, decJpsi;     // decay codes for MC events
    int dec_eta;              // 1 if eta->2gamma
+   int dec_phi;              // 1 if phi->K+K-
    Hep3Vector mcPip, mcPim;  // true pi+/pi- momentums from Psi' decay
 
    double mc_mkk;            // true inv. mass of K+K-
@@ -110,6 +110,7 @@ struct Select_PsipJpsiPhiEta {
    Select_PsipJpsiPhiEta() {
       decPsip = decJpsi = -1;
       dec_eta = 0;
+      dec_phi = 0;
       mc_mkk = 0;
       mc_mkpeta = 0;
       mc_cosT = 2;
@@ -169,19 +170,24 @@ struct Xnt2 {
 };
 
 // eta reconstruction efficiency
-struct Xnt3 {
-   double Pkk,Ckk;      // P and cos(Theta) of K+K-
-   double Peta,Ceta;    // P and cos(Theta) of eta
-   double Eg1,Cg1;      // E and cos(Theta) of rec gamma
-   double Eg2,Cg2;      // E and cos(Theta) of rec gamma
-   double Egr,Cgr;      // E and cos(Theta) of found gamma (fl>0)
-   int    fl;           // 0/1/2 - only predicted/gamma/eta-found
-   double rE,dTh;       // predicted/found relation
-   double m2fr,m2rl;    // final recoil M^2 predicted/found
-   double mggpr,mggf;   // mass(eta) predicted/fitted
+struct Xnt_phieta {
+   double Ptp,Ptm,Mrec; // Pt(pi+), Pt(pi-), Mrec(pi+pi-)
+   double Ptkp,Ptkm;    // Pt(K+), Pt(K-)
+   double Peta,Ceta;    // P,cos(Theta) of eta
+   double Eg1,Cg1;      // E,cos(Theta) of rec gamma in eta -> g1 g2
+   double Eg2,Cg2;      // E,cos(Theta) of predicted gamma (g2)
+   double Egr,Cgr;      // E and cos(Theta) of found gamma (gr)
+   double rE,dTh;       // relations btw predicted(g2) and found(gr)
+                        // * variables used in selection:
+   double Mkk2;         // Minv2(K+K-)
+   double M2gg;         // ?Minv^2(g1 g2)
+   double m2fr;         // Mrec^2(pi+pi-g0g1) or g2 missing mass^2
+   double mggf;         // Minv(g1,gr) after 4C kinematic constraints
+   double ch2;          // chi^2 of 4C kinematic constraints
+                        // * MC-variables
    int    decj;         // MC: decay codes of J/Psi
-   int    deta;         // MC: 1 if eta decay to 2 gamma
-   string sdecj;        // MC: deca string of J/Psi
+   int    deta;         // MC: 1 if eta decays into two gammas
+   int    dphi;         // MC: 1 if phi decays into K+K-
 };
 
 //--------------------------------------------------------------------
@@ -211,7 +217,7 @@ static TTree* m_nt3 = nullptr;
 static TTree* m_nt4 = nullptr;
 static Xnt1 xnt1;
 static Xnt2 xnt2;
-static Xnt3 xnt3;
+static Xnt_phieta xnt3;
 static Xnt2 xnt_c4;
 static bool SaveNT1 = true;
 
@@ -256,7 +262,6 @@ static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
-   // if ( (cosPM > 0.80) ||         // flying in one direction
    if ( (cosPM > 0.90) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
       ) {
@@ -581,8 +586,9 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[204] = new TH1D("E_M2all","M^{2}(2#gamma)", 500,0.,2.);
    hst[205] = new TH1D("E_Npi0","N(#pi^{0})", 5,-0.5,4.5);
    hst[207] = new TH1D("E_mkk2","Minv^{2}(K+K-)", 170,0.98,1.15);
-   hst[211] = new TH1D("E_M2gg","M^{2}(2#gamma)", 200,0.,0.6);
+   hst[211] = new TH1D("E_M2gg","M^{2}(2#gamma) loop", 200,0.,0.6);
    hst[215] = new TH1D("E_M2fr","M^2(fr) gamma min", 100,0.,0.02);
+   hst[216] = new TH1D("E_M2ggm","M^{2}(2#gamma) min", 200,0.,0.6);
 
    hst[221] = new TH1D("E_rE","Eg(pred)/Eg(rec)", 250,0.,2.5);
    hst[222] = new TH1D("E_dTh","#delta#Theta (pred-rec)", 100,0.,20.);
@@ -612,6 +618,9 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    hst[315] = new TH1D("Emc_M2frT","M^2(fr) min T", 100,0.,0.02);
    hst[316] = new TH1D("Emc_M2frF","M^2(fr) min F", 100,0.,0.02);
    hst[317] = new TH1D("Emc_M2frTE","M^2(fr) min TE", 100,0.,0.02);
+   hst[318] = new TH1D("Emc_M2ggmT","M^{2}(2#gamma) min T", 200,0.,0.6);
+   hst[319] = new TH1D("Emc_M2ggmF","M^{2}(2#gamma) min F", 200,0.,0.6);
+   hst[320] = new TH1D("Emc_M2ggmTE","M^{2}(2#gamma) min TE", 200,0.,0.6);
 
    hst[321] = new TH1D("Emc_rET","Eg(pred)/Eg(rec) T", 250,0.,2.5);
    hst[322] = new TH1D("Emc_dThT","#delta#Theta (pred-rec) T",
@@ -633,6 +642,8 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
          100,0.5,0.6);
    hst[339] = new TH1D("Emc_Mgg_fitF","M(2#gamma) fit F",
          100,0.5,0.6);
+   hst[341] = new TH1D("Emc_deta","eta -> gamma gamma", 2,-0.5,1.5);
+   hst[342] = new TH1D("Emc_dphi","phi -> K+ K-", 2,-0.5,1.5);
 
    // TTree for pi+ pi- J/Psi selection:
    m_nt1 = new TTree("nt1","pi+ pi- J/Psi selection");
@@ -704,10 +715,13 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt2->Branch("sdecp"   , &xnt2.sdecp   );
    m_nt2->Branch("sdecj"   , &xnt2.sdecj   );
 
-   // Tree for eta efficiency study
-   m_nt3 = new TTree("eff_eta", "eta reconstruction efficiency");
-   m_nt3->Branch("Pkk"   , &xnt3.Pkk   );
-   m_nt3->Branch("Ckk"   , &xnt3.Ckk   );
+   // Tree for eta efficiency study in phi eta
+   m_nt3 = new TTree("eff_eta", "eta efficiency in phi eta");
+   m_nt3->Branch("Ptp"   , &xnt3.Ptp   );
+   m_nt3->Branch("Ptm"   , &xnt3.Ptm   );
+   m_nt3->Branch("Mrec"  , &xnt3.Mrec  );
+   m_nt3->Branch("Ptkp"  , &xnt3.Ptkp   );
+   m_nt3->Branch("Ptkm"  , &xnt3.Ptkm   );
    m_nt3->Branch("Peta"  , &xnt3.Peta  );
    m_nt3->Branch("Ceta"  , &xnt3.Ceta  );
    m_nt3->Branch("Eg1"   , &xnt3.Eg1   );
@@ -716,16 +730,18 @@ void PsipJpsiPhiEtaStartJob(ReadDst* selector) {
    m_nt3->Branch("Cg2"   , &xnt3.Cg2   );
    m_nt3->Branch("Egr"   , &xnt3.Egr   );
    m_nt3->Branch("Cgr"   , &xnt3.Cgr   );
-   m_nt3->Branch("fl"    , &xnt3.fl    );
    m_nt3->Branch("rE"    , &xnt3.rE    );
    m_nt3->Branch("dTh"   , &xnt3.dTh   );
+
+   m_nt3->Branch("Mkk2"  , &xnt3.Mkk2  );
+   m_nt3->Branch("M2gg"  , &xnt3.M2gg  );
    m_nt3->Branch("m2fr"  , &xnt3.m2fr  );
-   m_nt3->Branch("m2rl"  , &xnt3.m2rl  );
-   m_nt3->Branch("mggpr" , &xnt3.mggpr );
    m_nt3->Branch("mggf"  , &xnt3.mggf  );
+   m_nt3->Branch("ch2"   , &xnt3.ch2   );
+
    m_nt3->Branch("decj"  , &xnt3.decj  );
    m_nt3->Branch("deta"  , &xnt3.deta  );
-   m_nt3->Branch("sdecj" , &xnt3.sdecj );
+   m_nt3->Branch("dphi"  , &xnt3.dphi  );
 
    // Tree for 4C kinematic constraints study
    m_nt4 = new TTree("c4C","phi eta with 4C kinematic constraints");
@@ -989,6 +1005,7 @@ static void FillHistoMC(const ReadDst* selector, Select& Slct) {
       // save invariant masses: M(K+K-), M(K+eta)
       //  and cosT (see Select_PsipJpsiPhiEta)
       if ( LVKp.size() == 1 && LVKm.size() == 1  ) {
+         Slct.dec_phi = 1; // phi -> K+K-
          Slct.mc_mkk = (LVKp[0]+LVKm[0]).m();
          hst[145]->Fill( Slct.mc_mkk );
          Slct.mc_mkpeta = (LVKp[0]+LVeta).m();
@@ -2443,6 +2460,14 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
    static const double seta = 0.008;
    static const double weta = 3*seta; // standard
 
+   // fill in the initial MC information
+   if ( isMC ) {
+      if ( Slct.decJpsi == 68 ) {
+         hst[341]->Fill(Slct.dec_eta);
+         hst[342]->Fill(Slct.dec_phi);
+      }
+   }
+
    // cut for Mrec
    double Mrec = Slct.Mrec_best;
    hst[201]->Fill( Mrec );
@@ -2521,15 +2546,15 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
    double Mkk2 = LVkk.m2();
    hst[207]->Fill(Mkk2);
    if ( isMC ) {
-      if ( Slct.decJpsi == 68 ) {
+      if ( Slct.decJpsi == 68 && Slct.dec_phi == 1 ) {
          hst[308]->Fill(Mkk2);
       } else {
          hst[309]->Fill(Mkk2);
       }
    }
    // Mphi^2 = 1.039+/-0.006 (+/-0.005 for v709)
-   // if ( Mkk2 <= 1.01 || Mkk2 >= 1.07 ) { // <= v709n3
-   if ( Mkk2 <= 1.02 || Mkk2 >= 1.06 ) {
+   // if ( Mkk2 <= 1.02 || Mkk2 >= 1.06 ) { // v709n4
+   if ( Mkk2 <= 1.01 || Mkk2 >= 1.07 ) {
       return;
    }
 
@@ -2538,6 +2563,7 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
    double M2fr_min = 10;
    int i_min = -1;
    vector<HepLorentzVector> LVg_min(3); // save gammas here
+   double M2gg_min = 0;
 
    for ( int ig = 0; ig < Ng; ++ig ) {
       const auto& LVgi = Slct.Pg[ig];
@@ -2573,19 +2599,24 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
             i_min = ig;
             LVg_min[0] = LVgi;
             LVg_min[1] = LVgj;
+            M2gg_min = Mgg2;
          }
       }
    } // end of gammas loop
 
    hst[215]->Fill(M2fr_min);
+   hst[216]->Fill(M2gg_min);
    if ( isMC ) {
-      if ( Slct.decJpsi == 68 ) {
+      if ( Slct.decJpsi == 68  && Slct.dec_phi == 1 ) {
          hst[315]->Fill(M2fr_min);
+         hst[318]->Fill(M2gg_min);
          if ( Slct.dec_eta == 1 ) {
             hst[317]->Fill(M2fr_min);
+            hst[320]->Fill(M2gg_min);
          }
       } else {
          hst[316]->Fill(M2fr_min);
+         hst[319]->Fill(M2gg_min);
       }
    }
 
@@ -2593,10 +2624,12 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
       return;
    }
 
-   // search for real gamma close to predicted
-   // with minimal recoil mass of full system
+   // search near the predicted photon for a real photon
+   // OLD: with minimal recoil mass of full system
+   // NEW: with a minimum angle to the predicted one
+
    const auto& LVgp = LVg_min[1]; // predicted
-   HepLorentzVector LVrec = LVjpsi - LVkk - LVg_min[0];
+   // HepLorentzVector LVrec = LVjpsi - LVkk - LVg_min[0];
 
    double M2real_min = 10;
    int j_min = -1;
@@ -2622,19 +2655,21 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
          }
       }
 
-      if ( 0.4 < rE && rE < 1.8 && dTh < 10 ) { // CUT
-         HepLorentzVector LVfr = LVrec - LVgj;
-         double M2fr = LVfr.m2();
-         if ( fabs(M2fr) < fabs(M2real_min) ) {
-            M2real_min = M2fr;
-            j_min = jg;
-            rE_min = rE;
-            dTh_min = dTh;
-         }
-      } //
+      // if ( 0.4 < rE && rE < 1.8 && dTh < 10 ) { // CUT
+         // HepLorentzVector LVfr = LVrec - LVgj;
+         // double M2fr = LVfr.m2();
+         // if ( fabs(M2fr) < fabs(M2real_min) ) {
+
+      if ( dTh < dTh_min ) {
+         // M2real_min = M2fr;
+         j_min = jg;
+         rE_min = rE;
+         dTh_min = dTh;
+      }
    } // end of for(jg)
    int found = ( j_min != -1 ) ? 1 : 0;
 
+   double chisq = 9999.;
    double Mgg_found = 0.;
    if ( found ) {
       // save found real gamma in LVg_min
@@ -2668,7 +2703,7 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
          }
       }
 
-      // here we must apply the same selection criteria  for "eta"
+      // here we apply the same selection criteria for the "eta"
       // as in the main analysis
 
       // Vertex fit
@@ -2723,7 +2758,8 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
          kmfit->AddFourMomentum(0, Slct.LVcms);
          bool oksq = kmfit->Fit();
          if ( oksq ) {
-            hst[232]->Fill(kmfit->chisq());
+            chisq = kmfit->chisq();
+            hst[232]->Fill(chisq);
             // Momentums after kinematic corrections:
             HepLorentzVector Pg1 = kmfit->pfit(4);
             HepLorentzVector Pg2 = kmfit->pfit(5);
@@ -2747,12 +2783,16 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
       } // end vertex fit
    } // end if( found )
 
-   // save momentum and angle of eta && photons in ntuple
-   HepLorentzVector LVeta = LVg_min[0] + LVg_min[1];
-   double Mgg_pred = LVeta.m();
+   // OLD:
+   // double Mgg_pred = LVeta.m();
 
-   xnt3.Pkk   = LVkk.vect().mag();
-   xnt3.Ckk   = LVkk.cosTheta();
+   // fill and save Ttree
+   xnt3.Ptp   = Slct.trk_Pip->pxy();
+   xnt3.Ptm   = Slct.trk_Pim->pxy();
+   xnt3.Mrec  = Slct.Mrec_best;
+   xnt3.Ptkp  = Slct.trk_Kp[0]->pxy();
+   xnt3.Ptkm  = Slct.trk_Km[0]->pxy();
+   HepLorentzVector LVeta = LVg_min[0] + LVg_min[1];
    xnt3.Peta  = LVeta.vect().mag();
    xnt3.Ceta  = LVeta.cosTheta();
    xnt3.Eg1   = LVg_min[0].e();
@@ -2761,30 +2801,26 @@ static void EtaEff(ReadDst* selector, Select& Slct) {
    xnt3.Cg2   = LVg_min[1].cosTheta();
    xnt3.Egr   = LVg_min[2].e();
    xnt3.Cgr   = LVg_min[2].cosTheta();
-   xnt3.fl    = found;
    xnt3.rE    = rE_min;
    xnt3.dTh   = dTh_min;
+
+   xnt3.Mkk2  = Mkk2;
+   xnt3.M2gg  = M2gg_min;
    xnt3.m2fr  = M2fr_min;
-   xnt3.m2rl  = M2real_min;
-   xnt3.mggpr = Mgg_pred;
    xnt3.mggf  = Mgg_found;
-   xnt3.decj  = Slct.decJpsi;
-   xnt3.deta  = Slct.dec_eta;
+   xnt3.ch2   = chisq;
+
    if ( isMC ) {
-      xnt3.sdecj = JpsiTbl.StrDec();
+      xnt3.decj  = Slct.decJpsi;
+      xnt3.deta  = Slct.dec_eta;
+      xnt3.dphi  = Slct.dec_phi;
+   } else {
+      xnt3.decj  = 0;
+      xnt3.deta  = 0;
+      xnt3.dphi  = 0;
    }
 
    m_nt3->Fill();
-
-   // if ( isMC ) {
-      // if ( Slct.decJpsi != 68 ) { // DEBUG
-         // cout << " CHECK-Eff: decJpsi= " << Slct.decJpsi
-            // << " JpsiTbl= :" << JpsiTbl.StrDec() << ":"
-            // << endl;
-         // selector->PrintMcDecayTree(-99,0);
-      // }
-   // }
-
 }
 
 // {{{1 MAIN: Event

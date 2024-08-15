@@ -18,16 +18,16 @@
 #include <TH1.h>
 #include <TH2.h>
 #include <TF1.h>
-#include <TNtupleD.h>
+// #include <TNtupleD.h>
+#include <TTree.h>
 #include <TDatabasePDG.h>
 
 // #include "CLHEP/Units/PhysicalConstants.h"
 #include <CLHEP/Vector/ThreeVector.h>
 #include <CLHEP/Vector/LorentzVector.h>
 #include <CLHEP/Geometry/Point3D.h>
-#ifndef ENABLE_BACKWARDS_COMPATIBILITY
+
 typedef HepGeom::Point3D<double> HepPoint3D;
-#endif
 using CLHEP::Hep3Vector;
 using CLHEP::HepLorentzVector;
 
@@ -85,6 +85,7 @@ struct PimPipGammas {
 
    // candidates for gamma in decay J/Psi -> gamma eta
    vector<int> idx_g;           // indexes in LVg vector
+   vector<double> M2rec_g;      // vec of recoil mass square of gamma
 
    PimPipGammas() {
       decPsip = decJpsi = -1;
@@ -92,6 +93,30 @@ struct PimPipGammas {
       mcidx_g = -1;
       trk_Pip = trk_Pim = nullptr;
    }
+};
+
+//--------------------------------------------------------------------
+// {{{1 Structure for root-trees
+//--------------------------------------------------------------------
+// eta reconstruction efficiency
+struct Xnt_gammaeta {
+   double Ptp,Ptm,Mrec; // Pt(pi+), Pt(pi-), Mrec(pi+pi-)
+   double Eg0,Cg0;      // E,cos(Theta) of gamma in J/Psi -> g0 eta
+   double Peta,Ceta;    // P,cos(Theta) of eta
+   double Eg1,Cg1;      // E,cos(Theta) of rec gamma in eta -> g1 g2
+   double Eg2,Cg2;      // E,cos(Theta) of predicted gamma (g2)
+   double Egr,Cgr;      // E and cos(Theta) of found gamma (gr)
+   double rE,dTh;       // relations btw predicted(g2) and found(gr)
+                        // * variables used in selection:
+   double M2gr;         // Mrec^2(pi+pi-g0)
+   double M2gg;         // Minv^2(g1 g2)
+   double m2fr;         // Mrec^2(pi+pi-g0g1) or g2 missing mass^2
+   double mggf;         // Minv(g1,gr) after 4C kinematic constraints
+   double ch2;          // chi^2 of 4C kinematic constraints
+                        // * MC-variables
+   int    decj;         // MC: decay codes of J/Psi
+   int    dgam;         // MC: 1 if g0 found correctly
+   int    deta;         // MC: 1 if eta decays into two gammas
 };
 
 //--------------------------------------------------------------------
@@ -116,7 +141,9 @@ static EventTagSvc* m_EventTagSvc = 0;
 
 // histograms
 static vector<TH1*> hst;
-static vector<TNtupleD*> m_tuple;
+// static vector<TNtupleD*> m_tuple;
+static TTree* m_nt_geta = nullptr;
+static Xnt_gammaeta xnt_geta;
 
 // decays classification
 static DecayTable JpsiTbl;
@@ -158,7 +185,6 @@ static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
-   // if ( (cosPM > 0.80) ||         // flying in one direction
    if ( (cosPM > 0.90) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
       ) {
@@ -187,7 +213,7 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    }
 
    hst.resize(300,nullptr);
-   m_tuple.resize(5,nullptr);
+   // m_tuple.resize(5,nullptr);
 
    // initialize Absorption Correction -------------------------------
    m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
@@ -282,12 +308,12 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[53] = new TH1D("n_Eg","E_{#gamma}", 200,0.,2.);
 
    // search for "hot" chanels in EMC
-   hst[55] = new TH2D("mapB","3) barrel Z vs phi",
-         270,-135.,+135., 360,-180.,180.);
-   hst[56] = new TH2D("mapC1","3) endcap Z<0 rho vs phi",
-         40, 50.,90., 360,-180.,180.);
-   hst[57] = new TH2D("mapC2","3) endcap Z>0 rho vs phi",
-         40, 50.,90., 360,-180.,180.);
+   // hst[55] = new TH2D("mapB","3) barrel Z vs phi",
+         // 270,-135.,+135., 360,-180.,180.);
+   // hst[56] = new TH2D("mapC1","3) endcap Z<0 rho vs phi",
+         // 40, 50.,90., 360,-180.,180.);
+   // hst[57] = new TH2D("mapC2","3) endcap Z>0 rho vs phi",
+         // 40, 50.,90., 360,-180.,180.);
 
    hst[61] = new TH1D("Mrg2","M^{2}rec(#pi+,#pi-,#gamma)",
          200,-0.2,0.8);
@@ -379,11 +405,11 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
 
    // MatchGammaMC:
    hst[161] = new TH1D("mc_dPx_g","MC-REC dPx #gamma",
-         120,-0.06,0.06);
+         150,-0.075,0.075);
    hst[162] = new TH1D("mc_dPy_g","MC-REC dPy #gamma",
-         120,-0.06,0.06);
+         150,-0.075,0.075);
    hst[163] = new TH1D("mc_dPz_g","MC-REC dPz #gamma",
-         120,-0.06,0.06);
+         150,-0.075,0.075);
    hst[164] = new TH1D("mc_dPa_g","MC-REC dAngle #gamma",
          100,0.,0.1);
    // hst[165] = new TH1D("mc_dEm_g","MC-REC min dE #gamma",
@@ -474,28 +500,45 @@ void PsipJpsiGammaEtaStartJob(ReadDst* selector) {
    hst[229] = new TH1D("mcMgg_fitF","M(2#gamma) fit F", 100,0.5,0.6);
 
 
-   // ntuple for eta efficiency study
-   m_tuple[0]= new TNtupleD("eff_eta","eta reconstruction efficiency",
-         "Eg0:Cg0:"      // E and cos(Theta) of separated gamma
-         "Peta:Ceta:"    // P and cos(Theta) of eta
-         "Eg1:Cg1:"      // E and cos(Theta) of rec gamma
-         "Eg2:Cg2:"      // E and cos(Theta) of predicted gamma
-         "Egr:Cgr:"      // E and cos(Theta) of found gamma (fl>0)
-         "fl:"           // 0/1/2 - only predicted/gamma/eta-found
-         "rE:dTh:"       // predicted/found relation
-         "m2fr:m2rl:"    // total recoil mass^2 predicted/found
-         "mggpr:mggf:"   // mass(eta) predicted/fitted
-         "decj"          // MC: decay codes of J/Psi
-         ":dgam"         // MC: 1 if gamma from J/Psi decay
-         ":deta"         // MC: 1 if eta decay to 2 gamma
-         );
+   // Tree for eta efficiency study in gamma eta
+   m_nt_geta = new TTree("eff_eta", "eta efficiency in gamma eta");
+   m_nt_geta->Branch("Ptp"   , &xnt_geta.Ptp   );
+   m_nt_geta->Branch("Ptm"   , &xnt_geta.Ptm   );
+   m_nt_geta->Branch("Mrec"  , &xnt_geta.Mrec  );
+   m_nt_geta->Branch("Eg0"   , &xnt_geta.Eg0   );
+   m_nt_geta->Branch("Cg0"   , &xnt_geta.Cg0   );
+   m_nt_geta->Branch("Peta"  , &xnt_geta.Peta  );
+   m_nt_geta->Branch("Ceta"  , &xnt_geta.Ceta  );
+   m_nt_geta->Branch("Eg1"   , &xnt_geta.Eg1   );
+   m_nt_geta->Branch("Cg1"   , &xnt_geta.Cg1   );
+   m_nt_geta->Branch("Eg2"   , &xnt_geta.Eg2   );
+   m_nt_geta->Branch("Cg2"   , &xnt_geta.Cg2   );
+   m_nt_geta->Branch("Egr"   , &xnt_geta.Egr   );
+   m_nt_geta->Branch("Cgr"   , &xnt_geta.Cgr   );
+   m_nt_geta->Branch("rE"    , &xnt_geta.rE    );
+   m_nt_geta->Branch("dTh"   , &xnt_geta.dTh   );
+
+   m_nt_geta->Branch("M2gr"  , &xnt_geta.M2gr  );
+   m_nt_geta->Branch("M2gg"  , &xnt_geta.M2gg  );
+   m_nt_geta->Branch("m2fr"  , &xnt_geta.m2fr  );
+   m_nt_geta->Branch("mggf"  , &xnt_geta.mggf  );
+   m_nt_geta->Branch("ch2"   , &xnt_geta.ch2   );
+
+   m_nt_geta->Branch("decj"  , &xnt_geta.decj  );
+   m_nt_geta->Branch("dgam"  , &xnt_geta.dgam  );
+   m_nt_geta->Branch("deta"  , &xnt_geta.deta  );
+
 
    // register in selector to save in given directory
    const char* SaveDir = "PsipJpsiGammaEta";
    VecObj hsto(hst.begin(),hst.end());
    selector->RegInDir(hsto,SaveDir);
-   VecObj ntuples(m_tuple.begin(),m_tuple.end());
-   selector->RegInDir(ntuples,SaveDir);
+   // VecObj ntuples(m_tuple.begin(),m_tuple.end());
+   // selector->RegInDir(ntuples,SaveDir);
+
+   VecObj Vreg;
+   Vreg.push_back(m_nt_geta);
+   selector->RegInDir(Vreg,SaveDir);
 }
 
 // {{{1 getVertexOrigin()
@@ -708,13 +751,12 @@ static void MatchGammaMC(PimPipGammas& ppg) {
       return;
    }
    const static double maxdp = 0.05;   // 50MeV
-//--    const static double maxdp = 0.1;   // 100MeV
 
    // MC parameters of gamma (see FillHistoMC())
    Hep3Vector mcg = ppg.mcLVg.vect();
    double mcEg = ppg.mcLVg.e();
 
-   double min_de = maxdp;
+   double min_de = 2*maxdp; // may be asymmetric
    int Ng = ppg.LVg.size();
    for ( int i = 0; i < Ng; ++i ) {
       Hep3Vector gi = ppg.LVg[i].vect();
@@ -1010,12 +1052,12 @@ static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
       // *) the nearest charged track is far from cluster
       Hep3Vector emcpos(emcTrk->x(), emcTrk->y(), emcTrk->z());
       // map of gammas
-      if ( absCosTheta < 0.8 ) {  //barrel
-         hst[55]->Fill(emcpos.z(), RtoD(emcpos.phi()) );
-      } else { // endcap
-         int hz = (emcpos.z() > 0);
-         hst[56+hz]->Fill(emcpos.rho(), RtoD(emcpos.phi()) );
-      }
+      // if ( absCosTheta < 0.8 ) {  //barrel
+         // hst[55]->Fill(emcpos.z(), RtoD(emcpos.phi()) );
+      // } else { // endcap
+         // int hz = (emcpos.z() > 0);
+         // hst[56+hz]->Fill(emcpos.rho(), RtoD(emcpos.phi()) );
+      // }
 
       double tang = 200.; // min angle between cluster and track
       for ( int j = 0; j < evtRecEvent->totalCharged(); j++ ) {
@@ -1108,6 +1150,7 @@ static bool NeutralTracks(ReadDst* selector, PimPipGammas& ppg) {
 
       if ( fabs(Mrg2-SQ(meta)) < 0.2 ) { // CUT for separated photon
          ppg.idx_g.push_back(i);
+         ppg.M2rec_g.push_back(Mrg2); // to save in ntuple
          if ( isMC ) {
             if ( ppg.decJpsi == 22 ) {
                hst[181]->Fill(Egj);
@@ -1214,8 +1257,11 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
    int k_min = -1;
    int i_min = -1;
    vector<HepLorentzVector> LVg_min(4); // save gammas here
+   double M2gr_min = 0; // recoil M^2 of gamma in J/Psi -> gamma eta
+   double M2gg_min = 0;
 
-   for ( int k : ppg.idx_g ) { // candidate to "separated" gamma
+   for ( size_t ig0 = 0; ig0 < ppg.idx_g.size(); ++ig0 ) {
+      int k = ppg.idx_g[ig0]; // candidate to "separated" gamma
       const auto& LVg0 = ppg.LVg[k];
 
       for ( int ig = 0; ig < Ng; ++ig ) {
@@ -1260,6 +1306,8 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
                LVg_min[0] = LVg0;
                LVg_min[1] = LVg1;
                LVg_min[2] = LVg2;
+               M2gr_min = ppg.M2rec_g[ig0];
+               M2gg_min = Mgg2;
             }
          }
       } // end of gammas loop
@@ -1284,12 +1332,14 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
       return;
    }
 
-   // search for real gamma close to predicted
-   // with minimal recoil mass of full system
-   const auto& LVgp = LVg_min[2]; // predicted
-   HepLorentzVector LVrec = ppg.LVjpsi - LVg_min[0] - LVg_min[1];
+   // search near the predicted photon for a real photon
+   // OLD: with minimal recoil mass of full system
+   // NEW: with a minimum angle to the predicted one
 
-   double M2real_min = 10;
+   const auto& LVgp = LVg_min[2]; // predicted photon
+
+   // HepLorentzVector LVrec = ppg.LVjpsi - LVg_min[0] - LVg_min[1];
+   double M2real_min = 10; // old
    int j_min = -1;
    double rE_min = 0, dTh_min = 100.;
    for ( int jg = 0; jg < Ng; ++jg ) {
@@ -1300,7 +1350,7 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
 
       double rE = LVgp.e()/LVgj.e();
       double cosTh = LVgp.vect().cosTheta( LVgj.vect() );
-      double dTh = RtoD( acos(cosTh) );
+      double dTh = RtoD( acos(cosTh) ); // [0,180]
       hst[85]->Fill(rE);
       hst[86]->Fill(dTh);
       if ( isMC ) {
@@ -1313,19 +1363,21 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
          }
       }
 
-      if ( 0.4 < rE && rE < 1.8 && dTh < 10 ) { // CUT
-         HepLorentzVector LVfr = LVrec - LVgj;
-         double M2fr = LVfr.m2();
-         if ( fabs(M2fr) < fabs(M2real_min) ) {
-            M2real_min = M2fr;
-            j_min = jg;
-            rE_min = rE;
-            dTh_min = dTh;
-         }
-      } //
-   } // end of for(jg)
-   int found = ( j_min != -1 ) ? 1 : 0;
+      // if ( 0.4 < rE && rE < 2. && dTh < 20 ) { // CUT
+         // HepLorentzVector LVfr = LVrec - LVgj;
+         // double M2fr = LVfr.m2();
+         // if ( fabs(M2fr) < fabs(M2real_min) ) {
 
+      if ( dTh < dTh_min ) {
+         // M2real_min = M2fr;
+         j_min = jg;
+         rE_min = rE;
+         dTh_min = dTh;
+      }
+   } // end of for(jg)
+   int found = int( j_min != -1 );
+
+   double chisq = 9999.;
    double Mgg_found = 0.;
    if ( found ) {
       // save found real gamma in LVg_min
@@ -1366,8 +1418,8 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
          }
       }
 
-      // here we must apply the same selection criteria  for "ete"
-      // as in the main analysis
+      // here we apply 4C kinamatic constraints and select "eta"
+      // as we do in the main analysis
 
       // Vertex fit
       WTrackParameter wp[2] = {
@@ -1418,7 +1470,8 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
          kmfit->AddFourMomentum(0, ppg.LVcms);
          bool oksq = kmfit->Fit();
          if ( oksq ) {
-            hst[96]->Fill(kmfit->chisq());
+            chisq = kmfit->chisq();
+            hst[96]->Fill(chisq);
             // Momentums after kinematic corrections:
             HepLorentzVector Pg1 = kmfit->pfit(3);
             HepLorentzVector Pg2 = kmfit->pfit(4);
@@ -1442,33 +1495,58 @@ static void EtaEff( ReadDst* selector, PimPipGammas& ppg ) {
       } // end vertex fit
    } // end if( found )
 
-   // save momentum and angle of eta && photons in ntuple
+   // OLD:
+   // double Mgg_pred = LVeta.m();
+   // double(found),
+   // M2real_min,
+
+   // fill and save Ttree
+   xnt_geta.Ptp  = ppg.trk_Pip->pxy();
+   xnt_geta.Ptm  = ppg.trk_Pim->pxy();
+   xnt_geta.Mrec = ppg.Mrec;
+   xnt_geta.Eg0  = LVg_min[0].e();
+   xnt_geta.Cg0  = LVg_min[0].cosTheta();
    HepLorentzVector LVeta = LVg_min[1] + LVg_min[2];
-   double Mgg_pred = LVeta.m();
-   Double_t xfill[] = {
-         LVg_min[0].e(), LVg_min[0].cosTheta(),
-         LVeta.vect().mag(), LVeta.cosTheta(),
-         LVg_min[1].e(), LVg_min[1].cosTheta(),
-         LVg_min[2].e(), LVg_min[2].cosTheta(),
-         LVg_min[3].e(), LVg_min[3].cosTheta(),
-         double(found),
-         rE_min,dTh_min,
-         M2fr_min, M2real_min,
-         Mgg_pred,Mgg_found,
-         double(ppg.decJpsi),
-         double(k_min == ppg.mcidx_g),
-         double(ppg.dec_eta)
-   };
-   m_tuple[0]->Fill( xfill );
+   xnt_geta.Peta = LVeta.vect().mag();
+   xnt_geta.Ceta = LVeta.cosTheta();
+   xnt_geta.Eg1  = LVg_min[1].e();
+   xnt_geta.Cg1  = LVg_min[1].cosTheta();
+   xnt_geta.Eg2  = LVg_min[2].e();
+   xnt_geta.Cg2  = LVg_min[2].cosTheta();
+   xnt_geta.Egr  = LVg_min[3].e();
+   xnt_geta.Cgr  = LVg_min[3].cosTheta();
+   xnt_geta.rE   = rE_min;
+   xnt_geta.dTh  = dTh_min;
+
+   xnt_geta.M2gr = M2gr_min;
+   xnt_geta.M2gg = M2gg_min;
+   xnt_geta.m2fr = M2fr_min;
+   xnt_geta.mggf = Mgg_found;
+   xnt_geta.ch2  = chisq;
 
    if ( isMC ) {
-      JpsiTbl.Add(); // save in table
-      // if ( ppg.decJpsi != 22 ) { // DEBUG
-         // cout << " CHECK: decJpsi= " << ppg.decJpsi
-            // << " JpsiTbl= " << JpsiTbl.StrDec()
-            // << endl;
-         // selector->PrintMcDecayTree(-99,0);
-      // }
+      xnt_geta.decj = ppg.decJpsi;
+      xnt_geta.dgam = int(k_min == ppg.mcidx_g);
+      xnt_geta.deta = ppg.dec_eta;
+   } else {
+      xnt_geta.decj = 0;
+      xnt_geta.dgam = 0;
+      xnt_geta.deta = 0;
+   }
+
+   m_nt_geta->Fill();
+
+   if ( isMC ) {
+      // more or less final cuts:
+      if (
+            abs(xnt_geta.Cg0) < 0.8 &&
+            abs(xnt_geta.Cg1) < 0.8 &&
+            xnt_geta.m2fr < 0.002 &&
+            xnt_geta.Eg1 > 0.25 && xnt_geta.Eg1 < 1.7
+         )
+      {
+         JpsiTbl.Add(); // save in table
+      }
    }
 
 }

@@ -25,9 +25,8 @@
 #include <CLHEP/Vector/ThreeVector.h>
 #include <CLHEP/Vector/LorentzVector.h>
 #include <CLHEP/Geometry/Point3D.h>
-#ifndef ENABLE_BACKWARDS_COMPATIBILITY
+
 typedef HepGeom::Point3D<double> HepPoint3D;
-#endif
 using CLHEP::Hep3Vector;
 using CLHEP::HepLorentzVector;
 
@@ -182,7 +181,6 @@ static bool SelectPM(double cosPM, double invPM) {
 //--------------------------------------------------------------------
    // criteria for pair pions (+/-) for selection good Mrec
    bool ret = true;
-   // if ( (cosPM > 0.80) ||         // flying in one direction
    if ( (cosPM > 0.90) ||         // flying in one direction
          (abs(invPM-mk0) < 0.008 ) // pions from K^0_s decay
       ) {
