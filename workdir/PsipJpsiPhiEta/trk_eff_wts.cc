@@ -2,7 +2,7 @@
 // plot weights for K+K- and pi+ pi- pairs:
 // -> wts_{KK|PiPi}_{YEAR}.pdf
 
-#include "RewTrkPiK.hpp"    // RewTrk functions with HC
+#include "RewTrkPiK.hpp"    // RewTrkPi(), RewTrk_K() functions
 
 // {{{1 helper functions
 //--------------------------------------------------------------------
@@ -33,8 +33,9 @@ void SetHstFace(TH1* hst) {
 
 // {{{1 Pion weights, use nt1-tree
 //--------------------------------------------------------------------
-void plot_WPi(string fname, int date) {
+void plot_WPi(string fname, int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << fname << endl;
@@ -53,31 +54,16 @@ void plot_WPi(string fname, int date) {
    }
 
    //Declaration of leaves types
-   //        those not used here are commented out
-   // vector<float> * Mrec = nullptr; // must be !
    Float_t         Mrs;
    Float_t         Ptsp;
    Float_t         Ptsm;
-   // Float_t         Mrb;
-   // Float_t         Ptp;
-   // Float_t         Cpls;
-   // Float_t         Ptm;
-   // Float_t         Cmns;
    Int_t           dec;
-   // Float_t         mcmkk;
 
    // Set branch addresses.
-   // nt1->SetBranchAddress("Mrec",&Mrec);
    nt1->SetBranchAddress("Mrs",&Mrs);
    nt1->SetBranchAddress("Ptsp",&Ptsp);
    nt1->SetBranchAddress("Ptsm",&Ptsm);
-   // nt1->SetBranchAddress("Mrb",&Mrb);
-   // nt1->SetBranchAddress("Ptp",&Ptp);
-   // nt1->SetBranchAddress("Cpls",&Cpls);
-   // nt1->SetBranchAddress("Ptm",&Ptm);
-   // nt1->SetBranchAddress("Cmns",&Cmns);
    nt1->SetBranchAddress("dec",&dec);
-   // nt1->SetBranchAddress("mcmkk",&mcmkk);
 
    TH1D* hstWpiP = new TH1D("hstWpiP",
          ";correction factor;Entries/0.001",
@@ -111,7 +97,7 @@ void plot_WPi(string fname, int date) {
    // cout << "hmax= " << hmax << endl;
 
    auto cname = Form("c1_%i",date);
-   TCanvas* c1 = new TCanvas(cname,cname,0,0,800,800);
+   TCanvas* c1 = new TCanvas(cname,cname,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -122,7 +108,7 @@ void plot_WPi(string fname, int date) {
    SetHstFace(hstWpi);
    hstWpi->SetLineWidth(3);
    hstWpi->GetYaxis()->SetMaxDigits(4);
-   hstWpi->GetYaxis()->SetTitleOffset(1.2);
+   hstWpi->GetYaxis()->SetTitleOffset(1.1);
    hstWpi->Draw("HIST");
 
    hstWpiP->SetLineColor(kRed+1);
@@ -134,7 +120,7 @@ void plot_WPi(string fname, int date) {
    hstWpiP->Draw("SAME HIST");
    hstWpiM->Draw("SAME HIST");
 
-   TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
+   TLegend* leg = new TLegend(0.60,0.74,0.892,0.89);
    leg->SetHeader( Form("MC inclusive %i",date), "C" );
    leg->AddEntry( hstWpi, "pair of #pi^{#plus}#pi^{#minus}", "L");
    leg->AddEntry( hstWpiP, "#pi^{#plus} only", "L");
@@ -149,8 +135,9 @@ void plot_WPi(string fname, int date) {
 
 // {{{1 Kaon weights
 //--------------------------------------------------------------------
-void plot_WK(string fname, int date) {
+void plot_WK(string fname, int date, int Cx = 800, int Cy = 800)
 //--------------------------------------------------------------------
+{
 #include "masses.h"
    TFile* froot = TFile::Open(fname.c_str(),"READ");
    if( froot == 0 ) {
@@ -171,7 +158,6 @@ void plot_WK(string fname, int date) {
 
    // Declaration of leaves types
    // #include "a4c_v709.h"
-   //        just the ones we use here
    Double_t        Mrec;
    a4c->SetBranchAddress("Mrec",&Mrec);
    Double_t        ch2;
@@ -250,7 +236,7 @@ void plot_WK(string fname, int date) {
    // cout << "hmax= " << hmax << endl;
 
    auto cname = Form("c1_%i",date);
-   TCanvas* c1 = new TCanvas(cname,cname,0,0,800,800);
+   TCanvas* c1 = new TCanvas(cname,cname,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -274,7 +260,7 @@ void plot_WK(string fname, int date) {
    hstWKP->Draw("SAME HIST");
    hstWKM->Draw("SAME HIST");
 
-   TLegend* leg = new TLegend(0.60,0.74,0.89,0.89);
+   TLegend* leg = new TLegend(0.60,0.74,0.892,0.89);
    leg->SetHeader( Form("MC signal %i",date), "C" );
    leg->AddEntry( hstWK, "pair of K^{#plus}K^{#minus}", "L");
    leg->AddEntry( hstWKP, "K^{#plus} only", "L");
@@ -289,8 +275,9 @@ void plot_WK(string fname, int date) {
 
 // {{{1 Main
 //--------------------------------------------------------------------
-void trk_eff_wts() {
+void trk_eff_wts()
 //--------------------------------------------------------------------
+{
    gROOT->Reset();
    gStyle->SetOptStat(0);
    // gStyle->SetOptStat(1100);
@@ -300,13 +287,15 @@ void trk_eff_wts() {
    // gStyle->SetStatFont(42);
    gStyle->SetLegendFont(42);
 
-   const string Dir = "prod_v709n3/";
+   const string Dir = "prod_v709n4/";
+
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    for ( auto date : {2009, 2012, 2021} ) {
       // string mcincfile( Form("mcinc_%02ipsip_all.root",date%100) );
-      // plot_WPi(Dir + mcincfile, date);
+      // plot_WPi(Dir + mcincfile, date, Cx, Cy);
 
       // string mcsigfile( Form("mcsig_kkmc_%02i.root",date%100) );
-      // plot_WK(Dir + mcsigfile, date);
+      // plot_WK(Dir + mcsigfile, date, Cx, Cy);
    }
 }

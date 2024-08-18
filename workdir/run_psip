@@ -64,13 +64,13 @@ function run_mcphieta2() {
   fi
 }
 
-run_mcphieta2 09
-run_mcphieta2 12
-run_mcphieta2 21
+#  run_mcphieta2 09
+#  run_mcphieta2 12
+#  run_mcphieta2 21
 
 #################### MC INCLUSIVE PSI(2S) ##################
 #  DSTDIR="/data/bes3/709/psip/21mc/dst"
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
   printf "run local mcinc_21\n"
   ${BEAN7} \
     -u DelClonedTrks \
@@ -78,6 +78,7 @@ if [ 0 -eq 1 ]; then
     -u PsipJpsiPhiEta \
     -u PsipPiPiKK \
     -u PsipJpsiGammaEta\
+    -e noNT1=true \
     -h PsipJpsiPhiEta/local/mcinc_21psip.root \
     -L PsipJpsiPhiEta/local/Lists/mcincl_21_709.list \
     > PsipJpsiPhiEta/local/mcinc_21psip.out 2>&1 &

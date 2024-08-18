@@ -9,7 +9,7 @@
 // #include <filesystem>
 // namespace fs = std::filesystem;
 
-#include "RewTrkPiK.hpp"    // RewTrk functions with HC
+#include "RewTrkPiK.hpp"    // RewTrkPi(), RewTrk_K() functions
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -21,8 +21,7 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   // string Dir = "prod_v709/";
-   const string Dir = "prod_v709n3/";
+   const string Dir = "prod_v709n4/Eff/";
    const bool use_nohc = false;
    string datafile;
    string mcincfile;
@@ -35,12 +34,18 @@ struct Params {
    int use_rew; // 0 - no weights;
                 // 1 - calculate weights
 
+   const double mk   = 0.49368;  // 493.677   +/- 0.015 MeV
+   const double mpi  = 0.13957;  // 139.57039 +/- 0.00018 MeV
+
    // cuts for ntuples
    TCut Cmcsig; // mc-signal
    TCut Ckaon;  // std cuts for kaons
    TCut CKPtC;  // cuts for Pt and cos(Theta) of kaons
+   TCut CKf;    // predicted kaon found
+
    TCut Cpion;  // std cuts for pions
    TCut CPiPtC; // cuts for Pt and cos(Theta) of pions
+   TCut CPif;   // predicted pion found
 };
 
 // {{{2 > ctor
@@ -61,23 +66,29 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
             " You are using MC without helix corrections\n");
    }
 
-   // CUTS ATTENTION: check also Fill_PIhst() and Fill_Khst()
+   // ATTENTION: check also Fill_PIhst() and Fill_Khst()
 
-   // mc-signal
-   Cmcsig = TCut("good==1");
+   // *** MC signal *** (we do not use it here)
+   // Cmcsig = TCut("good==1");
+   // Cmcsig = TCut("abs(good-1)<0.1"); // < n4_eff
 
-   // std cuts for kaons: mk**2 = 0.243717 (GeV**2)
-   Ckaon = TCut("fabs(Mrec-3.097)<0.002&&"
-         "fabs(Mrk2-0.243717)<0.025");
-   // cuts for Pt and cos(Theta) of kaons
-   CKPtC = TCut("0.1<Ptk&&Ptk<1.4&&fabs(Ck)<0.8");
+   // *** cuts for kaons *** (mk**2 = 0.243717 GeV**2)
+   Ckaon = TCut("abs(Mrec-3.097)<0.002") +
+      TCut( Form("abs(Mrk2-%.6f)<0.025",mk*mk) );
+   // cuts for Pt and cos(Theta) of kaons (we do not use it here)
+   // CKPtC = TCut("abs(Ck)<0.8") + TCut("0.05<Ptk&&Ptk<1.45");
+   // predicted kaon found
+   CKf   = TCut("dTh<10&&(-0.12<dP&&dP<0.08)&&Nk==2");
 
-   // std cuts for pions: mpi**2 = 0.0194797849
-   Cpion = TCut("fabs(MppKK-3.097)<0.01&&"
-         "fabs(Mrpi2-0.0194798)<0.025");
-   // cuts for Pt and cos(Theta) of pions
-   // CPiPtC = TCut("0.05<Ptpi&&Ptpi<0.4&&fabs(Cpi)<0.8");
-   CPiPtC = TCut("0.025<Ptpi&&Ptpi<0.425&&fabs(Cpi)<0.8");
+   // *** cuts for pions *** (mpi**2 = 0.0194798 GeV**2)
+   // Cpion = TCut("abs(MppKK-3.097)<0.01") +
+   Cpion  = TCut("abs(MpKK-3.097)<0.01") +
+      TCut( Form("abs(Mrpi2-%.6f)<0.025",mpi*mpi) );
+   // cuts for Pt and cos(Theta) of pions (we do not use it here)
+   // CPiPtC = TCut("abs(Cpi)<0.8") + TCut("0.025<Ptpi&&Ptpi<0.425");
+   // predicted pion found
+   CPif   = TCut("dTh<15&&(-0.12<dP&&dP<0.08)&&Npi==4");
+
 }
 
 // {{{2 > OpenFile()
@@ -85,7 +96,6 @@ Params::Params(int dat, int kpi = 1, int pm = 0, int rew = 0) {
 TFile* Params::OpenFile(int mc) {  // 1 for MC
 //--------------------------------------------------------------------
    string dfname = Dir + ( (mc!=1) ? datafile : mcincfile );
-   // cout " OpenFile: " << dfname << endl;
    TFile* froot = TFile::Open(dfname.c_str(),"READ");
    if( froot == 0 ) {
       cerr << "can not open " << dfname << endl;
@@ -146,7 +156,7 @@ void SetHstFace(TH1* hst) {
 // for small plots
 //--------------------------------------------------------------------
 template<class Tmp>
-void SetHstFaceTbl(Tmp hst) {
+void SetHstFaceTbl_Pi(Tmp hst) {
 //--------------------------------------------------------------------
    TAxis* X = hst->GetXaxis();
    if ( X ) {
@@ -165,6 +175,26 @@ void SetHstFaceTbl(Tmp hst) {
    }
 }
 
+//--------------------------------------------------------------------
+template<class Tmp>
+void SetHstFaceTbl_K(Tmp hst) {
+//--------------------------------------------------------------------
+   TAxis* X = hst->GetXaxis();
+   if ( X ) {
+      X->SetLabelFont(42);
+      X->SetLabelSize(0.08);
+      X->SetTitleFont(42);
+      X->SetTitleSize(0.09);
+      X->SetTickLength(0.05);
+   }
+   TAxis* Y = hst->GetYaxis();
+   if ( Y ) {
+      Y->SetLabelFont(42);
+      Y->SetLabelSize(0.08);
+      Y->SetTitleFont(42);
+      Y->SetTitleSize(0.09);
+   }
+}
 // {{{1 Fill Pi-histograms
 //--------------------------------------------------------------------
 void Fill_PIhst( Params* p, int mc, const vector<TH1D*>& hst,
@@ -172,40 +202,51 @@ void Fill_PIhst( Params* p, int mc, const vector<TH1D*>& hst,
 //--------------------------------------------------------------------
    TTree* eff_Pi = p->GetEff(mc);
 
-   //Declaration of leaves types
-   //        those not used here are commented out
-   Double_t        Zpi;
-   Double_t        Ptpi;
-   Double_t        Cpi;
-   Double_t        fl;
-   // Double_t        dP;
-   // Double_t        dTh;
-   Double_t        MppKK;
-   Double_t        Mrpi2;
-   // Double_t        Egsum;
-   // Double_t        Egmax;
-   // Double_t        good;
+   // Declaring only the leaf types we used here
+   int    Zpi;          // charge of predicted Pion
+   double Ptpi,Cpi;     // Pt,cos(Theta) of predicted Pion
+   double dP,dTh;       // relations btw predicted and found Pion
+   int    Npi;          // number of Pions in an event (4 or 3)
+   // int    fl;           // 0/1/2 -> predicted/found/pid(pi) (remove?)
+                        // * variables used in selection:
+   double MppKK;        // Minv(pi+pi-K+K-) to search for J/Psi
+   double Mrpi2;        // M^2_recoil( (pi+pi-K+K-) pi+/- )
+                        // * MC-variable
+   // int    good;         // 1 for 'true' K+K- 2(pi+pi-) event
 
    // Set branch addresses.
    eff_Pi->SetBranchAddress("Zpi",&Zpi);
    eff_Pi->SetBranchAddress("Ptpi",&Ptpi);
    eff_Pi->SetBranchAddress("Cpi",&Cpi);
-   eff_Pi->SetBranchAddress("fl",&fl);
-   // eff_Pi->SetBranchAddress("dP",&dP);
-   // eff_Pi->SetBranchAddress("dTh",&dTh);
-   eff_Pi->SetBranchAddress("MppKK",&MppKK);
+   eff_Pi->SetBranchAddress("dP",&dP);
+   eff_Pi->SetBranchAddress("dTh",&dTh);
+
+   eff_Pi->SetBranchAddress("Npi",&Npi);
+   // eff_Pi->SetBranchAddress("fl",&fl);
+
+   // eff_Pi->SetBranchAddress("MppKK",&MppKK);
+   eff_Pi->SetBranchAddress("MpKK",&MppKK); // bug in n4_eff
    eff_Pi->SetBranchAddress("Mrpi2",&Mrpi2);
-   // eff_Pi->SetBranchAddress("Egsum",&Egsum);
-   // eff_Pi->SetBranchAddress("Egmax",&Egmax);
+
    // eff_Pi->SetBranchAddress("good",&good);
 
-   // List of cuts:
-   auto c_pion = [](double MppKK, double Mrpi2)->bool{
+   // see Params::Params() for the selection parameters
+   auto& mpi = p->mpi;
+   auto c_pion = [mpi](double MppKK, double Mrpi2)->bool{
       return (fabs(MppKK-3.097)<0.01) &&
-             (fabs(Mrpi2-0.0194798)<0.025);
+             (fabs(Mrpi2-mpi*mpi)<0.025);
+   };
+   // if we can not match a pion to the prediction in an event
+   // containing the entire set of particles 2(pi+pi-)K+K-,
+   // this is a background event
+   auto c_Pibkg = [](int Npi, double dTh, double dP)->bool{
+     return (Npi==4 && !(dTh<15&&-0.12<dP&&dP<0.08));
    };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt)->bool {
       return (Ptmin<=Pt && Pt<Ptmax);
+   };
+   auto c_Pif = [](double dP, double dTh, int Npi)->bool{
+      return (dTh<15)&&(-0.12<dP&&dP<0.08)&&(Npi==4);
    };
 
    bool CosAndPt = (hst.size() == 4);
@@ -219,6 +260,9 @@ void Fill_PIhst( Params* p, int mc, const vector<TH1D*>& hst,
    for ( Long64_t i = 0; i < nentries; ++i ) {
       eff_Pi->GetEntry(i);
       if ( !c_pion(MppKK,Mrpi2) ) {
+         continue;
+      }
+      if ( c_Pibkg(Npi,dTh,dP) ) { // bkg?
          continue;
       }
       if ( !c_Ptbin(Ptpi) ) {
@@ -243,7 +287,7 @@ void Fill_PIhst( Params* p, int mc, const vector<TH1D*>& hst,
       }
 
       hst[0]->Fill(Cpi);
-      bool trk_pid_ok = (fl > 1.5); // found track and it is pion
+      bool trk_pid_ok = c_Pif(dP,dTh,Npi); // found pion
       if ( trk_pid_ok ) {
          hst[1]->Fill(Cpi,W);
       }
@@ -263,39 +307,50 @@ void Fill_Khst( Params* p, int mc, const vector<TH1D*>& hst,
 //--------------------------------------------------------------------
    TTree* eff_K = p->GetEff(mc);
 
-   //Declaration of leaves types
-   //        those not used here are commented out
-   Double_t        Zk;
-   Double_t        Ptk;
-   Double_t        Ck;
-   Double_t        fl;
-   // Double_t        dP;
-   // Double_t        dTh;
-   Double_t        Mrec;
-   Double_t        Mrk2;
-   // Double_t        Egsum;
-   // Double_t        Egmax;
-   // Double_t        good;
+   // Declaring only the leaf types we used here
+   int    Zk;           // charge of predicted Kaon
+   double Ptk,Ck;       // Pt,cos(Theta) of predicted Kaon
+   double dP,dTh;       // relations btw predicted and found Kaon
+   int    Nk;           // number of Kaons in an event (1 or 2)
+   // int    fl;           // 0/1/2 -> predicted/found/pid(K) (remove?)
+                        // * variables used in selection:
+   double Mrec;         // Mrec(pi+pi-) to search for J/Psi
+   double Mrk2;         // M^2_recoil( 2(pi+pi-) K+/- )
+                        // * MC-variable
+   // int    good;         // 1 for 'true' K+K- 2(pi+pi-) event
 
    // Set branch addresses.
    eff_K->SetBranchAddress("Zk",&Zk);
    eff_K->SetBranchAddress("Ptk",&Ptk);
    eff_K->SetBranchAddress("Ck",&Ck);
-   eff_K->SetBranchAddress("fl",&fl);
-   // eff_K->SetBranchAddress("dP",&dP);
-   // eff_K->SetBranchAddress("dTh",&dTh);
+   eff_K->SetBranchAddress("dP",&dP);
+   eff_K->SetBranchAddress("dTh",&dTh);
+
+   eff_K->SetBranchAddress("Nk",&Nk);
+   // eff_K->SetBranchAddress("fl",&fl);
+
    eff_K->SetBranchAddress("Mrec",&Mrec);
    eff_K->SetBranchAddress("Mrk2",&Mrk2);
-   // eff_K->SetBranchAddress("Egsum",&Egsum);
-   // eff_K->SetBranchAddress("Egmax",&Egmax);
+
    // eff_K->SetBranchAddress("good",&good);
 
-   // List of cuts:
-   auto c_kaon = [](double Mrec, double Mrk2)->bool{
-      return (fabs(Mrec-3.097)<0.002) && (fabs(Mrk2-0.243717)<0.025);
+   // see Params::Params() for the selection parameters
+   auto& mk = p->mk;
+   auto c_kaon = [mk](double Mrec, double Mrk2)->bool{
+      return (fabs(Mrec-3.097)<0.002) &&
+         (fabs(Mrk2-mk*mk)<0.025);
+   };
+   // if we can not match a kaon to the prediction in an event
+   // containing the entire set of particles 2(pi+pi-)K+K-,
+   // this is a background event
+   auto c_Kbkg = [](int Nk, double dTh, double dP)->bool{
+     return (Nk==2 && !(dTh<10&&-0.12<dP&&dP<0.08));
    };
    auto c_Ptbin = [Ptmin,Ptmax](double Pt)->bool {
       return (Ptmin<=Pt && Pt<Ptmax);
+   };
+   auto c_Pk = [](double dP, double dTh, int Nk)->bool{
+      return (dTh<10)&&(-0.12<dP&&dP<0.08)&&(Nk==2);
    };
 
    bool CosAndPt = (hst.size() == 4);
@@ -309,6 +364,9 @@ void Fill_Khst( Params* p, int mc, const vector<TH1D*>& hst,
    for ( Long64_t i = 0; i < nentries; ++i ) {
       eff_K->GetEntry(i);
       if ( !c_kaon(Mrec,Mrk2) ) {
+         continue;
+      }
+      if ( c_Kbkg(Nk,dTh,dP) ) { // bkg?
          continue;
       }
       if ( !c_Ptbin(Ptk) ) {
@@ -333,7 +391,7 @@ void Fill_Khst( Params* p, int mc, const vector<TH1D*>& hst,
       }
 
       hst[0]->Fill(Ck);
-      bool trk_pid_ok = (fl > 1.5); // found track and it is kaon
+      bool trk_pid_ok = c_Pk(dP,dTh,Nk); // found kaon
       if ( trk_pid_ok ) {
          hst[1]->Fill(Ck,W);
       }
@@ -534,9 +592,8 @@ void plot_pict_pi(int date, int pm, int rew, int Cx=600, int Cy=600) {
 
    // Draw:
    ////////////////////////////////////
-   // double eff_min = 0.5, eff_max = 1.0;
+   double eff_min = 0., eff_max = 1.0;
    double rat_min = 0.85, rat_max = 1.15;
-   double eff_min = 0.3, eff_max = 1.0;
    if ( rew == 1 ) {
       rat_min = 0.90; rat_max = 1.10;
    }
@@ -548,9 +605,8 @@ void plot_pict_pi(int date, int pm, int rew, int Cx=600, int Cy=600) {
    vector<TCanvas*> cc(4,nullptr);
    vector<TLegend*> leg(4,nullptr);
    for ( size_t i = 0; i < cc.size(); ++i ) {
-      int x0 = 700*(i%2);
-      int y0 = 500*(i/2);
-      // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
+      int x0 = (Cx/2)*(i%2);
+      int y0 = (Cy/2)*(i/2);
       auto name = Form("c%zu_%s_%i",1+i,p_pdf.c_str(),date);
       cc[i] = new TCanvas( name,name, x0,y0,Cx,Cy);
 
@@ -592,7 +648,7 @@ void plot_pict_pi(int date, int pm, int rew, int Cx=600, int Cy=600) {
    }
 
    // plot ratio
-   gStyle->SetStatX(0.89);
+   gStyle->SetStatX(0.91);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
    gStyle->SetFitFormat(".4f");
@@ -609,7 +665,7 @@ void plot_pict_pi(int date, int pm, int rew, int Cx=600, int Cy=600) {
       rat0[i]->SetTitle(title.c_str());
       SetHstFace(rat0[i]);
       rat0[i]->SetAxisRange(rat_min,rat_max,"Y");
-      rat0[i]->GetYaxis()->SetTitleOffset(1.15);
+      rat0[i]->GetYaxis()->SetTitleOffset(1.1);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
@@ -661,7 +717,7 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
 
    // Draw:
    ////////////////////////////////////
-   double eff_min = 0.2, eff_max = 1.0;
+   double eff_min = 0., eff_max = 1.0;
    double rat_min = 0.85, rat_max = 1.15;
    if ( rew == 1 ) {
       rat_min = 0.90; rat_max = 1.10;
@@ -674,9 +730,8 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
    vector<TCanvas*> cc(4,nullptr);
    vector<TLegend*> leg(4,nullptr);
    for ( size_t i = 0; i < cc.size(); ++i ) {
-      int x0 = 700*(i%2);
-      int y0 = 500*(i/2);
-      // printf("%zu -> x0=%i y0=%i\n",i,x0,y0);
+      int x0 = (Cx/2)*(i%2);
+      int y0 = (Cy/2)*(i/2);
       auto name = Form("c%zu_%s_%i",1+i,p_pdf.c_str(),date);
       cc[i] = new TCanvas( name,name, x0,y0,Cx,Cy);
 
@@ -717,7 +772,7 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
    }
 
    // plot ratio
-   gStyle->SetStatX(0.89);
+   gStyle->SetStatX(0.91);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.25);
    gStyle->SetFitFormat(".4f");
@@ -735,7 +790,7 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
          string(";#epsilon (data) / #epsilon (MC)");
       rat0[i]->SetTitle(title.c_str());
       SetHstFace(rat0[i]);
-      rat0[i]->GetYaxis()->SetTitleOffset(1.15);
+      rat0[i]->GetYaxis()->SetTitleOffset(1.1);
       rat0[i]->GetXaxis()->SetTitleOffset(0.9);
       rat0[i]->SetLineWidth(2);
       rat0[i]->SetMarkerStyle(20);
@@ -756,8 +811,8 @@ void plot_pict_K(int date, int pm, int rew, int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
 double get_Pt_mean(Params* p, double Ptmin, double Ptmax) {
 //--------------------------------------------------------------------
-   // TTree* eff = p->GetEff(1); // use MC distribution, we correct MC
-   TTree* eff = p->GetEff(0);
+   TTree* eff = p->GetEff(1); // use MC distribution, we correct MC
+   // TTree* eff = p->GetEff(0);
 
    int nbins = 20;
    TH1D* hst = new TH1D( "hpt","",nbins,Ptmin,Ptmax);
@@ -765,7 +820,7 @@ double get_Pt_mean(Params* p, double Ptmin, double Ptmax) {
 
    // Fill
    if ( p->use_kpi == 1 ) {   // Kaons
-      TCut cutD = p->Ckaon + TCut("fabs(Ck)<0.8");
+      TCut cutD = p->Ckaon + TCut("abs(Ck)<0.8") + p->CKf;
       if ( p->use_pm == 1 ) { // K+
          cutD += TCut("Zk>0");
       } else if ( p->use_pm == -1 ) { // K-
@@ -773,7 +828,7 @@ double get_Pt_mean(Params* p, double Ptmin, double Ptmax) {
       }
       eff->Draw("Ptk>>hpt",cutD,"goff");
    } else {                   // Pions
-      TCut cutD = p->Cpion + TCut("fabs(Cpi)<0.8");
+      TCut cutD = p->Cpion + TCut("abs(Cpi)<0.8") + p->CPif;
       if ( p->use_pm == 1 ) { // pi+
          cutD += TCut("Zpi>0");
       } else if ( p->use_pm == -1 ) { // pi-
@@ -820,7 +875,8 @@ TH1D* get_eff_cos(Params* p, int mc, double Ptmin, double Ptmax) {
 
 // {{{1 Fit Ratio
 //--------------------------------------------------------------------
-void FitRatio(int date, int kpi, int pm=0, int rew=0) {
+void FitRatio(int date, int kpi, int pm=0, int rew=0,
+      int Cx=600, int Cy=600) {
 //--------------------------------------------------------------------
    Params* par = new Params(date,kpi,pm,rew); // date,K/pi,"+/-",rew
 
@@ -849,68 +905,33 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
 
    // Second fit the obtained parameters as the function of "Pt"
    TF1* fit2 = nullptr;
-   // or use the spline if fit2 is zero
-   TSpline3* sp = nullptr;
    if ( rew == 1 ) {
       fit2 = (TF1*)gROOT->GetFunction("pol0")->Clone("fit2");
    }
-   // else {
-      // if ( kpi == 1 ) {
-         // // functions to the second fit of Kaons
-         // int nch = 0; // nch is the order of Chebyshev polynomials
-         // if ( date == 2009 ) {
-            // nch = 1;  // straight line
-         // } else if ( date == 2012 ) {
-            // nch = 3;
-         // } else if ( date == 2021 ) {
-            // nch = 5;
-         // }
-         // double xmin = Ptmin, xmax = Ptmax;
-         // auto Lchb =
-            // [nch,xmin,xmax](const double* xx, const double* p) {
-               // if ( nch == 0 ) {
-                  // return p[0];
-               // }
-               // // [xmin,xmax]->[-1,+1]
-               // double x = (2*xx[0]-xmin-xmax)/(xmax-xmin);
-               // double sum = p[0] + x*p[1];
-               // if ( nch == 1 ) {
-                  // return sum;
-               // }
-               // double T0 = 1, T1 = x;
-               // for ( int i = 2; i <= nch; ++i ) {
-                  // double Tmp = 2*x*T1 - T0;
-                  // sum += p[i]*Tmp;
-                  // T0 = T1;
-                  // T1 = Tmp;
-               // }
-               // return sum;
-            // };
-
-         // fit2 = new TF1("fit2", Lchb, Ptmin, Ptmax,nch+1);
-         // for ( size_t ipar = 0; ipar <= nch; ++ipar ) {
-            // double ini_val = ( ipar==0 ) ? 0.99 : 0.01 ;
-            // fit2->SetParameter(ipar, ini_val);
-         // }
-      // }
-   // }
-
    if ( fit2 ) {
       fit2->SetRange(Ptmin,Ptmax);
       fit2->SetLineColor(kRed);
       fit2->SetLineWidth(2);
    }
 
+   // Use the spline if fit2 is zero
+   TSpline3* sp = nullptr;
+
    // ++++ First fit ++++
+   // The size is chosen to fit on an A4 sheet with a caption:
    TCanvas* c1 = new TCanvas("c1","...",850,0,700,1000);
-   int Nc1 = 14;
+   int Nc1 = 1;
+   int Ic1 = 1;
    if ( kpi == 1 ) {    // Kaons
-      c1->Divide(2,7);
+      Nc1 = 14;
+      c1->Divide(2,7,0.001,0.004);
    } else {
       Nc1 = 8;
       c1->Divide(2,4);
    }
-   int Ic1 = 1;
+   gStyle->SetStatX(0.90);
+   gStyle->SetStatY(0.90);
+   gStyle->SetStatW(0.25);
 
    string pdf1 = "rat_fit1_"+p_pdf+"_"+to_string(date)+".pdf";
    if ( rew == 0 ) {
@@ -923,7 +944,6 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    for (int i = 0; i < Nbins; ++i ) {
       double ptmin = Ptmin + dp*i;
       double ptmax = ptmin + dp;
-      // double ptav = 0.5*(ptmin + ptmax);
       double ptav = get_Pt_mean(par,ptmin,ptmax);
       xx[i] = ptav;
 
@@ -943,22 +963,28 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
          rat->SetAxisRange(0.5,1.5,"Y");
       }
       rat->GetYaxis()->SetNdivisions(1004);
-      rat->SetTitle(Form(
-               "P_{t} #in [%.3f, %.3f] GeV"
-               "; cos(#Theta)"
-               ";#epsilon(data) / #epsilon(MC)",
-               ptmin,ptmax));
-      SetHstFaceTbl(rat);
+      rat->SetTitle(";cos(#Theta) ;#epsilon(data) / #epsilon(MC)");
+      TPaveText* pt = new TPaveText(0.2,0.90,0.8,1.0,"NDC,NB");
+      pt->SetTextAlign(22);
+      pt->SetFillColor(kWhite);
+      pt->SetTextFont(42);
+      pt->AddText( Form("P_{t} #in [%.3f, %.3f] GeV",ptmin,ptmax) );
       if ( kpi == 1 ) {
-         gStyle->SetTitleFontSize(0.1);
+         SetHstFaceTbl_K(rat);
          rat->GetYaxis()->SetTitleOffset(0.5);
+         rat->GetXaxis()->SetTitleOffset(0.45);
+         rat->GetXaxis()->SetNdivisions(505);
       } else {
-         gStyle->SetTitleFontSize(0.05);
-         rat->GetYaxis()->SetTitleOffset(0.8);
+         SetHstFaceTbl_Pi(rat);
+         rat->GetYaxis()->SetTitleOffset(0.85);
+         rat->GetXaxis()->SetTitleOffset(0.8);
+         pt->SetTextSize(0.06);
       }
-      rat->GetXaxis()->SetTitleOffset(0.8);
       TFitResultPtr rs = rat->Fit(fit1,"SEQ","",-0.8,0.8);
       rat->Draw("SAME E0");
+      if ( pt ) {
+         pt->Draw();
+      }
       // rs->Print();
       yy[i] = fit1->GetParameter(0);
       ey[i] = fit1->GetParError(0);
@@ -987,13 +1013,13 @@ void FitRatio(int date, int kpi, int pm=0, int rew=0) {
    }
 
    // ++++ Second fit ++++
-   TCanvas* c2 = new TCanvas("c2","...",0,0,800,750);
+   TCanvas* c2 = new TCanvas("c2","...",0,0,Cx,Cy);
    c2->cd();
    gPad->SetGrid();
    //  gStyle->SetFitFormat(".4f");
 
-   TGraphErrors* gX = new TGraphErrors(Nbins,xx.data(),yy.data(),
-                                             ex.data(),ey.data() );
+   TGraphErrors* gX = new TGraphErrors(
+         Nbins,xx.data(),yy.data(), ex.data(),ey.data() );
    double Ymin = 0.9;
    double Ymax = 1.1;
    if ( rew == 1 ) {
@@ -1107,44 +1133,39 @@ void trk_eff_fit() {
    gROOT->Reset();
    gStyle->SetOptStat(0);
    gStyle->SetLegendFont(42);
-   gStyle->SetStatFont(62);
-   gStyle->SetStatX(0.89);
-   gStyle->SetStatY(0.89);
-   // gStyle->SetStatW(0.25);
+   gStyle->SetStatFont(42);
+
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    // 1) Reconstruction efficiency for data and Monte Carlo as
    //   a function of Pt and cos(θ) and eff.ratio eff(data)/eff(MC)
-   // size_t Cx = 630, Cy = 600; // canvas sizes
-   // for ( auto date : {2009, 2012, 2021} ) {
-      // for ( auto sign : {+1, -1} ) {
-         // const int rew = 1;     // 1 - use corrections
+   for ( auto date : {2009, 2012, 2021} ) {
+      for ( auto sign : {+1, -1} ) {
+         const int rew = 1;     // 1 - use corrections
          // Kaons: fig.A11-A12 efficiency, A13-A14 efficiency ratio
          // plot_pict_K(date,sign,rew,Cx,Cy);
          // Pions: fig.A15-A16 efficiency, A17-A18 efficiency ratio
          // plot_pict_pi(date,sign,rew,Cx,Cy);
-      // }
-   // }
+      }
+   }
 
    // 2) checking the compatibility of efficiency ratios for
    //   K+ and K- (pi+/pi-)
-   // int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
-   // for ( auto date : {2009, 2012, 2021} ) {
+   int test = 1; // 1 - Kolmogorov–Smirnov; 2 - Chi2Test
+   for ( auto date : {2009, 2012, 2021} ) {
       // test_PM(date,1,test); // Kaons
       // test_PM(date,2,test); // Pions
-   // }
+   }
 
    // 3) Get Efficiency Corrections
    const int Kaons = 1;
    const int Pions = 2;
 
-   const int date = 2009; // 2009, 2012, 2021
+   const int date = 2021; // 2009, 2012, 2021
    const int Z = +1;      // 1=+, -1=-, 0=+/-
-   const int rew = 1;     // use corrections, weights
+   const int rew = 0;     // 1 - use corrections, weights
 
-   // FitRatio(date,Pions,Z);
-   // FitRatio(date,Pions,Z,rew);
-
-   // FitRatio(date,Kaons,Z);
-   // FitRatio(date,Kaons,Z,rew);
+   // FitRatio(date, Kaons, Z, rew, Cx, Cy);
+   // FitRatio(date, Pions, Z, rew, Cx, Cy);
 
 }

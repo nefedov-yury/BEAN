@@ -46,9 +46,9 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // plot weights for K+K- and pi+ pi- pairs:
 // -> wts_{KK|PiPi}_{YEAR}.pdf
 
-//-----------------------------------------
-// eta->2gamma reconstruction efficiencies
-//-----------------------------------------
+//-------------------------------------------
+// + eta->2gamma reconstruction efficiencies
+//-------------------------------------------
 // RewEtaEff.hpp - function with correction for efficiency of
 // reconstruction Eta for MC events
 
@@ -57,8 +57,8 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // Pictures for event selection.
 
 // + eta_eff.cc
-// Study of the eta -> 2gamma reconstruction efficiency
-// and single photon rec.efficiency
+// Study of the eta->2gamma reconstruction efficiency
+// Maybe: single photon reconstruction efficiency: need tests
 // -> etaeff_{geta|phieta}_{efficiency or ratio variable}_{YEAR}.pdf
 
 

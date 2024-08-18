@@ -47,9 +47,11 @@ def data_label(data_name):
     return ' '.join(t)
 
 
-def bes3_data(data_name, sys_err):
+def bes3_data(data_name, sys_err, tsc=0, show_pict=True):
     dat = []
-    with open(f'{data_name}.dat', 'r') as fr:
+    #  file = f'{data_name}.dat'
+    file = f'Pict/TrkEff/{data_name}.dat'
+    with open(file,'r') as fr:
         for txt in fr:
             t = [float(v) for v in txt[4:].strip(' []\n').split(',')]
             dat.append(t)
@@ -63,8 +65,15 @@ def bes3_data(data_name, sys_err):
     wy = 1./err_y
 
     tck = splrep(x, y, w=wy, s=0)
-    #  sc = len(x)
-    sc = len(x) - np.sqrt(2*len(x))
+
+    if isinstance(tsc, float):
+        sc = tsc
+    else:
+        sc = len(x) - np.sqrt(2*len(x))
+        if tsc == 1:
+            sc = len(x)
+        elif tsc == 2:
+            sc = len(x) + np.sqrt(2*len(x))
     tck_s = splrep(x, y, w=wy, s=sc)
 
     # chi^2 and Ndof
@@ -74,10 +83,11 @@ def bes3_data(data_name, sys_err):
     # number of points minus number of B-spline coefficients
     ndof = len(x) - (len(tck_s[0])-tck_s[2]-1)
 
-    # save B-spline as C++ function
-    write_Bcpp(tck_s, f'Bsp_{data_name}')
-    #  write_Bcpp(tck_s, f'Bsp_{data_name}', *dat)  # for debug
+    # test B-spline as root C++ function
+    #  write_Bcpp(tck_s, f'Bsp_{data_name}', *dat)
 
+    # plot figure: only one object in memory and auto cleaning
+    fig = plt.figure(num=1, clear=True)
     Pmin = x[0] - (x[1]-x[0])/2
     Pmax = x[-1] + (x[1]-x[0])/2
     xnew = np.arange(Pmin, Pmax, 0.001)
@@ -105,14 +115,20 @@ def bes3_data(data_name, sys_err):
     plt.xlabel(r'$P_t$, GeV/$c$', loc='right')
     plt.ylabel(r'$\epsilon(\text{data})/\epsilon(\text{MC})$',
                loc='top')
-    plt.savefig(f'rat_Bspl_{data_name}.pdf',
+    fig.savefig(f'rat_Bspl_{data_name}.pdf',
                 format="pdf", bbox_inches="tight")
-    plt.show()
+    if show_pict:
+        plt.show()
+    else:
+        print(f'{data_name:9s}: s={sc:.1f} '\
+              f'χ²/ndof= {ch2:.1f}/{ndof:2d} = {ch2/ndof:.2f}')
+
+    return get_Fun(tck_s, f'Bsp_{data_name}')
 
 
 # Write C++ function:
-def write_Bcpp(tck, func_name, *dat):
-    Fun = f'''
+def get_Fun(tck, func_name):
+    return f'''
 double {func_name}(const double* xx, const double* p){{
    const std::vector<double> t {{
    {', '.join([str(e) for e in tck[0].tolist()])}
@@ -125,19 +141,10 @@ double {func_name}(const double* xx, const double* p){{
 }};
 
 '''
-    if len(dat) == 0:
-        # Correction function only
-        #  header = f'#define FUN_{func_name.upper()}\n'
-        with open(f'{func_name}.cc', 'w') as fw:
-            #  fw.write(header)
-            fw.write(Fun)
-        return
 
-    # Full test root-script for debug
-    fX = dat[0]
-    fY = dat[1]
-    dY = dat[2]
-    F1 = '''
+
+def get_commonFun():
+    return '''
 double deBoor(int l, double x, int k,
       const std::vector<double>& t, const std::vector<double>& c) {
    // Evaluates S(x) = Sum c_i * B_i,k (x)
@@ -177,7 +184,14 @@ double bspline(double x, int k,
 }
 
 '''
-    F3 = f'''
+
+
+def get_rootFun(func_name, *dat):
+    # test root-script for debug
+    fX = dat[0]
+    fY = dat[1]
+    dY = dat[2]
+    return f'''
 void test_{func_name}() {{
    gROOT->Reset();
    gStyle->SetOptStat(0);
@@ -211,12 +225,14 @@ void test_{func_name}() {{
    Fbspl->Draw("SAME");
    c1->Update();
 }}
-
 '''
+
+
+def write_Bcpp(tck, func_name, *dat):
     with open(f'test_{func_name}.cc', 'w') as fw:
-        fw.write(F1)
-        fw.write(Fun)
-        fw.write(F3)
+        fw.write(get_commonFun())
+        fw.write(get_Fun(tck, func_name))
+        fw.write(get_rootFun(func_name, *dat))
 
 
 if __name__ == "__main__":
@@ -228,16 +244,46 @@ if __name__ == "__main__":
     plt.rcParams['legend.fontsize'] = 'large'
     plt.rcParams['axes.labelsize'] = 'large'
 
-    #  bes3_data('Kp_2021', 0.005)
-    #  bes3_data('Km_2021', 0.005)
-    #  bes3_data('Kp_2012', 0.005)
-    #  bes3_data('Km_2012', 0.005)
-    #  bes3_data('Kp_2009', 0.005)
-    #  bes3_data('Km_2009', 0.005)
+    # tests
+    #  bes3_data('Kp_2021', 0.005, 2)
+    #  bes3_data('Km_2021', 0.005, 0)
+    #  bes3_data('Kp_2012', 0.005, 19.)
+    #  bes3_data('Pip_2021', 0.005, 8.)
+    #  bes3_data('Pim_2012', 0.005, 8.)
+    #  bes3_data('Pim_2009', 0.005, 5.5)
+    #  exit()
 
-    #  bes3_data('Pip_2021', 0.003)
-    #  bes3_data('Pim_2021', 0.003)
-    #  bes3_data('Pip_2012', 0.003)
-    #  bes3_data('Pim_2012', 0.003)
-    #  bes3_data('Pip_2009', 0.003)
-    #  bes3_data('Pim_2009', 0.005)
+    # Correction functions
+    show_pict = True
+    with open(f'Bsp_K_Pi.cc', 'w') as fw:
+        header = '// {{{1 Bsp_K... functions\n'
+        fw.write(header)
+        tsc = 0
+        ret = bes3_data('Kp_2021', 0.005, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Km_2021', 0.005, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Kp_2012', 0.005, 19., show_pict)
+        fw.write(ret)
+        ret = bes3_data('Km_2012', 0.005, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Kp_2009', 0.005, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Km_2009', 0.005, tsc, show_pict)
+        fw.write(ret)
+        #
+        tsc = 1
+        header = '// {{{1 Bsp_Pi... functions\n'
+        fw.write(header)
+        ret = bes3_data('Pip_2021', 0.005, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Pim_2021', 0.003, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Pip_2012', 0.003, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Pim_2012', 0.005, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Pip_2009', 0.003, tsc, show_pict)
+        fw.write(ret)
+        ret = bes3_data('Pim_2009', 0.005, 5.5, show_pict)
+        fw.write(ret)
