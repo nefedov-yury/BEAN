@@ -18,8 +18,9 @@
 
 #include <TH1.h>
 #include <TH2.h>
-#include <TNtupleD.h>
 #include <TF1.h>
+// #include <TNtupleD.h>
+#include <TTree.h>
 #include <TDatabasePDG.h>
 
 #include <CLHEP/Vector/ThreeVector.h>
@@ -119,6 +120,37 @@ struct PipPimKpKm {
 };
 //--------------------------------------------------------------------
 
+// {{{1 Structure for root-trees
+//--------------------------------------------------------------------
+// Kaon reconstruction efficiency
+struct Xnt_effK {
+   int    Zk;           // charge of predicted Kaon
+   double Ptk,Ck;       // Pt,cos(Theta) of predicted Kaon
+   double dP,dTh;       // relations btw predicted and found Kaon
+   int    Nk;           // number of Kaons in an event (1 or 2)
+   int    fl;           // 0/1/2 -> predicted/found/pid(K) (remove?)
+                        // * variables used in selection:
+   double Mrec;         // Mrec(pi+pi-) to search for J/Psi
+   double Mrk2;         // M^2_recoil( 2(pi+pi-) K+/- )
+                        // * MC-variable
+   int    good;         // 1 for 'true' K+K- 2(pi+pi-) event
+};
+
+// Pion reconstruction efficiency
+struct Xnt_effPi {
+   int    Zpi;          // charge of predicted Pion
+   double Ptpi,Cpi;     // Pt,cos(Theta) of predicted Pion
+   double dP,dTh;       // relations btw predicted and found Pion
+   int    Npi;          // number of Pions in an event (4 or 3)
+   int    fl;           // 0/1/2 -> predicted/found/pid(pi) (remove?)
+                        // * variables used in selection:
+   double MppKK;        // Minv(pi+pi-K+K-) to search for J/Psi
+   double Mrpi2;        // M^2_recoil( (pi+pi-K+K-) pi+/- )
+                        // * MC-variable
+   int    good;         // 1 for 'true' K+K- 2(pi+pi-) event
+};
+
+//--------------------------------------------------------------------
 // {{{1 Global variables
 //--------------------------------------------------------------------
 static const double beam_angle = 0.011; // 11 mrad
@@ -142,7 +174,11 @@ static vector<JobOption*> Jobs;
 
 // histograms
 static vector<TH1*> hst;
-static vector<TNtupleD*> m_tuple;
+// static vector<TNtupleD*> m_tuple;
+static TTree* m_nt_effK = nullptr;
+static Xnt_effK xnt_effK;
+static TTree* m_nt_effPi = nullptr;
+static Xnt_effPi xnt_effPi;
 
 // container for warnings
 static map<string,int> warning_msg;
@@ -248,7 +284,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
                                   3.095,3.099, 0.025, 0.06,
                                   3.087,3.107, 0.01,  0.025 ) );
    Jobs.push_back( new JobOption( 400,
-                                  3.092,3.102, 0.05,  0.06,
+                                  3.092,3.102, 0.06,  0.07,
                                   3.080,3.114, 0.02,  0.025 ) );
    // Note:
    // M2Ksb and M2Pisb are not used anywhere
@@ -259,7 +295,7 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
 
 
    hst.resize(1000,nullptr);
-   m_tuple.resize(10,nullptr);
+   // m_tuple.resize(10,nullptr);
 
    // initialize Absorption Correction -------------------------------
    m_abscor = new AbsCor(selector->AbsPath("Analysis/AbsCor"));
@@ -606,33 +642,49 @@ void PsipPiPiKKStartJob(ReadDst* selector) {
          // 18,-0.9,0.9, 7,0.05,0.4);
    CloneHistograms(271, 289);
 
-   // ntuples for K and pi reconstruction efficiency
-   m_tuple[0] = new TNtupleD("eff_K","K reconstruction efficiency",
-         "Zk:Ptk:Ck:"      // Z, Pt and cos(Theta) of K
-         "fl:"             // 0/1/2 - only predicted/found/pidOK
-         "dP:dTh:"         // predicted/found relation
-         "Mrec:"           // recoil mass pi+pi-
-         "Mrk2:"           // recoil mass squared for predicted K
-         "Egsum:Egmax:"    // sum & max energy of photons in event
-         "good"            // MC: 1 for K+K- 2(pi+pi-)
-         );
+   // Tree for Kaon efficiency study
+   m_nt_effK = new TTree("eff_K","K reconstruction efficiency");
+   m_nt_effK->Branch("Zk"   , &xnt_effK.Zk   );
+   m_nt_effK->Branch("Ptk"  , &xnt_effK.Ptk  );
+   m_nt_effK->Branch("Ck"   , &xnt_effK.Ck   );
+   m_nt_effK->Branch("dP"   , &xnt_effK.dP   );
+   m_nt_effK->Branch("dTh"  , &xnt_effK.dTh  );
+   m_nt_effK->Branch("Nk"   , &xnt_effK.Nk   );
+   m_nt_effK->Branch("fl"   , &xnt_effK.fl   );
 
-   m_tuple[1] = new TNtupleD("eff_Pi","Pi reconstruction efficiency",
-         "Zpi:Ptpi:Cpi:"   // Z, Pt and cos(Theta) of pi
-         "fl:"             // 0/1/2 - only predicted/found/pidOK
-         "dP:dTh:"         // predicted/found relation
-         "MppKK:"          // invariant mass pi+pi-K+K-
-         "Mrpi2:"          // recoil mass squared for predicted Pi
-         "Egsum:Egmax:"    // sum & max energy of photons in event
-         "good"            // MC: 1 for K+K- 2(pi+pi-)
-         );
+   m_nt_effK->Branch("Mrec" , &xnt_effK.Mrec );
+   m_nt_effK->Branch("Mrk2" , &xnt_effK.Mrk2 );
+
+   m_nt_effK->Branch("good" , &xnt_effK.good );
+
+
+   // Tree for Pion efficiency study
+   m_nt_effPi = new TTree("eff_Pi","Pi reconstruction efficiency");
+   m_nt_effPi->Branch("Zpi"   , &xnt_effPi.Zpi   );
+   m_nt_effPi->Branch("Ptpi"  , &xnt_effPi.Ptpi  );
+   m_nt_effPi->Branch("Cpi"   , &xnt_effPi.Cpi   );
+   m_nt_effPi->Branch("dP"    , &xnt_effPi.dP    );
+   m_nt_effPi->Branch("dTh"   , &xnt_effPi.dTh   );
+   m_nt_effPi->Branch("Npi"   , &xnt_effPi.Npi   );
+   m_nt_effPi->Branch("fl"    , &xnt_effPi.fl    );
+
+   m_nt_effPi->Branch("MppKK" , &xnt_effPi.MppKK );
+   m_nt_effPi->Branch("Mrpi2" , &xnt_effPi.Mrpi2 );
+
+   m_nt_effPi->Branch("good"  , &xnt_effPi.good  );
+
 
    // register in selector to save in given directory
    const char* SaveDir = "PipPimKpKm";
    VecObj hsto(hst.begin(),hst.end());
    selector->RegInDir(hsto,SaveDir);
-   VecObj ntuples(m_tuple.begin(),m_tuple.end());
-   selector->RegInDir(ntuples,SaveDir);
+   // VecObj ntuples(m_tuple.begin(),m_tuple.end());
+   // selector->RegInDir(ntuples,SaveDir);
+
+   VecObj Vreg;
+   Vreg.push_back(m_nt_effK);
+   Vreg.push_back(m_nt_effPi);
+   selector->RegInDir(Vreg,SaveDir);
 }
 
 // {{{1 getVertexOrigin()
@@ -1316,7 +1368,7 @@ static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
 
       // search for reconstructed track close to predicted
       int found = 0;
-      double dP = 10, dTh = 200;
+      double dP = 10, dTh = 100;
       if ( Ntot == 6 ) {
          Hep3Vector Prec;
          if ( Nk == 2 ) {
@@ -1344,7 +1396,8 @@ static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
             if( isMC ) {
                hst[hs+249]->Fill(ppKK.good);
             }
-            continue;
+            // still save it to the root-tree
+            // continue;
          }
       } // end if(Ntot==6)
 
@@ -1379,24 +1432,34 @@ static void KTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
          // }
       }
 
-      // save in n-tuple
       if ( hs != 400 ) {
         continue;
       }
-      double fl = double(found);
+
+      // fill and save Ttree
+      xnt_effK.Zk   = Zk;
+      xnt_effK.Ptk  = Ptk;
+      xnt_effK.Ck   = Ck;
+      xnt_effK.dP   = dP;
+      xnt_effK.dTh  = dTh;
+      xnt_effK.Nk   = Nk;
+
       if ( found && ( Nk == 2 ) ) {
-         fl = 2.;
+         found = 2;
       }
-      Double_t xfill[] = {
-         double(Zk), Ptk, Ck,
-         fl,
-         dP, dTh,
-         ppKK.Mrec,
-         Mrk2,
-         ppKK.Eg_sum, ppKK.Eg_max,
-         double(ppKK.good)
-      };
-      m_tuple[0]->Fill( xfill );
+      xnt_effK.fl   = found;
+
+      xnt_effK.Mrec = ppKK.Mrec;
+      xnt_effK.Mrk2 = Mrk2;
+
+      if ( isMC ) {
+         xnt_effK.good = ppKK.good;
+      } else {
+         xnt_effK.good = 0;
+      }
+
+      m_nt_effK->Fill();
+
    } // end for Kaons
 }
 
@@ -1516,7 +1579,7 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
 
       // search for reconstructed track close to predicted
       int found = 0;
-      double dP = 10, dTh = 200;
+      double dP = 10, dTh = 100;
       if ( Ntot == 6 ) {
          Hep3Vector Prec;
          if ( Npi == 4 ) {
@@ -1550,7 +1613,8 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
             if( isMC ) {
                hst[hs+281]->Fill(ppKK.good);
             }
-            continue;
+            // still save it to the root-tree
+            // continue;
          }
       } // end if(Ntot==6)
 
@@ -1591,24 +1655,33 @@ static void PiTrkRecEff(PipPimKpKm& ppKK, const JobOption* job) {
          // }
       }
 
-      // save in n-tuple
       if ( hs != 400 ) {
         continue;
       }
-      double fl = double(found);
+
+      // fill and save Ttree
+      xnt_effPi.Zpi   = Zpi;
+      xnt_effPi.Ptpi  = Ptpi;
+      xnt_effPi.Cpi   = Cpi;
+      xnt_effPi.dP    = dP;
+      xnt_effPi.dTh   = dTh;
+      xnt_effPi.Npi   = Npi;
+
       if ( found && ( Npi == 4 ) ) {
-         fl = 2.;
+         found = 2;
       }
-      Double_t xfill[] = {
-         double(Zpi), Ptpi, Cpi,
-         fl,
-         dP, dTh,
-         ppKK.Minv,
-         MrPi2,
-         ppKK.Eg_sum, ppKK.Eg_max,
-         double(ppKK.good)
-      };
-      m_tuple[1]->Fill( xfill );
+      xnt_effPi.fl    = found;
+
+      xnt_effPi.MppKK = ppKK.Minv;
+      xnt_effPi.Mrpi2 = MrPi2;
+
+      if ( isMC ) {
+         xnt_effPi.good = ppKK.good;
+      } else {
+         xnt_effPi.good = 0;
+      }
+
+      m_nt_effPi->Fill();
 
    } // end loop for pions
 }
