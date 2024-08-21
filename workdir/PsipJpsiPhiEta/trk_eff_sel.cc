@@ -202,8 +202,9 @@ void plot_pi0(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    hdat[0]->SetAxisRange(0.005,0.03,"X");
-   hdat[0]->SetTitle(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
-         ";Entries/0.0002 GeV^{2}/c^{4}");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
+         ";Entries/%.4f GeV^{2}/c^{4}",bW) ); // 0.0002
    if ( date > 2009 ) {
       hdat[0]->GetYaxis()->SetMaxDigits(3);
    }
@@ -313,10 +314,10 @@ void plot_MmisK(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
+   hdat[0]->SetTitle( Form(
          ";M^{2}_{recoil}(2(#pi^{+}#pi^{-})K^{#pm}), GeV^{2}/c^{4}"
-         ";Entries/0.0012 GeV^{2}/c^{4}"
-         );
+         ";Entries/%.4f GeV^{2}/c^{4}",bW)
+         ); // 0.0012
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -419,10 +420,9 @@ void plot_PtKp(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";P_{t}(K), GeV/c"
-         ";Entries/0.025 GeV/c"
-         );
+   hdat[0]->SetTitle( Form(";P_{t}(K), GeV/c"
+         ";Entries/%.3f GeV/c",bW)
+         ); // 0.025
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -517,10 +517,9 @@ void plot_PtKm(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";P_{t}(K), GeV/c"
-         ";Entries/0.025 GeV/c"
-         );
+   hdat[0]->SetTitle( Form(";P_{t}(K), GeV/c"
+         ";Entries/%.3f GeV/c",bW)
+         ); // 0.025
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -617,10 +616,9 @@ void plot_CKp(int date, int Cx = 800, int Cy = 800) {
    SetHstFace(hdat[0]);
    double ymax=1.5*hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   hdat[0]->SetTitle(
-         ";cos(#Theta_{K}) "
-         ";Entries/0.05 "
-         );
+   hdat[0]->SetTitle( Form(";cos(#Theta_{K}) "
+         ";Entries/%.2f ", bW)
+         ); // 0.05
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -716,10 +714,9 @@ void plot_CKm(int date, int Cx = 800, int Cy = 800) {
    // Data
    double ymax=1.5*hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   hdat[0]->SetTitle(
-         ";cos(#Theta_{K}) "
-         ";Entries/0.05 "
-         );
+   hdat[0]->SetTitle( Form(";cos(#Theta_{K}) "
+         ";Entries/%.2f ", bW)
+         ); // 0.05
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.2);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -815,10 +812,9 @@ void plot_dPK(int date, int Cx = 800, int Cy = 800) {
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";#deltaP(K), GeV/c"
-         ";Entries/0.002 GeV/c"
-         );
+   hdat[0]->SetTitle( Form(";#deltaP(K), GeV/c"
+         ";Entries/%.3f GeV/c",bW)
+         ); // 0.005
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -927,10 +923,9 @@ void plot_dThK(int date, int Cx = 800, int Cy = 800) {
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";#delta#Theta(K), deg"
-         ";Entries/0.2 deg"
-         );
+   hdat[0]->SetTitle( Form(";#delta#Theta(K), deg"
+         ";Entries/%.1f deg",bW)
+         ); // 0.2
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1026,11 +1021,11 @@ void plot_MinvJ(int date, int Cx=800, int Cy=800, bool fitgs=false) {
    SetHstFace(hdat[0]);
    double Xmin = 3.0617, Xmax = 3.1328;
    hdat[0]->SetAxisRange(Xmin,Xmax,"X");
-   hdat[0]->SetTitle(
+   hdat[0]->SetTitle( Form(
          ";M^{ inv}_{#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}},"
          " GeV/c^{2}"
-         ";Entries/0.0009 GeV/c^{2}"
-         );
+         ";Entries/%.4f GeV/c^{2}",bW)
+         ); // 0.0009
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1158,12 +1153,11 @@ void plot_MmisP(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";M^{2}_{recoil}"
+   hdat[0]->SetTitle( Form(";M^{2}_{recoil}"
          "(#pi^{#pm}#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}),"
          " GeV^{2}/c^{4}"
-         ";Entries/0.0003 GeV^{2}/c^{4}"
-         );
+         ";Entries/%.4f GeV^{2}/c^{4}",bW)
+         ); //0.0005
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1266,10 +1260,9 @@ void plot_PtPip(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";P_{t}(#pi), GeV/c"
-         ";Entries/0.01 GeV/c"
-         );
+   hdat[0]->SetTitle( Form(";P_{t}(#pi), GeV/c"
+         ";Entries/%.4f GeV/c",bW)
+         ); // 0.0125
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -1365,10 +1358,9 @@ void plot_PtPim(int date, int Cx = 800, int Cy = 800) {
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";P_{t}(#pi), GeV/c"
-         ";Entries/0.01 GeV/c"
-         );
+   hdat[0]->SetTitle( Form(";P_{t}(#pi), GeV/c"
+         ";Entries/%.4f GeV/c",bW)
+         ); // 0.0125
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -1465,10 +1457,9 @@ void plot_CPip(int date, int Cx = 800, int Cy = 800) {
    SetHstFace(hdat[0]);
    double ymax=1.5*hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   hdat[0]->SetTitle(
-         ";cos(#Theta_{#pi}) "
-         ";Entries/0.05 "
-         );
+   hdat[0]->SetTitle( Form(";cos(#Theta_{#pi}) "
+         ";Entries/%.2f ",bW)
+         ); // 0.05
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -1565,10 +1556,9 @@ void plot_CPim(int date, int Cx = 800, int Cy = 800) {
    SetHstFace(hdat[0]);
    double ymax=1.5*hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
-   hdat[0]->SetTitle(
-         ";cos(#Theta_{#pi}) "
-         ";Entries/0.05 "
-         );
+   hdat[0]->SetTitle( Form(";cos(#Theta_{#pi}) "
+         ";Entries/%.2f ",bW)
+         ); // 0.05
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
@@ -1664,10 +1654,9 @@ void plot_dPpi(int date, int Cx = 800, int Cy = 800) {
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";#deltaP(#pi), GeV/c"
-         ";Entries/0.002 GeV/c"
-         );
+   hdat[0]->SetTitle( Form(";#deltaP(#pi), GeV/c"
+         ";Entries/%.3f GeV/c",bW)
+         ); // 0.005
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1776,10 +1765,9 @@ void plot_dThPi(int date, int Cx = 800, int Cy = 800) {
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";#delta#Theta(#pi), deg"
-         ";Entries/0.2 deg"
-         );
+   hdat[0]->SetTitle( Form(";#delta#Theta(#pi), deg"
+         ";Entries/%.1f deg",bW)
+         ); // 0.2
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);

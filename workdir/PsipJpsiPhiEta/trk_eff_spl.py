@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 #
+# trk_eff_spl.py
 # [1] Smoothing splines:
 #     https://docs.scipy.org/doc/scipy/tutorial/
 #     interpolate/smoothing_splines.html
@@ -11,7 +12,6 @@
 # [3] Univariate spline in the B-spline basis:
 #     https://docs.scipy.org/doc/scipy/reference/generated/
 #     scipy.interpolate.BSpline.html#scipy.interpolate.BSpline
-#
 
 import numpy as np
 from scipy.interpolate import splrep, BSpline

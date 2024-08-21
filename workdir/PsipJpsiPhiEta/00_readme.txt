@@ -17,19 +17,19 @@ p10a4c.h   -> declaration of variables in prod-10 a4c ntuple
 p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
               ntuple
 
-//-------------------------------
-// K & Pi track+PID efficiencies
-//-------------------------------
-// +RewTrkPiK.hpp
+//---------------------------------------
+// * K & Pi reconstruction efficiencies
+//---------------------------------------
+// RewTrkPiK.hpp
 // RewTrkPiK() and RewTrk_K() functions for correction of
 // reconstruction efficiency, including PID, kaons and pions.
 // This is for Monte Carlo events.
 
-// +trk_eff_sel.cc
+// trk_eff_sel.cc
 // Study of the efficiency of reconstruction of pion and kaon tracks.
 // Pictures for event selection.
 
-// +trk_eff_fit.cc
+// trk_eff_fit.cc
 // * The reconstruction efficiency (data and MC) and their ratio
 //   (data/MC) for pions and kaons.
 //   Get corrections as function of P_t and Z.
@@ -37,35 +37,36 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // * Kolmogorov–Smirnov && Chi2 probability tests to compare the
 //   ratios for K+ and K- (pi+ and pi-)
 
-+trk_eff_spl.py:
+# trk_eff_spl.py:
 # [1] Smoothing splines:
 #     https://docs.scipy.org/doc/scipy/tutorial/
 #     interpolate/smoothing_splines.html
 
-// + trk_eff_wts.cc
+// trk_eff_wts.cc
 // plot weights for K+K- and pi+ pi- pairs:
 // -> wts_{KK|PiPi}_{YEAR}.pdf
 
 //-------------------------------------------
-// + eta->2gamma reconstruction efficiencies
+// * eta->2gamma reconstruction efficiencies
 //-------------------------------------------
-// RewEtaEff.hpp - function with correction for efficiency of
-// reconstruction Eta for MC events
+// RewEtaEff.hpp
+// RewEtaEff() returns a weight to correct the reconstruction
+// efficiency eta->2gamma for an MC event
 
-// + eta_eff_sel.cc
+// eta_eff_sel.cc
 // Study of the eta->2gamma reconstruction efficiency
 // Pictures for event selection.
 
-// + eta_eff.cc
+// eta_eff.cc
 // Study of the eta->2gamma reconstruction efficiency
 // Maybe: single photon reconstruction efficiency: need tests
 // -> etaeff_{geta|phieta}_{efficiency or ratio variable}_{YEAR}.pdf
 
 
 //--------------------------------------------------------------------
-1) Selection Psi' -> Jpsi pi+pi-
+(1) Selection Psi' -> J/Psi pi+pi-, number of J/Psi
 //--------------------------------------------------------------------
-// ? ClonedTrks.cc
+// ClonedTrks.cc
 // study of cloned tracks, for presentation only
 
 // +pipi_dataMC.cc

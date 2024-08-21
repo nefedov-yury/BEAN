@@ -14,8 +14,7 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   // const string Dir = "prod_v709n3/";
-   const string Dir = "prod_v709n4/";
+   const string Dir = "prod_v709n4/Eff/";
    string datafile;
    string mcincfile;
    string mcsigf1;  // MC for gamma eta
@@ -29,7 +28,6 @@ struct Params {
 
    TCut Cmcsig; // for mc-signal
    TCut Cbg;    // cuts against the background
-   TCut Cbg0;   // Cbg without cut on Eg1
    TCut Cph;    // cuts for selection photons
    TCut Ceta;   // cuts for selection eta
    TCut Cfnd;   // predicted eta found
@@ -56,8 +54,7 @@ Params::Params(int dat, int slc = 2, int rew = 0)
 
    // mc-signal
    if ( slct > 0 ) {    // gamma-eta
-      // Cmcsig += TCut("decj==22");
-      Cmcsig += TCut("abs(decj-22)<0.1"); // decj is float here
+      Cmcsig += TCut("decj==22");
    } else {             // phi-eta
       Cmcsig += TCut("decj==68");
    }
@@ -67,9 +64,9 @@ Params::Params(int dat, int slc = 2, int rew = 0)
       Cbg += TCut("abs(Cg0)<0.8");
       Cbg += TCut("abs(Cg1)<0.8");
       Cbg += TCut("m2fr<0.002");
-      Cbg0 = Cbg; // for study of the cut on Eg1
       Cbg += TCut("Eg1>0.25&&Eg1<1.7");
    } else {                  // phi-eta
+      Cbg += TCut("1.02<Mkk2&&Mkk2<1.06");
       Cbg += TCut("m2fr<0.001");
    }
 
@@ -88,8 +85,8 @@ Params::Params(int dat, int slc = 2, int rew = 0)
    } else {                  // phi-eta
       Ceta += TCut("Peta>1.15&&Peta<1.5");
    }
+   Ceta += TCut("abs(Ceta)<0.9");
    // doubtful:
-   // Ceta += TCut("abs(Ceta)<0.9");
    // Ceta += TCut("abs(Cg2)<0.8||(abs(Cg2)>0.85&&abs(Cg2)<0.92)");
 
    // predicted eta is found
@@ -144,7 +141,7 @@ TTree* Params::GetEffEta(int mc = 0)
 
 // {{{2 > W_g_eta() & W_phi_eta()
 //--------------------------------------------------------------------
-double Params::W_g_eta() // wights for MC-gamma-eta
+double Params::W_g_eta() // wights for MC gammaeta2
 //--------------------------------------------------------------------
 {
    // normalization on numbers in "official inclusive MC"
@@ -166,25 +163,31 @@ double Params::W_g_eta() // wights for MC-gamma-eta
 }
 
 //--------------------------------------------------------------------
-double Params::W_phi_eta() // wights for MC-sig
+double Params::W_phi_eta() // wights for MC phieta2
 //--------------------------------------------------------------------
 {
    // normalization on numbers in "official inclusive MC"
    // decay code for J/Psi -> phi eta is 68;
    // BOSS-664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
+   // we have to use events with J/Psi -> phi eta, phi->K+K-
+   // stored in histogram mc_MKK.
    double W = 1;
    switch (date) {
       case 2009:
-         W =  27547./150e3; // 0.18
+         // W =  27547./150e3; // decj0 = 68
+         W =  13519./150e3; // mc_MKK
          break;
       case 2012:
-         W =  89059./500e3; // 0.18
+         // W =  89059./500e3; // decj0 = 68
+         W =  44287./500e3; // mc_MKK
          break;
       case 2021:
-         W = 598360./2.5e6; // 0.24
+         // W = 598360./2.5e6; // decj0 = 68
+         W = 297126./2.5e6; // mc_MKK
          break;
    }
-   return W * Br_phi_KK;
+   // W *= Br_phi_KK; // for decj0 = 68
+   return W;
 }
 
 // {{{1 helper functions and constants
@@ -282,21 +285,25 @@ void plot_pi0(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_pi0_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
    // Data
    hdat[0]->SetAxisRange(0.005,0.03,"X");
-   hdat[0]->SetTitle(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
-         ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";M^{2}_{#gamma#gamma} , GeV^{2}/c^{4}"
+         ";Entries/%.4f GeV^{2}/c^{4}",bW)
+         ); // 0.0002
    if ( date == 2009 ) {
       hdat[0]->GetYaxis()->SetMaxDigits(2);
       hdat[0]->GetYaxis()->SetNdivisions(1005);
    } else {
       hdat[0]->GetYaxis()->SetMaxDigits(3);
    }
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -321,7 +328,6 @@ void plot_pi0(int date, int Cx = 800, int Cy = 800)
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
-   // leg->AddEntry(hmc[1], "MC signal","F");
    leg->AddEntry(hmc[1], "MC signal #gamma#eta","F");
    leg->AddEntry(box, "Rejection area","F");
    leg->Draw();
@@ -386,22 +392,25 @@ void plot_Mpipig(int date, int Cx = 800, int Cy = 800)
    double M2r = SQ(par->meta)+0.2;
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_Mpipig_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
    // Data
    // hdat[0]->SetAxisRange(-0.1,0.7,"X");
-   hdat[0]->SetTitle(
-         ";M^{2}_{recoil}(#pi^{#plus}#pi^{#minus}#gamma),"
-         " GeV^{2}/c^{4}"
-         ";Entries/0.01 GeV^{2}/c^{4}");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(
+            ";M^{2}_{recoil}(#pi^{#plus}#pi^{#minus}#gamma),"
+            " GeV^{2}/c^{4}"
+            ";Entries/%.2f GeV^{2}/c^{4}",bW)
+         ); // 0.01
    if ( date == 2009 ) {
       hdat[0]->GetYaxis()->SetNdivisions(1005);
    }
    hdat[0]->GetYaxis()->SetMaxDigits(2);
-   hdat[0]->GetXaxis()->SetTitleOffset(1.05);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -427,9 +436,9 @@ void plot_Mpipig(int date, int Cx = 800, int Cy = 800)
    // hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   hmc[3]->SetLineWidth(1);
-   hmc[3]->SetLineStyle(kDashed);
-   hmc[3]->SetLineColor(kGreen+1);
+   // hmc[3]->SetLineWidth(1);
+   // hmc[3]->SetLineStyle(kDashed);
+   // hmc[3]->SetLineColor(kGreen+1);
    // hmc[3]->Draw("HIST,SAME"); // true gamma from J/Psi decay!
 
    TLegend* leg = new TLegend(0.12,0.64,0.40,0.89);
@@ -456,7 +465,9 @@ void plot_Minv2g(int date, int Cx = 800, int Cy = 800)
    Params* par = new Params(date,2,0); // date, eta_eff, no_rew
 
    // Here we use histograms filled in the PsipJpsiGammaEta.
-   // It is incorrect to use ntuple here.
+   // in root-tree only selected events [0.25,0.34] are saved
+   // the picture is not completely correct if there are additional
+   // conditions on M2gr
 
    vector<string> hndat {"Mgg2_a"};
    vector<TH1D*> hdat;
@@ -510,22 +521,24 @@ void plot_Minv2g(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_Minv2g_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
    // Data
    double Xmin = 0.198, Xmax = 0.4019;
    hdat[0]->SetAxisRange(Xmin,Xmax,"X");
-   hdat[0]->SetTitle(
-         ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
-         ";Entries/0.003 GeV^{2}/c^{4}");
+   hdat[0]->SetTitle( Form(
+            ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
+            ";Entries/%.3f GeV^{2}/c^{4}",bW)
+            ); // 0.003
    if ( date == 2009 ) {
       hdat[0]->GetYaxis()->SetNdivisions(1005);
    }
    hdat[0]->GetYaxis()->SetMaxDigits(2);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -547,136 +560,9 @@ void plot_Minv2g(int date, int Cx = 800, int Cy = 800)
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   hmc[3]->SetLineWidth(1);
-   hmc[3]->SetLineStyle(kDashed);
-   hmc[3]->SetLineColor(kGreen+1);
-   // hmc[3]->Draw("HIST,SAME"); // true gamma or true eta->2gamma
-
-   TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
-   leg->SetHeader( Form("%i",date),"C");
-   leg->AddEntry(hdat[0], "Data","LEP");
-   leg->AddEntry(hmc[0], "MC","L");
-   leg->AddEntry(hmc[2], "MC background","F");
-   leg->AddEntry(box, "Rejection area","F");
-   leg->Draw();
-
-   gPad->RedrawAxis();
-   c1->Update();
-   string pdf = "etaeff_Minv2g_" + to_string(date) + ".pdf";
-   c1->Print(pdf.c_str());
-}
-
-// {{{1 New Plot invariant mass of 2nd photon and «missing photon»
-//--------------------------------------------------------------------
-void plot_Minv2g_n(int date, int Cx = 800, int Cy = 800)
-//--------------------------------------------------------------------
-{
-   Params* par = new Params(date,2,0); // date, eta_eff, no_rew
-
-   // Filling histograms from ntuple
-   double Xmin = 0.2, Xmax = 0.4;
-   auto hst = [Xmin,Xmax](string nm) {
-      TH1D* h = new TH1D(nm.c_str(),"", 100,Xmin,Xmax);
-      h->Sumw2(true);
-      return h;
-   };
-
-   TTree* eff_etaD = par->GetEffEta(0); // data
-   vector<TH1D*> hdat { hst("hdat") };
-   TCut cutD = TCut("abs(Cg0)<0.8&&abs(Cg1)<0.8") +
-      TCut("Peta>1.3&&Peta<1.7");
-   eff_etaD->Draw("M2gg>>hdat", cutD, "goff");
-
-   TTree* eff_etaMC = par->GetEffEta(1); // MC: bg only!
-   vector<TH1D*> hmc(4,nullptr);
-   hmc[0] = hst("hmcT");
-
-   hmc[2] = hst("hmcB");
-   eff_etaMC->Draw("M2gg>>hmcB", cutD+!(par->Cmcsig), "goff");
-
-   TTree* eff_etaMC2 = par->GetEffEta(2); // MC-gamma-eta: signal
-   // add to background g-eta but !(eta->2gamma)
-   eff_etaMC2->Draw("M2gg>>hmcT", cutD+TCut("deta!=1"), "goff");
-   hmc[2]->Add( hmc[2], hmc[0], 1., par->W_g_eta() );
-
-   hmc[1] = hst("hmcS");
-   eff_etaMC2->Draw("M2gg>>hmcS", cutD+TCut("deta==1"), "goff");
-   hmc[1]->Scale( par->W_g_eta() );
-
-   hmc[3] = hst("hmcSTT"); // to estimate incorect gamma matching
-   eff_etaMC2->Draw("M2gg>>hmcSTT", cutD+TCut("dgam!=1"), "goff");
-   hmc[3]->Scale( par->W_g_eta() );
-
-   // sum of signal and bg.
-   hmc[0]->Add( hmc[1], hmc[2] );
-
-   // recalculation: Min,Max -> bin1,bin2
-   double Minv2_min = 0.25, Minv2_max = 0.34;
-   double bW = hdat[0]->GetBinWidth(1);
-   int bin1 = hdat[0]->FindBin(Minv2_min+bW/2);
-   int bin2 = hdat[0]->FindBin(Minv2_max-bW/2);
-   // cout << "bW=" << bW
-      // << " bin1=" << bin1 << " bin2=" << bin2 << endl;
-
-   // normalization on DATA
-   double scale = hdat[0]->Integral(bin1,bin2)/
-      hmc[0]->Integral(bin1,bin2);
-   for ( auto& h : hmc ) {
-      h->Scale(scale);
-   }
-
-   // background estimation
-   double bg = hmc[2]->Integral(bin1,bin2);
-   double sum = hmc[0]->Integral(bin1,bin2);
-   printf("%i %s bkg: %.2f+/-%.2f%%\n",
-         date, __func__, bg/sum*100, sqrt(bg)/sum*100);
-
-   // box to show cut
-   TBox* box = new TBox;
-   box->SetFillStyle(3001);
-   box->SetFillColor(kRed-10);
-   box->SetLineColor(kRed-9);
-   box->SetLineWidth(1);
-
-   // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
-   c1->cd();
-   gPad->SetGrid();
-
-   // Data
-   hdat[0]->SetTitle(
-         ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
-         ";Entries/0.003 GeV^{2}/c^{4}");
-   if ( date == 2009 ) {
-      hdat[0]->GetYaxis()->SetNdivisions(1005);
-   }
-   hdat[0]->GetYaxis()->SetMaxDigits(2);
-   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
-   hdat[0]->SetLineWidth(2);
-   hdat[0]->SetMarkerStyle(20);
-   hdat[0]->SetLineColor(kBlack);
-   double ymax = 1.07 * hdat[0]->GetMaximum();
-   hdat[0]->SetMaximum(ymax);
-   hdat[0]->Draw("E");
-
-   box->DrawBox(Xmin,0.,      Minv2_min,ymax);
-   box->DrawBox(Minv2_max,0., Xmax,ymax);
-   hdat[0]->Draw("E,SAME");
-
-   hmc[0]->SetLineWidth(1);
-   hmc[0]->SetLineColor(kRed+2);
-   hmc[0]->Draw("HIST,SAME");
-
-   hmc[2]->SetLineWidth(1);
-   hmc[2]->SetLineColor(kBlue+1);
-   hmc[2]->SetFillStyle(3001);
-   hmc[2]->SetFillColor(kBlue+1);
-   hmc[2]->Draw("HIST,SAME");
-
-   hmc[3]->SetLineWidth(1);
-   hmc[3]->SetLineStyle(kDashed);
-   hmc[3]->SetLineColor(kGreen+1);
+   // hmc[3]->SetLineWidth(1);
+   // hmc[3]->SetLineStyle(kDashed);
+   // hmc[3]->SetLineColor(kGreen+1);
    // hmc[3]->Draw("HIST,SAME"); // true gamma or true eta->2gamma
 
    TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
@@ -767,7 +653,8 @@ void plot_M2mis(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_M2mis_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -776,13 +663,13 @@ void plot_M2mis(int date, int Cx = 800, int Cy = 800)
    SetHstFace(hdat[0]);
    double Ymin = 0.5;
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";M^{2}_{missing}(#pi^{#plus}#pi^{#minus}#gamma#gamma_{2}),"
-         " GeV^{2}/c^{4}"
-         ";Entries/0.0002 GeV^{2}/c^{4}"); // OK!
+   hdat[0]->SetTitle( Form(";M^{2}_{missing}"
+            "(#pi^{#plus}#pi^{#minus}#gamma#gamma_{2}), GeV^{2}/c^{4}"
+            ";Entries/%.4f GeV^{2}/c^{4}",bW)
+            ); // 0.0001
    hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -841,7 +728,8 @@ void plot_Eg(int date, int Cx = 800, int Cy = 800)
    TTree* eff_etaD = par->GetEffEta(0); // data
    vector<TH1D*> hdat { hst("hdat") };
 
-   TCut cutD = par->Cbg0 + TCut("Peta>1.3&&Peta<1.7");
+   TCut cutD = TCut("abs(Cg0)<0.8&&abs(Cg1)<0.8&&m2fr<0.002") +
+      TCut("Peta>1.3&&Peta<1.7");
    eff_etaD->Draw("Eg1>>hdat", cutD, "goff");
 
    TTree* eff_etaMC = par->GetEffEta(1); // MC: bg only!
@@ -898,7 +786,8 @@ void plot_Eg(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_Eg_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -908,12 +797,12 @@ void plot_Eg(int date, int Cx = 800, int Cy = 800)
    ymax = 1.08 * max(ymax,hdat[0]->GetMaximum());
    hdat[0]->SetMaximum(ymax);
 
-   hdat[0]->SetTitle(
-         ";E(#gamma_{2}), GeV"
-         ";Entries/0.025 GeV");
+   hdat[0]->SetTitle( Form(";E(#gamma_{2}), GeV"
+            ";Entries/%.2f GeV",bW)
+         ); // 0.05
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    // hdat[0]->GetYaxis()->SetNdivisions(504);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -1020,13 +909,14 @@ void plot_rE(int date, int Cx = 800, int Cy = 800)
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";E_{#gamma}#kern[0.1]{(pred)} / "
-         "E_{#gamma}#kern[0.1]{(rec)}"
-         ";Entries / 0.01");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";E_{#gamma}#kern[0.1]{(pred)} / "
+            "E_{#gamma}#kern[0.1]{(rec)}"
+            ";Entries / %.2f",bW)
+         ); // 0.02
    // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -1049,13 +939,11 @@ void plot_rE(int date, int Cx = 800, int Cy = 800)
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   // TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
    TLegend* leg = new TLegend(0.60,0.65,0.882,0.89);
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
-   // leg->AddEntry(box, "Rejection area","F");
    leg->AddEntry(box, "Mismatch area","F");
    leg->Draw();
 
@@ -1137,9 +1025,10 @@ void plot_dTh(int date, int Cx = 800, int Cy = 800) {
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";#delta#Theta(#gamma), deg."
-         ";Entries / 0.2 deg.");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";#delta#Theta(#gamma), deg."
+            ";Entries / %.1f deg.",bW)
+         ); // 0.2
    // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
@@ -1164,13 +1053,11 @@ void plot_dTh(int date, int Cx = 800, int Cy = 800) {
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   // TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
    TLegend* leg = new TLegend(0.60,0.65,0.882,0.89);
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
-   // leg->AddEntry(box, "Rejection area","F");
    leg->AddEntry(box, "Mismatch area","F");
    leg->Draw();
 
@@ -1267,7 +1154,8 @@ void plot_Mgg(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_Mgg_%i",date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -1279,9 +1167,9 @@ void plot_Mgg(int date, int Cx = 800, int Cy = 800)
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";M_{inv}(#gamma#gamma), GeV/c^{2}"
-         ";Entries/0.001 GeV/c^{2}");
+   hdat[0]->SetTitle( Form(";M_{inv}(#gamma#gamma), GeV/c^{2}"
+            ";Entries/%.3f GeV/c^{2}",bW)
+         ); // 0.001
    hdat[0]->GetYaxis()->SetNdivisions(1005);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
    hdat[0]->GetYaxis()->SetTitleOffset(1.15);
@@ -1314,7 +1202,6 @@ void plot_Mgg(int date, int Cx = 800, int Cy = 800)
    leg->AddEntry(gs, "Fit of data","L");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
-   // leg->AddEntry(box, "Rejection area","F");
    leg->AddEntry(box, "Mismatch area","F");
    leg->Draw();
 
@@ -1399,11 +1286,12 @@ void plot_Peta(int date, int Cx = 800, int Cy = 800)
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";P_{#eta}, GeV/c"
-         ";Entries/0.01 GeV/c");
+   hdat[0]->SetTitle( Form(";P_{#eta}, GeV/c"
+            ";Entries/%.2f GeV/c",bW)
+         ); // 0.01
    hdat[0]->GetYaxis()->SetMaxDigits(3);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1516,12 +1404,13 @@ void plot_Ceta(int date, int Cx = 800, int Cy = 800)
    double ymax=1.5*hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
 
-   hdat[0]->SetTitle( Form(
-            ";cos(#Theta_{#eta}) "
-            ";Entries/%g",2./Nbins));
+   hdat[0]->SetTitle( Form(";cos(#Theta_{#eta}) "
+            ";Entries/%.2f",bW)
+         ); // 0.05
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    // hdat[0]->GetXaxis()->SetNdivisions(504);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -1602,17 +1491,20 @@ void plot2_MKK(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_%s_%i",__func__,date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
    // Data
    hdat[0]->SetAxisRange(0.98,1.0999,"X");
-   hdat[0]->SetTitle(
-         ";M^{2}_{inv}(K^{#plus}K^{#minus}), GeV^{2}/c^{4}"
-         ";Entries/0.001 GeV^{2}/c^{4}");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";M^{2}_{inv}(K^{#plus}K^{#minus}),"
+            " GeV^{2}/c^{4}"
+            ";Entries/%.3f GeV^{2}/c^{4}",bW)
+            ); // 0.001
    hdat[0]->GetYaxis()->SetMaxDigits(3);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -1658,7 +1550,9 @@ void plot2_Minv2g(int date, int Cx = 800, int Cy = 800)
    Params* par = new Params(date,-2,0);
 
    // Here we use histograms filled in the PsipJpsiPhiEta: EtaEff()
-   // M2gg not in tuple yet
+   // in root-tree only selected events [0.25,0.34] are saved
+   // the picture is not completely correct if there are additional
+   // conditions on Mkk2
 
    vector<string> hndat {"E_M2gg"};
    vector<TH1D*> hdat;
@@ -1682,9 +1576,17 @@ void plot2_Minv2g(int date, int Cx = 800, int Cy = 800)
    hmc[3] = hmcS[1];
    hmc[3]->Scale( par->W_phi_eta() );
 
+   // recalculation: Min,Max -> bin1,bin2
+   double Minv2_min = 0.25, Minv2_max = 0.34;
+   double bW = hdat[0]->GetBinWidth(1);
+   int bin1 = hdat[0]->FindBin(Minv2_min+bW/2);
+   int bin2 = hdat[0]->FindBin(Minv2_max-bW/2);
+   // cout << "bW=" << bW
+      // << " bin1=" << bin1 << " bin2=" << bin2 << endl;
+
    // normalization on DATA
-   // double scale = hdat[0]->GetMaximum() / hmc[0]->GetMaximum();
-   double scale = hdat[0]->Integral(84,113)/hmc[0]->Integral(84,113);
+   double scale = hdat[0]->Integral(bin1,bin2)/
+      hmc[0]->Integral(bin1,bin2);
    for ( auto& h : hmc ) {
       h->Scale(scale);
    }
@@ -1697,17 +1599,20 @@ void plot2_Minv2g(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_%s_%i",__func__,date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
    // Data
-   hdat[0]->SetAxisRange(0.198,0.4019,"X");
-   hdat[0]->SetTitle(
-         ";M^{2}_{inv}(#gamma#gamma_{missing} ), GeV^{2}/c^{4}"
-         ";Entries/0.003 GeV^{2}/c^{4}");
+   double Xmin = 0.198, Xmax = 0.4019;
+   hdat[0]->SetAxisRange(Xmin,Xmax,"X");
+   hdat[0]->SetTitle( Form(
+            ";M^{2}_{inv}(#gamma_{2}#gamma_{missing} ), GeV^{2}/c^{4}"
+            ";Entries/%.3f GeV^{2}/c^{4}",bW)
+            ); // 0.003
    hdat[0]->GetYaxis()->SetMaxDigits(3);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -1716,8 +1621,8 @@ void plot2_Minv2g(int date, int Cx = 800, int Cy = 800)
    hdat[0]->SetMaximum(ymax);
    hdat[0]->Draw("E");
 
-   box->DrawBox(0.198,0.,0.25, ymax);
-   box->DrawBox(0.34, 0.,0.402,ymax);
+   box->DrawBox(Xmin,0.,      Minv2_min,ymax);
+   box->DrawBox(Minv2_max,0., Xmax,ymax);
    hdat[0]->Draw("E,SAME");
 
    hmc[0]->SetLineWidth(1);
@@ -1730,9 +1635,9 @@ void plot2_Minv2g(int date, int Cx = 800, int Cy = 800)
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   hmc[3]->SetLineWidth(1);
-   hmc[3]->SetLineStyle(kDashed);
-   hmc[3]->SetLineColor(kGreen+1);
+   // hmc[3]->SetLineWidth(1);
+   // hmc[3]->SetLineStyle(kDashed);
+   // hmc[3]->SetLineColor(kGreen+1);
    // hmc[3]->Draw("HIST,SAME"); // true eta->2gamma decay
 
    TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
@@ -1758,10 +1663,10 @@ void plot2_M2mis(int date, int Cx = 800, int Cy = 800)
    Params* par = new Params(date,-2,0);
 
    // Filling histograms from ntuple
-   double Xmin = 0., Xmax = 0.008;
+   double Xmin = 0., Xmax = 0.005;
    double Ymin = 0.5; // log
    auto hst = [Xmin,Xmax](string nm) {
-      TH1D* h = new TH1D(nm.c_str(),"", 80,Xmin,Xmax);
+      TH1D* h = new TH1D(nm.c_str(),"", 50,Xmin,Xmax);
       h->Sumw2(true);
       return h;
    };
@@ -1769,7 +1674,8 @@ void plot2_M2mis(int date, int Cx = 800, int Cy = 800)
    TTree* eff_etaD = par->GetEffEta(0); // data
    vector<TH1D*> hdat { hst("hdat") };
 
-   TCut cutD = par->Ceta;
+   TCut cutD = TCut("1.02<Mkk2&&Mkk2<1.06");
+      // + par->Ceta;
    eff_etaD->Draw("m2fr>>hdat", cutD, "goff");
 
    TTree* eff_etaMC = par->GetEffEta(1); // MC: bg only!
@@ -1820,7 +1726,8 @@ void plot2_M2mis(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_%s_%i",__func__,date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(true);
@@ -1828,13 +1735,14 @@ void plot2_M2mis(int date, int Cx = 800, int Cy = 800)
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle( ";M^{2}_{missing}"
-         "(#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}#gamma),"
-         " GeV^{2}/c^{4}"
-         ";Entries/0.0002 GeV^{2}/c^{4}");
+   hdat[0]->SetTitle( Form(";M^{2}_{missing}"
+            "(#pi^{#plus}#pi^{#minus}K^{#plus}K^{#minus}#gamma),"
+            " GeV^{2}/c^{4}"
+            ";Entries/%.4f GeV^{2}/c^{4}",bW)
+         ); // 0.0002
    hdat[0]->GetXaxis()->SetNdivisions(1005);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -1939,11 +1847,12 @@ void plot2_rE(int date, int Cx = 800, int Cy = 800)
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";E_{#gamma}(pred) / E_{#gamma}(rec)"
-         ";Entries/0.01");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";E_{#gamma}(pred) / E_{#gamma}(rec)"
+            ";Entries/%.2f",bW)
+         ); // 0.01
    hdat[0]->GetYaxis()->SetMaxDigits(3);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
@@ -1966,13 +1875,11 @@ void plot2_rE(int date, int Cx = 800, int Cy = 800)
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   // TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
    TLegend* leg = new TLegend(0.60,0.65,0.882,0.89);
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
-   // leg->AddEntry(box, "Rejection area","F");
    leg->AddEntry(box, "Mismatch area","F");
    leg->Draw();
 
@@ -2056,9 +1963,10 @@ void plot2_dTh(int date, int Cx = 800, int Cy = 800)
    // Data
    SetHstFace(hdat[0]);
    hdat[0]->SetMinimum(Ymin);
-   hdat[0]->SetTitle(
-         ";#delta#Theta(#gamma), deg."
-         ";Entries/0.2 deg.");
+   double bW = hdat[0]->GetBinWidth(1);
+   hdat[0]->SetTitle( Form(";#delta#Theta(#gamma), deg."
+            ";Entries/%.1f deg.",bW)
+         ); // 0.2
    // hdat[0]->GetXaxis()->SetNdivisions(1004);
    hdat[0]->GetYaxis()->SetMaxDigits(3);
    hdat[0]->GetYaxis()->SetTitleOffset(1.1);
@@ -2083,13 +1991,11 @@ void plot2_dTh(int date, int Cx = 800, int Cy = 800)
    hmc[2]->SetFillColor(kBlue+1);
    hmc[2]->Draw("HIST,SAME");
 
-   // TLegend* leg = new TLegend(0.61,0.65,0.892,0.89);
    TLegend* leg = new TLegend(0.60,0.65,0.882,0.89);
    leg->SetHeader( Form("%i",date),"C");
    leg->AddEntry(hdat[0], "Data","LEP");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
-   // leg->AddEntry(box, "Rejection area","F");
    leg->AddEntry(box, "Mismatch area","F");
    leg->Draw();
 
@@ -2178,7 +2084,8 @@ void plot2_Mgg(int date, int Cx = 800, int Cy = 800)
    box->SetLineWidth(1);
 
    // Draw:
-   TCanvas* c1 = new TCanvas(par->Sdate(),par->Sdate(),0,0,Cx,Cy);
+   auto name = Form("c1_%s_%i",__func__,date);
+   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -2190,12 +2097,12 @@ void plot2_Mgg(int date, int Cx = 800, int Cy = 800)
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";M_{inv}(#gamma#gamma), GeV/c^{2}"
-         ";Entries/0.001 GeV/c^{2}");
+   hdat[0]->SetTitle( Form(";M_{inv}(#gamma#gamma), GeV/c^{2}"
+            ";Entries/%.3f GeV/c^{2}",bW)
+         ); // 0.001
    hdat[0]->GetYaxis()->SetNdivisions(1005);
    hdat[0]->GetYaxis()->SetMaxDigits(2);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.15);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
    hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetLineColor(kBlack);
@@ -2225,7 +2132,6 @@ void plot2_Mgg(int date, int Cx = 800, int Cy = 800)
    leg->AddEntry(gs, "Fit of data","L");
    leg->AddEntry(hmc[0], "MC","L");
    leg->AddEntry(hmc[2], "MC background","F");
-   // leg->AddEntry(box, "Rejection area","F");
    leg->AddEntry(box, "Mismatch area","F");
    leg->Draw();
 
@@ -2303,11 +2209,12 @@ void plot2_Peta(int date, int Cx = 800, int Cy = 800)
 
    // Data
    SetHstFace(hdat[0]);
-   hdat[0]->SetTitle(
-         ";P_{#eta}, GeV/c"
-         ";Entries/0.01 GeV/c");
+   hdat[0]->SetTitle( Form(";P_{#eta}, GeV/c"
+            ";Entries/%.2f GeV/c",bW)
+         ); // 0.01
    hdat[0]->GetYaxis()->SetMaxDigits(3);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -2408,11 +2315,12 @@ void plot2_Ceta(int date, int Cx = 800, int Cy = 800)
    double ymax=1.5*hdat[0]->GetMaximum();
    hdat[0]->SetMaximum(ymax);
 
-   hdat[0]->SetTitle( Form (
-            ";cos(#Theta_{#eta}) "
-            ";Entries/%1g",2./Nbins));
+   hdat[0]->SetTitle( Form (";cos(#Theta_{#eta}) "
+            ";Entries/%.2g",bW)
+         ); // 0.05
    hdat[0]->GetXaxis()->SetNdivisions(504);
-   hdat[0]->GetYaxis()->SetTitleOffset(1.2);
+   hdat[0]->GetYaxis()->SetTitleOffset(1.1);
+   hdat[0]->GetXaxis()->SetTitleOffset(1.1);
    hdat[0]->SetLineWidth(2);
    hdat[0]->SetMarkerStyle(20);
    hdat[0]->SetLineColor(kBlack);
@@ -2460,7 +2368,6 @@ void eta_eff_sel()
       // ++ J/Psi -> gamma eta ++
       // plot_Mpipig(date,Cx,Cy); // fig B3
       // plot_Minv2g(date,Cx,Cy); // fig B4
-      //--  plot_Minv2g_n(date,Cx,Cy); // fig B4 -> no M2gg in data ---
       // plot_M2mis(date,Cx,Cy);  // fig B5
       // plot_Eg(date,Cx,Cy);     // fig B6
       // plot_dTh(date,Cx,Cy);    // fig B7 (top)

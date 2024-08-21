@@ -1,9 +1,10 @@
 // eta_eff.cc
-// Study of the eta -> 2gamma reconstruction efficiency
-// and single photon rec.efficiency
+// Study of the eta->2gamma reconstruction efficiency
+// Maybe: single photon reconstruction efficiency: need tests
 // -> etaeff_{geta|phieta}_{efficiency or ratio variable}_{YEAR}.pdf
 
-#include "RewEtaEff.hpp" // RewEtaEff() func
+#include "RewEtaEff.hpp"    // RewEtaEff() func
+#include "RewTrkPiK.hpp"    // RewTrkPi(), RewTrk_K() functions
 
 // {{{1 Common parameters: Params
 //--------------------------------------------------------------------
@@ -17,8 +18,7 @@ struct Params {
    const char* Sdate() { return Form("%i",date); }
 
    // name of folder with root files
-   // const string Dir = "prod_v709n3/";
-   const string Dir = "prod_v709n4/";
+   const string Dir = "prod_v709n4/Eff/";
    string datafile;
    string mcincfile;
    string mcsigf1;  // MC for gamma eta
@@ -59,8 +59,7 @@ Params::Params(int dat, int slc = 2, int rew = 0)
 
    // mc-signal
    if ( slct > 0 ) {    // gamma-eta
-      // Cmcsig += TCut("decj==22");
-      Cmcsig += TCut("abs(decj-22)<0.1"); // decj is float here
+      Cmcsig += TCut("decj==22");
    } else {             // phi-eta
       Cmcsig += TCut("decj==68");
    }
@@ -72,6 +71,7 @@ Params::Params(int dat, int slc = 2, int rew = 0)
       Cbg += TCut("m2fr<0.002");
       Cbg += TCut("Eg1>0.25&&Eg1<1.7");
    } else {                  // phi-eta
+      Cbg += TCut("1.02<Mkk2&&Mkk2<1.06");
       Cbg += TCut("m2fr<0.001");
    }
 
@@ -90,8 +90,8 @@ Params::Params(int dat, int slc = 2, int rew = 0)
    } else {                  // phi-eta
       Ceta += TCut("Peta>1.15&&Peta<1.5");
    }
+   Ceta += TCut("abs(Ceta)<0.9");
    // doubtful:
-   // Ceta += TCut("abs(Ceta)<0.9");
    // Ceta += TCut("abs(Cg2)<0.8||(abs(Cg2)>0.85&&abs(Cg2)<0.92)");
 
    // predicted eta is found
@@ -149,7 +149,7 @@ TTree* Params::GetEffEta(int mc = 0)
 
 // {{{2 > W_g_eta() & W_phi_eta()
 //--------------------------------------------------------------------
-double Params::W_g_eta() // wights for MC-gamma-eta
+double Params::W_g_eta() // wights for MC gammaeta2
 //--------------------------------------------------------------------
 {
    // normalization on numbers in "official inclusive MC"
@@ -171,25 +171,31 @@ double Params::W_g_eta() // wights for MC-gamma-eta
 }
 
 //--------------------------------------------------------------------
-double Params::W_phi_eta() // wights for MC-sig
+double Params::W_phi_eta() // wights for MC phieta2
 //--------------------------------------------------------------------
 {
    // normalization on numbers in "official inclusive MC"
    // decay code for J/Psi -> phi eta is 68;
    // BOSS-664: ((date==2012) ? (104950./5e5) : (27274./1.5e5));
+   // we have to use events with J/Psi -> phi eta, phi->K+K-
+   // stored in histogram mc_MKK.
    double W = 1;
    switch (date) {
       case 2009:
-         W =  27547./150e3; // 0.18
+         // W =  27547./150e3; // decj0 = 68
+         W =  13519./150e3; // mc_MKK
          break;
       case 2012:
-         W =  89059./500e3; // 0.18
+         // W =  89059./500e3; // decj0 = 68
+         W =  44287./500e3; // mc_MKK
          break;
       case 2021:
-         W = 598360./2.5e6; // 0.24
+         // W = 598360./2.5e6; // decj0 = 68
+         W = 297126./2.5e6; // mc_MKK
          break;
    }
-   return W * Br_phi_KK;
+   // W *= Br_phi_KK; // for decj0 = 68
+   return W;
 }
 
 // {{{1 helper functions and constants
@@ -227,7 +233,7 @@ void SetHstFace(TH1* hst)
    }
 }
 
-// {{{1 Fill histograms: mc=0,1 / data,MC
+// {{{1 OLD: fill histograms: mc=0,1 / data,MC
 //--------------------------------------------------------------------
 void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0)
 //--------------------------------------------------------------------
@@ -333,13 +339,246 @@ void get_hst(Params* p, int mc, vector<TH1D*>& hst, int sigbg = 0)
    }
 }
 
+// {{{1 Fill gamma-eta histograms: mc=0,1 / data,MC
+//--------------------------------------------------------------------
+void FillGEtaHst(Params* p, int mc, vector<TH1D*>& hst, int sigbg=0)
+//--------------------------------------------------------------------
+{
+   // cout << __func__ << " mc= " << mc << " sigbg= " << sigbg<<endl;
+   if ( p->slct != 2 ) { // gamma-eta => eta eff
+      cout << __func__ << " function, incorrect using: p->slct="
+         << p->slct << " Stop!" << endl;
+      exit(1);
+   }
+
+   TTree* eff_eta = p->GetEffEta(mc);
+
+   double Ptp,Ptm,Mrec; // Pt(pi+), Pt(pi-), Mrec(pi+pi-)
+   double Eg0,Cg0;      // E,cos(Theta) of gamma in J/Psi -> g0 eta
+   double Peta,Ceta;    // P,cos(Theta) of eta
+   double Eg1,Cg1;      // E,cos(Theta) of rec gamma in eta -> g1 g2
+   double Eg2,Cg2;      // E,cos(Theta) of predicted gamma (g2)
+   // double Egr,Cgr;      // E and cos(Theta) of found gamma (gr)
+   double rE,dTh;       // relations btw predicted(g2) and found(gr)
+                        // * variables used in selection:
+   // double M2gr;         // Mrec^2(pi+pi-g0)
+   // double M2gg;         // Minv^2(g1 g2)
+   double m2fr;         // Mrec^2(pi+pi-g0g1) or g2 missing mass^2
+   double mggf;         // Minv(g1,gr) after 4C kinematic constraints
+   // double ch2;          // chi^2 of 4C kinematic constraints
+                        // * MC-variables
+   int    decj;         // MC: decay codes of J/Psi
+   // int    dgam;         // MC: 1 if g0 found correctly
+   // int    deta;         // MC: 1 if eta decays into two gammas
+
+   // Set branch addresses.
+   eff_eta->SetBranchAddress("Ptp", &Ptp );
+   eff_eta->SetBranchAddress("Ptm", &Ptm );
+   eff_eta->SetBranchAddress("Mrec",&Mrec);
+   eff_eta->SetBranchAddress("Eg0",  &Eg0);
+   eff_eta->SetBranchAddress("Cg0",  &Cg0);
+   eff_eta->SetBranchAddress("Peta",&Peta);
+   eff_eta->SetBranchAddress("Ceta",&Ceta);
+   eff_eta->SetBranchAddress("Eg1",  &Eg1);
+   eff_eta->SetBranchAddress("Cg1",  &Cg1);
+   eff_eta->SetBranchAddress("Eg2",  &Eg2);
+   eff_eta->SetBranchAddress("Cg2",  &Cg2);
+
+   eff_eta->SetBranchAddress("rE",   &rE );
+   eff_eta->SetBranchAddress("dTh",  &dTh);
+
+   eff_eta->SetBranchAddress("m2fr",&m2fr);
+   eff_eta->SetBranchAddress("mggf",&mggf);
+
+   eff_eta->SetBranchAddress("decj",&decj);
+
+   // see Params::Params() for the selection parameters
+   auto c_geta = [](double Cg0, double Cg1, double m2fr, double Eg1) {
+      return ( (fabs(Cg0)<0.8 && fabs(Cg1)<0.8) && m2fr<0.002
+         && (Eg1>0.25&&Eg1<1.7) );
+   };
+
+   auto c_eta = [](double Peta, double Ceta)->bool{
+      // return (Peta>1.3&&Peta<1.7);
+      return (Peta>1.3&&Peta<1.7) && (fabs(Ceta)<0.9);
+   };
+   // doubtful:
+   auto c_g2 = [](double Cg2)->bool{
+      return (fabs(Cg2)<0.8) || (fabs(Cg2)>0.85&&fabs(Cg2)<0.92);
+   };
+
+   auto& meta = p->meta;
+   auto c_fnd = [meta](double dTh, double rE, double mggf)->bool{
+      return (dTh<8.&&(0.8<rE&&rE<1.4) && fabs(mggf-meta)<0.024);
+   };
+
+   hst.clear();
+   hst.resize(4,nullptr);
+   auto hn = Form("%s_%i",((mc==0) ? "data" : "mc"),p->date);
+   hst[0] = new TH1D( Form("%s_P",hn),  "", 8,1.3,1.7);
+   hst[1] = new TH1D( Form("%s_P1",hn), "", 8,1.3,1.7);
+   hst[2] = new TH1D( Form("%s_C",hn),  "", 9,-0.9,0.9);
+   hst[3] = new TH1D( Form("%s_C1",hn), "", 9,-0.9,0.9);
+   for ( auto& h : hst ) {
+      h->Sumw2(true);
+   }
+
+   Long64_t nentries = eff_eta->GetEntries();
+   for ( Long64_t i = 0; i < nentries; ++i ) {
+      eff_eta->GetEntry(i);
+
+      if ( !c_geta(Cg0,Cg1,m2fr,Eg1) ) { continue; }
+      if ( !c_eta(Peta,Ceta) ) { continue; }
+
+      // doubtful:
+      // if ( !c_g2(Cg2) ) { continue; }
+
+      double W = 1; // weights: use only in numerator of efficiency
+      if ( mc > 0 ) {
+         if ( sigbg == 1 && decj != 22 )         { // signal only
+            continue;
+         } else if ( sigbg == 2 &&  decj == 22 ) { // bg only
+            continue;
+         }
+         // W *= RewTrkPi(p->date, Ptp, 1);
+         // W *= RewTrkPi(p->date, Ptm, -1);
+      }
+
+      hst[0]->Fill(Peta);
+      hst[2]->Fill(Ceta);
+      if ( c_fnd(dTh,rE,mggf) ) { // found eta
+         hst[1]->Fill(Peta,W);
+         hst[3]->Fill(Ceta,W);
+      }
+   }
+}
+
+// {{{1 Fill phi-eta histograms: mc=0,1 / data,MC
+//--------------------------------------------------------------------
+void FillPhiEtaHst(Params* p, int mc, vector<TH1D*>& hst, int sigbg=0)
+//--------------------------------------------------------------------
+{
+   // cout << __func__ << " mc= " << mc << " sigbg= " << sigbg<<endl;
+   if ( p->slct != -2 ) { // phi-eta => eta eff
+      cout << __func__ << " function, incorrect using: p->slct="
+         << p->slct << " Stop!" << endl;
+      exit(1);
+   }
+
+   TTree* eff_eta = p->GetEffEta(mc);
+
+   // Declaring only the leaf types we used here
+   // double Ptp,Ptm,Mrec; // Pt(pi+), Pt(pi-), Mrec(pi+pi-)
+   double Ptkp,Ptkm;    // Pt(K+), Pt(K-)
+   double Peta,Ceta;    // P,cos(Theta) of eta
+   // double Eg1,Cg1;      // E,cos(Theta) of rec gamma in eta -> g1 g2
+   double Eg2,Cg2;      // E,cos(Theta) of predicted gamma (g2)
+   // double Egr,Cgr;      // E and cos(Theta) of found gamma (gr)
+   double rE,dTh;       // relations btw predicted(g2) and found(gr)
+                        // * variables used in selection:
+   double Mkk2;         // Minv2(K+K-)
+   // double M2gg;         // ?Minv^2(g1 g2)
+   double m2fr;         // Mrec^2(pi+pi-g0g1) or g2 missing mass^2
+   double mggf;         // Minv(g1,gr) after 4C kinematic constraints
+   // double ch2;          // chi^2 of 4C kinematic constraints
+                        // * MC-variables
+   int    decj;         // MC: decay codes of J/Psi
+   // int    deta;         // MC: 1 if eta decays into two gammas
+   // int    dphi;         // MC: 1 if phi decays into K+K-
+
+   // Set branch addresses.
+   eff_eta->SetBranchAddress("Ptkp",&Ptkp);
+   eff_eta->SetBranchAddress("Ptkm",&Ptkm);
+   eff_eta->SetBranchAddress("Peta",&Peta);
+   eff_eta->SetBranchAddress("Ceta",&Ceta);
+   eff_eta->SetBranchAddress("Eg2",  &Eg2);
+   eff_eta->SetBranchAddress("Cg2",  &Cg2);
+
+   eff_eta->SetBranchAddress("rE",  &rE);
+   eff_eta->SetBranchAddress("dTh", &dTh);
+
+   eff_eta->SetBranchAddress("Mkk2",&Mkk2);
+   eff_eta->SetBranchAddress("m2fr",&m2fr);
+   eff_eta->SetBranchAddress("mggf",&mggf);
+
+   eff_eta->SetBranchAddress("decj",&decj);
+
+   // see Params::Params() for the selection parameters
+   auto c_phieta = [](double Mkk2, double m2fr)->bool{
+      return (1.02<Mkk2&&Mkk2<1.06) && (m2fr<0.001);
+   };
+
+   auto c_eta = [](double Peta, double Ceta)->bool{
+      // return (Peta>1.15&&Peta<1.5);
+      return (Peta>1.15&&Peta<1.5) && (fabs(Ceta)<0.9);
+   };
+   // doubtful:
+   auto c_g2 = [](double Cg2)->bool{
+      return (fabs(Cg2)<0.8) || (fabs(Cg2)>0.85&&fabs(Cg2)<0.92);
+   };
+
+   auto& meta = p->meta;
+   auto c_fnd = [meta](double dTh, double rE, double mggf)->bool{
+      return (dTh<8.&&(0.8<rE&&rE<1.4) && fabs(mggf-meta)<0.024);
+   };
+
+   hst.clear();
+   hst.resize(4,nullptr);
+   auto hn = Form("%s_%i",((mc==0) ? "data" : "mc"),p->date);
+   hst[0] = new TH1D( Form("%s_P",hn),  "", 7,1.15,1.5);
+   hst[1] = new TH1D( Form("%s_P1",hn), "", 7,1.15,1.5);
+   hst[2] = new TH1D( Form("%s_C",hn),  "", 9,-0.9,0.9);
+   hst[3] = new TH1D( Form("%s_C1",hn), "", 9,-0.9,0.9);
+   for ( auto& h : hst ) {
+      h->Sumw2(true);
+   }
+
+   Long64_t nentries = eff_eta->GetEntries();
+   for ( Long64_t i = 0; i < nentries; ++i ) {
+      eff_eta->GetEntry(i);
+
+      if ( !c_phieta(Mkk2,m2fr) ) { continue; }
+      if ( !c_eta(Peta,Ceta) ) { continue; }
+
+      // doubtful:
+      // if ( !c_g2(Cg2) ) { continue; }
+
+      double W = 1; // weights: use only in numerator of efficiency
+      if ( mc > 0 ) {
+         if ( sigbg == 1 && decj != 68 )         { // signal only
+            continue;
+         } else if ( sigbg == 2 &&  decj == 68 ) { // bg only
+            continue;
+         }
+
+         // W *= RewTrk_K(p->date, Ptkp, 1);
+         // W *= RewTrk_K(p->date, Ptkm, -1);
+      }
+
+      hst[0]->Fill(Peta);
+      hst[2]->Fill(Ceta);
+      if ( c_fnd(dTh,rE,mggf) ) { // found eta
+         hst[1]->Fill(Peta,W);
+         hst[3]->Fill(Ceta,W);
+      }
+   }
+}
+
 // {{{1 Get histograms and calculate efficiencies: data and MC
 //--------------------------------------------------------------------
 void get_eff_data(Params* p, vector<TH1D*>& eff )
 //--------------------------------------------------------------------
 {
    vector<TH1D*> hst;
-   get_hst(p, 0, hst);
+   if ( p->slct == +2 ) { // gamma-eta => eta eff
+      FillGEtaHst(p, 0, hst);
+   } else if ( p->slct == -2 ) { // phi-eta => eta eff
+      FillPhiEtaHst(p, 0, hst);
+   } else {
+      get_hst(p, 0, hst);
+      hst[0]->Add(hst[1]);
+      hst[2]->Add(hst[3]);
+   }
 
    TGraphAsymmErrors* tmp = nullptr;
    // tmp = new TGraphAsymmErrors();
@@ -350,7 +589,6 @@ void get_eff_data(Params* p, vector<TH1D*>& eff )
       int ih = 2*i;
       string name = string("eff_") + string(hst[ih]->GetName());
       eff[i]=(TH1D*)hst[ih]->Clone( name.c_str() );
-      hst[ih]->Add(hst[ih+1]);
       if ( !tmp ) {
          eff[i]->Divide(hst[ih+1],hst[ih],1.,1.,"B");
          int N = eff[i]->GetNbinsX();
@@ -385,8 +623,18 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff )
 {
    // take signal from MC-"signal" and bg from inclusive MC
    vector<TH1D*> hst, hstBG;
-   get_hst(p, 2, hst, 1);   // MC-"signal"
-   get_hst(p, 1, hstBG, 2); // MC bg only
+   if ( p->slct == +2 ) {            // gamma-eta => eta eff
+      FillGEtaHst(p, 2, hst, 1);        // MC signal
+      FillGEtaHst(p, 1, hstBG, 2);      // MC bg only
+   } else if ( p->slct == -2 ) {     // phi-eta => eta eff
+      FillPhiEtaHst(p, 2, hst, 1);      // MC signal
+      FillPhiEtaHst(p, 1, hstBG, 2);    // MC bg only
+   } else {
+      get_hst(p, 2, hst, 1);   // MC signal
+      get_hst(p, 1, hstBG, 2); // MC bg only
+      hst[0]->Add(hst[1]);
+      hst[2]->Add(hst[3]);
+   }
 
    // sum of signal and background
    double W = 1;
@@ -405,8 +653,7 @@ void get_eff_mc(Params* p, vector<TH1D*>& eff )
       int ih = 2*i;
       string name = string("eff_") + string(hst[ih]->GetName());
       eff[i]=(TH1D*)hst[ih]->Clone( name.c_str() );
-      eff[i]->Add(hst[ih+1]);
-      eff[i]->Divide(hst[ih+1],eff[i],1.,1.,"B");
+      eff[i]->Divide(hst[ih+1],hst[ih],1.,1.,"B");
    }
 
    // Re-weighting efficiency
@@ -754,8 +1001,8 @@ void eta_eff()
       const int rew = 0;     // 1 - use corrections
 
       // I. J/Psi->gamma eta, fig B10,B11
-      // auto res = plot_pict_gamma_eta(date,rew,Cx,Cy);
-      // g_eta.insert(end(g_eta),begin(res),end(res));
+      auto res = plot_pict_gamma_eta(date,rew,Cx,Cy);
+      g_eta.insert(end(g_eta),begin(res),end(res));
 
       // II. J/Psi->phi eta, fig B18,B19
       // auto res2 = plot_pict_phi_eta(date,rew,Cx,Cy);
