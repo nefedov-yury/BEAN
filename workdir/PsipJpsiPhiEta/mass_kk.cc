@@ -314,14 +314,14 @@ void plot_mass_kk(int date,  int Cx=500, int Cy=900)
    dat[0]->SetMaximum(1.2*ymax);
 
    dat[0]->GetXaxis()->SetTitleOffset(1.1);
-   dat[0]->GetYaxis()->SetTitleOffset(1.3);
+   dat[0]->GetYaxis()->SetTitleOffset(1.1);
+   dat[0]->GetYaxis()->SetMaxDigits(3);
 
    dat[0]->Draw("E");
    mcs[0]->Draw("HIST SAME");
    dat[0]->Draw("E,SAME");
 
-   // TLegend* leg = new TLegend(0.49,0.53,0.89,0.89);
-   TLegend* leg = new TLegend(0.50,0.65,0.89,0.89);
+   TLegend* leg = new TLegend(0.50,0.65,0.892,0.89);
    leg->SetTextSize(0.05);
    leg->SetHeader(
          "|M_{#lower[-0.2]{#gamma#gamma}}#minus M_{#eta}| < 0.024",
@@ -336,7 +336,7 @@ void plot_mass_kk(int date,  int Cx=500, int Cy=900)
    c1->Print(pdf.c_str());
 
    auto name2 = Form("c1_mkk_sb_%i",date);
-   TCanvas* c2 = new TCanvas(name2,name2,50,0,Cx,Cy);
+   TCanvas* c2 = new TCanvas(name2,name2,0,Cy/2,Cx,Cy);
    c2->cd();
    gPad->SetGrid();
 
@@ -349,19 +349,23 @@ void plot_mass_kk(int date,  int Cx=500, int Cy=900)
    // }
 
    dat[1]->GetXaxis()->SetTitleOffset(1.1);
+   dat[1]->GetYaxis()->SetTitleOffset(1.1);
 
+   TF1* fit = nullptr;
    int type = 1; // line
    // int type = 2; // rev-argus
-   // TF1* fit = Fit_Sb(dat[1],type);
-   TF1* fit = Fit_Sb(dat[1],type,mcs[1]); // take into account MC sig.
+   // fit = Fit_Sb(dat[1],type,mcs[1]); // take into account MC sig.
    if ( !fit ) {
       dat[1]->Draw("E");
    }
 
    mcs[1]->Draw("HIST SAME");
-   cout << " Integral signal= " << mcs[1]->Integral() << endl;
+   auto Sig  = mcs[1]->Integral();
+   auto Sdat = dat[1]->Integral();
+   printf("%i: side-band Signal/Data= %.1f+/-%.1f%%\n",
+         date,Sig/Sdat*100,sqrt(Sig)/Sdat*100);
 
-   TPaveText* pt = new TPaveText(0.45,0.76,0.89,0.89,"NDC,TR");
+   TPaveText* pt = new TPaveText(0.45,0.76,0.892,0.89,"NDC,TR");
    pt->SetTextAlign(22);
    pt->SetTextFont(42);
    pt->SetTextSize(0.05);
@@ -390,17 +394,17 @@ void mass_kk() {
    // gStyle->SetOptFit(0);
    gStyle->SetOptFit(111); // do not print fixed params
    gStyle->SetFitFormat(".1f");
-   gStyle->SetStatX(0.89);
+   gStyle->SetStatX(0.892);
    gStyle->SetStatY(0.755);
    gStyle->SetStatW(0.245);
 
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   size_t Cx = 880, Cy = 760; // canvas sizes
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    // just test
    // test_RevAgrus();

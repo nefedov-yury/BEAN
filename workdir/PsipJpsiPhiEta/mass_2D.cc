@@ -130,8 +130,7 @@ void plot_Mkk(string fname, string title, string pdf="",
 
 // {{{1 2D: M(KK) vs M(gg)
 //--------------------------------------------------------------------
-void plot_2D(string fname, string title, string pdf="",
-      int Cx=873, int Cy=800)
+void plot_2D(string fname, string title, string pdf, int Cx, int Cy)
 //--------------------------------------------------------------------
 {
 #include "cuts.h"
@@ -148,7 +147,8 @@ void plot_2D(string fname, string title, string pdf="",
    TH2D* m2d = new TH2D("m2d",
          ";M^{ inv}_{ #gamma#gamma}, GeV/c^{2}"
          ";M^{ inv}_{ K^{#plus}K^{#minus }}, GeV/c^{2}",
-         100, 0.0, 1.2,   // gg
+         // 100, 0.0, 1.2,   // gg
+         100, 0.0, 1.1,   // gg
          100, 0.9, 2.0  );// KK
 
    a4c->Draw("Mkk:Mgg>>m2d",c_Mrec+c_chi2,"goff");
@@ -159,7 +159,8 @@ void plot_2D(string fname, string title, string pdf="",
    c1->cd();
    SetHstFace(m2d);
    // m2d->GetXaxis()->SetTitleOffset(0.9);
-   m2d->GetYaxis()->SetTitleOffset(1.2);
+   m2d->GetXaxis()->SetTitleOffset(1.1);
+   m2d->GetYaxis()->SetTitleOffset(1.1);
    m2d->SetMarkerStyle(20);
    m2d->SetMarkerSize(0.3);
 
@@ -289,12 +290,12 @@ void mass_2D()
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   size_t Cx = 770, Cy = 700; // canvas sizes
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
-   // Mass2D, fig.9 (TODO)
+   // Mass2D, fig.8
    // for ( int date : {2009, 2012, 2021} ) {
    for ( int date : {2021}) {
       // DATA

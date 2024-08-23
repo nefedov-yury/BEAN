@@ -13,8 +13,8 @@ TCut c_Mrec("abs(Mrec-3.097)<0.005");
 TCut c_MCmkk("mcmkk<1.08"); // cut for MC generated events
 
 // chi^2 cut: use helix correction ON/OFF to systematic study
-// double chi2M = 40; // prod v604, chi2M = 60: very old
-double chi2M = 60;
+// double chi2M = 40; // prod v604
+double chi2M = 100;
 TCut c_chi2( Form("ch2<%.1f",chi2M) );
 
 // Meta cut: central part (c_cpgg) and side-band (c_sbgg)

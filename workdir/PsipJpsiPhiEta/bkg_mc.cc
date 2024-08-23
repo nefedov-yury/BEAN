@@ -109,10 +109,7 @@ void PrtTbl(int date)
 
    // chi^2 cut
    auto c_chi2 = [](double ch2) -> bool{
-      // return ch2 < 40;
-      return ch2 < 60; // == cuts.h
-      // return ch2 < 80;
-      // return ch2 < 100; // optimal for 2021
+      return ch2 < 100;
    };
 
    // Mphi cut: [dL, dU]
@@ -153,6 +150,12 @@ void PrtTbl(int date)
       string Jpsi_decay(*sdecj);
       if ( Jpsi_decay == "unknown" ) {
          Jpsi_decay = "Psi(2s)->" + Psi2S_decay;
+      } else if ( Jpsi_decay == "9020221 gamma" ) {
+         Jpsi_decay = "eta(1405) gamma";
+      } else if ( Jpsi_decay == "9000223 gamma" ) {
+         Jpsi_decay = "f1(1510) gamma";
+      } else if ( Jpsi_decay == "9010221 phi" ) {
+         Jpsi_decay = "f0(980) phi";
       }
 
       if ( c_cpgg(Mgg) ) {              // central part
@@ -176,13 +179,13 @@ void bkg_mc(int date=2021)
 //--------------------------------------------------------------------
 {
    gROOT->Reset();
-   gStyle->SetOptStat(0);
-   gStyle->SetOptFit(0);
-   gStyle->SetLegendFont(42);
+   // gStyle->SetOptStat(0);
+   // gStyle->SetOptFit(0);
+   // gStyle->SetLegendFont(42);
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
    PrtTbl(date);

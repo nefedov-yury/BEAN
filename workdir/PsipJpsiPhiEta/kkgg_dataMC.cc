@@ -149,7 +149,7 @@ void plot_var(string var, int date, int Cx=600, int Cy=600)
    TH1D* hst[10];
    fill_hists( var, date, hst);
 
-   TLegend* leg = new TLegend(0.59,0.74,0.89,0.89);
+   TLegend* leg = new TLegend(0.59,0.74,0.892,0.89);
    if ( var == "Cgg" ) {
       hst[0]->SetMaximum( 1.35 * hst[0]->GetMaximum() );
    } else if ( var == "Pk" ) {
@@ -171,7 +171,8 @@ void plot_var(string var, int date, int Cx=600, int Cy=600)
    hst[0]->SetLineColor(kBlack);
    hst[0]->SetMarkerStyle(20);
    hst[0]->GetYaxis()->SetMaxDigits(3);
-   hst[0]->GetYaxis()->SetTitleOffset(1.25);
+   hst[0]->GetYaxis()->SetTitleOffset(1.1);
+   hst[0]->GetXaxis()->SetTitleOffset(1.1);
 
    hst[0]->Draw("EP");
    leg->AddEntry(hst[0],Form("Data %i",date), "EP");
@@ -222,18 +223,18 @@ void kkgg_dataMC()
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   size_t Cx = 880, Cy = 760; // canvas sizes
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    for ( int date : {2009, 2012, 2021} ) {
-      // fig.11 (eta)
+      // Fig.11 (eta)
       // plot_var("Pgg", date, Cx, Cy);
       // plot_var("Cgg", date, Cx, Cy);
 
-      // fig.12
-      plot_var("Pk", date, Cx, Cy);
-      plot_var("Ck", date, Cx, Cy);
+      // Fig.12(K+K-)
+      // plot_var("Pk", date, Cx, Cy);
+      // plot_var("Ck", date, Cx, Cy);
    }
 }

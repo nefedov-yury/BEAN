@@ -1,12 +1,11 @@
 // chi2_Pr.cc
 // plot chi2 of the 5C kinematic constrints
-// 1) data (CP and SB) vs signal MC for M(K+K-) < 1.08
+// 1) optimization of chi2: Sig/sqrt(Sig+Bkg) vs ch2
+//    -> chi2opt_{YEAR}.pdf
+// 2) data (CP and SB) vs signal MC for M(K+K-) < 1.08
 //    -> chi2_sb_{YEAR}.pdf
 //
-// 0) optimization of chi2: Sig/sqrt(Sig+Bkg) vs ch2
-//    -> chi2opt_{YEAR}.pdf
-//
-// 2) data vs inclusive MC: OLD
+// 3) data vs inclusive MC: OLD
 //    -> chi2_{YEAR}.pdf
 
 // {{{1 helper functions and constants
@@ -220,16 +219,11 @@ TGraph* optSigBkg(TH1D* hst[], int type)
       gr->SetTitle(";#chi^{2};#it{(Data-SB)/#sqrt{Data+SB}}");
    }
 
-   gr->GetYaxis()->SetMaxDigits(3);
-   gr->GetYaxis()->SetTitleOffset(1.2);
-   gr->SetMarkerColor(kViolet);
-   gr->SetMarkerStyle(20);
-
    return gr;
 }
 
 //--------------------------------------------------------------------
-void chi2opt(int date,int type,string pdf="",int Cx=1500,int Cy=800)
+void chi2opt(int date, int type, string pdf, int Cx, int Cy)
 //--------------------------------------------------------------------
 {
    double maxh = 0.;
@@ -261,14 +255,25 @@ void chi2opt(int date,int type,string pdf="",int Cx=1500,int Cy=800)
 
    TH1D* hst[] = {chi2cp, chi2sb, chi2_mcS};
    TGraph* gr = optSigBkg(hst,type);
-   gr->GetXaxis()->SetLimits(20.,200.);
-   gr->GetYaxis()->SetNdivisions(505);
-   gr->GetYaxis()->SetTitleOffset(1.25);
+
+   // gr->SetMarkerColor(kViolet);
+   gr->SetMarkerColor(kBlue-7);
+   gr->SetMarkerSize(0.8);
+   gr->SetMarkerStyle(20);
+
+   // X min-max
+   gr->GetXaxis()->SetLimits(20.,150.);
+   // gr->GetXaxis()->SetTitleOffset(1.1);
+
+   // Y min-max
    auto bw = chi2cp->GetBinWidth(1);
    auto Ry = gr->GetPointY( int(20./bw) );
    gr->SetMinimum(5*floor((Ry-3)/5));
    Ry = gr->GetPointY( int(120./bw) );
    gr->SetMaximum(5*ceil((Ry+2)/5));
+   gr->GetYaxis()->SetMaxDigits(3);
+   gr->GetYaxis()->SetNdivisions(505);
+   gr->GetYaxis()->SetTitleOffset(1.2);
 
    auto name = Form("c1_%i",date);
    TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
@@ -299,6 +304,13 @@ void chi2opt(int date,int type,string pdf="",int Cx=1500,int Cy=800)
    gPad->SetGrid();
    gr->Draw("APL");
 
+   TPaveText* pt = new TPaveText(0.11,0.81,0.32,0.89,"NDC");
+   pt->SetTextAlign(22);
+   pt->SetTextFont(42);
+   pt->SetFillColor(kWhite);
+   pt->AddText( Form("%i",date) );
+   pt->Draw();
+
    c1->Update();
    if ( !pdf.empty() ) {
       c1->Print(pdf.c_str());
@@ -307,19 +319,20 @@ void chi2opt(int date,int type,string pdf="",int Cx=1500,int Cy=800)
 
 // {{{1 data (CP and SB) vs signal MC
 //--------------------------------------------------------------------
-void chi2_SB(int date, string pdf="", int Cx=800, int Cy=800)
+void chi2_SB(int date, string pdf, int Cx, int Cy)
 //--------------------------------------------------------------------
 {
    double maxh = 0.;
 
    string datafile( Form("data_%02ipsip_all.root",date%100) );
    TH1D* chi2cp = get_chi2(datafile, "chi2_cp", 1);
-   maxh = max(maxh, 1.2*chi2cp->GetMaximum());
+   maxh = max(maxh, chi2cp->GetMaximum());
    SetHstFace(chi2cp);
    chi2cp->SetLineColor(kBlack);
    chi2cp->SetLineWidth(2);
    chi2cp->GetYaxis()->SetMaxDigits(3);
-   chi2cp->GetYaxis()->SetTitleOffset(1.2);
+   chi2cp->GetYaxis()->SetTitleOffset(1.1);
+   chi2cp->GetXaxis()->SetTitleOffset(1.1);
 
    TH1D* chi2sb = get_chi2(datafile, "chi2_sb", 2);
    chi2sb->SetLineColor(kBlue+2);
@@ -335,7 +348,8 @@ void chi2_SB(int date, string pdf="", int Cx=800, int Cy=800)
          (chi2cp->Integral() - chi2sb->Integral())
          / chi2_mcS->Integral()
          );
-   maxh = max(maxh, chi2_mcS->GetMaximum());
+   // maxh = 1.2*max(maxh, chi2_mcS->GetMaximum());
+   maxh = 1.9*max(maxh, chi2_mcS->GetMaximum()); // Log
 
    // box to show rejected region
    double ch2_cut = chi2_cut;
@@ -350,6 +364,7 @@ void chi2_SB(int date, string pdf="", int Cx=800, int Cy=800)
    auto name = Form("c1_%i",date);
    TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
    c1->cd();
+   gPad->SetLogy(true);
    gPad->SetGrid();
 
    chi2cp->SetMaximum(maxh);
@@ -359,7 +374,7 @@ void chi2_SB(int date, string pdf="", int Cx=800, int Cy=800)
    chi2sb->DrawCopy("SAME");
    chi2_mcS->DrawCopy("SAME HIST");
 
-   TLegend* leg = new TLegend(0.46,0.64,0.89,0.89);
+   TLegend* leg = new TLegend(0.46,0.64,0.892,0.89);
    leg->SetHeader( Form("#chi^{2}(5C): %i",date),"C");
    leg->AddEntry(chi2cp,"Data: signal region","LE");
    leg->AddEntry(chi2_mcS,"MC signal #phi#eta","L");
@@ -386,28 +401,28 @@ void chi2_Pr()
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   size_t Cx = 880, Cy = 760; // canvas sizes
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
-   // 0) optimization of chi2-cut
+   // 1) optimization of chi2-cut, Fig.8
    //    type=0: Sig/sqrt(Sig+Bkg)  = (Data-SB)/sqrt(Data)
    //    type=1: 1/(relative error) = (Data-SB)/sqrt(Data+SB)
    //    type=2: Sig/sqrt(Sig+Bkg)  = MC_sig/sqrt(Data)
    int type = 2; // the curve is smoother than in type=0
-   // for ( int date : {2009, 2012, 2021} ) {
-      // string pdf( Form("chi2opt_%i.pdf",date) );
-      // chi2opt(date,type,pdf,Cx,Cy);
-   // }
-
-   // 1) data vs signal MC in the window for M(K+K-) .. fig.10
    for ( int date : {2009, 2012, 2021} ) {
-      string pdf( Form("chi2_sb_%i.pdf",date) );
-      chi2_SB(date,pdf,Cx,Cy);
+      string pdf( Form("chi2opt_%i.pdf",date) );
+      // chi2opt(date,type,pdf,Cx,Cy);
    }
 
-   // 2) data vs inclusive MC: OLD
+   // 2) data vs signal MC, Fig.10
+   for ( int date : {2009, 2012, 2021} ) {
+      string pdf( Form("chi2_sb_%i.pdf",date) );
+      // chi2_SB(date,pdf,Cx,Cy);
+   }
+
+   // 3) data vs inclusive MC: OLD
    // for ( int date : {2009, 2012, 2021} ) {
       // string pdf;
       // // pdf = string( Form("chi2_%i.pdf",date) );

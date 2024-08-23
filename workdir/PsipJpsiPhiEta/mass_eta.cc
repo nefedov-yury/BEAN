@@ -126,7 +126,7 @@ void plot_mass_eta(int date, int mc, int Cx=600, int Cy=600)
 
    SetHstFace(mgg);
    mgg->GetXaxis()->SetTitleOffset(1.1);
-   mgg->GetYaxis()->SetTitleOffset(1.2);
+   mgg->GetYaxis()->SetTitleOffset(1.1);
    mgg->GetYaxis()->SetMaxDigits(3);
    mgg->SetLineWidth(2);
    mgg->SetLineColor(kBlack);
@@ -146,13 +146,20 @@ void plot_mass_eta(int date, int mc, int Cx=600, int Cy=600)
    TPaveText* pt = new TPaveText(0.11,0.79,0.4,0.89,"NDC");
    pt->SetTextAlign(22);
    pt->SetTextFont(42);
+   pt->SetFillColor(kWhite);
    pt->AddText( title.c_str() );
 
    auto name = Form("c1_%i_%i",mc,date);
-   TCanvas* c1 = new TCanvas(name,name,20*mc,10*(date-2009),Cx,Cy);
+   TCanvas* c1 = new TCanvas(name,name,mc*(Cx/2),10*(date-2009),Cx,Cy);
    c1->cd();
 
-   GaussFit(mgg);
+   // GaussFit(mgg);
+   TF1* gs = (TF1*)gROOT->GetFunction("gaus");
+   gs->SetParameters(1.,Meta,weta/3);
+   gs->SetLineWidth(2);
+   gs->SetLineColor(kRed);
+   mgg->Fit(gs,"","",Meta-2*weta/3,Meta+2*weta/3);
+   // mgg->Fit(gs,"","",Meta-weta/3,Meta+weta/3);
 
    double ymax=0.4*mgg->GetMaximum();
    lR->DrawLine(Meta-weta,0,Meta-weta,ymax);
@@ -172,7 +179,7 @@ void plot_mass_eta(int date, int mc, int Cx=600, int Cy=600)
    c1->Print(pdf.c_str());
 }
 
-// {{{1 M(gg) presentation TODO: is it OLD?
+// {{{1 M(gg) presentation TODO: OLD
 //--------------------------------------------------------------------
 void plot_mass_eta_PR()
 //--------------------------------------------------------------------
@@ -266,22 +273,23 @@ void mass_eta()
 {
    gROOT->Reset();
    gStyle->SetOptStat(0);
-   gStyle->SetStatFont(62);
+   gStyle->SetStatFont(42);
    gStyle->SetOptFit(112); // print all parameters (fixed)
 
    gStyle->SetFitFormat(".3g");
-   gStyle->SetStatX(0.89);
+   gStyle->SetStatX(0.892);
    gStyle->SetStatY(0.89);
    gStyle->SetStatW(0.18);
    gStyle->SetStatH(0.12);
 
    //========================================================
    // set the name of the folder with the root files
-   Dir = "prod_v709n3/";
+   Dir = "prod_v709n4/";
    //========================================================
 
-   size_t Cx = 880, Cy = 760; // canvas sizes
+   size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
+   // Fig.9
    for ( int date : {2009, 2012, 2021} ) {
       for ( int mc : {0,2} ) { // data, MC-sig
          plot_mass_eta(date, mc, Cx, Cy); // memo

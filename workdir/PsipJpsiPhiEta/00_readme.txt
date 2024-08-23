@@ -73,14 +73,14 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // Data vs MC for pi+,pi- from Psi(2S) -> Jpsi pi+pi-
 //      -> {VarName}_{YEAR}.pdf
 
-// +MrecFitSB.cc
+// MrecFitSB.cc
 // * MrecDraw() : draws a picture of recoil mass of pi+pi-
 //    -> Mrec{YEAR}[_zoom].pdf
 // * DoFitSB() : calculate number of Psi(2S) -> J/Psi pi+ pi- decays
 //               in data using side-band method
 //    -> Mrec{YEAR}_fsb[_sys{Sys}]_T{Npol}.pdf
 
-+MrecFit.cc:
+// MrecFit.cc:
 // * Data fitting by correcting of MC signal and scaling of
 //   MC background
 //   -> Mrec_{YEAR}_M{MODEL}_T{Npol}_[hohc].pdf
@@ -89,15 +89,33 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // * estimate systematic associated with a fit model
 
 //--------------------------------------------------------------------
-2) Selection Jpsi -> phi eta
+(2) Selection Jpsi -> phi eta
 //           see ../phieta/ with such scripts for J/Psi scan data
 //--------------------------------------------------------------------
 
-// + bkg.mc
-// tables of decay Psi(2S) -> J/Psi -> final state,
-// to study background; use inclusive MC or sigbal MC
+// chi2_Pr.cc
+// plot chi2 of the 5C kinematic constrints
+// 1) optimization of chi2: Sig/sqrt(Sig+Bkg) vs ch2
+//    -> chi2opt_{YEAR}.pdf
+// 2) data (CP and SB) vs signal MC for M(K+K-) < 1.08
+//    -> chi2_sb_{YEAR}.pdf
 
-// + mass_2D.cc
+// mass_eta.cc
+// plot M(gamma gamma) distributions for data and MC
+// fit central part, show side-bands
+// -> mass_eta_{dat|mi|mc}_{YEAR}.pdf
+
+// kkgg_dataMC.cc
+// data vs MC for  Jpsi -> phi eta  selection
+// -> var_datMC{YEAR}.pdf
+
+// mass_kk.cc
+// plot M(K+K-) for data and signal MC for Mgg in central and side
+// bands.
+//      -> mass_kk_{YEAR}.pdf
+//      -> mass_kksb_{YEAR}.pdf
+
+// mass_2D.cc
 // 1) plot M(gamma,gamma) vs M(K+K-)
 //    -> Mass2D_{data|mcinc}{Year}.pdf;
 //
@@ -107,28 +125,9 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 //      type = 2 M^2(K+K-) vs M^2(K+eta)
 //    -> Dalitz{type}_{data|mcinc}{Year}.pdf
 
-// +mass_eta.cc
-// plot M(gamma gamma) distributions for data and MC
-// fit central part, show side-bands
-// -> mass_eta_{dat|mi|mc}_{YEAR}.pdf
-
-// +chi2_Pr.cc
-// plot chi2 of the 5C kinematic constrints
-// 1) data (CP and SB) vs signal MC for M(K+K-) < 1.08
-//    -> chi2_sb_{YEAR}.pdf
-//
-// 0) optimization of chi2: Sig/sqrt(Sig+Bkg) vs ch2
-//    -> chi2opt_{YEAR}.pdf
-
-// +kkgg_dataMC.cc
-// data vs MC for  Jpsi -> phi eta  selection
-// -> var_datMC{YEAR}.pdf
-
-// +mass_kk.cc
-// plot M(K+K-) for data and signal MC for Mgg in central and side
-// bands.
-//      -> mass_kk_{YEAR}.pdf
-//      -> mass_kksb_{YEAR}.pdf
+// bkg.mc -> unused
+// tables of decay Psi(2S) -> J/Psi -> final state,
+// to study background; use inclusive MC or sigbal MC
 
 //--------------------------------------------------------------------
 // 2a) Study M(K+K-)
