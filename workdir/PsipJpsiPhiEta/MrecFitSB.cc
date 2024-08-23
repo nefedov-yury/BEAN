@@ -14,7 +14,7 @@
 // background from the data.
 
 #include <filesystem>
-namespace fs = std::filesystem;
+// namespace fs = std::filesystem;
 
 #include "RewTrkPiK.hpp"    // RewTrkPi(), RewTrk_K() functions
 
@@ -70,7 +70,6 @@ void set_draw_opt(vector<TH1D*>& hst) {
    hst[2]->SetLineColor(kGreen+3);
    hst[2]->SetLineWidth(2);
    // MC bg from pi+pi-J/Psi
-   // hst[3]->SetLineColor(kBlue+3);
    hst[3]->SetLineColor(kCyan+2);
    hst[3]->SetLineWidth(2);
    // MC bg not pi+pi-J/Psi
@@ -672,7 +671,7 @@ void DoFitSB(int date, int Cx=800, int Cy=800, int Sys=0)
    set_draw_opt(hst);
    SetHstFace(hst[0]);
    hst[0]->GetXaxis()->SetTitleOffset(1.1);
-   hst[0]->GetYaxis()->SetTitleOffset(1.25);
+   hst[0]->GetYaxis()->SetTitleOffset(1.1);
 
    hst[0]->Draw("E"); // data
 
@@ -715,7 +714,7 @@ void DoFitSB(int date, int Cx=800, int Cy=800, int Sys=0)
 
    // hstBG2->Draw("SAME,HIST"); // Rescaled Bg2
 
-   TLegend* leg = new TLegend(0.58,0.70,0.89,0.89);
+   TLegend* leg = new TLegend(0.58,0.69,0.892,0.89);
    if ( Sys ) {
       leg->SetHeader( Form("Systematics #%i",Sys), "C" );
    }
@@ -726,28 +725,26 @@ void DoFitSB(int date, int Cx=800, int Cy=800, int Sys=0)
    leg->AddEntry(hst[0],Form("Data %i",date), "EP");
 
    leg->AddEntry(SumBG,
-         Form("#color[%i]{sum of backgrounds}",
+         Form("#color[%i]{Sum of all backgrounds}",
          SumBG->GetLineColor() ),"L");
 
+   const char* Lpp = "#pi#lower[-0.8]{#scale[0.8]{#plus}}"
+      "#pi#lower[-0.8]{#scale[0.8]{#minus}}";
    leg->AddEntry(MCsig,
-         Form("#color[%i]{MC #pi^{#plus}#pi^{#minus}J/#Psi "
-         "correct #pi^{#plus}#pi^{#minus}}",
-         MCsig->GetLineColor() ),"L");
+         Form("#color[%i]{MC signal}",MCsig->GetLineColor()), "L" );
 
    leg->AddEntry(SumMC,
-         Form("#color[%i]{MCsignal + bgs}",
-         SumMC->GetLineColor() ),"L");
+         Form("#color[%i]{Full fit}",SumMC->GetLineColor()), "L");
 
    // leg->AddEntry(hstBG2,
-         // Form("#color[%i]{MC bg non #pi^{#plus}#pi^{#minus}J/#Psi}",
-         // hstBG2->GetLineColor() ),"L");
+         // Form("#color[%i]{MC bg non %sJ/#Psi}",
+            // hstBG2->GetLineColor(),Lpp ),"L");
 
-   leg->AddEntry(box, "excluded from fit","F");
-   // leg->AddEntry(box2,"[3.092,3.102]","F");
+   leg->AddEntry(box, "area excluded from fitting","F");
    leg->Draw();
 
-   double Ypt = 0.70 - 0.03*(Npol-3);
-   TPaveText* pt = new TPaveText(0.11,Ypt,0.42,0.89,"NDC");
+   double Ypt = 0.68 - 0.04*(Npol-3);
+   TPaveText* pt = new TPaveText(0.11,Ypt,0.40,0.89,"NDC");
    pt->SetTextAlign(12);
    pt->SetTextFont(42);
    pt->AddText( Form("#bf{Fit in [%.2f,%.2f] & [%.2f,%.2f] }",
@@ -772,11 +769,11 @@ void DoFitSB(int date, int Cx=800, int Cy=800, int Sys=0)
             Npol,3.0,ExMin,ExMax,3.2,chi2,ndf,chi2/ndf );
       if ( date == 2009 ) {
          // Ns = ; Nw = ;
-         Ns = 15.998e6; Nw = 18.065e6;
+         Ns = 15.998e6; Nw = 18.066e6;
       } else if ( date == 2012 ) {
          Ns = 49.903e6; Nw = 56.728e6;
       } else if ( date == 2021 ) {
-         Ns = 324.948e6; Nw = 370.204e6;
+         Ns = 324.947e6; Nw = 370.197e6;
       }
    }
    printf("%s\n",sepline.c_str());
@@ -828,8 +825,8 @@ void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800)
       }
    }
 
-   auto name = Form("c1_%i",date);
-   TCanvas* c1 = new TCanvas(name,name, 0, 0, Cx, Cy);
+   auto name = Form("c1_%i_%i",int(zoom),date);
+   TCanvas* c1 = new TCanvas(name,name, 0, int(zoom)*Cy/2, Cx, Cy);
    c1->cd();
    gPad->SetGrid();
    gPad->SetLogy(!zoom);
@@ -837,7 +834,7 @@ void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800)
    set_draw_opt(hst);
    SetHstFace(hst[0]);
    hst[0]->GetXaxis()->SetTitleOffset(1.1);
-   hst[0]->GetYaxis()->SetTitleOffset(1.25);
+   hst[0]->GetYaxis()->SetTitleOffset(1.1);
 
    hst[0]->Draw("E"); // data
 
@@ -858,32 +855,34 @@ void MrecDraw(int date, bool zoom=false, int Cx=800, int Cy=800)
    hstC10->Scale(10.);
    hstC10->Draw("SAME,HIST"); // Cont
 
-   TLegend* leg = new TLegend(0.55,0.60,0.89,0.89);
-   // leg->SetHeader("Recoil Mass of #pi^{#plus}#pi^{#minus}", "C");
-   leg->AddEntry(hst[0],
-         (string("Data ")+to_string(date)).c_str(), "EP");
+   TLegend* leg = new TLegend(0.55,0.60,0.892,0.89);
+   leg->AddEntry(hst[0], Form("Data %i",date), "EP");
 
+   // Form("#color[%i]{MCsig #plus MCbg #plus Cont.}",
    leg->AddEntry(hstSUM,
-         Form("#color[%i]{MCsig #plus MCbg #plus Cont.}",
-         hstSUM->GetLineColor() ),"L");
+         Form("#color[%i]{MC #plus Non-resonant bg}",
+            hstSUM->GetLineColor() ),"L");
 
+   const char* Lpp = "#pi#lower[-0.8]{#scale[0.8]{#plus}}"
+      "#pi#lower[-0.8]{#scale[0.8]{#minus}}";
+   // Form("#color[%i]{MC %sJ/#Psi correct %s}",
    leg->AddEntry(hst[2],
-         Form("#color[%i]{MC #pi^{#plus}#pi^{#minus}J/#Psi "
-         "correct #pi^{#plus}#pi^{#minus}}",
-         hst[2]->GetLineColor() ),"L");
+         Form("#color[%i]{MC signal}",hst[2]->GetLineColor()),"L");
 
+   // Form("#color[%i]{MC %sJ/#Psi wrong %s}",
    leg->AddEntry(hst[3],
-         Form("#color[%i]{MC #pi^{#plus}#pi^{#minus}J/#Psi "
-         "wrong #pi^{#plus}#pi^{#minus}}",
-         hst[3]->GetLineColor() ),"L");
+         Form("#color[%i]{MC bg, incorrect %s}",
+            hst[3]->GetLineColor(),Lpp ),"L");
 
+   // Form("#color[%i]{MC bg non %sJ/#Psi}",
    leg->AddEntry(hst[4],
-         Form("#color[%i]{MC bg non #pi^{#plus}#pi^{#minus}J/#Psi}",
-         hst[4]->GetLineColor() ),"L");
+         Form("#color[%i]{MC bg, non %sJ/#Psi}",
+            hst[4]->GetLineColor(),Lpp ),"L");
 
+   // Form("#color[%i]{Continuum bg #times 10}",
    leg->AddEntry(hstC10,
-         Form("#color[%i]{Continuum bg #times 10}",
-         hstC10->GetLineColor() ),"L");
+         Form("#color[%i]{Non-resonant bg #times 10}",
+            hstC10->GetLineColor() ),"L");
    leg->Draw();
 
    gPad->RedrawAxis();
@@ -912,20 +911,23 @@ void MrecFitSB()
 
    size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
+   // Fig.4
    for ( int date : { 2009,2012,2021 } ) {
       bool zoom = true;
       // MrecDraw(date, !zoom, Cx, Cy);
       // MrecDraw(date,  zoom, Cx, Cy);
    }
 
-   // int date=2009;
-   // int date=2012;
-   // int date=2021;
 
-   // DoFitSB(date, Cx, Cy);
+   // main fit, Fig.6
+   // for ( int date : { 2009,2012,2021 } ) {
+      // cout << " >>> " << date << " <<<" << endl;
+      // DoFitSB(date, Cx, Cy);
+   // }
 
    // SB systematic: NT && Range
    // for ( int date : { 2009,2012,2021 } ) {
+      // cout << " >>> " << date << " <<<" << endl;
       // for ( int sys : {1,2,3,4} ) {
          // DoFitSB(date, Cx, Cy, sys);
       // }
@@ -933,6 +935,8 @@ void MrecFitSB()
 
    // SB systematic: No HC (slow)
    // for ( int date : { 2009,2012,2021 } ) {
+      // cout << " >>> " << date << " <<<" << endl;
       // DoFitSB(date, Cx, Cy, 5);
    // }
+
 }

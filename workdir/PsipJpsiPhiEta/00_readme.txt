@@ -69,7 +69,7 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // ClonedTrks.cc
 // study of cloned tracks, for presentation only
 
-// +pipi_dataMC.cc
+// pipi_dataMC.cc
 // Data vs MC for pi+,pi- from Psi(2S) -> Jpsi pi+pi-
 //      -> {VarName}_{YEAR}.pdf
 

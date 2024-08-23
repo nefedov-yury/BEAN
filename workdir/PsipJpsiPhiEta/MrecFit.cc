@@ -65,7 +65,6 @@ void set_draw_opt(vector<TH1D*>& hst)
    hst[2]->SetLineColor(kGreen+3);
    hst[2]->SetLineWidth(1);
    // MC bg from pi+pi-J/Psi
-   // hst[3]->SetLineColor(kBlue+3);
    hst[3]->SetLineColor(kCyan+2);
    hst[3]->SetLineWidth(2);
    // MC bg not pi+pi-J/Psi
@@ -184,20 +183,17 @@ vector<TH1D*> fill_hist(int date)
 #include "norm.h"
    double shift = 0.0;
    if ( date == 2009 ) {
-      //n3 shift = 0.000227; // chi2(M2) = 3136*n3
-      // shift = 0.000225; // chi2(M2) = 3152
-      shift = 0.000226; // chi2(M2) = 3074 +
-      // shift = 0.000227; // chi2(M2) = 3075
-      // shift = 0.000228; // chi2(M2) = 3147
+      //n3 shift = 0.000227;
+      // shift = 0.000225; // chi2(M2) = 3150
+      shift = 0.000226; // chi2(M2) = 3071 +
+      // shift = 0.000227; // chi2(M2) = 3073
    } else if ( date == 2012 ) {
-      //n3 shift = 0.000386; // chi2(M2) = 6184*n3
-      // shift = 0.000385; // chi2(M2) = 6249
-      shift = 0.000386; // chi2(M2) = 6094 +
-      // shift = 0.000387; // chi2(M2) = 6245
+      // shift = 0.000385; // chi2(M2) = 6249?
+      shift = 0.000386; // chi2(M2) = 6073 +
+      // shift = 0.000387; // chi2(M2) = 6245?
    } else if ( date == 2021 ) {
-      //n3 shift = 0.000607; // chi2(M2) = 23031*n3
       // shift = 0.000606; // chi2(M2) = 23426
-      shift = 0.000607; // chi2(M2) = 22443 +
+      shift = 0.000607; // chi2(M2) = 22413 +
       // shift = 0.000608; // chi2(M2) = 22973
    }
 
@@ -225,6 +221,7 @@ vector<TH1D*> fill_hist(int date)
             << ": unreadeble file: " << cachef << endl;
          exit(EXIT_FAILURE);
       }
+      cout << "read file: " << cachef << endl;
       for ( size_t i = 0; i < hname.size(); ++i ) {
          hst[i]=(TH1D*)froot->Get(hname[i].c_str());
       }
@@ -1122,9 +1119,7 @@ void DoFit(int date, int Cx=800, int Cy=800)
          par_ini = { 0.969, 0.86e-3,
             1.094,0.005,-0.027,-0.001 }; // old +0.23MeV old
       } else if ( Model == 2 ) {
-         // par_ini = { 0.986, 3.20e-3, 0.62e-3, 0.88,
-            // 1.097,0.008,0.007,0.000,0.013 }; // +0.227MeV n3
-         par_ini = { 0.986, 3.20e-3, 0.62e-3, 0.87,
+         par_ini = { 0.985, 3.20e-3, 0.62e-3, 0.87,
             1.095,0.008,0.006,0.001,0.012 }; // +0.226MeV
       }
    } else if ( date == 2012 ) {
@@ -1132,18 +1127,14 @@ void DoFit(int date, int Cx=800, int Cy=800)
          par_ini = { 0.982, 0.98e-3,
             1.118,0.008,-0.030,-0.006 }; // old +0.38MeV old
       } else if ( Model == 2 ) {
-         // par_ini = { 0.995, 3.40e-3, 0.70e-3, 0.86,
-            // 1.116,0.026,0.008,0.008,0.014,0.008 }; // +0.386MeV n3
          par_ini = { 0.995, 3.39e-3, 0.70e-3, 0.86,
-            1.114,0.025,0.008,0.008,0.014,0.008 }; // +0.386MeV
+            1.114,0.025,0.008,0.008,0.013,0.008 }; // +0.386MeV
       }
    } else if ( date == 2021 ) {
       if ( Model == 1 ) {
          par_ini = { 0.945, 0.89-3,
             1.066,-0.006,-0.020,-0.002 }; // old +0.60MeV old
       } else if ( Model == 2 ) {
-         // par_ini = { 0.995, 3.05e-3, 0.62e-3, 0.86,
-            // 1.078,0.006,0.009,0.006,0.010,0.005 }; // +0.607MeV n3
          par_ini = { 0.995, 3.04e-3, 0.62e-3, 0.86,
             1.075,0.005,0.009,0.006,0.010,0.005 }; // +0.607MeV
       }
@@ -1218,7 +1209,7 @@ void DoFit(int date, int Cx=800, int Cy=800)
    SetHstFace(hst[0]);
    hst[0]->SetAxisRange(EMin,EMax,"X");
    hst[0]->GetXaxis()->SetTitleOffset(1.1);
-   hst[0]->GetYaxis()->SetTitleOffset(1.25);
+   hst[0]->GetYaxis()->SetTitleOffset(1.1);
 
    hst[0]->Draw("E"); // data
 
@@ -1260,16 +1251,14 @@ void DoFit(int date, int Cx=800, int Cy=800)
 
    // hstBG2->Draw("SAME,HIST"); // Rescaled Bg2
 
-   TLegend* leg = new TLegend(0.60,0.67,0.892,0.89);
+   TLegend* leg = new TLegend(0.63,0.65,0.892,0.89);
    leg->AddEntry(hst[0], Form("Data %i",date), "EP");
    leg->AddEntry(SumMC,
-         Form("#color[%i]{Sig + Bkg + Cont}",
-            SumMC->GetLineColor() ),"L");
+         Form("#color[%i]{Full fit}",SumMC->GetLineColor()), "L");
    leg->AddEntry(MCsig_cor,
-         Form("#color[%i]{Signal}",
-            MCsig_cor->GetLineColor() ),"L");
+         Form("#color[%i]{Signal}",MCsig_cor->GetLineColor()), "L");
    leg->AddEntry(SumBG,
-         Form("#color[%i]{Bkg + Cont}",
+         Form("#color[%i]{Full background}",
             SumBG->GetLineColor() ),"L");
    leg->AddEntry(box2,"[3.092,3.102]","F");
    leg->AddEntry(box1,"[3.060,3.140]","F");
@@ -1308,13 +1297,13 @@ void DoFit(int date, int Cx=800, int Cy=800)
    // plot_diff(hst[0],SumMC,pt,string("Diff_")+pdf);
 
    // numbers for E in [Emin,Emax]
-   double Ns = 0., Nw = 0.;
-   if ( date == 2009 ) { // see MrecFistSB.cc
-      Ns = 15.998e6; Nw = 18.065e6;
+   double Ns = 0., Nw = 0.; // see MrecFistSB.cc
+   if ( date == 2009 ) {
+      Ns = 15.998e6; Nw = 18.066e6;
    } else if ( date == 2012 ) {
       Ns = 49.903e6; Nw = 56.728e6;
    } else if ( date == 2021 ) {
-      Ns = 324.948e6; Nw = 370.204e6;
+      Ns = 324.947e6; Nw = 370.197e6;
    }
 
    printf("* T_%zu: Chi2 / NDf = %.0f / %i = %.1f\n",
@@ -1367,7 +1356,8 @@ void MrecFit()
    size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    // for ( int date : { 2009 } ) {
-   for ( int date : { 2009,2012,2021 } ) {
+   // for ( int date : { 2009,2012,2021 } ) {
+      // cout << " >>> " << date << " <<<" << endl;
       // DoFit(date, Cx, Cy);
-   }
+   // }
 }

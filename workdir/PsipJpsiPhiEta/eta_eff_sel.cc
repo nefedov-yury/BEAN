@@ -26,10 +26,10 @@ struct Params {
    int use_rew; // 0 - no weights;
                 // 1 - calculate weights
 
-   TCut Cmcsig; // for mc-signal
-   TCut Cbg;    // cuts against the background
-   TCut Cph;    // cuts for selection photons
-   TCut Ceta;   // cuts for selection eta
+   TCut Cmcsig; // select mc-signal
+   TCut Cbg;    // background suppression
+   TCut Cph;    // selection photons
+   TCut Ceta;   // limits for fitting the ratio
    TCut Cfnd;   // predicted eta found
 
    const double meta   = 0.54786; // 547.862   +/- 0.017   MeV
@@ -52,14 +52,14 @@ Params::Params(int dat, int slc = 2, int rew = 0)
    mcsigf1 = string( Form("mcgammaeta2_kkmc_%02i.root",date%100) );
    mcsigf2 = string( Form("mcphieta2_kkmc_%02i.root",date%100) );
 
-   // mc-signal
+   // select mc-signal
    if ( slct > 0 ) {    // gamma-eta
       Cmcsig += TCut("decj==22");
    } else {             // phi-eta
       Cmcsig += TCut("decj==68");
    }
 
-   // cuts against the background
+   // background suppression
    if ( slct > 0 ) {         // gamma-eta
       Cbg += TCut("abs(Cg0)<0.8");
       Cbg += TCut("abs(Cg1)<0.8");
@@ -70,7 +70,7 @@ Params::Params(int dat, int slc = 2, int rew = 0)
       Cbg += TCut("m2fr<0.001");
    }
 
-   // cuts for selection photons
+   // selection photons
    Cph += TCut("abs(Cg1)<0.8||(abs(Cg1)>0.85&&abs(Cg1)<0.92)");
    Cph += TCut("abs(Cg2)<0.8||(abs(Cg2)>0.85&&abs(Cg2)<0.92)");
    if ( slct > 0 ) {         // gamma-eta
@@ -79,7 +79,7 @@ Params::Params(int dat, int slc = 2, int rew = 0)
       Cph += TCut("Eg2>0.05&&Eg2<1.45");
    }
 
-   // cuts for selection eta
+   // we fit the ratio using these limits
    if ( slct > 0 ) {         // gamma-eta
       Ceta += TCut("Peta>1.3&&Peta<1.7");
    } else {                  // phi-eta

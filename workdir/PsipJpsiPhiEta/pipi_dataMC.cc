@@ -149,13 +149,13 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600)
       hst[0]->SetTitle(
             ";cos #Theta_{#pi^{ #plus}}"
             ";Events/0.02" );
-      hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    } else if ( hname == "Pim_C") {
       pos = 2;
       hst[0]->SetTitle(
             ";cos #Theta_{#pi^{ #minus}}"
             ";Events/0.02" );
-      hst[0]->GetYaxis()->SetTitleOffset(1.2);
+      hst[0]->GetYaxis()->SetTitleOffset(1.1);
    } else if ( hname == "Bnch") {
       box = nullptr;
       hst[0]->SetTitle(
@@ -188,6 +188,7 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600)
       // box->DrawBox(-1.,1.,-0.8,win_max);
       // box->DrawBox(0.8,1.,1.,win_max);
    }
+   hst[0]->GetXaxis()->SetTitleOffset(1.1);
    hst[0]->Draw("E, SAME"); // data
    hst[3]->Draw("SAME,HIST"); // sum
    hst[1]->Draw("SAME,HIST"); // cont.
@@ -195,20 +196,21 @@ void plot_hist(string hname, int date, int Cx=600, int Cy=600)
 
    TLegend* leg;
    if ( pos == 0 ) { // default
-      leg = new TLegend(0.56,0.65+0.07*(box==nullptr),0.89,0.89);
+      leg = new TLegend(0.56,0.65+0.07*(box==nullptr),0.892,0.89);
    } else if ( pos == 1 ) {
-      leg = new TLegend(0.60,0.74,0.89,0.89);
+      leg = new TLegend(0.585,0.75,0.892,0.89);
    } else if ( pos == 2 ) {
       leg = new TLegend(0.32,0.26,0.68,0.50);
    }
    leg->AddEntry(hst[0],
          Form("Data %i",date), "EP");
-         // Form("#color[%i]{MC #plus Off-resonance}",
+   // Form("#color[%i]{MC #plus Continuum}",
    leg->AddEntry(hst[3],
-         Form("#color[%i]{MC #plus Continuum}",
+         Form("#color[%i]{MC #plus Off-resonance}",
             hst[3]->GetLineColor()), "L");
+   // Form("#color[%i]{Continuum}",
    leg->AddEntry(hst[1],
-         Form("#color[%i]{Continuum}",
+         Form("#color[%i]{Off-resonance}",
             hst[1]->GetLineColor()), "L");
    if ( box ) {
       leg->AddEntry(box, "Rejection area","F");
@@ -494,7 +496,7 @@ void fill_hist(int date, string var, FILL_H fill_h, TH1D* hst[])
 }
 
 //--------------------------------------------------------------------
-void plot_One(int date,string var FILL_H fill_h,int Cx=600,int Cy=600)
+void plot_One(int date,string var,FILL_H fill_h,int Cx=600,int Cy=600)
 //--------------------------------------------------------------------
 {
    auto name = Form("c1_%i_%s",date,var.c_str());
@@ -516,7 +518,8 @@ void plot_One(int date,string var FILL_H fill_h,int Cx=600,int Cy=600)
 
    SetHstFace(hst[0]);
    // hst[0]->SetAxisRange(0.,win_max,"Y");
-   hst[0]->GetYaxis()->SetTitleOffset(1.2);
+   hst[0]->GetYaxis()->SetTitleOffset(1.1);
+   hst[0]->GetXaxis()->SetTitleOffset(1.1);
    hst[0]->Draw("E"); // data
    hst[2]->Draw("SAME,HIST"); // inc. MC
    hst[1]->Draw("SAME,HIST"); // cont.
@@ -525,17 +528,19 @@ void plot_One(int date,string var FILL_H fill_h,int Cx=600,int Cy=600)
    int pos = 0;
    TLegend* leg;
    if ( pos == 0 ) { // default
-      leg = new TLegend(0.53,0.65,0.89,0.89);
+      leg = new TLegend(0.53,0.65,0.892,0.89);
    } else {
       leg = new TLegend(0.11,0.65,0.47,0.89);
    }
    leg->AddEntry(hst[0],
          (string("Data ")+to_string(date)).c_str(), "EP");
+   // Form("#color[%i]{MC + Continuum}",
    leg->AddEntry(hst[2],
-         Form("#color[%i]{MC + Continuum}",hst[2]->GetLineColor()),
-         "L");
+         Form("#color[%i]{MC + Off-resonance}",
+            hst[2]->GetLineColor()), "L");
+   // Form("#color[%i]{Continuum}",hst[1]->GetLineColor()),
    leg->AddEntry(hst[1],
-         Form("#color[%i]{Continuum}",hst[1]->GetLineColor()),
+         Form("#color[%i]{Off-resonance}",hst[1]->GetLineColor()),
          "L");
    leg->AddEntry(hst[3],
          Form("#color[%i]{non #pi^{#plus}#pi^{#minus}J/#Psi decay}",
@@ -567,9 +572,11 @@ void pipi_dataMC()
    Dir = "prod_v709n4/";
    //========================================================
 
-   // Fig. 2,3,5
    size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
-   for ( auto date : {2009, 2012, 2021} ) {
+
+   // Fig. 2,3,5
+   // for ( auto date : {2009, 2012, 2021} ) {
+   for ( auto date : {2021} ) {
       // plot_hist("cosPM",date,Cx,Cy);
       // plot_hist("invPM",date,Cx,Cy);
 
