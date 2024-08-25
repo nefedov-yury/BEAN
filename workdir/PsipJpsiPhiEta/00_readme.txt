@@ -64,7 +64,7 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 
 
 //--------------------------------------------------------------------
-(1) Selection Psi' -> J/Psi pi+pi-, number of J/Psi
+(1) Selection Psi' -> J/Psi pi+pi-. Number of J/Psi
 //--------------------------------------------------------------------
 // ClonedTrks.cc
 // study of cloned tracks, for presentation only
@@ -130,13 +130,17 @@ p10a4cMC.h -> declaration of variables in prod-10mc & prod-11 a4c
 // to study background; use inclusive MC or sigbal MC
 
 //--------------------------------------------------------------------
-// 2a) Study M(K+K-)
+(2a) Selection efficiency
 //--------------------------------------------------------------------
-eff_mc.cc:
-// efficiencies for selection of the J/Psi -> phi eta
-// as a function of true MC M(K+K-) and
-// fit it by a straight line
-// -> eff_(sig|bkg)_YYYY.pdf
+
+// eff_mc.cc
+// selection efficiency of the  J/Psi -> phi eta  as a function
+// of true M(K+K-)
+//      -> eff_sig_{date}.pdf
+
+//--------------------------------------------------------------------
+(2b) Fitting of M(K+K-)
+//--------------------------------------------------------------------
 
 mass_kk_fit.cc:
 // unbinned LH fit of M(K+K-) distributions
@@ -169,7 +173,7 @@ mrec_4C.cc - Here we use special selection with 4C-kinematic
 Lmedian.cc - calculate confidence interval
 
 //--------------------------------------------------------------------
-OLD:
+OLD, archive:
 //--------------------------------------------------------------------
 br_aver.py - average of two periods of data taking
 
