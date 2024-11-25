@@ -1,7 +1,11 @@
 ====================================================================
- This contains the EventTag version for the bean,
- augmented with a class DecayTable to store the decay table as a text.
- 
+This is the EventTag package adapted for the bean,
+augmented with a class DecayTable to store the decay table as a text.
+
+ File 'pdt_bean.table' is taken from the BesEvtGen package:
+ boss-7.1.2/Generator/BesEvtGen/BesEvtGen-00-04-30/share/pdt.table
+
+
  DecayTable contains:
  *) variables:
     decays: table string with final particles -> number of decays
