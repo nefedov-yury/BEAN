@@ -10,8 +10,6 @@ TCut c_Mrec("abs(Mrec-3.097)<0.005");
 //--------------------------------------------------------------------
 // 2) J/Psi -> phi eta
 //--------------------------------------------------------------------
-TCut c_MCmkk("mcmkk<1.08"); // cut for MC generated events
-
 // chi^2 cut: use helix correction ON/OFF to systematic study
 // double chi2M = 40; // prod v604
 double chi2M = 100;

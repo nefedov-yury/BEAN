@@ -23,9 +23,9 @@ function run_mcsig() {
 
 }
 
-#  run_mcsig 09
-#  run_mcsig 12
-#  run_mcsig 21
+# run_mcsig 09
+# run_mcsig 12
+# run_mcsig 21
 
 ########## MC-EtaEff: Psi(2S)->pi+pi-J/Psi->gamma eta ################
 function run_mcgammaeta() {
@@ -70,7 +70,7 @@ function run_mcphieta2() {
 
 #################### MC INCLUSIVE PSI(2S) ##################
 #  DSTDIR="/data/bes3/709/psip/21mc/dst"
-if [ 1 -eq 1 ]; then
+if [ 0 -eq 1 ]; then
   printf "run local mcinc_21\n"
   ${BEAN7} \
     -u DelClonedTrks \

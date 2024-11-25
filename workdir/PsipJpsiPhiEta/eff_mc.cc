@@ -89,10 +89,6 @@ vector<TH1D*> get_hst(int date)
       exit(EXIT_FAILURE);
    }
 
-   // use Mrb here
-   TCut c_Mrb = TCut("abs(Mrb-3.097)<0.005");
-   // TCut c_MCmkk("mcmkk<1.08"); // cut for MC generated events
-
    double Lphi = 0.98, Uphi = 1.08; // histogramms
    int Nbins = 50;
    TH1D* mkk_i = new TH1D(Form("mkk_i_%i",date),"",Nbins,Lphi,Uphi);
@@ -102,16 +98,12 @@ vector<TH1D*> get_hst(int date)
    mkk_f->Sumw2(true);
    mkk_sb->Sumw2(true);
 
-   double Nppj = nt1->Draw(Form("mcmkk>>%s",mkk_i->GetName()),
-         c_Mrb&&c_MCmkk,"goff");
+   // use Mrb here
+   TCut c_Mrb = TCut("abs(Mrb-3.097)<0.005");
+   nt1->Draw( Form("mcmkk>>%s",mkk_i->GetName()), c_Mrb, "goff" );
+   double Nppj = mkk_i->Integral();
    printf("number of pi+pi-J/Psi after cut '%s' is %.0f\n",
          c_Mrb.GetTitle(),Nppj);
-
-   double nI = mkk_i->Integral(1,Nbins);
-   if ( fabs(nI-Nppj) > 1e-3 ) { // paranoid check
-      printf("DEBUG: mkk_i(Integ)= %f, Nppj= %f\n",nI,Nppj);
-      printf("       scale mkk_i= %f\n",Nppj/nI);
-   }
 
    //-----------------------------------------------------------------
    // get final histograms
@@ -182,13 +174,13 @@ vector<TH1D*> get_hst(int date)
    Long64_t nentries = a4c -> GetEntries();
    for ( Long64_t i = 0; i < nentries; ++i ) {
       a4c->GetEntry(i);
-      if ( !(mcmkk<1.08) ) continue;
+      // if ( !(mcmkk<1.08) ) continue;
       if ( !cl_Mrec(Mrec) ) continue;
       if ( !cl_chi2(ch2) ) continue;
       if ( !cl_phi(Mkk) ) continue;
 
       // correction for K+,K- eff:
-      double w = 1;
+      double w = 1.;
       if ( !NoW ) { // disable corrections for I/O check
          double the_p = acos(Ckp);
          double Ptkp = Pkp*sin(the_p);
@@ -219,21 +211,20 @@ vector<TH1D*> get_hst(int date)
 // {{{1 Efficiency
 //--------------------------------------------------------------------
 vector<double> get_eff(int date, string pdf, int Cx, int Cy,
-      bool fix=false)
+      bool fix=false, int shift = 0)
 //--------------------------------------------------------------------
 {
    vector<TH1D*> hst;
    if ( date != 0 ) {
       hst = get_hst(date);
    } else {
-      for ( int d : {2009,2012,2021} ) {
+      for ( int d : {2021,2012,2009} ) { // order must be this
          auto res = get_hst(d);
          hst.insert(end(hst),begin(res),end(res));
       }
-      for ( int ih : {3,6} ) {
-         hst[0]->Add(hst[ih]);
-         hst[1]->Add(hst[ih+1]);
-         hst[2]->Add(hst[ih+2]);
+      for ( size_t ih = 0; ih < 3; ++ih ) {
+         hst[ih]->Add(hst[ih+3], 0.764); //2012: 345.4/2259.3*(3./0.6)
+         hst[ih]->Add(hst[ih+6], 0.715); //2009: 107.7/2259.3*(3./0.2)
       }
    }
 
@@ -247,7 +238,7 @@ vector<double> get_eff(int date, string pdf, int Cx, int Cy,
 
    // Draw
    auto name = Form("c1_%i",date);
-   TCanvas* c1 = new TCanvas(name,name,0,0,Cx,Cy);
+   TCanvas* c1 = new TCanvas(name,name,shift,0,Cx,Cy);
    c1->cd();
    gPad->SetGrid();
 
@@ -300,14 +291,16 @@ vector<double> get_eff(int date, string pdf, int Cx, int Cy,
    }
    // pt->AddText( "eff = eff(#phi) (1 + k (M-1.02))" );
    pt->AddText( Form("#chi^{2}/ndf = %.1f / %d",chi2,ndf) );
-   pt->AddText( Form("eff(#phi) = %.4f #pm %.4f",a,ea) );
+   // pt->AddText( Form("eff(#phi) = %.4f #pm %.4f",a,ea) );
+   pt->AddText( Form("#scale[1.2]{#varepsilon}_{0} = %.4f #pm %.4f",
+            a,ea) );
    pt->AddText( Form("k = %.2f #pm %.2f",b,eb) );
    pt->Draw();
 
    string sepline(70,'='); // separation line
    printf("%s\n",sepline.c_str());
-   printf(" fit: efficiency(%d) = e*(1+k*(mkk-1.02))\n", date);
-   printf(" e = %.4f +/- %.4f; k = %.2f +/- %.2f\n", a,ea, b,eb);
+   printf(" fit: efficiency(%d) = E_0*(1+k*(mkk-1.02))\n", date);
+   printf(" E_0 = %.4f +/- %.4f; k = %.2f +/- %.2f\n", a,ea, b,eb);
    printf("%s\n",sepline.c_str());
 
    if ( fix ) {
@@ -318,8 +311,9 @@ vector<double> get_eff(int date, string pdf, int Cx, int Cy,
       ff2->SetLineWidth(2);
       ff2->SetLineStyle(kDashed);
 
-      ff2->FixParameter(1, -1.98); // +/- 0.13
-      ff2->FixParameter(0, 0.3381); // +/- 0.0004
+      ff2->FixParameter(1, -1.97); // +/- 0.13
+      ff2->FixParameter(0, 0.3380); // +/- 0.0004
+      // ff2->FixParameter(0, 0.3385); // NoHC +/- 0.0004
 
       if ( ff2->GetNumberFreeParameters() > 0 ) {
          heff->Fit("ff2","EQN","",Lfit,Ufit);
@@ -369,12 +363,14 @@ vector<double> get_eff(int date, string pdf, int Cx, int Cy,
 void PrtTable(int Cx, int Cy)
 //-------------------------------------------------------------------------
 {
+   const vector<int> date {2021, 2012, 2009};
    vector<double> eff_d;
    // bool fix_par = false;
    bool fix_par = true; // show a line with fixed parameters
-   for ( auto date : {2021, 2012, 2009} ) {
-      string pdf( Form("eff_sig_%i.pdf",date) );
-      auto res = get_eff( date, pdf, Cx, Cy, fix_par );
+   for ( size_t i = 0; i < date.size(); ++i ) {
+      string pdf( Form("eff_sig_%i.pdf",date[i]) );
+      // string pdf( Form("eff_sig_%i_nohc.pdf",date[i]) );
+      auto res = get_eff( date[i], pdf, Cx, Cy, fix_par, i*Cx/4 );
       eff_d.insert(end(eff_d),begin(res),end(res));
    }
 
@@ -387,7 +383,7 @@ void PrtTable(int Cx, int Cy)
    }
    double avk = 0, sigk = 0;
    double ave = 0, sige = 0;
-   printf("\\    & $k$ & $\\mathit{eff}(\\phi)$ \\\\\n");
+   printf("\\    & $k$            & $\\mathcal{E}_0$ \\\\\n");
    for ( size_t i=0; i < Nd; ++i ) {
       size_t j = 7*i;
       // date & k & eff
@@ -420,19 +416,21 @@ void eff_mc()
 
    //========================================================
    // set the name of the folder with the root files
-   // Dir = "prod_v709n3/";
    Dir = "prod_v709n4/";
    //========================================================
 
    size_t Cx = 800, Cy = 640; // canvas sizes, X/Y = 1.25
 
    // Table 6 and Fig.16
-   PrtTable(Cx,Cy);
-
+   // 1) combined result:
    // get_eff(0,"eff_sig_sum.pdf",Cx,Cy);
+   // 2) fitting for each year separately
+   // PrtTable(Cx,Cy);
 
-   // OLD:
-   // Systematic study => NoHC: no helix corrections
-   // get_eff("NoHC/mcsig_kkmc_09.root");
-   // get_eff("NoHC/mcsig_kkmc_12.root");
+   // 3) Systematic study
+   //    3a) => NoHC: no helix corrections
+   // Dir = "prod_v709n4/NoHC/";
+   // get_eff(0,"eff_sig_sum_nohc.pdf",Cx,Cy);
+   //    3b) => weta = N*seta (see cuts.h)
+   get_eff(0,"eff_sig_sum_w35.pdf",Cx,Cy);
 }
