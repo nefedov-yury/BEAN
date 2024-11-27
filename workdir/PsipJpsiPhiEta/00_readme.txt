@@ -160,12 +160,13 @@ plot_scan.cc:
 //--------------------------------------------------------------------
 // Study systematic uncertainties:
 //--------------------------------------------------------------------
-mrec_4C.cc - Here we use special selection with 4C-kinematic
-             constrints for data (2009,2012 and continuum) and
-             inclusive MC events.
-             The 'Mrec' is drawn and the contribution of
-             Psi(2S) -> pi+ pi- phi eta (non J/Psi) is calculated.
-             -> mrec_4Cyear.pdf
+// mrec_4C.cc
+// We use special selection with 4C-kinematic constrints for data,
+// continuum and inclusive MC events to estimate the contribution of
+// Psi(2S) -> pi+ pi- (phi eta) (non J/Psi) events.
+// The 'Mrec' is drawn and number of events in signal and side-band
+// regions are calculated.
+//      -> Mrec4C_{Year}.pdf
 
 //--------------------------------------------------------------------
 // Calculation of branching:
